@@ -3,7 +3,7 @@ WORKDIR /web
 COPY package*.json ./
 RUN npm install
 COPY . .
-ARG VITE_BEE_API=""
+ARG VITE_BEE_API=/api
 ENV VITE_BEE_API=$VITE_BEE_API
 RUN npm run build
 FROM nginx:alpine
