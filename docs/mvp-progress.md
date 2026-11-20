@@ -115,3 +115,12 @@ Platform-wide superadministrator foundation is merged into `main` at `53a427c`. 
 - Theme controls moved from the public footer to authenticated Settings routes: Dashboard Theme, Public Theme, and Branding. The theme manager accepts a target and filters the trusted package catalog.
 - The color-token palette remains shared between public and dashboard surfaces in this first pass; independent palettes are a follow-up. Domain, integrations, security, and system pages are navigation placeholders only.
 - Pending verification: Angular compile, browser smoke, and role-based navigation tests. This PR is not merged.
+
+
+## Nginx Proxy Manager host-port integration (2026-11-20)
+
+- Production Compose now binds only the Bee-Core web/Nginx container to host TCP port `3011` by default, configurable through `BEE_WEB_PORT`.
+- Production API port bindings remain reset/disabled; the API is exposed only on the private Compose network at port `3000`. MongoDB remains unpublished.
+- Updated `.env.production.example` and `docs/mvp-deployment.md` with the dedicated port and Nginx Proxy Manager forwarding instructions. Existing NPM continues to own public ports 80/443.
+- GitHub main commits for this change: `7b44ba7` (Compose), `b0c37f5` (environment example), `cb838ae` (deployment guide).
+- Not yet validated on the target VPS: confirm TCP 3011 is unused, run Compose config/startup, and test the NPM proxy host/TLS route. Do not count VPS deployment or end-to-end proxy validation as complete yet.
