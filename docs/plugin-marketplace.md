@@ -51,7 +51,7 @@ The `notes` plugin demonstrates the intended pattern:
 - Plan definitions and trusted package definitions are code-managed; a platform administration UI/API is pending.
 - Purchase and subscription webhook events are implemented, but no payment provider or checkout integration is connected.
 - The installer is synchronous. Durable jobs, migration checkpoints, version upgrades, rollback, crash recovery and full dependency graph resolution remain pending.
-- Plan user/storage quotas are modeled but not yet enforced.
+- Plan user and storage quotas are enforced for new operations: invitations/direct membership additions reserve the company user allowance, and file uploads reserve storage atomically per company. A downgrade does not automatically suspend existing members or delete files; it blocks new additions/uploads that exceed the new allowance.
 - A company-facing dashboard catalogue with install/uninstall controls is implemented and hides management actions from non-admin roles. Checkout, subscription management and payment-provider UI remain pending.
 - Notes currently demonstrates backend APIs; tenant-specific Angular routes, menus and component registration remain pending.
 
