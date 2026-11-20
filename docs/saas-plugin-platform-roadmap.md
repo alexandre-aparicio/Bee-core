@@ -14,7 +14,7 @@ Deployment policy: do not deploy to the production VPS until the release gates b
 6. Licensing, authorization, and tenant isolation are enforced server-side. Hiding a menu or button is not security.
 7. Plugin installation and upgrades are versioned, idempotent, migration-aware, observable, and recoverable. A failed install must not leave a half-installed plugin.
 8. Tenant data is preserved when a subscription expires or a plugin is suspended. Suspension blocks new use according to policy; it does not silently delete data.
-9. Public and dashboard template choices remain tenant-scoped. Template packages are distinct from business plugins.
+9. Presentation ownership is split into three scopes: platform-corporate website (platform superadmin only), tenant-public website (tenant owner/admin), and tenant dashboard (tenant owner/admin). Dashboard templates own fixed palettes and support light/dark modes. Template packages are distinct from business plugins.
 10. No production deployment until fresh-install, security, tenant-isolation, plugin lifecycle, and browser E2E release gates pass.
 
 ## Target domain model (MongoDB)
@@ -162,3 +162,10 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - PR #34 adds migration compensation after install/update hook failures, reverse-order rollback, persisted rollback failure state, strict manifest validation and renewed worker leases. Backend/MongoDB and Docker full-stack CI passed on the PR head; post-merge backend/full-stack CI and production Compose passed on `a87db5d`.
 - PR #35 carries the resolved `TenantContext` through organization authorization, removes JWT tenant-ID fallbacks from organization route scoping, and tests that a member cannot forge an owner role claim. Backend/auth and Docker full-stack checks passed on PR head `09237c13`; post-merge main validation is running on `d69b09e`.
 - PR #32 adds an automated MongoDB logical dump, restore into a separate database, sentinel-record verification and cleanup. This validates backup/restore mechanics in CI only; encrypted off-site storage, retention, monitoring and periodic production-sized restore drills remain operational requirements.
+
+
+## Template and website product model
+
+The detailed template business model, ownership rules, target preference schema and acceptance criteria are maintained in [`docs/template-business-model.md`](template-business-model.md).
+
+The key boundary is that the platform corporate website is global and superadmin-controlled, while tenant public websites and dashboards are company-scoped. Tenant public pages are composed only from explicitly public capabilities of installed/enabled tenant plugins. Dashboard template palettes are fixed by the template; users may select only its supported light/dark appearance mode. Legacy free-form theme-token persistence must be retired through a versioned migration after clients have moved to the new model.
