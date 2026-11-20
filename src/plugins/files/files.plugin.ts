@@ -43,7 +43,6 @@ export const filesPlugin: BeePlugin = {
     mongoClient = new MongoClient(mongoUri, { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
     await mongoClient.connect();
     const db = mongoClient.db(dbName);
-    const files = new TenantCollection<FileRecord>(db.collection<FileRecord>("tenant_files"), "platform-index");
     // The metadata collection is accessed through a tenant-scoped facade per request.
     await db.collection("tenant_files").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "tenant_files_company_id_unique" });
     await mkdir(storageRoot, { recursive: true });
