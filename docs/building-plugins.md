@@ -59,9 +59,9 @@ Add a `PluginPackageDefinition` in `src/core/plugin-entitlements.ts`:
 - description/category and visible plan IDs;
 - included plan IDs and whether individual purchase is allowed;
 - system flag and plugin dependencies;
-- tenant install/uninstall hooks.
+- tenant install/update/uninstall hooks. Migration IDs and checksums are immutable; each migration should provide a `down` handler when its effects can be compensated.
 
-The trusted package registry is code-reviewed and bundled in the server image. MongoDB stores catalogue/version metadata and company entitlement/installation state. Do not add arbitrary executable JavaScript from user uploads to the registry.
+The trusted package registry is code-reviewed and bundled in the server image. MongoDB stores catalogue/version metadata and company entitlement/installation state. The manifest validator rejects invalid semantic dependency ranges, duplicate dependency/permission/collection/migration/route declarations and unsafe paths. Do not add arbitrary executable JavaScript from user uploads to the registry. Digest/signature fields are contract metadata today; cryptographic package verification is not yet connected to installation.
 
 ## 5. Build the Angular component
 
@@ -69,14 +69,15 @@ Create a standalone component under `apps/web/src/app/<plugin-id>/`. Use the aut
 
 For write controls, pass the active company role or effective permission state and hide actions the user cannot perform. The backend must still enforce the permission independently.
 
-Register the standalone component in `BeePluginFrontendRegistry`; `BeePluginOutletComponent` mounts it when the marketplace reports the plugin as entitled and installed. The registry currently contains statically bundled trusted components; the manifest route is metadata, not a remote Angular loader.
+Register the standalone component in `BeePluginFrontendRegistry`; `BeePluginOutletComponent` mounts it when the marketplace reports the plugin as entitled and installed. The registry currently contains statically bundled trusted components; the manifest route is metadata, not a remote Angular loader. Remote frontend loading remains intentionally disabled until immutable package archives and publisher verification are implemented.
 
 ## 6. Tests required before merging
 
 - backend typecheck and production build;
 - MongoDB integration tests using at least two companies;
 - entitlement filtering by plan and individual purchase;
-- install/uninstall and data preservation after revocation;
+- install/update/uninstall, migration rollback after injected hook/migration failures and data preservation after revocation;
+- stale-worker lease rejection and long-running lease renewal;
 - member/manager/admin permission tests;
 - Angular production build and Playwright test for install, UI activation and CRUD;
 - Docker Compose full-stack integration.
