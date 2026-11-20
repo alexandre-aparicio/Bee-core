@@ -96,7 +96,7 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 ### Phase 2 — Tenant isolation and storage
 - Introduce a tenant context resolver and tenant-aware repository helpers.
 - Require tenant scope for every tenant-owned read/write/delete and unique index.
-- Add tenant-scoped file upload, download, image delivery and deletion.
+- Add tenant-scoped file upload, download, image delivery and deletion. (Initial local-volume `files` plugin implemented: private uploads/downloads/deletion, tenant-scoped metadata and a dedicated Docker volume; cloud storage and media processing remain pending.)
 - Audit logs and background jobs carry tenant context.
 - Acceptance: automated cross-tenant tests cover CRUD, files, images, SSE, search and background work; no route accepts a caller-selected tenant without membership validation.
 
