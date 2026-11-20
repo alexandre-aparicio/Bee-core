@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — baseline `main` commit `6de27149f4c81efb694f25a69f168b12a42db1b8`; audit coverage expansion is proposed in PR #20.
+Updated: 2026-11-20 — `main` includes PR #20 at `1c96e8100d2145f518a0232d300122c866551c1b`; post-merge CI is running.
 
 ## How progress is measured
 
@@ -38,11 +38,9 @@ The weighted capability score is **85%**. The broader SaaS plugin-platform roadm
 - PR #17 — persisted custom company roles, tenant permission resolution, owner-only management, assignment and session revocation.
 - PR #18 — tenant-scoped successful login/logout audit events.
 - PR #19 — production Compose CI, port isolation, stack health and refresh-session persistence across MongoDB/API restarts.
+- PR #20 — tenant-scoped audit events for invitations, custom roles, membership changes/suspension, plugin lifecycle and permission denials.
 
-Main CI on documentation commit `6de27149f4c81efb694f25a69f168b12a42db1b8` passed:
-- Backend typecheck/build and MongoDB auth tests.
-- Docker Compose full-stack integration.
-- Angular production build and browser smoke tests.
+The PR #20 head passed backend typecheck/build/MongoDB auth tests and Docker Compose full-stack integration. The dedicated Angular workflow was correctly skipped because no Angular files changed; Angular was built and exercised within the full-stack workflow. Post-merge checks on `1c96e8100d2145f518a0232d300122c866551c1b` are still running; do not mark the new `main` as fully validated until they complete.
 
 PR #19's production Compose workflow also passed on its reviewed PR head, including the production overlay validation.
 
@@ -54,7 +52,7 @@ PR #19's production Compose workflow also passed on its reviewed PR head, includ
 4. Every PR reruns the same broad regression workflows. Those runs are valuable gates, but repeated green CI does not represent new product functionality.
 5. The former progress percentage had no published weighting and described already implemented marketplace/install/template foundations as remaining work.
 
-PR #20 selectively ports only the unique audit functionality onto current `main`, rather than merging the stacked branches wholesale.
+PR #20 selectively ported the unique audit functionality onto current `main`, rather than merging the stacked branches wholesale.
 
 ## Active next work
 
