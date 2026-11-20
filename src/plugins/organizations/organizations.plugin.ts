@@ -78,7 +78,7 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
-   if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
    if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can invite administrators"});
    const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
    if(existingMembership)return reply.code(409).send({error:"User is already a company member"});
