@@ -19,6 +19,19 @@ type FileRecord = Document & {
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+function validPayload(contentType: string, body: Buffer): boolean {
+  if (contentType === "image/png") return body.length >= 8 && body.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (contentType === "image/jpeg") return body.length >= 3 && body[0] === 0xff && body[1] === 0xd8 && body[2] === 0xff;
+  if (contentType === "image/webp") return body.length >= 12 && body.toString("ascii", 0, 4) === "RIFF" && body.toString("ascii", 8, 12) === "WEBP";
+  if (contentType === "application/pdf") return body.length >= 5 && body.toString("ascii", 0, 5) === "%PDF-";
+  if (contentType === "text/plain" || contentType === "text/csv") {
+    if (body.includes(0)) return false;
+    try { new TextDecoder("utf-8", { fatal: true }).decode(body); return true; }
+    catch { return false; }
+  }
+  return false;
+}
+
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -91,6 +104,7 @@ export const filesPlugin: BeePlugin = {
       if (body.length > MAX_FILE_SIZE) return reply.code(413).send({ error: "Maximum file size is 10 MB" });
       const contentType = String(request.headers["x-file-content-type"] ?? "application/octet-stream").split(";")[0].trim().toLowerCase();
       if (!ALLOWED_TYPES.has(contentType)) return reply.code(415).send({ error: "File type is not allowed" });
+      if (!validPayload(contentType, body)) return reply.code(400).send({ error: "File content does not match its declared type" });
       const id = randomUUID();
       const originalName = safeName(String(request.headers["x-file-name"] ?? "file"));
       const key = storagePath(tenant.tenantId, id);
