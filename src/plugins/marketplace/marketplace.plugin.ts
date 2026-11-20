@@ -35,8 +35,7 @@ export const marketplacePlugin: BeePlugin = {
     await ensureTenantAuditIndexes(auditEvents);
     const auditMarketplaceEvent=async(event:{tenantId:string;actorId:string;action:TenantAuditEvent["action"];outcome:TenantAuditEvent["outcome"];resourceType?:string;resourceId?:string;metadata?:TenantAuditEvent["metadata"]})=>{try{const record:import("../../core/audit-log.js").AuditEventInput={id:randomUUID(),occurredAt:new Date(),tenantId:event.tenantId,actorId:event.actorId,action:event.action,outcome:event.outcome,resourceType:event.resourceType,resourceId:event.resourceId,metadata:event.metadata};await appendTenantAuditEvent(auditEvents,record);}catch(error){ctx.logger.error("Marketplace audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
     await seedPluginCommerce(db);
-    // Recover interrupted synchronous installs after a process restart; never leave the tenant stuck in installing.
-    await db.collection("tenant_plugin_installations").updateMany({status:"installing"},{$set:{status:"failed",error:"Installation interrupted by platform restart; retry installation",updatedAt:new Date()}});
+    // The durable job lease is the source of truth for crash recovery; do not rewrite live installation state at startup.
     const billingWebhookSecret = String(ctx.config.billingWebhookSecret ?? "");
     ctx.server.post<{ Body: {
       event?: "plugin.purchase" | "plugin.revoke" | "subscription.updated";
