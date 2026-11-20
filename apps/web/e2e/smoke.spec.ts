@@ -364,3 +364,69 @@ test('a signed-in member can accept an invitation and see the new company in the
   await expect(page.getByLabel('Active company')).toHaveValue('company-a');
   await expect(page.getByLabel('Active company').locator('option[value="company-b"]')).toHaveCount(1);
 });
+
+test('company member data cannot leak across a rapid active-company switch', async ({ page }) => {
+  let activeCompany = 'company-a';
+  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
+    accessToken: 'company-a-token',
+    tenantId: 'company-a',
+    user: { id: 'owner-1', email: 'owner@example.test', roles: ['admin'], tenantId: 'company-a' }
+  })));
+  await page.route('**/api/companies', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ companies: [
+      { id: 'company-a', name: 'Company A', role: 'owner', active: activeCompany === 'company-a' },
+      { id: 'company-b', name: 'Company B', role: 'owner', active: activeCompany === 'company-b' }
+    ] })
+  }));
+  await page.route('**/api/companies/company-b/activate', route => {
+    activeCompany = 'company-b';
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ accessToken: 'company-b-token', tenantId: 'company-b', membership: { role: 'owner' } })
+    });
+  });
+  await page.route('**/api/companies/company-a/memberships', async route => {
+    await new Promise(resolve => setTimeout(resolve, 700));
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ memberships: [
+        { userId: 'member-a', email: 'member-a@example.test', role: 'member', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' }
+      ] })
+    });
+  });
+  await page.route('**/api/companies/company-b/memberships', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ memberships: [
+      { userId: 'member-b', email: 'member-b@example.test', role: 'member', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' }
+    ] })
+  }));
+  await page.route('**/api/companies/company-b/invitations', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ invitations: [] })
+  }));
+  await page.route('**/api/companies/company-b/roles', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ roles: [{ id: 'role-b', name: 'Company B custom role', description: '', permissions: ['members.read'] }] })
+  }));
+  await page.route('**/api/companies/company-a/audit-events', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ events: [], page: 1, hasMore: false })
+  }));
+  await page.route('**/api/companies/company-b/audit-events', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ events: [], page: 1, hasMore: false })
+  }));
+
+  await page.goto('/dashboard');
+  await page.waitForRequest(request => request.url().includes('/api/companies/company-a/memberships'));
+  const selector = page.getByLabel('Active company');
+  await selector.selectOption('company-b');
+  await expect(page.getByText('member-b@example.test')).toBeVisible();
+  await expect(page.getByText('Company B custom role')).toBeVisible();
+  await page.waitForTimeout(850);
+  await expect(page.getByText('member-a@example.test')).toHaveCount(0);
+  await expect(page.getByText('Company B custom role')).toBeVisible();
+  await expect(page.getByLabel('Active company')).toHaveValue('company-b');
+});
