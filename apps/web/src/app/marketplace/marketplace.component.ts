@@ -108,7 +108,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
     await this.runAction(plugin, "DELETE");
   }
 
-  private async waitForInstallJob(jobId: string): Promise<void> {
+  private async waitForLifecycleJob(jobId: string, action: "POST" | "DELETE"): Promise<void> {
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {
       const response = await fetch("/api/marketplace/install-jobs/" + encodeURIComponent(jobId), {
@@ -119,10 +119,11 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       const job = result.job as { status: string; error?: string };
       if (job.status === "succeeded") return;
       if (job.status === "failed") throw new Error(job.error || "Plugin installation failed");
-      this.message = job.status === "running" ? "Installing " + this.plugins.find(item => item.id === this.busyId)?.name + "…" : "Waiting for installation worker…";
+      const verb = action === "POST" ? "Installing " : "Uninstalling ";
+      this.message = job.status === "running" ? verb + this.plugins.find(item => item.id === this.busyId)?.name + "…" : "Waiting for plugin lifecycle worker…";
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-    throw new Error("Installation is still running. Refresh the marketplace to check its status.");
+    throw new Error("Plugin " + (action === "POST" ? "installation" : "uninstallation") + " is still running. Refresh the marketplace to check its status.");
   }
 
   private async runAction(plugin: MarketplacePlugin, method: "POST" | "DELETE"): Promise<void> {
@@ -137,9 +138,9 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Plugin action failed");
-      if (method === "POST" && result.jobId) {
-        this.message = plugin.name + " installation queued…";
-        await this.waitForInstallJob(result.jobId as string);
+      if (result.jobId) {
+        this.message = plugin.name + (method === "POST" ? " installation queued…" : " uninstallation queued…");
+        await this.waitForLifecycleJob(result.jobId as string, method);
       }
       await this.load();
       this.message = method === "POST" ? plugin.name + " installed for this company." : plugin.name + " uninstalled. Company data is preserved.";

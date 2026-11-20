@@ -132,9 +132,21 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(betaNoteCreate.statusCode, 201);
     const betaNoteId = betaNoteCreate.json().note.id as string;
 
-    const betaUninstall = await app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
-    assert.equal(betaUninstall.statusCode, 200);
-    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.uninstalled",resourceType:"plugin",resourceId:"notes"}),1,"plugin uninstall should be tenant-audited");
+    const betaUninstallAttempts = await Promise.all([
+      app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } }),
+      app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } })
+    ]);
+    assert.ok(betaUninstallAttempts.every(response => response.statusCode === 202));
+    const betaUninstallJobId = betaUninstallAttempts[0].json().jobId as string;
+    assert.equal(betaUninstallAttempts[1].json().jobId, betaUninstallJobId, "concurrent uninstall requests must share one durable job");
+    assert.equal(betaUninstallAttempts[0].json().action, "uninstall");
+    const conflictingInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(conflictingInstall.statusCode, 409, "install must not race an active uninstall for the same company/plugin");
+    const foreignUninstallJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaUninstallJobId, headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(foreignUninstallJobRead.statusCode, 404, "uninstall jobs must be tenant-scoped");
+    const betaUninstallJob = await waitForInstallJob(betaUninstallJobId);
+    assert.equal(betaUninstallJob.action, "uninstall");
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.uninstalled",resourceType:"plugin",resourceId:"notes"}),1,"successful plugin uninstall should be tenant-audited once");
     const betaAfterUninstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterUninstall.statusCode, 403);
     assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-beta" }), 1);

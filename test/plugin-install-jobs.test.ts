@@ -5,6 +5,7 @@ import {
   claimPluginInstallJob,
   completePluginInstallJob,
   enqueuePluginInstallJob,
+  enqueuePluginUninstallJob,
   ensurePluginInstallJobIndexes,
   failPluginInstallJob,
   type PluginInstallJob
@@ -67,6 +68,16 @@ test("durable plugin install jobs deduplicate, recover expired leases and reject
     assert.equal(retryState?.status, "failed");
     assert.equal(retryState?.attempts, 3);
     assert.equal(retryState?.activeKey, undefined, "terminal failure must release the active job key");
+
+    const uninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    assert.equal(uninstall.created, true);
+    assert.equal(uninstall.job.action, "uninstall");
+    const duplicateUninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    assert.equal(duplicateUninstall.created, false);
+    assert.equal(duplicateUninstall.job.id, uninstall.job.id);
+    const anotherTenantUninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-b", pluginId: "notes", actorId: "owner-b" });
+    assert.equal(anotherTenantUninstall.created, true, "another company has an independent lifecycle queue key");
+    assert.notEqual(anotherTenantUninstall.job.id, uninstall.job.id);
   } finally {
     await client.db(dbName).dropDatabase();
     await client.close();

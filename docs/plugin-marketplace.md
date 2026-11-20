@@ -22,10 +22,10 @@ Companies without a subscription record receive a 14-day Starter trial on first 
 - `GET /marketplace/entitlements`: current plan and effective plugin entitlements.
 - `POST /marketplace/plugins/:pluginId/install`: checks company permission, visibility, entitlement, trusted package and dependencies, then enqueues a durable install job and returns HTTP `202` with `jobId` and `statusUrl`.
 - `GET /marketplace/install-jobs/:jobId`: returns status only when the job belongs to the active company.
-- `DELETE /marketplace/plugins/:pluginId/install`: checks management permission, prevents removal of system packages, runs the uninstall hook and preserves tenant data.
+- `DELETE /marketplace/plugins/:pluginId/install`: checks management permission, prevents removal of system packages and dependencies in use, then enqueues a durable uninstall job and returns HTTP `202` with `jobId` and `statusUrl`.
 - `GET /billing/subscription`: current subscription and effective plan.
 
-Installation state and jobs are company-scoped. The worker activates only trusted code already compiled into the Bee-Core runtime; it does not download or execute arbitrary package code. The MongoDB job record survives API restarts, concurrent requests for the same company/plugin share one active job, worker claims use expiring leases, and failed jobs retry up to three attempts with backoff. The Angular marketplace waits for the job result and displays progress. Uninstall is still synchronous.
+Installation state and lifecycle jobs are company-scoped. The worker activates or uninstalls only trusted code already compiled into the Bee-Core runtime; it does not download or execute arbitrary package code. MongoDB job records survive API restarts, concurrent requests for the same company/plugin and action share one active job, worker claims use expiring leases, and failed jobs retry up to three attempts with backoff. The Angular marketplace waits for install and uninstall job results and displays progress. Uninstall transitions through `uninstalling` and returns to `installed` if the hook fails; successful uninstall preserves tenant business data.
 
 ## Billing integration
 
@@ -52,7 +52,7 @@ The `notes` plugin demonstrates the intended pattern:
 - The business-plugin manifest validator defines a signed package contract, but signature/digest verification is not yet wired into package installation.
 - Plan definitions and trusted package definitions are code-managed; a platform administration UI/API is pending.
 - Purchase and subscription webhook events are implemented, but no payment provider or checkout integration is connected.
-- Install jobs are durable and recover expired worker leases; uninstall remains synchronous. Version upgrades, rollback, immutable package archive verification and full dependency graph resolution remain pending.
+- Install and uninstall jobs are durable and recover expired worker leases. Version upgrades, rollback, immutable package archive verification and full dependency graph resolution remain pending.
 - Plan user and storage quotas are enforced for new operations: invitations/direct membership additions reserve the company user allowance, and file uploads reserve storage atomically per company. A downgrade does not automatically suspend existing members or delete files; it blocks new additions/uploads that exceed the new allowance.
 - A company-facing dashboard catalogue with install/uninstall controls is implemented and hides management actions from non-admin roles. Checkout, subscription management and payment-provider UI remain pending.
 - Notes now includes a dashboard component mounted by a generic Angular plugin outlet from the active company installation state. The registry currently contains statically bundled trusted components; loading component code/routes from signed package archives remains pending.
