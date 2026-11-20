@@ -12,6 +12,7 @@ type MarketplacePlugin = {
   entitled: boolean;
   accessSource: "plan" | "purchase" | null;
   installed: boolean;
+  installedVersion: string | null;
 };
 
 @Component({
@@ -101,14 +102,18 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
   }
 
   async install(plugin: MarketplacePlugin): Promise<void> {
-    await this.runAction(plugin, "POST");
+    await this.runAction(plugin, "POST", "install");
+  }
+
+  async update(plugin: MarketplacePlugin): Promise<void> {
+    await this.runAction(plugin, "POST", "update");
   }
 
   async uninstall(plugin: MarketplacePlugin): Promise<void> {
-    await this.runAction(plugin, "DELETE");
+    await this.runAction(plugin, "DELETE", "install");
   }
 
-  private async waitForLifecycleJob(jobId: string, action: "POST" | "DELETE"): Promise<void> {
+  private async waitForLifecycleJob(jobId: string, action: "install" | "update" | "uninstall"): Promise<void> {
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {
       const response = await fetch("/api/marketplace/install-jobs/" + encodeURIComponent(jobId), {
@@ -119,31 +124,31 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       const job = result.job as { status: string; error?: string };
       if (job.status === "succeeded") return;
       if (job.status === "failed") throw new Error(job.error || "Plugin installation failed");
-      const verb = action === "POST" ? "Installing " : "Uninstalling ";
+      const verb = action === "install" ? "Installing " : action === "update" ? "Updating " : "Uninstalling ";
       this.message = job.status === "running" ? verb + this.plugins.find(item => item.id === this.busyId)?.name + "…" : "Waiting for plugin lifecycle worker…";
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-    throw new Error("Plugin " + (action === "POST" ? "installation" : "uninstallation") + " is still running. Refresh the marketplace to check its status.");
+    throw new Error("Plugin " + action + " is still running. Refresh the marketplace to check its status.");
   }
 
-  private async runAction(plugin: MarketplacePlugin, method: "POST" | "DELETE"): Promise<void> {
+  private async runAction(plugin: MarketplacePlugin, method: "POST" | "DELETE", operation: "install" | "update"): Promise<void> {
     if (this.busyId) return;
     this.busyId = plugin.id;
     this.error = "";
     this.message = "";
     try {
-      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(plugin.id) + "/install", {
+      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(plugin.id) + "/" + operation, {
         method,
         headers: { authorization: "Bearer " + this.token }
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Plugin action failed");
       if (result.jobId) {
-        this.message = plugin.name + (method === "POST" ? " installation queued…" : " uninstallation queued…");
-        await this.waitForLifecycleJob(result.jobId as string, method);
+        this.message = plugin.name + (operation === "update" ? " update queued…" : method === "POST" ? " installation queued…" : " uninstallation queued…");
+        await this.waitForLifecycleJob(result.jobId as string, operation === "update" ? "update" : method === "POST" ? "install" : "uninstall");
       }
       await this.load();
-      this.message = method === "POST" ? plugin.name + " installed for this company." : plugin.name + " uninstalled. Company data is preserved.";
+      this.message = operation === "update" ? plugin.name + " updated for this company." : method === "POST" ? plugin.name + " installed for this company." : plugin.name + " uninstalled. Company data is preserved.";
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Plugin action failed";
     } finally {
