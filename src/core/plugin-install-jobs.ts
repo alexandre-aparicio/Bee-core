@@ -119,7 +119,7 @@ export async function completePluginInstallJob(
   version: string
 ): Promise<boolean> {
   const result = await collection.updateOne(
-    { id: job.id, status: "running", workerId },
+    { id: job.id, status: "running", workerId, leaseUntil: { $gt: new Date() } },
     {
       $set: { status: "succeeded", result: { version }, finishedAt: new Date(), updatedAt: new Date() },
       $unset: { activeKey: "", leaseUntil: "", workerId: "", error: "" }
@@ -138,7 +138,7 @@ export async function failPluginInstallJob(
   const terminal = job.attempts >= job.maxAttempts;
   const now = new Date();
   await collection.updateOne(
-    { id: job.id, status: "running", workerId },
+    { id: job.id, status: "running", workerId, leaseUntil: { $gt: now } },
     terminal
       ? {
           $set: { status: "failed", error: message, finishedAt: now, updatedAt: now },
