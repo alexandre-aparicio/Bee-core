@@ -228,3 +228,67 @@ test('starter company sees purchasable add-ons but cannot install them without e
   await expect(notesRow.getByText('Available as add-on')).toBeVisible();
   await expect(notesRow.getByRole('button', { name: 'Install' })).toHaveCount(0);
 });
+
+
+test('company owner can invite, change roles and suspend company members', async ({ page }) => {
+  const members = [
+    { userId: 'owner-1', email: 'owner@example.test', role: 'owner', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' },
+    { userId: 'member-2', email: 'member@example.test', role: 'member', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' }
+  ];
+  const invitations = [
+    { id: 'invite-1', email: 'pending@example.test', role: 'member', createdAt: '2026-11-20T00:00:00.000Z', expiresAt: '2026-11-27T00:00:00.000Z', acceptedAt: null, cancelledAt: null }
+  ];
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
+      accessToken: 'company-owner-token',
+      tenantId: 'company-pro',
+      user: { id: 'owner-1', email: 'owner@example.test', roles: ['admin'], tenantId: 'company-pro' }
+    }));
+  });
+  await page.route('**/api/companies', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: 'company-pro', name: 'Company Pro', role: 'owner', active: true }] })
+  }));
+  await page.route('**/api/companies/company-pro/memberships', route => {
+    if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: members }) });
+    const userId = route.request().url().split('/').pop() || '';
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON();
+      const member = members.find(item => item.userId === userId);
+      if (member) member.role = body.role;
+    }
+    if (route.request().method() === 'DELETE') {
+      const member = members.find(item => item.userId === userId);
+      if (member) member.status = 'suspended';
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+  });
+  await page.route('**/api/companies/company-pro/invitations**', route => {
+    if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ invitations }) });
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON();
+      invitations.push({ id: 'invite-2', email: body.email, role: body.role, createdAt: '2026-11-20T00:00:00.000Z', expiresAt: '2026-11-27T00:00:00.000Z', acceptedAt: null, cancelledAt: null });
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ invitation: invitations[1], acceptanceToken: 'one-time-invite-token' }) });
+    }
+    const invitationId = route.request().url().split('/').pop();
+    const invitation = invitations.find(item => item.id === invitationId);
+    if (invitation) invitation.cancelledAt = '2026-11-20T00:00:00.000Z';
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+  });
+  await page.goto('/dashboard');
+  await expect(page.getByRole('heading', { name: 'Company members' })).toBeVisible();
+  const memberRow = page.locator('.bee-company-members__table tr').filter({ hasText: 'member@example.test' });
+  await memberRow.locator('select').selectOption('manager');
+  await expect(memberRow).toContainText('manager');
+  await memberRow.getByRole('button', { name: 'Suspend' }).click();
+  await expect(memberRow).toContainText('suspended');
+
+  await page.getByPlaceholder('colleague@company.com').fill('new@example.test');
+  await page.locator('select[name="inviteRole"]').selectOption('member');
+  await page.getByRole('button', { name: 'Create invitation' }).click();
+  await expect(page.getByText('one-time-invite-token')).toBeVisible();
+  const newInvitation = page.locator('.bee-company-members__invitation').filter({ hasText: 'new@example.test' });
+  await expect(newInvitation).toBeVisible();
+  await newInvitation.getByRole('button', { name: 'Cancel' }).click();
+  await expect(newInvitation).toContainText('cancelled');
+});
