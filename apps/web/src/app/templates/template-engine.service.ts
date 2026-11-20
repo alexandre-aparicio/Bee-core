@@ -306,6 +306,8 @@ export class BeeTemplateEngine {
     this.stream.addEventListener('template-update', (event: MessageEvent) => {
       try {
         const update = JSON.parse(event.data) as { type?: string; selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string>; customized?: boolean; installedTemplates?: string[] };
+        if (update.installedTemplates && this.previewSnapshot) this.cancelPreview();
+        if (update.selection && this.previewSnapshot) this.cancelPreview();
         if (update.installedTemplates) this.setInstalledTemplates(update.installedTemplates);
         if (update.selection) {
           if (this.registry.get(update.selection.public || '')?.target === 'public' && this.installedTemplateIds.has(update.selection.public!)) this.selection.public = update.selection.public!;
