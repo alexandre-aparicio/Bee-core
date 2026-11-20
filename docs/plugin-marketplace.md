@@ -37,8 +37,8 @@ The `notes` plugin demonstrates the intended pattern:
 ## Important limitations before commercial launch
 
 - Plan definitions and trusted package definitions are currently code-managed. A platform administration UI/API is not implemented.
-- Purchase records are modeled and consumed by the resolver, but no payment provider, checkout, webhook signature verification or reconciliation is connected yet.
-- Subscription changes, renewals, grace periods, billing invoices, taxes and cancellation workflows remain pending.
+- A shared-secret bearer webhook stub accepts subscription updates, plugin purchases and revocations. It is not connected to a payment provider and does not yet verify provider-signed payloads, timestamps or replay IDs.
+- Checkout, customer portal, payment reconciliation, renewals, grace periods, billing invoices, taxes and customer-driven cancellation workflows remain pending.
 - Plugin artifacts are not yet built, signed and stored as immutable downloadable archives. The manifest validator defines the contract, but the current runtime packages are trusted compiled code.
 - The installer is synchronous. Durable jobs, dependency graph resolution, migration checkpoints, rollback and crash recovery remain pending.
 - Plan user/storage quotas are modeled but not yet enforced.
