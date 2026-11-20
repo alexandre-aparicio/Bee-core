@@ -93,6 +93,19 @@ export const filesPlugin: BeePlugin = {
     };
     const scopedFiles = (tenantId: string) => new TenantCollection<FileRecord>(db.collection<FileRecord>("tenant_files"), tenantId);
     const storageUsage = db.collection<{ tenantId: string; usedBytes: number; updatedAt: Date }>("tenant_storage_usage");
+    const existingTenantIds = await db.collection<FileRecord>("tenant_files").distinct("tenantId");
+    for (const tenantValue of existingTenantIds) {
+      if (typeof tenantValue !== "string" || !tenantValue) continue;
+      const totals = await db.collection<FileRecord>("tenant_files").aggregate<{ total: number }>([
+        { $match: { tenantId: tenantValue } },
+        { $group: { _id: null, total: { $sum: "$size" } } }
+      ]).toArray();
+      await storageUsage.updateOne(
+        { tenantId: tenantValue },
+        { $setOnInsert: { usedBytes: totals[0]?.total ?? 0, updatedAt: new Date() } },
+        { upsert: true }
+      );
+    }
     const reserveStorage = async (tenantId: string, bytes: number, limit: number): Promise<boolean> => {
       let usage = await storageUsage.findOne({ tenantId });
       if (!usage) {
