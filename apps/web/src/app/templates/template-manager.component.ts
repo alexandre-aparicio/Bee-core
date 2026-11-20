@@ -26,7 +26,22 @@ import type { BeeTemplateTarget } from './template.types';
           </select>
         </label>
       </div>
-      <p>Each surface has an independent theme. Your content, plugins, permissions and authentication remain unchanged.</p>
+      @if (engine.hasAuthenticatedSession) {
+        <div class="bee-template-manager__theme">
+          <strong>Live theme tokens</strong>
+          <div class="bee-template-manager__colors">
+            <label>Background <input type="color" [ngModel]="engine.themeTokens['--bg']" (ngModelChange)="updateToken('--bg', $event)"></label>
+            <label>Panels <input type="color" [ngModel]="engine.themeTokens['--panel']" (ngModelChange)="updateToken('--panel', $event)"></label>
+            <label>Muted <input type="color" [ngModel]="engine.themeTokens['--muted']" (ngModelChange)="updateToken('--muted', $event)"></label>
+            <label>Border <input type="color" [ngModel]="engine.themeTokens['--border']" (ngModelChange)="updateToken('--border', $event)"></label>
+            <label>Accent <input type="color" [ngModel]="engine.themeTokens['--purple']" (ngModelChange)="updateToken('--purple', $event)"></label>
+            <label>Secondary <input type="color" [ngModel]="engine.themeTokens['--cyan']" (ngModelChange)="updateToken('--cyan', $event)"></label>
+          </div>
+          <button type="button" class="bee-template-manager__save" [disabled]="saving" (click)="saveTheme()">{{ saving ? 'Saving…' : 'Save live theme' }}</button>
+          @if (saveMessage) { <span class="bee-template-manager__message">{{ saveMessage }}</span> }
+        </div>
+      }
+      <p>Each surface has an independent theme. Saved design tokens are pushed to connected sessions in this tenant without rebuilding or restarting the app.</p>
     </section>
   `,
 })
