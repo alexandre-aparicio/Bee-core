@@ -50,6 +50,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const catalog = await app.inject({method:"GET",url:"/templates/catalog",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(catalog.statusCode,200);
     assert.ok(catalog.json().catalog.some((item:{id:string})=>item.id==="studio"));
+    const activateUninstalled = await app.inject({method:"PUT",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken},payload:{public:"studio"}});
+    assert.equal(activateUninstalled.statusCode,400);
     const installStudio = await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+tokens.accessToken},payload:{templateId:"studio"}});
     assert.equal(installStudio.statusCode,200);
     assert.ok(installStudio.json().installedTemplates.includes("studio"));
