@@ -32,7 +32,7 @@ export const organizationsPlugin:BeePlugin={
    const role:Membership["role"]=legacyRoles.includes("admin")?"owner":legacyRoles.includes("service")?"manager":"member";
    await memberships.updateOne({userId:user.id,tenantId},{$setOnInsert:{id:randomUUID(),userId:user.id,tenantId,role,status:"active",createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
   }
-  const authenticate=async(req:any,reply:any):Promise<{claims:Claims;user:{id:string;email:string;enabled:boolean}|null}|null>=>{
+  const authenticate=async(req:any,reply:any):Promise<{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null}|null>=>{
    try{
     await req.jwtVerify();
     const claims=req.user as Claims;
@@ -72,7 +72,8 @@ export const organizationsPlugin:BeePlugin={
    if(!membership)return reply.code(403).send({error:"Active membership required for this company"});
    const company=await companies.findOne({id:req.params.companyId,status:{$ne:"suspended"}});
    if(!company)return reply.code(404).send({error:"Company not found or suspended"});
-   const session=await db.collection("refresh_sessions").findOneAndUpdate({id:claims.sid,userId:user!.id,revokedAt:null,expiresAt:{$gt:new Date()}},{$set:{tenantId:company.id}},{returnDocument:"after"});
+   const currentTenantId=String(claims.tenantId??user!.tenantId??"");
+   const session=await db.collection("refresh_sessions").findOneAndUpdate({id:claims.sid,userId:user!.id,tenantId:currentTenantId,revokedAt:null,expiresAt:{$gt:new Date()}},{$set:{tenantId:company.id}},{returnDocument:"after"});
    if(!session)return reply.code(401).send({error:"Session expired or revoked"});
    const role: string=membership.role;
    const roles=role==="owner"||role==="admin"?["admin"]:["user"];
