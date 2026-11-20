@@ -124,3 +124,16 @@ Platform-wide superadministrator foundation is merged into `main` at `53a427c`. 
 - Updated `.env.production.example` and `docs/mvp-deployment.md` with the dedicated port and Nginx Proxy Manager forwarding instructions. Existing NPM continues to own public ports 80/443.
 - GitHub main commits for this change: `7b44ba7` (Compose), `b0c37f5` (environment example), `cb838ae` (deployment guide).
 - Not yet validated on the target VPS: confirm TCP 3011 is unused, run Compose config/startup, and test the NPM proxy host/TLS route. Do not count VPS deployment or end-to-end proxy validation as complete yet.
+
+
+## Tenant subdomain routing (2026-11-20)
+
+- Added a shared tenant-domain helper for normalized/validated slugs, reserved names and strict one-label subdomain parsing.
+- Organizations startup now backfills slugs for legacy tenants and enforces a unique sparse slug index. Company creation accepts an explicit slug or derives one from the company name.
+- Added unauthenticated `GET /public/tenant`: the configured base host resolves to the corporate site; a tenant subdomain resolves to a minimal public-safe tenant profile; unknown and suspended tenants return 404. Exact custom domains already stored in a tenant's `domains` array are also resolved.
+- Host resolution uses Fastify's request hostname and does not trust arbitrary `X-Forwarded-Host`. The bundled web Nginx forwards the original `Host` header to Fastify.
+- Platform superadmin company creation now accepts/displays a slug; Angular public UI resolves the current hostname and renders the tenant landing page with its name and tenant ID.
+- Added unit coverage for slug normalization, reserved/invalid slugs and host parsing.
+- Configured `PUBLIC_BASE_DOMAIN=beecore.beeprojects.net` in the production example and documented wildcard DNS, NPM proxying and wildcard TLS.
+- Main commits for this implementation: `8fc084f`, `3251b23`, `a3a07e5`, `6d456f2`, `3f61dcc`, `7cd9028`, `87c053d`, `e3e9c7e`, `5eb1ed3`, `a7b70d3`.
+- Validation status: source changes are integrated, but CI has not yet been confirmed for this exact set of commits and the live VPS/NPM/DNS path has not been exercised. Do not treat the tenant subdomain flow as deployment-verified until those checks pass.
