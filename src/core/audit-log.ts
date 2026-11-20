@@ -1,12 +1,14 @@
 import type { Collection, Document } from "mongodb";
 import { TenantCollection } from "./tenant-collection.js";
 
-export type AuditAction =
-  | "auth.login" | "auth.logout"
-  | "member.invited" | "member.role_changed" | "member.removed" | "member.suspended" | "invitation.cancelled"
-  | "role.created" | "role.updated" | "role.deleted"
-  | "permission.denied"
-  | "plugin.installed" | "plugin.updated" | "plugin.uninstalled";
+export const AUDIT_ACTIONS = [
+  "auth.login", "auth.logout",
+  "member.invited", "member.role_changed", "member.removed", "member.suspended", "invitation.cancelled",
+  "role.created", "role.updated", "role.deleted",
+  "permission.denied",
+  "plugin.installed", "plugin.updated", "plugin.uninstalled"
+] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export type AuditEventInput = {
   id: string;
@@ -57,6 +59,7 @@ export async function appendTenantAuditEvent(
 
 export async function ensureTenantAuditIndexes(collection: Collection<TenantAuditEvent>): Promise<void> {
   await collection.createIndex({ tenantId: 1, occurredAt: -1 }, { name: "audit_tenant_time" });
+  await collection.createIndex({ tenantId: 1, occurredAt: -1, id: -1 }, { name: "audit_tenant_time_id" });
   await collection.createIndex({ tenantId: 1, actorId: 1, occurredAt: -1 }, { name: "audit_tenant_actor_time" });
   await collection.createIndex({ tenantId: 1, action: 1, occurredAt: -1 }, { name: "audit_tenant_action_time" });
 }
