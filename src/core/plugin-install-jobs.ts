@@ -6,7 +6,7 @@ export type PluginInstallJob = Document & {
   tenantId: string;
   pluginId: string;
   actorId: string;
-  action: "install" | "uninstall";
+  action: "install" | "update" | "uninstall";
   status: "queued" | "running" | "succeeded" | "failed";
   attempts: number;
   maxAttempts: number;
@@ -19,6 +19,7 @@ export type PluginInstallJob = Document & {
   finishedAt?: Date;
   result?: { version: string };
   error?: string;
+  previousVersion?: string;
   activeKey?: string;
 };
 
@@ -35,7 +36,7 @@ export async function ensurePluginInstallJobIndexes(collection: Collection<Plugi
 
 export async function enqueuePluginLifecycleJob(
   collection: Collection<PluginInstallJob>,
-  input: { tenantId: string; pluginId: string; actorId: string; action: "install" | "uninstall" }
+  input: { tenantId: string; pluginId: string; actorId: string; action: "install" | "update" | "uninstall"; previousVersion?: string }
 ): Promise<{ job: PluginInstallJob; created: boolean }> {
   const activeKey = input.tenantId + ":" + input.pluginId;
   const existing = await collection.findOne({ activeKey });
@@ -68,6 +69,13 @@ export async function enqueuePluginInstallJob(
   input: { tenantId: string; pluginId: string; actorId: string }
 ): Promise<{ job: PluginInstallJob; created: boolean }> {
   return enqueuePluginLifecycleJob(collection, { ...input, action: "install" });
+}
+
+export async function enqueuePluginUpdateJob(
+  collection: Collection<PluginInstallJob>,
+  input: { tenantId: string; pluginId: string; actorId: string; previousVersion: string }
+): Promise<{ job: PluginInstallJob; created: boolean }> {
+  return enqueuePluginLifecycleJob(collection, { ...input, action: "update" });
 }
 
 export async function enqueuePluginUninstallJob(
@@ -120,7 +128,7 @@ export async function failPluginInstallJob(
   workerId: string,
   error: unknown
 ): Promise<void> {
-  const message = (error instanceof Error ? error.message : "Plugin installation failed").slice(0, 500);
+  const message = (error instanceof Error ? error.message : "Plugin lifecycle operation failed").slice(0, 500);
   const terminal = job.attempts >= job.maxAttempts;
   const now = new Date();
   await collection.updateOne(
