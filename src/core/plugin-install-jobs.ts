@@ -6,7 +6,7 @@ export type PluginInstallJob = Document & {
   tenantId: string;
   pluginId: string;
   actorId: string;
-  action: "install";
+  action: "install" | "uninstall";
   status: "queued" | "running" | "succeeded" | "failed";
   attempts: number;
   maxAttempts: number;
@@ -33,9 +33,9 @@ export async function ensurePluginInstallJobIndexes(collection: Collection<Plugi
   });
 }
 
-export async function enqueuePluginInstallJob(
+export async function enqueuePluginLifecycleJob(
   collection: Collection<PluginInstallJob>,
-  input: { tenantId: string; pluginId: string; actorId: string }
+  input: { tenantId: string; pluginId: string; actorId: string; action: "install" | "uninstall" }
 ): Promise<{ job: PluginInstallJob; created: boolean }> {
   const activeKey = input.tenantId + ":" + input.pluginId;
   const existing = await collection.findOne({ activeKey });
@@ -44,7 +44,6 @@ export async function enqueuePluginInstallJob(
   const job: PluginInstallJob = {
     id: randomUUID(),
     ...input,
-    action: "install",
     status: "queued",
     attempts: 0,
     maxAttempts: 3,
@@ -62,6 +61,20 @@ export async function enqueuePluginInstallJob(
     if (!concurrent) throw error;
     return { job: concurrent, created: false };
   }
+}
+
+export async function enqueuePluginInstallJob(
+  collection: Collection<PluginInstallJob>,
+  input: { tenantId: string; pluginId: string; actorId: string }
+): Promise<{ job: PluginInstallJob; created: boolean }> {
+  return enqueuePluginLifecycleJob(collection, { ...input, action: "install" });
+}
+
+export async function enqueuePluginUninstallJob(
+  collection: Collection<PluginInstallJob>,
+  input: { tenantId: string; pluginId: string; actorId: string }
+): Promise<{ job: PluginInstallJob; created: boolean }> {
+  return enqueuePluginLifecycleJob(collection, { ...input, action: "uninstall" });
 }
 
 export async function claimPluginInstallJob(
