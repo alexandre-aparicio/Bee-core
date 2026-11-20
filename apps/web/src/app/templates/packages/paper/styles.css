@@ -1,0 +1,20 @@
+/* Paper package-owned layout styles. */
+:host{display:block;min-height:100vh}
+body[data-bee-dashboard-template="paper"] .dashboard{background:#f3f5fa;color:#20283a}
+body[data-bee-dashboard-template="paper"] .dash-sidebar{background:#fff;border-color:#e2e6ef}
+body[data-bee-dashboard-template="paper"] .dash-header{border-color:#e2e6ef}
+body[data-bee-dashboard-template="paper"] .dash-stat,body[data-bee-dashboard-template="paper"] .panel,body[data-bee-dashboard-template="paper"] .bee-template-manager{background:#fff;border-color:#e2e6ef;color:#20283a}
+body[data-bee-dashboard-template="paper"] .workspace{background:#f7f8fc;border-color:#e2e6ef}
+body[data-bee-dashboard-template="paper"] .workspace b,body[data-bee-dashboard-template="paper"] .dash-welcome h1,body[data-bee-dashboard-template="paper"] .panel-heading h2,body[data-bee-dashboard-template="paper"] .runtime-plugin b,body[data-bee-dashboard-template="paper"] .quick-action b{color:#20283a}
+body[data-bee-dashboard-template="paper"] .dash-nav{color:#68738a}
+body[data-bee-dashboard-template="paper"] .dash-nav.active{background:#eeeaff;color:#6550c8;border-color:#e1dcff}
+body[data-bee-dashboard-template="paper"] .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
+.bee-layout--dashboard-paper .dashboard{background:#f3f5fa;color:#20283a}
+.bee-layout--dashboard-paper .dash-sidebar{background:#fff;border-color:#e2e6ef}
+.bee-layout--dashboard-paper .dash-header{background:#fff;border-color:#e2e6ef}
+.bee-layout--dashboard-paper .dash-stat,.bee-layout--dashboard-paper .panel,.bee-layout--dashboard-paper .bee-template-manager{background:#fff;border-color:#e2e6ef;color:#20283a}
+.bee-layout--dashboard-paper .workspace{background:#f7f8fc;border-color:#e2e6ef}
+.bee-layout--dashboard-paper .workspace b,.bee-layout--dashboard-paper .dash-welcome h1,.bee-layout--dashboard-paper .panel-heading h2,.bee-layout--dashboard-paper .runtime-plugin b,.bee-layout--dashboard-paper .quick-action b{color:#20283a}
+.bee-layout--dashboard-paper .dash-nav{color:#68738a}
+.bee-layout--dashboard-paper .dash-nav.active{background:#eeeaff;color:#6550c8;border-color:#e1dcff}
+.bee-layout--dashboard-paper .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
