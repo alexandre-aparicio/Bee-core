@@ -52,6 +52,11 @@ test('dashboard template can be selected without changing public theme', async (
   await manager.getByLabel('Dashboard').selectOption('paper');
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'paper');
   await expect(page.locator('[data-bee-layout="dashboard.paper"]')).toBeVisible();
+  await expect(manager.getByText('Preview only')).toBeVisible();
+  await manager.getByRole('button', { name: 'Discard preview' }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
+  await manager.getByLabel('Dashboard').selectOption('paper');
+  await manager.getByRole('button', { name: 'Apply template changes' }).click();
   await expect(page.locator('[data-bee-slot="sidebar"]')).toHaveCount(1);
   await expect(page.locator('[data-bee-slot="widgets"]')).toHaveCount(1);
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'aurora');
@@ -103,4 +108,5 @@ test('tenant admin can install and activate a trusted dashboard template package
   await expect(manager.getByText('Package installed for this tenant.')).toBeVisible();
   await manager.getByLabel('Dashboard').selectOption('glass');
   await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
+  await manager.getByRole('button', { name: 'Apply template changes' }).click();
 });
