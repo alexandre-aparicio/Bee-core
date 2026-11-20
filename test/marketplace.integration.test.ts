@@ -130,6 +130,8 @@ test("marketplace filters plugins by company plan and individual purchases", { s
     const uninstall = await app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(uninstall.statusCode, 200);
     assert.equal(uninstall.json().dataPreserved, true);
+    const betaAfterUninstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaAfterUninstall.statusCode, 403);
   } finally {
     await app.close();
     await notesPlugin.stop?.(ctx);
