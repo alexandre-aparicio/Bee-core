@@ -6,25 +6,25 @@ Updated: 2026-11-20 — baseline `main` commit `6de27149f4c81efb694f25a69f168b12
 
 The percentages below measure distinct product capabilities, not the number of passing workflows or PRs. Each capability is counted once. Re-running backend, Angular or Docker regression suites protects existing work but does not increase implementation progress.
 
-- **MVP capability implementation: 83%.** Weighted assessment of the actual code and documented acceptance scope. The previous 78% estimate was too conservative: it treated marketplace purchase/install foundations and template capabilities as broadly pending even though their basic APIs, persistence and dashboard surfaces are already implemented. It also did not publish a repeatable scoring breakdown.
+- **MVP capability implementation: 85%.** Weighted assessment of the actual code and documented acceptance scope. The previous 78% estimate was too conservative: it treated marketplace purchase/install foundations and template capabilities as broadly pending even though their basic APIs, persistence and dashboard surfaces are already implemented. It also did not publish a repeatable scoring breakdown.
 - **Release readiness: 68%.** This is deliberately lower because production hardening, full tenant-route review, backup/restore, TLS/monitoring and some release gates remain incomplete.
 
 ## Capability breakdown (current `main`)
 
-| Capability | Estimated completion | Evidence / remaining scope |
+| Capability | Weight | Estimated completion | Evidence / remaining scope |
 |---|---:|---|
-| Core runtime, Fastify, plugin registry/lifecycle and event bus | 95% | Runtime and lifecycle hooks exist; richer package runtime and lifecycle isolation remain. |
-| MongoDB persistence and Docker foundation | 95% | MongoDB is primary persistence; Compose and production profile are present. |
-| Authentication and sessions | 90% | Login, JWT, refresh rotation/replay rejection, logout and persistence; MFA, recovery, verification and rate limiting remain. |
-| Companies, memberships and roles | 90% | Multi-company membership, active tenant context, built-in/custom roles, permissions and session revocation; owner transfer and full route audit remain. |
-| Angular public/dashboard/auth UI | 90% | Responsive shells, auth, company selector, members, marketplace and browser smoke tests; broader product workflows and UX polish remain. |
-| Template engine | 90% | Separate public/dashboard layouts, tenant tokens, installation/selection and SSE updates; arbitrary remote structural Angular bundles are intentionally not supported yet. |
-| Marketplace and entitlements | 85% | Catalog, Starter/Pro/Enterprise plans, trial, purchases, subscription updates, entitlement checks and dashboard install controls; checkout/provider integration and billing UX remain. |
-| Plugin lifecycle and package ecosystem | 65% | Trusted packages, manifests, dependencies, migrations, install/uninstall and static Angular registry; immutable signed archives, durable jobs, upgrades/rollback and dynamic frontend registration remain. |
-| Tenant isolation and security | 70% | Tenant context, scoped collection helper, IDOR regression coverage and auth audit; not every route, event and background task has been audited. |
-| Production operations and release packaging | 75% | Production Compose build/start/health, host-port isolation and Mongo/session persistence test; TLS, backup/restore drills, monitoring and release runbook hardening remain. |
+| Core runtime, Fastify, plugin registry/lifecycle and event bus | 10% | 95% | Runtime and lifecycle hooks exist; richer package runtime and lifecycle isolation remain. |
+| MongoDB persistence and Docker foundation | 10% | 95% | MongoDB is primary persistence; Compose and production profile are present. |
+| Authentication and sessions | 10% | 90% | Login, JWT, refresh rotation/replay rejection, logout and persistence; MFA, recovery, verification and rate limiting remain. |
+| Companies, memberships and roles | 15% | 90% | Multi-company membership, active tenant context, built-in/custom roles, permissions and session revocation; owner transfer and full route audit remain. |
+| Angular public/dashboard/auth UI | 10% | 90% | Responsive shells, auth, company selector, members, marketplace and browser smoke tests; broader product workflows and UX polish remain. |
+| Template engine | 10% | 90% | Separate public/dashboard layouts, tenant tokens, installation/selection and SSE updates; arbitrary remote structural Angular bundles are intentionally not supported yet. |
+| Marketplace and entitlements | 10% | 85% | Catalog, Starter/Pro/Enterprise plans, trial, purchases, subscription updates, entitlement checks and dashboard install controls; checkout/provider integration and billing UX remain. |
+| Plugin lifecycle and package ecosystem | 15% | 65% | Trusted packages, manifests, dependencies, migrations, install/uninstall and static Angular registry; immutable signed archives, durable jobs, upgrades/rollback and dynamic frontend registration remain. |
+| Tenant isolation and security | 5% | 70% | Tenant context, scoped collection helper, IDOR regression coverage and auth audit; not every route, event and background task has been audited. |
+| Production operations and release packaging | 5% | 75% | Production Compose build/start/health, host-port isolation and Mongo/session persistence test; TLS, backup/restore drills, monitoring and release runbook hardening remain. |
 
-The weighted capability score is **83%**. It is an engineering estimate, not test coverage or a claim that all production requirements are complete.
+The weighted capability score is **85%**. The broader SaaS plugin-platform roadmap is approximately **67%** because durable third-party package distribution, billing-provider integration, plugin upgrade/rollback and universal tenant-isolation review extend beyond the Docker-installable MVP. It is an engineering estimate, not test coverage or a claim that all production requirements are complete.
 
 ## Verified on `main`
 
