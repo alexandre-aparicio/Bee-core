@@ -31,6 +31,12 @@ test("plugin manifest rejects unsafe paths, invalid IDs, duplicate permissions a
   assert.throws(() => validatePluginManifest({ ...validManifest, package: { ...validManifest.package, storageKey: "../outside.tgz" } }), /package digest/);
   assert.throws(() => validatePluginManifest({ ...validManifest, package: { ...validManifest.package, sha256: "bad" } }), /package digest/);
   assert.throws(() => validatePluginManifest({ ...validManifest, permissions: [...validManifest.permissions, ...validManifest.permissions] }), /unique/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, dependencies: [...validManifest.dependencies, ...validManifest.dependencies] }), /dependencies must be unique/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, dependencies: [{ pluginId: "core.audit", versionRange: "latest" }] }), /Invalid plugin dependencies/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [{ path: "/same", component: "crm.contacts.list" }, { path: "/same", component: "crm.contacts.detail" }] } }), /route paths must be unique/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, collections: ["crm_contacts", "crm_contacts"] }), /collection names must be unique/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, migrations: [...validManifest.migrations, ...validManifest.migrations] }), /migration IDs must be unique/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [{ path: "/../../admin", component: "crm.contacts.list" }] } }), /Invalid frontend route registrations/);
 });
 
 test("plugin dependency resolver orders transitive dependencies before dependents", () => {
