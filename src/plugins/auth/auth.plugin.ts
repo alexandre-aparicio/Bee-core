@@ -6,12 +6,12 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
-type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; enabled:boolean; allowedClients:ClientType[]; createdAt:Date; updatedAt:Date };
+type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; createdAt:Date; updatedAt:Date };
 type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; expiresAt:Date; revokedAt:Date|null; createdAt:Date };
 type LoginBody = { email?:string; password?:string; client?:ClientType };
 type RefreshBody = { refreshToken?:string };
 const validClients:ClientType[]=["backend","dashboard","public"];
-const publicUser=(u:UserRecord)=>({id:u.id,email:u.email,roles:u.roles,allowedClients:u.allowedClients});
+const publicUser=(u:UserRecord)=>({id:u.id,email:u.email,roles:u.roles,allowedClients:u.allowedClients,tenantId:u.tenantId??"default"});
 const clientFrom=(v:unknown):ClientType|null=>validClients.includes(v as ClientType)?v as ClientType:null;
 const hashToken=(t:string)=>createHash("sha256").update(t).digest("hex");
 const makeRefreshToken=()=>randomBytes(48).toString("base64url");
@@ -27,28 +27,33 @@ export const authPlugin:BeePlugin={
   const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongo.connect(); const db:Db=mongo.db(dbName);
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
-  const templatePreferences=db.collection<{userId:string;public:string;dashboard:string;updatedAt:Date}>("template_preferences");
+  const templatePreferences=db.collection<{tenantId:string;public:string;dashboard:string;updatedAt:Date}>("template_preferences");
+  const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
+  const tenants=db.collection<{id:string;name:string;createdAt:Date}>("tenants");
   await Promise.all([
    users.createIndex({email:1},{unique:true,name:"users_email_unique"}),
    users.createIndex({id:1},{unique:true,name:"users_id_unique"}),
    sessions.createIndex({tokenHash:1},{unique:true,name:"refresh_token_hash_unique"}),
    sessions.createIndex({userId:1},{name:"refresh_sessions_user"}),
    sessions.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"refresh_sessions_ttl"}),
-   templatePreferences.createIndex({userId:1},{unique:true,name:"template_preferences_user_unique"})
+   tenants.createIndex({id:1},{unique:true,name:"tenants_id_unique"}),
+   templatePreferences.createIndex({tenantId:1},{unique:true,name:"template_preferences_tenant_unique"})
   ]);
+  await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
   const adminEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase(),adminPassword=String(ctx.config.authAdminPassword??"");
   if(adminEmail&&adminPassword){
    if(adminPassword.length<12)throw new Error("Auth: bootstrap admin password must be at least 12 characters.");
-   await users.updateOne({email:adminEmail},{$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
+   await users.updateOne({email:adminEmail},{$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,tenantId:defaultTenantId,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
    ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
   }
-  const issue=(u:Pick<UserRecord,"id"|"email"|"roles">,client:ClientType)=>ctx.server.jwt.sign({sub:u.id,email:u.email,roles:u.roles,client,aud:"bee-core"});
+  const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId">,client:ClientType)=>ctx.server.jwt.sign({sub:u.id,email:u.email,roles:u.roles,tenantId:u.tenantId??defaultTenantId,client,aud:"bee-core"});
   ctx.server.post<{Body:LoginBody}>("/auth/login",async(req,reply)=>{
    const email=String(req.body?.email??"").trim().toLowerCase(),password=String(req.body?.password??""),client=clientFrom(req.body?.client);
    if(!email||!password||!client)return reply.code(400).send({error:"email, password and valid client required"});
    const u=await users.findOne({email,enabled:true});
    if(!u||!await bcrypt.compare(password,u.passwordHash))return reply.code(401).send({error:"Invalid credentials"});
    if(!u.allowedClients.includes(client))return reply.code(403).send({error:"Client access denied"});
+   if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
    const accessToken=issue(u,client),refreshToken=makeRefreshToken();
    await sessions.insertOne({id:randomUUID(),userId:u.id,tokenHash:hashToken(refreshToken),client,expiresAt:refreshExpiry(),revokedAt:null,createdAt:new Date()});
    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
@@ -67,24 +72,33 @@ export const authPlugin:BeePlugin={
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
   const allowedTemplates={public:["aurora","editorial"],dashboard:["midnight","paper"]} as const;
-  const readTemplateUser=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
-   try{await req.jwtVerify();const claims=req.user as {sub?:string;aud?:string};if(claims.aud!=="bee-core"||!claims.sub){reply.code(401).send({error:"Unauthorized"});return null;}return claims.sub;}catch{reply.code(401).send({error:"Unauthorized"});return null;}
+  const readTemplateTenant=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
+   try{
+    await req.jwtVerify();
+    const claims=req.user as {sub?:string;tenantId?:string;aud?:string};
+    if(claims.aud!=="bee-core"||!claims.sub){reply.code(401).send({error:"Unauthorized"});return null;}
+    const user=await users.findOne({id:claims.sub,enabled:true});
+    if(!user){reply.code(401).send({error:"Unauthorized"});return null;}
+    const tenantId=String(user.tenantId??defaultTenantId);
+    if(claims.tenantId&&claims.tenantId!==tenantId){reply.code(401).send({error:"Tenant membership changed; sign in again"});return null;}
+    return tenantId;
+   }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
   ctx.server.get("/templates/preferences",async(req,reply)=>{
-   const userId=await readTemplateUser(req,reply);if(!userId)return;
-   const saved=await templatePreferences.findOne({userId});
-   return {selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard}};
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const saved=await templatePreferences.findOne({tenantId});
+   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard}};
   });
   ctx.server.put<{Body:{public?:string;dashboard?:string}}>("/templates/preferences",async(req,reply)=>{
-   const userId=await readTemplateUser(req,reply);if(!userId)return;
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
    const body=req.body??{};
    if(body.public!==undefined&&!(allowedTemplates.public as readonly string[]).includes(body.public))return reply.code(400).send({error:"Invalid public template"});
    if(body.dashboard!==undefined&&!(allowedTemplates.dashboard as readonly string[]).includes(body.dashboard))return reply.code(400).send({error:"Invalid dashboard template"});
    if(body.public===undefined&&body.dashboard===undefined)return reply.code(400).send({error:"At least one template selection is required"});
-   const current=await templatePreferences.findOne({userId});
+   const current=await templatePreferences.findOne({tenantId});
    const selection={public:body.public??current?.public??templateDefaults.public,dashboard:body.dashboard??current?.dashboard??templateDefaults.dashboard};
-   await templatePreferences.updateOne({userId},{$set:{...selection,updatedAt:new Date()}},{upsert:true});
-   return {selection};
+   await templatePreferences.updateOne({tenantId},{$set:{...selection,updatedAt:new Date()}},{upsert:true});
+   return {tenantId,selection};
   });
   ctx.server.addHook("onClose",async()=>{await mongo.close();});
   ctx.logger.info("Auth plugin initialized",{clients:validClients,persistence:"mongodb",refreshRotation:true});
