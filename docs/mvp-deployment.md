@@ -4,12 +4,12 @@ This overlay is the first server-install profile for Bee-Core. It exposes the An
 
 ## Status / scope
 
-This is a **deployment candidate**, not a security-certified production release. The repository's tenant isolation notes explicitly list routes and asynchronous paths that still need audit/migration. Authentication notes also identify missing rate limiting, MFA, password reset, email verification and immediate access-token revocation. Do not expose this stack directly to the public internet without HTTPS, firewalling, backups, and a security review.
+This is a **deployment candidate**, not a security-certified production release. Tenant isolation, authentication hardening, monitoring and operational recovery still have open work. Do not expose this stack directly to the public internet without HTTPS, firewalling, encrypted off-site backups and a security review.
 
 ## Prerequisites
 
 - Docker Engine and Docker Compose plugin v2.24+ (required for the `!reset` merge tag used to remove inherited host port bindings)
-- Linux VPS with inbound TCP 80 (or place behind an existing reverse proxy)
+- Linux VPS
 - A domain and TLS termination configured at the host reverse proxy before collecting real user data
 
 ## Quick install
@@ -44,7 +44,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=100 
 curl -fsS http://127.0.0.1/ || curl -fsS http://SERVER_OR_DOMAIN/
 ```
 
-The API health endpoint is available internally at `http://bee-core:3000/health`; do not expose it directly in the production profile. From the host, test the web endpoint and the login flow through the frontend proxy.
+The API health endpoint is available internally at `http://bee-core:3000/health`; do not expose it directly in the production profile.
 
 ## Data persistence
 
@@ -57,16 +57,35 @@ List volumes:
 docker volume ls | grep bee_core
 ```
 
-## Backup (basic logical backup)
+## Backup
 
-Run a database dump from the Mongo container. Store the backup off-server and encrypt it:
+Create a compressed logical backup using the official MongoDB Database Tools image. Run it on the private Compose network so MongoDB remains unpublished on the host:
 
 ```bash
 mkdir -p backups
-docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongodump --db bee_core --archive > backups/bee_core-$(date +%F).archive
+network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
+docker run --rm --network "$network" -v "$PWD/backups:/backup" \
+  mongodb/mongodb-database-tools:100.12.2 \
+  mongodump --uri="mongodb://mongodb:27017/bee_core" \
+  --archive="/backup/bee_core-$(date +%F).archive" --gzip
 ```
 
-Restore validation is not yet automated; test restores into a separate database before treating backups as reliable.
+Copy backups off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery.
+
+## Restore drill
+
+Restore into a separate database first; never overwrite the live database during a drill:
+
+```bash
+network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
+docker run --rm --network "$network" -v "$PWD/backups:/backup" \
+  mongodb/mongodb-database-tools:100.12.2 \
+  mongorestore --uri="mongodb://mongodb:27017/bee_core_restore" \
+  --archive="/backup/bee_core-YYYY-MM-DD.archive" --gzip \
+  --nsInclude='bee_core.*' --nsFrom='bee_core.*' --nsTo='bee_core_restore.*'
+```
+
+Verify application-critical collections and records in the restored database before considering the drill successful. The CI workflow exercises a sentinel-record round-trip; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
 
 ## Update
 
@@ -77,13 +96,12 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 ## Production checklist
 
-- [ ] Configure HTTPS on host reverse proxy (Let's Encrypt or managed TLS); redirect HTTP to HTTPS
+- [ ] Configure HTTPS on a host reverse proxy and redirect HTTP to HTTPS
 - [ ] Firewall only the reverse proxy ports (normally 80/443)
 - [ ] Do not publish MongoDB or API host ports
 - [ ] Use a strong generated JWT secret and unique bootstrap credentials
 - [ ] Keep `.env` out of Git and restrict its permissions (`chmod 600 .env`)
-- [ ] Configure encrypted, off-site backups and test a restore
-- [ ] Configure VPS monitoring, disk alerts, and container log rotation
+- [ ] Configure encrypted, off-site backups and test restores
+- [ ] Configure VPS monitoring, disk alerts and container log rotation
 - [ ] Review `docs/tenant-data-isolation.md` limitations and all plugin routes
-- [ ] Before public production: add rate limiting, password reset, MFA, audit route coverage, tenant-isolation tests, vulnerability scanning, and restore drill
-
+- [ ] Complete rate limiting, password reset, MFA, audit-route coverage, tenant-isolation review and vulnerability scanning before public production
