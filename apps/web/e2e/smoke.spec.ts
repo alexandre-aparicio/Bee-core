@@ -122,19 +122,23 @@ test('tenant admin can install and activate a trusted dashboard template package
 
 test('dashboard company selector switches the active tenant session', async ({ page }) => {
   let activeCompany = 'company-a';
+  let companyListRequests = 0;
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'company-a-token',
     tenantId: 'company-a',
     user: { id: 'user-1', email: 'owner@example.test', roles: ['admin'], tenantId: 'company-a' }
   })));
-  await page.route('**/api/companies', route => route.fulfill({
+  await page.route('**/api/companies', route => {
+    companyListRequests += 1;
+    return route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ companies: [
       { id: 'company-a', name: 'Company A', role: 'owner', active: activeCompany === 'company-a' },
       { id: 'company-b', name: 'Company B', role: 'manager', active: activeCompany === 'company-b' }
     ] })
-  }));
+  });
+  });
   await page.route('**/api/companies/company-b/activate', route => {
     activeCompany = 'company-b';
     return route.fulfill({
@@ -148,5 +152,6 @@ test('dashboard company selector switches the active tenant session', async ({ p
   await expect(selector).toHaveValue('company-a');
   await selector.selectOption('company-b');
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('bee-auth') || '{}').tenantId)).toBe('company-b');
+  await expect.poll(() => companyListRequests).toBeGreaterThan(1);
   await expect(page.getByLabel('Active company')).toHaveValue('company-b');
 });
