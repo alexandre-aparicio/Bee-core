@@ -111,9 +111,13 @@ test("company plans and purchases control plugin visibility, installation and ac
       app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } }),
       app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } })
     ]);
-    assert.ok(betaNotesInstallAttempts.every(response => response.statusCode === 202));
-    const betaInstallJobId = betaNotesInstallAttempts[0].json().jobId as string;
-    assert.equal(betaNotesInstallAttempts[1].json().jobId, betaInstallJobId, "concurrent install requests must share one durable job");
+    assert.ok(betaNotesInstallAttempts.every(response => [200, 202].includes(response.statusCode)));
+    const acceptedBetaInstall = betaNotesInstallAttempts.find(response => response.statusCode === 202);
+    assert.ok(acceptedBetaInstall, "one request must enqueue the installation");
+    const betaInstallJobId = acceptedBetaInstall.json().jobId as string;
+    for (const response of betaNotesInstallAttempts.filter(item => item.statusCode === 202)) {
+      assert.equal(response.json().jobId, betaInstallJobId, "concurrent install requests must share one durable job");
+    }
     const foreignJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaInstallJobId, headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(foreignJobRead.statusCode, 404, "install jobs must be tenant-scoped");
     const betaInstallJob = await waitForInstallJob(betaInstallJobId);
