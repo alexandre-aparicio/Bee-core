@@ -360,6 +360,11 @@ body[data-bee-public-mode="light"] .header-login{color:#39445a;border-color:#dfe
 
 /* Tenant public placeholder uses the same per-host Light/Dark preference as public templates. */
 .tenant-public-actions{display:flex;align-items:center;gap:14px}
+.tenant-public-nav{display:flex;align-items:center;gap:16px}
+.tenant-public-nav a{color:inherit;font-size:13px;font-weight:600;text-decoration:none;opacity:.82}
+.tenant-public-nav a:hover{opacity:1}
+.tenant-public-page .auth-card>a{display:inline-block;margin-top:18px;color:inherit;font-weight:600}
+@media(max-width:520px){.tenant-public-nav{gap:8px}.tenant-public-nav a{font-size:11px}}
 .tenant-public-actions>a{color:inherit;font-size:12px;text-decoration:none}
 body[data-bee-public-mode="light"] .tenant-public-page{background:#f7f8fc;color:#20283a}
 body[data-bee-public-mode="light"] .tenant-public-page .auth-top>a{color:#59657a}
