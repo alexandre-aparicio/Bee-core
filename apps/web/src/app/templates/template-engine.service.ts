@@ -360,7 +360,9 @@ export class BeeTemplateEngine {
   }
 
   private modeStorageKey(target: BeeTemplateTarget): string {
-    const scope = this.storageKey().replace(STORAGE_KEY, '');
+    const scope = target === 'public'
+      ? (typeof window !== 'undefined' ? `host-${window.location.hostname}` : 'public')
+      : this.storageKey().replace(STORAGE_KEY, '');
     return `${THEME_MODE_KEY}:${target}:${this.selection[target]}:${scope}`;
   }
 
