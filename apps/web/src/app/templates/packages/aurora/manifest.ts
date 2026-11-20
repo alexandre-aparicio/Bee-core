@@ -8,6 +8,7 @@ export const AURORA_MANIFEST: BeeTemplateManifest = {
   "description": "Dark, expressive public experience.",
   "builtIn": true,
   "layout": "public.aurora",
+  "componentId": "BeeAuroraLayoutComponent",
   "slots": [
     "header",
     "hero",
