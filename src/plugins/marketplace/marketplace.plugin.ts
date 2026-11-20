@@ -16,7 +16,9 @@ import {
   seedPluginCommerce
 } from "../../core/plugin-entitlements.js";
 
-let mongoClient: MongoClient | undefined;\nlet installWorkerTimer: ReturnType<typeof setInterval> | undefined;\nlet installWorkerTask: Promise<void> | undefined;
+let mongoClient: MongoClient | undefined;
+let installWorkerTimer: ReturnType<typeof setInterval> | undefined;
+let installWorkerTask: Promise<void> | undefined;
 
 export const marketplacePlugin: BeePlugin = {
   manifest: {
