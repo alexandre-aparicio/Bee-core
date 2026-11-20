@@ -7,7 +7,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
 type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; createdAt:Date; updatedAt:Date };
-type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; expiresAt:Date; revokedAt:Date|null; createdAt:Date };
+type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; tenantId?:string; expiresAt:Date; revokedAt:Date|null; createdAt:Date };
 type LoginBody = { email?:string; password?:string; client?:ClientType };
 type RefreshBody = { refreshToken?:string };
 const validClients:ClientType[]=["backend","dashboard","public"];
@@ -65,7 +65,7 @@ export const authPlugin:BeePlugin={
    await users.updateOne({email:adminEmail},{$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,tenantId:defaultTenantId,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
    ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
   }
-  const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId">,client:ClientType)=>ctx.server.jwt.sign({sub:u.id,email:u.email,roles:u.roles,tenantId:u.tenantId??defaultTenantId,client,aud:"bee-core"});
+  const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId">,client:ClientType,tenantId=u.tenantId??defaultTenantId,sessionId?:string)=>ctx.server.jwt.sign({sub:u.id,email:u.email,roles:u.roles,tenantId,client,aud:"bee-core",...(sessionId?{sid:sessionId}:{})});
   ctx.server.post<{Body:LoginBody}>("/auth/login",async(req,reply)=>{
    const email=String(req.body?.email??"").trim().toLowerCase(),password=String(req.body?.password??""),client=clientFrom(req.body?.client);
    if(!email||!password||!client)return reply.code(400).send({error:"email, password and valid client required"});
@@ -73,8 +73,8 @@ export const authPlugin:BeePlugin={
    if(!u||!await bcrypt.compare(password,u.passwordHash))return reply.code(401).send({error:"Invalid credentials"});
    if(!u.allowedClients.includes(client))return reply.code(403).send({error:"Client access denied"});
    if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
-   const accessToken=issue(u,client),refreshToken=makeRefreshToken();
-   await sessions.insertOne({id:randomUUID(),userId:u.id,tokenHash:hashToken(refreshToken),client,expiresAt:refreshExpiry(),revokedAt:null,createdAt:new Date()});
+   const sessionId=randomUUID(),accessToken=issue(u,client,u.tenantId??defaultTenantId,sessionId),refreshToken=makeRefreshToken();
+   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId:u.tenantId??defaultTenantId,expiresAt:refreshExpiry(),revokedAt:null,createdAt:new Date()});
    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
    return {accessToken,refreshToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,user:publicUser(u),client};
   });
@@ -84,9 +84,13 @@ export const authPlugin:BeePlugin={
    if(!session)return reply.code(401).send({error:"Invalid or expired refresh token"});
    const u=await users.findOne({id:session.userId,enabled:true});
    if(!u||!u.allowedClients.includes(session.client)){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Invalid or expired refresh token"});}
-   return {accessToken:issue(u,session.client),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,client:session.client};
+   const activeTenantId=session.tenantId??u.tenantId??defaultTenantId;
+   const membership=await db.collection("memberships").findOne({userId:u.id,tenantId:activeTenantId,status:"active"});
+   if(!membership){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Company membership is no longer active"});}
+   const role=String(membership.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
+   return {accessToken:issue({...u,roles},session.client,activeTenantId,session.id),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,client:session.client,tenantId:activeTenantId};
   });
-  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string};if(c.aud!=="bee-core"||!c.sub||!c.client)return reply.code(401).send({error:"Unauthorized"});return {authenticated:true,user:{id:c.sub,email:c.email,roles:c.roles},client:c.client};}catch{return reply.code(401).send({error:"Unauthorized"});}});
+  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string};if(c.aud!=="bee-core"||!c.sub||!c.client)return reply.code(401).send({error:"Unauthorized"});return {authenticated:true,user:{id:c.sub,email:c.email,roles:c.roles},client:c.client,tenantId:(c as {tenantId?:string}).tenantId};}catch{return reply.code(401).send({error:"Unauthorized"});}});
   ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({tokenHash:hashToken(raw),revokedAt:null},{$set:{revokedAt:new Date()}});return {success:true,message:"Refresh session revoked. Current access token expires within 20 minutes."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
