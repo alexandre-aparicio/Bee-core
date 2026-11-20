@@ -1,8 +1,9 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { BeeTemplateManagerComponent } from './templates/template-manager.component';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   path = window.location.pathname;
   menuOpen = false;
