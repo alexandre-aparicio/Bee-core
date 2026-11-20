@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
 import { MongoClient } from "mongodb";
+import { hash } from "bcryptjs";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
@@ -12,7 +13,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   const client = new MongoClient(uri!);
   await client.connect();
   const db = client.db(dbName);
-  const passwordHash = await (await import("bcryptjs")).default.hash("Test-password-12345", 10);
+  const passwordHash = await hash("Test-password-12345", 10);
   await db.collection("users").insertOne({ id: "test-user", email: "test@example.com", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], createdAt: new Date(), updatedAt: new Date() });
   const app = Fastify();
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
