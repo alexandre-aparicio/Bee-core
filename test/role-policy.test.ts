@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeCustomRolePermissions, normalizeCustomRoleName, hasPolicyPermission } from "../src/core/role-policy.js";
+import { normalizeCustomRolePermissions, normalizeTenantCustomRolePermissions, normalizeCustomRoleName, hasPolicyPermission } from "../src/core/role-policy.js";
 
 test("custom role permission normalization validates, deduplicates and sorts", () => {
   assert.deepEqual(normalizeCustomRolePermissions(["notes.read", "files.write", "notes.read"]), ["files.write", "notes.read"]);
@@ -20,4 +20,11 @@ test("policy permission check is exact (no implicit wildcards)", () => {
   assert.equal(hasPolicyPermission(policy, "notes.read"), true);
   assert.equal(hasPolicyPermission(policy, "notes.write"), false);
   assert.equal(hasPolicyPermission(policy, "notes.*"), false);
+});
+
+
+test("tenant custom role permission allowlist blocks privilege escalation", () => {
+  assert.deepEqual(normalizeTenantCustomRolePermissions(["notes.read", "files.read"]), ["files.read", "notes.read"]);
+  assert.throws(() => normalizeTenantCustomRolePermissions(["members.manage"]), /protected permissions/);
+  assert.throws(() => normalizeTenantCustomRolePermissions(["billing.manage"]), /protected permissions/);
 });
