@@ -37,6 +37,20 @@ test("tenant collection scopes every query and mutation to one company", { skip:
       () => alpha.updateOne({ id: "alpha-contact" }, { $set: { tenantId: "company-beta" } } as never),
       /tenantId is immutable/
     );
+
+    for (const unsafeUpdate of [
+      { $currentDate: { tenantId: true } },
+      { $inc: { tenantId: 1 } },
+      { $max: { tenantId: "company-zeta" } },
+      { $set: { "tenantId.owner": "attacker" } },
+      { $rename: { label: "tenantId" } },
+      { $rename: { label: "tenantId.owner" } }
+    ]) {
+      assert.throws(
+        () => alpha.updateOne({ id: "alpha-contact" }, unsafeUpdate as never),
+        /tenantId is immutable/
+      );
+    }
     assert.throws(
       () => alpha.updateOne({ id: "alpha-contact" }, { tenantId: "company-beta" } as never),
       /Replacement updates are not supported/
