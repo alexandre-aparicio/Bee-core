@@ -7,7 +7,7 @@ export const AUDIT_ACTIONS = [
   "role.created", "role.updated", "role.deleted",
   "permission.denied",
   "plugin.installed", "plugin.updated", "plugin.uninstalled"
- ] as const;
+] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export type AuditEventInput = {
