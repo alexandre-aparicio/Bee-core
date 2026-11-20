@@ -116,7 +116,7 @@ export const organizationsPlugin:BeePlugin={
    if(!company)return reply.code(404).send({error:"Company is unavailable"});
    const existing=await memberships.findOne({userId:auth.user!.id,tenantId:invitation.tenantId});
    if(existing?.status==="active")return reply.code(409).send({error:"This account is already an active member of the company"});
-   if(existing?.status!=="active"){
+   if(!existing||existing.status==="suspended"||existing.status==="invited"){
     const userLimit=await getTenantUserLimit(db,invitation.tenantId);
     if(userLimit!==null&&await memberships.countDocuments({tenantId:invitation.tenantId,status:"active"})>=userLimit)return reply.code(409).send({error:"Company user limit reached for the current plan"});
    }
