@@ -250,7 +250,7 @@ test('company owner can invite, change roles and suspend company members', async
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ companies: [{ id: 'company-pro', name: 'Company Pro', role: 'owner', active: true }] })
   }));
-  await page.route('**/api/companies/company-pro/memberships', route => {
+  await page.route('**/api/companies/company-pro/memberships**', route => {
     if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: members }) });
     const userId = route.request().url().split('/').pop() || '';
     if (route.request().method() === 'PUT') {
@@ -281,7 +281,9 @@ test('company owner can invite, change roles and suspend company members', async
   const memberRow = page.locator('.bee-company-members__table tr').filter({ hasText: 'member@example.test' });
   await memberRow.locator('select').selectOption('manager');
   await expect(memberRow.locator('select')).toHaveValue('manager');
+  await expect.poll(() => members.find(item => item.userId === 'member-2')?.role).toBe('manager');
   await memberRow.getByRole('button', { name: 'Suspend' }).click();
+  await expect.poll(() => members.find(item => item.userId === 'member-2')?.status).toBe('suspended');
   await expect(memberRow).toContainText('suspended');
 
   await page.getByPlaceholder('colleague@company.com').fill('new@example.test');
