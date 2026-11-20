@@ -143,3 +143,5 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - The initial roadmap commit was `9627d652aeca321825f99ff66e033535d3d9653f`. The latest marketplace/entitlement implementation commit when this status was updated is `ec5bc3cbc19f8579b9ea740c293f7bfcf0fba0ab`.
 - The company-membership, file-storage and initial marketplace implementation passed backend integration and Angular/Playwright CI at `d8388034d8f3921c1bec3a863a88ec87bbd7afe0`. The persisted catalog/plan lookup refactor at `ec5bc3cbc19f8579b9ea740c293f7bfcf0fba0ab` has fresh backend, Docker and Angular/Playwright workflows in progress; do not treat that latest refactor as fully green until all finish successfully.
 - Production VPS deployment is intentionally deferred.
+
+- Plan storage quotas are enforced by the Files plugin using atomic per-company reservations; usage is tracked independently by tenant.
