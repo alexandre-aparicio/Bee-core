@@ -28,6 +28,8 @@ export class BeeTemplateEngine {
   private readonly registry = new Map<string, BeeTemplateManifest>();
   private selection: BeeTemplateSelection = this.readSelection();
   private installedTemplateIds = new Set<string>(BASE_TEMPLATE_IDS);
+  private previewSnapshot?: { selection: BeeTemplateSelection; tokens: Record<string, string>; customized: boolean };
+  private previewThemePackage: string | null = null;
   private selectionRevision = 0;
   private stream?: EventSource;
   private reconnecting = false;
@@ -61,6 +63,62 @@ export class BeeTemplateEngine {
   }
 
   isInstalled(templateId: string): boolean { return this.installedTemplateIds.has(templateId); }
+
+  get hasPendingPreview(): boolean { return this.previewSnapshot !== undefined; }
+
+  preview(target: BeeTemplateTarget, templateId: string): void {
+    if (!this.canManageTemplates) return;
+    const manifest = this.registry.get(templateId);
+    if (!manifest || manifest.target !== target || !this.installedTemplateIds.has(templateId)) throw new Error('Template is not installed for this surface');
+    if (!this.previewSnapshot) {
+      this.previewSnapshot = {
+        selection: { ...this.selection },
+        tokens: { ...this.themeTokens },
+        customized: typeof document !== 'undefined' && document.body.dataset['beeCustomTheme'] === 'true'
+      };
+    }
+    this.selection = { ...this.selection, [target]: templateId };
+    this.previewThemePackage = PACKAGE_THEME_TOKENS[templateId] ? templateId : null;
+    if (this.previewThemePackage) this.applyThemeTokens(PACKAGE_THEME_TOKENS[this.previewThemePackage]);
+    else this.restorePreviewTokens();
+    this.apply();
+  }
+
+  commitPreview(): void {
+    if (!this.previewSnapshot) return;
+    const packageId = this.previewThemePackage;
+    this.previewSnapshot = undefined;
+    this.previewThemePackage = null;
+    this.selectionRevision++;
+    this.persist();
+    void this.persistRemoteSelection();
+    if (packageId && PACKAGE_THEME_TOKENS[packageId]) void this.saveThemeTokens(PACKAGE_THEME_TOKENS[packageId]);
+  }
+
+  cancelPreview(): void {
+    if (!this.previewSnapshot) return;
+    const snapshot = this.previewSnapshot;
+    this.previewSnapshot = undefined;
+    this.previewThemePackage = null;
+    this.selection = { ...snapshot.selection };
+    this.themeTokens = { ...snapshot.tokens };
+    if (typeof document !== 'undefined') {
+      for (const [key, value] of Object.entries(snapshot.tokens)) document.documentElement.style.setProperty(key, value);
+      if (snapshot.customized) document.body.dataset['beeCustomTheme'] = 'true';
+      else delete document.body.dataset['beeCustomTheme'];
+    }
+    this.apply();
+  }
+
+  private restorePreviewTokens(): void {
+    if (!this.previewSnapshot) return;
+    this.themeTokens = { ...this.previewSnapshot.tokens };
+    if (typeof document !== 'undefined') {
+      for (const [key, value] of Object.entries(this.previewSnapshot.tokens)) document.documentElement.style.setProperty(key, value);
+      if (this.previewSnapshot.customized) document.body.dataset['beeCustomTheme'] = 'true';
+      else delete document.body.dataset['beeCustomTheme'];
+    }
+  }
 
   getSelection(): BeeTemplateSelection {
     return { ...this.selection };
