@@ -230,7 +230,7 @@ export const authPlugin:BeePlugin={
    const raw=reply.raw;
    reply.hijack();
    raw.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-cache, no-transform","connection":"keep-alive","x-accel-buffering":"no"});
-   raw.write("event: template-update\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens)})+"\n\n");
+   raw.write("event: template-update\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)})+"\n\n");
    const clients=templateSubscribers.get(record.tenantId)??new Set<import("node:http").ServerResponse>();
    clients.add(raw);templateSubscribers.set(record.tenantId,clients);
    const heartbeat=setInterval(()=>{if(raw.destroyed){clearInterval(heartbeat);return;}raw.write(": keep-alive\n\n");},20_000);
