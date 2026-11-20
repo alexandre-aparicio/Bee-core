@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateManagerComponent } from './templates/template-manager.component';
 import { BeeTemplateEngine } from './templates/template-engine.service';
+import type { BeeThemeMode } from './templates/template-engine.service';
 import { BeeTemplateSlotComponent } from './templates/template-slot.component';
 import { BeeMarketplaceComponent } from './marketplace/marketplace.component';
 import { CompanyMembersComponent } from './company-members/company-members.component';
@@ -20,6 +21,10 @@ export class AppComponent implements OnInit {
   }
 
   layoutId(target: 'public' | 'dashboard'): string { return this.templates.getActive(target).layout; }
+  publicThemeMode(): BeeThemeMode { return this.templates.getMode('public'); }
+  togglePublicThemeMode(): void { this.templates.toggleMode('public'); }
+  dashboardThemeMode(): BeeThemeMode { return this.templates.getMode('dashboard'); }
+  toggleDashboardThemeMode(): void { this.templates.toggleMode('dashboard'); }
   layoutClass(target: 'public' | 'dashboard'): string { return 'bee-layout--' + this.layoutId(target).replace('.', '-'); }
 
   path = window.location.pathname;
