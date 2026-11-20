@@ -32,6 +32,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
     assert.ok(tokens.accessToken); assert.ok(tokens.refreshToken);
+    const publicTicket = await app.inject({method:"POST",url:"/templates/public-stream-ticket",headers:{host:"alpha.example.test"}});
+    assert.equal(publicTicket.statusCode,200);
+    assert.ok(publicTicket.json().ticket);
     const publicAlpha = await app.inject({method:"GET",url:"/templates/public",headers:{host:"alpha.example.test"}});
     assert.equal(publicAlpha.statusCode,200);
     assert.equal(publicAlpha.json().tenantId,"tenant-alpha");
