@@ -62,7 +62,7 @@ import type { BeeTemplateTarget } from './template.types';
           @if (packageMessage) { <span class="bee-template-manager__message">{{ packageMessage }}</span> }
         </div>
       }
-      <p>Each surface has an independent theme. Saved design tokens are pushed to connected sessions in this tenant without rebuilding or restarting the app.</p>
+      <p>Public and dashboard templates are selected independently. The tenant brand palette is shared across both surfaces and pushed to connected sessions without rebuilding or restarting the app.</p>
     </section>
   `,
 })
