@@ -31,7 +31,7 @@ export const authPlugin: BeePlugin = {
     const pool = new Pool({ connectionString: databaseUrl, max: 10 });
     await pool.query(`
       CREATE TABLE IF NOT EXISTS bee_auth_users (
-        id TEXT PRIMARY PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         roles TEXT[] NOT NULL DEFAULT ARRAY['user']::TEXT[],
