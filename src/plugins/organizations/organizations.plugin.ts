@@ -101,7 +101,7 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await ownerOnly(auth,req.params.companyId,reply);if(!actor)return;
    let name:string,permissions:string[];
-   try{name=normalizeCustomRoleName(req.body?.name);permissions=normalizeCustomRolePermissions(req.body?.permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
+   try{name=normalizeCustomRoleName(req.body?.name);permissions=normalizeTenantCustomRolePermissions(req.body?.permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
    const description=String(req.body?.description??"").trim().slice(0,240);
    const result=await customRoles.updateOne({id:req.params.roleId,tenantId:req.params.companyId},{$set:{name,description,permissions,updatedBy:auth.user!.id,updatedAt:new Date()}});
    if(!result.matchedCount)return reply.code(404).send({error:"Custom role not found"});
