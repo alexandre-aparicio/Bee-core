@@ -27,12 +27,14 @@ export const authPlugin:BeePlugin={
   const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongo.connect(); const db:Db=mongo.db(dbName);
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
+  const templatePreferences=db.collection<{userId:string;public:string;dashboard:string;updatedAt:Date}>("template_preferences");
   await Promise.all([
    users.createIndex({email:1},{unique:true,name:"users_email_unique"}),
    users.createIndex({id:1},{unique:true,name:"users_id_unique"}),
    sessions.createIndex({tokenHash:1},{unique:true,name:"refresh_token_hash_unique"}),
    sessions.createIndex({userId:1},{name:"refresh_sessions_user"}),
-   sessions.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"refresh_sessions_ttl"})
+   sessions.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"refresh_sessions_ttl"}),
+   templatePreferences.createIndex({userId:1},{unique:true,name:"template_preferences_user_unique"})
   ]);
   const adminEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase(),adminPassword=String(ctx.config.authAdminPassword??"");
   if(adminEmail&&adminPassword){
@@ -62,6 +64,28 @@ export const authPlugin:BeePlugin={
   });
   ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string};if(c.aud!=="bee-core"||!c.sub||!c.client)return reply.code(401).send({error:"Unauthorized"});return {authenticated:true,user:{id:c.sub,email:c.email,roles:c.roles},client:c.client};}catch{return reply.code(401).send({error:"Unauthorized"});}});
   ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({tokenHash:hashToken(raw),revokedAt:null},{$set:{revokedAt:new Date()}});return {success:true,message:"Refresh session revoked. Current access token expires within 20 minutes."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
+
+  const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
+  const allowedTemplates={public:["aurora","editorial"],dashboard:["midnight","paper"]} as const;
+  const readTemplateUser=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
+   try{await req.jwtVerify();const claims=req.user as {sub?:string;aud?:string};if(claims.aud!=="bee-core"||!claims.sub){reply.code(401).send({error:"Unauthorized"});return null;}return claims.sub;}catch{reply.code(401).send({error:"Unauthorized"});return null;}
+  };
+  ctx.server.get("/templates/preferences",async(req,reply)=>{
+   const userId=await readTemplateUser(req,reply);if(!userId)return;
+   const saved=await templatePreferences.findOne({userId});
+   return {selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard}};
+  });
+  ctx.server.put<{Body:{public?:string;dashboard?:string}}>("/templates/preferences",async(req,reply)=>{
+   const userId=await readTemplateUser(req,reply);if(!userId)return;
+   const body=req.body??{};
+   if(body.public!==undefined&&!(allowedTemplates.public as readonly string[]).includes(body.public))return reply.code(400).send({error:"Invalid public template"});
+   if(body.dashboard!==undefined&&!(allowedTemplates.dashboard as readonly string[]).includes(body.dashboard))return reply.code(400).send({error:"Invalid dashboard template"});
+   if(body.public===undefined&&body.dashboard===undefined)return reply.code(400).send({error:"At least one template selection is required"});
+   const current=await templatePreferences.findOne({userId});
+   const selection={public:body.public??current?.public??templateDefaults.public,dashboard:body.dashboard??current?.dashboard??templateDefaults.dashboard};
+   await templatePreferences.updateOne({userId},{$set:{...selection,updatedAt:new Date()}},{upsert:true});
+   return {selection};
+  });
   ctx.server.addHook("onClose",async()=>{await mongo.close();});
   ctx.logger.info("Auth plugin initialized",{clients:validClients,persistence:"mongodb",refreshRotation:true});
  }
