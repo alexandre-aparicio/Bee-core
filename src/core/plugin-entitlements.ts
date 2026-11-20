@@ -1,6 +1,7 @@
 import type { Db, Document } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { TenantCollection } from "./tenant-collection.js";
+import type { TenantPluginMigration } from "./plugin-migrations.js";
 import { hasTenantPermission, type TenantContext } from "./tenant-context.js";
 
 export type PluginPlan = Document & {
@@ -23,6 +24,7 @@ export type PluginPackageDefinition = Document & {
   purchasable: boolean;
   system: boolean;
   dependencies: string[];
+  migrations?: TenantPluginMigration[];
   codeAvailable: true;
   status: "published" | "draft" | "deprecated";
   installTenant?: (db: Db, tenantId: string) => Promise<void>;
@@ -94,10 +96,20 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     dependencies: [],
     codeAvailable: true,
     status: "published",
-    installTenant: async (db, tenantId) => {
-      await db.collection("tenant_notes").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "tenant_notes_company_id_unique" });
-      await db.collection("tenant_notes").createIndex({ tenantId: 1, updatedAt: -1 }, { name: "tenant_notes_company_updated" });
-    }
+    migrations: [{
+      id: "001_create_tenant_notes_indexes",
+      checksum: "59292026541b47ed1e52ec773fed06e3f1e5324621b8237da85f6da59de083e2",
+      up: async db => {
+        await db.collection("tenant_notes").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "tenant_notes_company_id_unique" });
+        await db.collection("tenant_notes").createIndex({ tenantId: 1, updatedAt: -1 }, { name: "tenant_notes_company_updated" });
+      },
+      down: async db => {
+        for (const name of ["tenant_notes_company_id_unique", "tenant_notes_company_updated"]) {
+          try { await db.collection("tenant_notes").dropIndex(name); }
+          catch (error) { if (![26, 27].includes((error as { code?: number }).code ?? 0)) throw error; }
+        }
+      }
+    }]
   }
 ];
 
@@ -119,7 +131,7 @@ export async function seedPluginCommerce(db: Db): Promise<void> {
     await plans.updateOne({ id: plan.id }, { $set: plan }, { upsert: true });
   }
   for (const plugin of TRUSTED_PLUGIN_PACKAGES) {
-    const { installTenant: _installTenant, uninstallTenant: _uninstallTenant, ...metadata } = plugin;
+    const { installTenant: _installTenant, uninstallTenant: _uninstallTenant, migrations: _migrations, ...metadata } = plugin;
     const now = new Date();
     await catalog.updateOne(
       { id: plugin.id },
