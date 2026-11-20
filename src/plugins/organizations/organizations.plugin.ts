@@ -69,7 +69,7 @@ export const organizationsPlugin:BeePlugin={
    const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
    let effectivePermissions:readonly string[]=[];
    if(actor?.role==="custom"&&actor.customRoleId){const custom=await customRoles.findOne({id:actor.customRoleId,tenantId:companyId});if(custom){try{effectivePermissions=permissionsForCustomRole(custom);}catch{}}}
-   else if(actor&&rolePermissions[actor.role])effectivePermissions=rolePermissions[actor.role];
+   else if(actor&&actor.role!=="custom")effectivePermissions=rolePermissions[actor.role];
    if(!actor||!effectivePermissions.includes(permission)){reply.code(403).send({error:"Company permission required: "+permission});return null;}
    return actor;
   };
@@ -110,7 +110,7 @@ export const organizationsPlugin:BeePlugin={
   ctx.server.delete<{Params:{companyId:string;roleId:string}}>("/companies/:companyId/roles/:roleId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await ownerOnly(auth,req.params.companyId,reply);if(!actor)return;
-   const assigned=await memberships.countDocuments({tenantId:req.params.companyId,customRoleId:req.params.roleId,status:"active"});
+   const assigned=await memberships.countDocuments({tenantId:req.params.companyId,customRoleId:req.params.roleId});
    if(assigned)return reply.code(409).send({error:"Custom role is assigned to active members"});
    const result=await customRoles.deleteOne({id:req.params.roleId,tenantId:req.params.companyId});
    if(!result.deletedCount)return reply.code(404).send({error:"Custom role not found"});
