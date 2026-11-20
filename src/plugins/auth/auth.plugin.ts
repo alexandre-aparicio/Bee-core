@@ -91,7 +91,7 @@ export const authPlugin:BeePlugin={
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
   ctx.server.get("/templates/public",async(req)=>{
-   const host=String(req.hostname??"").toLowerCase().replace(/:\\d+$/,"");
+   const host=String(req.hostname??"").toLowerCase().replace(/:\d+$/,"");
    const tenant=await tenants.findOne({domains:host});
    const tenantId=tenant?.id??defaultTenantId;
    const saved=await templatePreferences.findOne({tenantId});
@@ -102,7 +102,7 @@ export const authPlugin:BeePlugin={
    const claims=req.user as {roles?:Role[]};
    if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
    const domains=req.body?.domains;
-   if(!Array.isArray(domains)||domains.some(domain=>typeof domain!=="string"||!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/i.test(domain.trim())))return reply.code(400).send({error:"Provide valid domain names"});
+   if(!Array.isArray(domains)||domains.some(domain=>typeof domain!=="string"||!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain.trim())))return reply.code(400).send({error:"Provide valid domain names"});
    const normalized=[...new Set(domains.map(domain=>domain.trim().toLowerCase()))];
    try{await tenants.updateOne({id:tenantId},{$set:{domains:normalized}},{upsert:true});}
    catch(error){return reply.code(409).send({error:"A domain is already assigned to another tenant"});}
