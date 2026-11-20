@@ -28,6 +28,7 @@ export type PluginPackageDefinition = Document & {
   codeAvailable: true;
   status: "published" | "draft" | "deprecated";
   installTenant?: (db: Db, tenantId: string) => Promise<void>;
+  updateTenant?: (db: Db, tenantId: string, previousVersion: string) => Promise<void>;
   uninstallTenant?: (db: Db, tenantId: string) => Promise<void>;
 };
 
@@ -46,7 +47,7 @@ export type TenantPluginInstallation = Document & {
   tenantId: string;
   pluginId: string;
   version: string;
-  status: "installing" | "installed" | "uninstalling" | "failed" | "uninstalled";
+  status: "installing" | "installed" | "updating" | "uninstalling" | "failed" | "uninstalled";
   installedAt: Date | null;
   updatedAt: Date;
   error?: string;
@@ -223,7 +224,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
     db.collection<TenantPluginInstallation>("tenant_plugin_installations"),
     tenantId
   );
-  const installed = await installations.find({ status: { $in: ["installed", "uninstalling"] } }).toArray();
+  const installed = await installations.find({ status: { $in: ["installed", "updating", "uninstalling"] } }).toArray();
   const installedIds = new Set(installed.map(item => item.pluginId));
 
   const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...purchasedIds])];
