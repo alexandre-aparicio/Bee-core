@@ -27,6 +27,9 @@ services:
       AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-}
       MONGODB_URI: mongodb://mongodb:27017
       MONGODB_DB: ${MONGODB_DB:-bee_core}
+      BEE_FILES_DIR: /data/bee-files
+    volumes:
+      - bee_core_files:/data/bee-files
     depends_on:
       mongodb:
         condition: service_healthy
@@ -53,3 +56,4 @@ services:
 
 volumes:
   bee_core_mongodb_data:
+  bee_core_files:
