@@ -37,8 +37,8 @@ export class BeeTemplateEngine {
 
   constructor() {
     for (const manifest of [...BUILT_IN_TEMPLATES, ...PACKAGE_TEMPLATES]) this.register(manifest);
-    if (!this.registry.has(this.selection.public) || this.registry.get(this.selection.public)?.target !== 'public') this.selection.public = DEFAULT_SELECTION.public;
-    if (!this.registry.has(this.selection.dashboard) || this.registry.get(this.selection.dashboard)?.target !== 'dashboard') this.selection.dashboard = DEFAULT_SELECTION.dashboard;
+    if (!this.registry.has(this.selection.public) || this.registry.get(this.selection.public)?.target !== 'public' || !this.installedTemplateIds.has(this.selection.public)) this.selection.public = DEFAULT_SELECTION.public;
+    if (!this.registry.has(this.selection.dashboard) || this.registry.get(this.selection.dashboard)?.target !== 'dashboard' || !this.installedTemplateIds.has(this.selection.dashboard)) this.selection.dashboard = DEFAULT_SELECTION.dashboard;
     this.apply();
     if (this.authToken()) void this.restoreRemoteSelection();
     else void this.restorePublicTenant();
@@ -194,7 +194,7 @@ export class BeeTemplateEngine {
 
   private storageKey(): string {
     if (typeof localStorage === 'undefined') return STORAGE_KEY;
-    try { const session = JSON.parse(localStorage.getItem('bee-auth') || 'null') as { user?: { tenantId?: string } } | null; return `${STORAGE_KEY}:${session?.user?.tenantId || 'anonymous'}`; } catch { return `${STORAGE_KEY}:anonymous`; }
+    try { const session = JSON.parse(localStorage.getItem('bee-auth') || 'null') as { user?: { tenantId?: string } } | null; const scope = session?.user?.tenantId || (typeof window !== 'undefined' ? `host-${window.location.hostname}` : 'anonymous'); return `${STORAGE_KEY}:${scope}`; } catch { return `${STORAGE_KEY}:${typeof window !== 'undefined' ? `host-${window.location.hostname}` : 'anonymous'}`; }
   }
 
   private authToken(): string | null {
