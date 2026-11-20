@@ -8,7 +8,7 @@ This is a **deployment candidate**, not a security-certified production release.
 
 ## Prerequisites
 
-- Docker Engine and Docker Compose plugin
+- Docker Engine and Docker Compose plugin v2.24+ (required for the `!reset` merge tag used to remove inherited host port bindings)
 - Linux VPS with inbound TCP 80 (or place behind an existing reverse proxy)
 - A domain and TLS termination configured at the host reverse proxy before collecting real user data
 
