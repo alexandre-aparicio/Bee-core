@@ -43,6 +43,8 @@ export const authPlugin:BeePlugin={
    tenants.createIndex({domains:1},{unique:true,sparse:true,name:"tenants_domains_unique"})
   ]);
   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
+  const preferencesCollectionExists=await db.listCollections({name:"template_preferences"},{nameOnly:true}).hasNext();
+  if(!preferencesCollectionExists)await db.createCollection("template_preferences");
   const preferenceIndexes=await templatePreferences.listIndexes().toArray();
   if(preferenceIndexes.some(index=>index.name==="template_preferences_user_unique"))await templatePreferences.dropIndex("template_preferences_user_unique");
   for await(const legacy of templatePreferences.find({tenantId:{$exists:false},userId:{$exists:true}}).sort({updatedAt:-1})){
