@@ -49,7 +49,11 @@ test("company plans and purchases control plugin visibility, installation and ac
   try {
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
+    await db.collection("tenant_plugin_installations").insertOne({id:"interrupted-install",tenantId:"market-alpha",pluginId:"notes",version:"0.1.0",status:"installing",installedAt:null,updatedAt:new Date()});
     await marketplacePlugin.initialize?.(ctx);
+    const interruptedInstallRecovery=await db.collection("tenant_plugin_installations").findOne({tenantId:"market-alpha",pluginId:"notes"});
+    assert.equal(interruptedInstallRecovery?.status,"failed");
+    assert.match(String(interruptedInstallRecovery?.error),/interrupted/i);
     await notesPlugin.initialize?.(ctx);
     await app.ready();
 
