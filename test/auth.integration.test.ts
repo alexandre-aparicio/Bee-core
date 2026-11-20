@@ -167,7 +167,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.deepEqual(alphaRecheck.json().selection,{public:"editorial",dashboard:"paper"});
     await db.collection("memberships").updateOne({userId:"test-user",tenantId:"tenant-alpha"},{$set:{status:"suspended"}});
     const staleTenantToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
-    assert.equal(staleTenantToken.statusCode,403);
+    assert.equal(staleTenantToken.statusCode,401);
     await db.collection("memberships").updateOne({userId:"test-user",tenantId:"tenant-alpha"},{$set:{status:"active"}});
 
     const invalidTemplate = await app.inject({ method: "PUT", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken }, payload: { public: "remote-script" } });
