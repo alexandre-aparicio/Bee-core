@@ -60,12 +60,7 @@ export const organizationsPlugin:BeePlugin={
     return {claims,user};
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
-  const rolePermissions:Record<Membership["role"],string[]>={
-   owner:["members.read","members.invite","members.manage","plugins.read","plugins.install","plugins.manage","billing.manage","files.read","files.write"],
-   admin:["members.read","members.invite","members.manage","plugins.read","plugins.install","plugins.manage","files.read","files.write"],
-   manager:["members.read","plugins.read","files.read","files.write"],
-   member:["plugins.read","files.read"]
-  };
+  const rolePermissions=COMPANY_ROLE_PERMISSIONS;
   const requireCompanyPermission=async(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,permission:string,reply:any)=>{
    const activeTenantId=String(auth.claims.tenantId??auth.user!.tenantId??"");
    if(companyId!==activeTenantId){reply.code(403).send({error:"Switch to this company before accessing its resources"});return null;}
