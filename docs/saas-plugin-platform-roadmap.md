@@ -113,10 +113,10 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - Acceptance: plan-only, add-on purchase, expired subscription and revoked purchase scenarios are covered by integration tests; direct API calls cannot bypass entitlements.
 
 ### Phase 5 — Company-scoped plugin installer
-- Add catalog visibility, install/update/rollback/uninstall APIs and UI. (Tenant-filtered catalog, install/uninstall APIs, per-company lifecycle state and a basic dashboard marketplace UI are implemented; upgrade and rollback are pending.)
-- Add durable jobs, dependency ordering, migration locks and recovery. (Installation now uses a MongoDB-backed durable job queue with tenant/plugin deduplication, atomic worker leases, bounded retries, expired-lease recovery and tenant-scoped job status. Install hooks and migrations run asynchronously; shutdown drains the active worker. Uninstall now also uses durable company-scoped jobs with active-operation deduplication, `uninstalling` state, worker lease recovery and Angular progress (PR #27). Failed hooks restore the installed state; successful uninstall preserves tenant business data. Upgrade/rollback, distributed worker scaling and dependency graph ordering remain pending.)
+- Add catalog visibility, install/update/rollback/uninstall APIs and UI. (Tenant-filtered catalog, install/update/uninstall APIs, per-company lifecycle state and dashboard marketplace update progress are implemented; complete rollback guarantees and dynamic frontend registration remain pending.)
+- Add durable jobs, dependency ordering, migration locks and recovery. (Installation, update and uninstall use MongoDB-backed durable jobs with tenant/plugin deduplication, atomic worker leases, bounded retries, expired-lease recovery and tenant-scoped job status. Updates re-check entitlements, run pending migrations, preserve/recover the installed version across worker interruption, emit audit events and expose Angular progress (PR #30). The resolver orders transitive dependencies and fails closed on missing dependencies/cycles; install/update re-check dependency entitlements and installed state (PR #31). Failed uninstall preserves tenant data. Full rollback guarantees, distributed worker scaling, signed immutable package archives and dynamic frontend registration remain pending.)
 - Separate installed, enabled, suspended and failed states. (Initial installed/installing/failed/uninstalled states exist; entitlement suspension/reactivation handling remains pending.)
-- Acceptance: install, upgrade, failed migration recovery, dependency conflict, suspension, reactivation and uninstall are tested with two isolated companies. Install/uninstall job deduplication, tenant-scoped status, expired-worker-lease recovery, conflicting-operation rejection and data preservation are covered; full upgrade/rollback, dependency ordering and multi-worker stress coverage remain.
+- Acceptance: install, upgrade, failed migration recovery, dependency conflict, suspension, reactivation and uninstall are tested with two isolated companies. Install/update/uninstall job behavior, deduplication, tenant-scoped status, expired-worker-lease recovery, conflicting-operation rejection, update migration path, dependency ordering, missing/cyclic dependency rejection and data preservation have regression coverage; full rollback guarantees, multi-worker stress and package signature verification remain.
 
 ### Phase 6 — First reference plugin and release readiness
 - Build `hello-world` as a real reference plugin using the final contract.
@@ -150,3 +150,12 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - Production VPS deployment is intentionally deferred.
 
 - Plan storage quotas are enforced by the Files plugin using atomic per-company reservations; usage is tracked independently by tenant. User-count limits are enforced when adding or accepting company memberships.
+
+
+## Current verified status (2026-11-20, after PR #31)
+
+- PR #29 hardens tenant isolation by blocking tenantId mutation through MongoDB update operators and nested paths.
+- PR #30 adds durable company-scoped plugin updates, migration-aware worker execution, recovery around version switching, audit events and Angular progress.
+- PR #31 adds deterministic transitive dependency ordering, fail-closed handling of missing dependencies/cycles and dependency entitlement/installation checks during install and update.
+- Main commit `4dce576d8bcbe0a8676b6dd613647fa9486c910a` passed Bee-Core CI run `44774847013` and production Compose run `44774847047`.
+- PR #32 adds a MongoDB backup/restore round-trip to production Compose CI. It is not merged; the first malformed workflow attempts failed, and the repaired workflow is awaiting a fresh green run. Do not treat backup/restore as verified until that run passes.
