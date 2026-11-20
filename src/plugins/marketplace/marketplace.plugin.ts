@@ -11,6 +11,7 @@ import {
   getTenantPluginCatalog,
   getTenantSubscription,
   getTrustedPluginPackage,
+  resolvePluginDependencyOrder,
   hasPluginEntitlement,
   isPluginInstalled,
   seedPluginCommerce
@@ -209,7 +210,7 @@ export const marketplacePlugin: BeePlugin = {
       if (!plugin.entitled) return reply.code(402).send({ error: "An active plan entitlement or plugin purchase is required" });
       const trusted = getTrustedPluginPackage(pluginId);
       if (!trusted) return reply.code(404).send({ error: "Trusted plugin package is unavailable" });
-      for (const dependency of trusted.dependencies) {
+      for (const dependency of resolvePluginDependencyOrder(pluginId)) {
         if (!await hasPluginEntitlement(db, tenant.tenantId, dependency) || !await isPluginInstalled(db, tenant.tenantId, dependency)) {
           return reply.code(409).send({ error: "Required plugin dependency is not installed: " + dependency });
         }
@@ -342,7 +343,7 @@ export const marketplacePlugin: BeePlugin = {
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else if (job.action === "install") {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
-            for (const dependency of trusted.dependencies) {
+            for (const dependency of resolvePluginDependencyOrder(job.pluginId)) {
               if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency)) {
                 throw new Error("Required plugin dependency is not installed: " + dependency);
               }
@@ -363,6 +364,11 @@ export const marketplacePlugin: BeePlugin = {
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.installed", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
+            for (const dependency of resolvePluginDependencyOrder(job.pluginId)) {
+              if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency)) {
+                throw new Error("Required plugin dependency is not installed: " + dependency);
+              }
+            }
             const installations = db.collection("tenant_plugin_installations");
             const installation = await installations.findOne({ tenantId: job.tenantId, pluginId: job.pluginId });
             if (!installation || !["installed", "updating"].includes(String(installation.status))) throw new Error("Plugin is not installed");

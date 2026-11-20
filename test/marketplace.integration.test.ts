@@ -158,6 +158,26 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(betaAfterReinstall.statusCode, 200);
     assert.equal(betaAfterReinstall.json().notes.length, 1);
 
+    await db.collection("tenant_plugin_installations").updateOne(
+      { tenantId: "market-beta", pluginId: "notes" },
+      { $set: { version: "0.0.9" } }
+    );
+    const betaUpdate = await app.inject({
+      method: "POST",
+      url: "/marketplace/plugins/notes/update",
+      headers: { authorization: "Bearer " + betaToken }
+    });
+    assert.equal(betaUpdate.statusCode, 202);
+    assert.equal(betaUpdate.json().action, "update");
+    const betaUpdateJob = await waitForInstallJob(betaUpdate.json().jobId as string);
+    assert.equal(betaUpdateJob.status, "succeeded");
+    const betaUpdatedInstallation = await db.collection("tenant_plugin_installations").findOne({ tenantId: "market-beta", pluginId: "notes" });
+    assert.equal(betaUpdatedInstallation?.version, "0.1.0");
+    assert.equal(betaUpdatedInstallation?.status, "installed");
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({
+      tenantId: "market-beta", action: "plugin.updated", resourceType: "plugin", resourceId: "notes"
+    }), 1, "successful plugin updates must be audited once");
+
     const alphaCannotUseNotes = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCannotUseNotes.statusCode, 403);
 
