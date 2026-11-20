@@ -77,6 +77,11 @@ test("durable plugin install jobs deduplicate, recover expired leases and reject
     const duplicateUpdate = await enqueuePluginUpdateJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a", previousVersion: "0.0.9" });
     assert.equal(duplicateUpdate.created, false);
     assert.equal(duplicateUpdate.job.id, update.job.id);
+    const claimedUpdate = await claimPluginInstallJob(collection, "worker-update");
+    assert.ok(claimedUpdate);
+    assert.equal(claimedUpdate.action, "update");
+    assert.equal(await completePluginInstallJob(collection, claimedUpdate, "worker-update", "0.1.0"), true);
+
     const uninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
     assert.equal(uninstall.created, true);
     assert.equal(uninstall.job.action, "uninstall");
