@@ -200,7 +200,7 @@ export const marketplacePlugin: BeePlugin = {
       try {
         await trusted.installTenant?.(db, tenant.tenantId);
         await installations.updateOne({ tenantId: tenant.tenantId, pluginId }, { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } });
-        return { pluginId, status: "installed", version: trusted.version };
+        return reply.code(201).send({ pluginId, status: "installed", version: trusted.version });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Plugin installation failed";
         await installations.updateOne({ tenantId: tenant.tenantId, pluginId }, { $set: { status: "failed", error: message, updatedAt: new Date() } });
