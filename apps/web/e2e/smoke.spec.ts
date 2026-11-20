@@ -195,7 +195,8 @@ test('dashboard marketplace shows company packages and installs an entitled plug
   await expect(page.getByRole('heading', { name: 'Company plugin marketplace' })).toBeVisible();
   await expect(page.getByText('Private Files')).toBeVisible();
   await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' })).toBeVisible();
-  await page.getByRole('button', { name: 'Install' }).click();
+  const notesRow = page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' });
+  await notesRow.getByRole('button', { name: 'Install' }).click();
   await expect(page.getByText('Team Notes installed for this company.')).toBeVisible();
   await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' }).getByText('Installed', { exact: true })).toBeVisible();
 });
@@ -279,7 +280,7 @@ test('company owner can invite, change roles and suspend company members', async
   await expect(page.getByRole('heading', { name: 'Company members' })).toBeVisible();
   const memberRow = page.locator('.bee-company-members__table tr').filter({ hasText: 'member@example.test' });
   await memberRow.locator('select').selectOption('manager');
-  await expect(memberRow).toContainText('manager');
+  await expect(memberRow.locator('select')).toHaveValue('manager');
   await memberRow.getByRole('button', { name: 'Suspend' }).click();
   await expect(memberRow).toContainText('suspended');
 
