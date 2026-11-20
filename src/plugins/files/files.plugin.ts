@@ -84,7 +84,7 @@ export const filesPlugin: BeePlugin = {
     const safeName = (value: string) => {
       let decoded = value;
       try { decoded = decodeURIComponent(value); } catch { /* retain the original header value */ }
-      return path.basename(decoded).replace(/[\\r\\n\\0]/g, "").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 160) || "file";
+      return path.basename(decoded).replace(/[\r\n\0]/g, "").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 160) || "file";
     };
     const publicRecord = (file: FileRecord) => ({
       id: file.id,
