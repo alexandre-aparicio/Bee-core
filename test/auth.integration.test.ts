@@ -86,7 +86,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(betaTheme.statusCode,200);
     assert.equal(betaTheme.json().tokens["--bg"],"#080a12");
     const betaWrite=await app.inject({method:"PUT",url:"/templates/preferences",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{public:"editorial"}});
-    assert.equal(betaWrite.statusCode,200);
+    assert.equal(betaWrite.statusCode,403);
+    const betaThemeWrite=await app.inject({method:"PUT",url:"/templates/theme",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{tokens:{"--bg":"#ffffff"}}});
+    assert.equal(betaThemeWrite.statusCode,403);
     const alphaRecheck=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.deepEqual(alphaRecheck.json().selection,{public:"editorial",dashboard:"paper"});
     const invalidTemplate = await app.inject({ method: "PUT", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken }, payload: { public: "remote-script" } });
