@@ -176,6 +176,7 @@ export const organizationsPlugin:BeePlugin={
    if(target.role==="owner")return reply.code(409).send({error:"The company owner role cannot be changed here"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot change other administrator roles"});
    await memberships.updateOne({id:target.id},{$set:{role,updatedAt:new Date()}});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.role_changed",outcome:"success",resourceType:"membership",resourceId:target.userId,metadata:{previousRole:target.role,newRole:role}});
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
    return {membership:{userId:target.userId,role,status:"active"},sessionsRevoked:true};
   });
