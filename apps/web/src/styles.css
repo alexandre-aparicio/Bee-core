@@ -215,3 +215,42 @@ body[data-bee-custom-theme="true"] .hero h1 span{color:var(--purple)}
 .bee-marketplace__system,.bee-marketplace__locked{font-size:9px;color:var(--muted);white-space:nowrap}
 @media(max-width:900px){.dash-panels--marketplace{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:600px){.bee-marketplace__item{align-items:flex-start;flex-wrap:wrap}.bee-marketplace__actions{width:100%;justify-content:flex-end}.bee-marketplace .panel-heading{align-items:center}}
+
+
+/* Company members and invitation management */
+.bee-company-members{margin-top:18px;min-width:0}
+.bee-company-members .panel-heading p{margin:6px 0 0;color:var(--muted);font-size:11px}
+.bee-company-members__refresh{border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:#ffffff08;color:inherit;font-size:10px;cursor:pointer}
+.bee-company-members__state{padding:18px 10px;text-align:center;color:var(--muted);font-size:11px}
+.bee-company-members__error{margin:10px 0;padding:9px 11px;border:1px solid #e58a8a55;border-radius:8px;color:#f0aaaa;font-size:10px}
+.bee-company-members__message{margin:10px 0;color:#75d9aa;font-size:10px}
+.bee-company-members__table-wrap{overflow-x:auto;margin-top:12px}
+.bee-company-members__table{width:100%;border-collapse:collapse;text-align:left}
+.bee-company-members__table th{padding:9px 10px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:600;border-bottom:1px solid var(--border)}
+.bee-company-members__table td{padding:11px 10px;border-bottom:1px solid var(--border);font-size:11px;white-space:nowrap}
+.bee-company-members__table td:first-child{min-width:180px;white-space:normal}
+.bee-company-members__table td strong,.bee-company-members__table td small{display:block}
+.bee-company-members__table td small{margin-top:3px;color:var(--muted);font-size:9px}
+.bee-company-members__table select{border:1px solid var(--border);border-radius:7px;padding:6px 8px;background:#ffffff08;color:inherit;font-size:10px}
+.bee-company-members__table select option{background:#111421;color:#e8eaf2}
+.bee-company-members__status{display:inline-flex;padding:4px 7px;border-radius:6px;background:#75d9aa14;color:#75d9aa;font-size:9px}
+.bee-company-members__status.is-suspended{background:#e8b46a16;color:#e8b46a}
+.bee-company-members__danger{border:1px solid #e58a8a55;border-radius:7px;padding:6px 9px;background:#e58a8a0d;color:#f0aaaa;font-size:9px;cursor:pointer}
+.bee-company-members__invite,.bee-company-members__invitations{margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+.bee-company-members__invite h3,.bee-company-members__invitations h3{margin:0 0 10px;font-size:12px}
+.bee-company-members__invite form{display:grid;grid-template-columns:minmax(0,1fr) 130px auto;gap:8px}
+.bee-company-members__invite input,.bee-company-members__invite select{min-width:0;border:1px solid var(--border);border-radius:8px;padding:9px 10px;background:#ffffff08;color:inherit;font-size:10px}
+.bee-company-members__invite select option{background:#111421;color:#e8eaf2}
+.bee-company-members__invite form button,.bee-company-members__token button{border:1px solid transparent;border-radius:8px;padding:8px 12px;background:var(--purple);color:#fff;font-size:10px;font-weight:600;cursor:pointer}
+.bee-company-members__invite button:disabled{opacity:.5;cursor:wait}
+.bee-company-members__token{display:grid;gap:7px;margin-top:12px;padding:12px;border:1px dashed var(--purple);border-radius:9px;background:#8c72ff0b}
+.bee-company-members__token strong{font-size:10px}
+.bee-company-members__token code{overflow-wrap:anywhere;color:#c6baff;font-size:10px}
+.bee-company-members__token small{color:var(--muted);font-size:9px}
+.bee-company-members__token button{justify-self:start}
+.bee-company-members__invitation{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.bee-company-members__invitation>span:first-child{flex:1;min-width:0}
+.bee-company-members__invitation strong,.bee-company-members__invitation small{display:block}
+.bee-company-members__invitation strong{font-size:10px}
+.bee-company-members__invitation small{margin-top:3px;color:var(--muted);font-size:9px}
+@media(max-width:600px){.bee-company-members__invite form{grid-template-columns:minmax(0,1fr) 110px}.bee-company-members__invite form button{grid-column:1/-1}.bee-company-members__invitation{flex-wrap:wrap}.bee-company-members__invitation>span:first-child{flex-basis:100%}}
