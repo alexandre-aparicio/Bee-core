@@ -104,15 +104,8 @@ jobs:
           db_name=${db_name:-bee_core}
           restore_db="${db_name}_restore_ci"
           docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval "db.getSiblingDB('${db_name}').backup_restore_probe.replaceOne({_id:'ci-roundtrip'},{_id:'ci-roundtrip',verified:true},{upsert:true})"
-          network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default        if: failure()
-        run: |
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color
-
-      - name: Tear down isolated stack
-        if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
- | head -n1)
+          mongodb_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)
+          network=$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
           test -n "$network"
           mkdir -p "$RUNNER_TEMP/bee-backups"
           docker run --rm --network "$network" -v "$RUNNER_TEMP/bee-backups:/backup" mongodb/mongodb-database-tools:100.12.2 mongodump --uri="mongodb://mongodb:27017/${db_name}" --archive=/backup/bee-core.archive --gzip
