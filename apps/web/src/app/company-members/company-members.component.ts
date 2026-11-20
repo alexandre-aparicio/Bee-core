@@ -112,6 +112,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   acceptanceToken = "";
   inviteTokenInput = "";
   loading = false;
+  private requestSequence = 0;
   busyId = "";
   error = "";
   message = "";
@@ -123,7 +124,18 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
 
   ngOnInit(): void { void this.load(); }
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes["tenantId"] || changes["role"]) && !changes["tenantId"]?.firstChange) void this.load();
+    if ((changes["tenantId"] || changes["role"]) && !changes["tenantId"]?.firstChange) {
+      this.requestSequence++;
+      this.members = [];
+      this.invitations = [];
+      this.customRoles = [];
+      this.loading = false;
+      this.error = "";
+      this.message = "";
+      this.acceptanceToken = "";
+      this.resetCustomRoleForm();
+      if (this.canRead && this.tenantId) void this.load();
+    }
   }
 
   trackMember(_index: number, member: CompanyMember): string { return member.userId; }
@@ -149,28 +161,37 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
 
   async load(): Promise<void> {
     if (!this.canRead || !this.tenantId || !this.token) return;
+    const requestId = ++this.requestSequence;
+    const requestedTenantId = this.tenantId;
+    const requestedRole = this.role;
+    const isCurrentRequest = () => requestId === this.requestSequence
+      && requestedTenantId === this.tenantId
+      && requestedRole === this.role;
     this.loading = true;
     this.error = "";
     try {
-      const result = await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/memberships");
+      const result = await this.request("/companies/" + encodeURIComponent(requestedTenantId) + "/memberships");
+      if (!isCurrentRequest()) return;
       this.members = result.memberships || [];
       if (this.canManage) {
-        const pending = await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/invitations");
+        const pending = await this.request("/companies/" + encodeURIComponent(requestedTenantId) + "/invitations");
+        if (!isCurrentRequest()) return;
         this.invitations = pending.invitations || [];
       } else {
         this.invitations = [];
       }
       if (this.canManageCustomRoles) {
-        const roles = await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/roles");
+        const roles = await this.request("/companies/" + encodeURIComponent(requestedTenantId) + "/roles");
+        if (!isCurrentRequest()) return;
         this.customRoles = roles.roles || [];
       } else {
         this.customRoles = [];
         this.resetCustomRoleForm();
       }
     } catch (error) {
-      this.error = error instanceof Error ? error.message : "Could not load company members";
+      if (isCurrentRequest()) this.error = error instanceof Error ? error.message : "Could not load company members";
     } finally {
-      this.loading = false;
+      if (isCurrentRequest()) this.loading = false;
     }
   }
 
