@@ -39,18 +39,18 @@ type MarketplacePlugin = {
               <span *ngIf="plugin.accessSource === 'plan'">Included in plan</span>
               <span *ngIf="plugin.accessSource === 'purchase'">Purchased add-on</span>
               <span *ngIf="!plugin.entitled">Not included</span>
-              <span *ngIf="plugin.installed" class="bee-marketplace__installed">Installed</span>
+              <span *ngIf="plugin.installed" class="bee-marketplace__installed">{{plugin.id === "hello-world" ? "Active" : "Installed"}}</span>
             </div>
           </div>
           <div class="bee-marketplace__actions">
             <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" (click)="install(plugin)" [disabled]="busyId !== ''">
-              {{busyId === plugin.id ? 'Installing…' : 'Install'}}
+              {{busyId === plugin.id ? 'Activating…' : plugin.id === 'hello-world' ? 'Activate' : 'Install'}}
             </button>
             <button *ngIf="canManage && plugin.installed && !plugin.system && plugin.installedVersion && plugin.installedVersion !== plugin.version" type="button" (click)="update(plugin)" [disabled]="busyId !== ''">
               {{busyId === plugin.id ? 'Updating…' : 'Update to v' + plugin.version}}
             </button>
             <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" class="bee-marketplace__remove" (click)="uninstall(plugin)" [disabled]="busyId !== ''">
-              {{busyId === plugin.id ? 'Removing…' : 'Uninstall'}}
+              {{busyId === plugin.id ? 'Deactivating…' : plugin.id === 'hello-world' ? 'Deactivate' : 'Uninstall'}}
             </button>
             <span *ngIf="plugin.installed && plugin.system" class="bee-marketplace__system">System</span>
             <span *ngIf="!plugin.entitled && plugin.purchasable" class="bee-marketplace__locked">Available as add-on</span>
