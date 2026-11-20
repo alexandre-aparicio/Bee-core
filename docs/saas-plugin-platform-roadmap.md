@@ -114,9 +114,9 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 
 ### Phase 5 — Company-scoped plugin installer
 - Add catalog visibility, install/update/rollback/uninstall APIs and UI. (Tenant-filtered catalog, install/uninstall APIs, per-company lifecycle state and a basic dashboard marketplace UI are implemented; upgrade and rollback are pending.)
-- Add durable jobs, dependency ordering, migration locks and recovery. (Current install hooks run synchronously and a durable job queue is still pending. Startup recovery now converts interrupted `installing` states into retryable `failed` states with an error marker, avoiding permanently stuck installations. Dependency graph resolution and durable crash recovery remain pending.)
+- Add durable jobs, dependency ordering, migration locks and recovery. (Installation now uses a MongoDB-backed durable job queue with tenant/plugin deduplication, atomic worker leases, bounded retries, expired-lease recovery and tenant-scoped job status. Install hooks and migrations run asynchronously; shutdown drains the active worker. Uninstall remains synchronous; upgrade/rollback, distributed worker operations beyond lease-based single-job claiming, and dependency graph resolution remain pending.)
 - Separate installed, enabled, suspended and failed states. (Initial installed/installing/failed/uninstalled states exist; entitlement suspension/reactivation handling remains pending.)
-- Acceptance: install, upgrade, failed migration recovery, dependency conflict, suspension, reactivation and uninstall are tested with two isolated companies.
+- Acceptance: install, upgrade, failed migration recovery, dependency conflict, suspension, reactivation and uninstall are tested with two isolated companies. Install-job deduplication, tenant-scoped status and expired-worker-lease recovery are now covered; full upgrade/rollback and multi-worker stress coverage remain.
 
 ### Phase 6 — First reference plugin and release readiness
 - Build `hello-world` as a real reference plugin using the final contract.
@@ -125,6 +125,8 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - Only then consider production deployment.
 
 ## Current verified status (2026-11-20)
+
+- PR #22 — private template SSE now revalidates persisted session and tenant membership every five seconds, fails closed on revocation, and has a MongoDB integration regression test. Post-merge backend/full-stack CI and production Compose workflows passed on `15faa3b85cae75fc1812017f5467752a3ccddf33`.
 
 - Implemented foundation: Node.js/TypeScript, Fastify, MongoDB, Angular, Docker Compose, persistent authentication, refresh-token rotation/replay rejection, template selection/installation and tenant-scoped template preferences/SSE.
 - Company membership foundation is implemented: legacy `users.tenantId` values are backfilled into `memberships`; users can list/create companies, activate a company in the current refresh-token session, and list/add/update/suspend company members.
