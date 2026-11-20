@@ -1,38 +1,60 @@
 # Bee-Core
 
-**All Is a Plugin** — a small TypeScript modular runtime where the core provides infrastructure and application capabilities are plugins.
+**All Is a Plugin** — a modular TypeScript runtime where the core provides infrastructure and application capabilities are delivered by plugins.
 
-## MVP
+## MVP capabilities
+
 - Plugin registry and lifecycle (register, initialize, start, stop)
-- Typed event bus
-- Fastify HTTP runtime
+- Typed event bus and Fastify HTTP runtime
 - Health and plugin introspection endpoints
-- Auth plugin for backend/dashboard/public clients
-- MongoDB-native persistent users and refresh sessions
-- Angular 19 frontend for public landing, login and dashboard shell
-- Docker Compose stack with MongoDB
+- Authentication for backend, dashboard and public clients
+- MongoDB-persisted users and refresh sessions
+- Angular frontend with public landing, login and dashboard shell
+- Docker Compose deployment with persistent MongoDB and private file storage
 
-## Docker deployment
+## First VPS installation
+
+For the initial server pull, use the production Compose overlay documented in **[the Bee-Core 0.1.0 deployment guide](docs/mvp-deployment.md)**. It publishes only the web entry point; MongoDB and the API remain private on the Compose network.
+
+Quick start:
+
 ```bash
 git clone https://github.com/alexandre-aparicio/Bee-core.git
 cd Bee-core
-cp .env.auth.example .env
-# Edit .env with a strong JWT secret and bootstrap admin credentials
-docker compose up -d --build
+cp .env.production.example .env
+openssl rand -hex 48
+# Put the generated value in JWT_SECRET and set unique admin credentials in .env
+chmod 600 .env
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-Endpoints: `/health`, `/plugins`, `/auth/login`, `/auth/refresh`, `/auth/me`, `/auth/logout`.
+Use Docker Engine and Docker Compose plugin v2.24 or newer. Configure HTTPS and firewall access before exposing the service to real users. This MVP deployment is a test/deployment candidate, not a security-certified production release. See the deployment guide for verification, persistence, backup and restore instructions.
+
+## API endpoints
+
+`/health`, `/plugins`, `/auth/login`, `/auth/refresh`, `/auth/me`, `/auth/logout`.
 
 ## Local development
-Node.js 22+, MongoDB 8+
+
+Requirements: Node.js 22+ and MongoDB 8+.
+
 ```bash
 npm install
 npm run dev
 ```
-Frontend: `cd apps/web && npm install && npm start`.
 
-## Auth persistence
+Frontend:
+
+```bash
+cd apps/web
+npm install
+npm start
+```
+
+## Authentication persistence
+
 Users and refresh sessions are stored in MongoDB collections `users` and `refresh_sessions`. Refresh tokens are SHA-256 hashed, rotated on refresh, and TTL-indexed for expiration cleanup. See [docs/auth.md](docs/auth.md).
 
 ## Plugin contract
+
 A plugin exports a manifest and lifecycle hooks. See [src/plugins/hello.plugin.ts](src/plugins/hello.plugin.ts).
