@@ -225,6 +225,13 @@ export class BeeTemplateEngine {
     } catch { /* The built-in public template is the offline fallback. */ }
   }
 
+  async refreshForActiveCompany(): Promise<void> {
+    this.stream?.close();
+    this.stream = undefined;
+    this.selectionRevision++;
+    await this.restoreRemoteSelection();
+  }
+
   private async restoreRemoteSelection(): Promise<void> {
     const token = this.authToken();
     if (!token || typeof fetch === 'undefined') return;
