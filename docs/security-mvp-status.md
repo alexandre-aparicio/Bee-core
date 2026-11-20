@@ -10,11 +10,12 @@ This document records security checks currently covered and gaps that remain bef
 - Added regression coverage for cross-company note update/delete attempts, both directions, and asserts that the owning company's note content remains unchanged.
 - Added strict custom-role permission key/name normalization foundation (exact permission keys; no wildcard grants).
 - Added tenant-scoped append-only audit event write service with metadata limits and indexes.
+- Auth plugin records successful login and logout events, including active tenant and client; integration test asserts both records.
 
 ## Not complete
 
 - Custom roles are not yet persisted or wired into membership/auth permission resolution.
-- Audit event service is not yet integrated into auth, role/member, marketplace, or permission-denial routes.
+- Audit event service currently covers successful login/logout only; member/role, marketplace and permission-denial actions are not yet wired.
 - No end-to-end audit query/export or retention controls.
 - Tenant isolation audit of every route and background/async entrypoint is incomplete.
 - MFA, rate limiting, password recovery, email verification and robust token revocation remain outstanding.
