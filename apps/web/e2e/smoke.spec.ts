@@ -56,3 +56,20 @@ test('dashboard template can be selected without changing public theme', async (
   await expect(page.locator('[data-bee-slot="widgets"]')).toHaveCount(1);
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'aurora');
 });
+
+
+test('public tenant template and design tokens hot-load from the request domain', async ({ page }) => {
+  await page.route('**/api/templates/public', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      tenantId: 'tenant-demo',
+      selection: { public: 'editorial', dashboard: 'paper' },
+      tokens: { '--bg': '#112233', '--purple': '#abcdef' }
+    })
+  }));
+  await page.goto('/');
+  await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
+  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#112233');
+  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--purple').trim())).toBe('#abcdef');
+});
