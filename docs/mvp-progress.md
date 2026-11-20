@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — `main` includes PR #23 at `67986b586c95974b5a540efa2ee9ee1f41102996`. Post-merge backend/full-stack CI run `44767972917`, Angular CI run `44767972896` and production Compose run `44767972871` all passed.
+Updated: 2026-11-20 — `main` includes PR #23 at `67986b586c95974b5a540efa2ee9ee1f41102996`. Post-merge backend/full-stack CI run `44767972917`, Angular CI run `44767972896` and production Compose run `44767972871` all passed. Roadmap reconciled after merge; next lifecycle increment is asynchronous uninstall.
 
 ## How progress is measured
 
@@ -58,7 +58,7 @@ PR #20 selectively ported the unique audit functionality onto current `main`, ra
 
 ## Active next work
 
-1. Complete asynchronous uninstall jobs and lifecycle-state transitions; current uninstall remains synchronous.
+1. Implement asynchronous uninstall jobs with idempotent state transitions, safe worker recovery and explicit data-preservation guarantees; current uninstall remains synchronous.
 2. Complete tenant-isolation review across protected routes, file/media paths, webhooks and background tasks; PR #22 closes the private template SSE revocation gap but not the full audit.
 3. Implement durable plugin update jobs, dependency ordering, migration rollback and immutable signed package storage.
 4. Add payment-provider integration, checkout/subscription management and billing reconciliation.
