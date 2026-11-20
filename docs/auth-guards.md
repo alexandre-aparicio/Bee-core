@@ -24,4 +24,4 @@ server.get("/internal/example", {
 
 ## Current limitations
 
-The guards are implemented, but existing routes have not yet been migrated to them. The auth token is still stateless, users are in memory, and roles are token claims rather than database-backed authorization. Do not expose this prototype to the public internet until persistent users, token revocation/rotation, rate limiting, and route coverage are completed and reviewed.
+The guards are implemented, but existing routes have not yet been migrated to them. Auth now persists users and refresh sessions in MongoDB. Roles are still included in access-token claims and route guard coverage is not yet centralized. Do not expose this prototype to the public internet until persistent users, token revocation/rotation, rate limiting, and route coverage are completed and reviewed.
