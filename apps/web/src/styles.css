@@ -58,3 +58,36 @@
   .system-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
   .auth-page { align-items: center; padding: 24px; }
 }
+
+
+/* Template engine: independent visual themes for public and dashboard surfaces. */
+.bee-template-manager{display:flex;flex-direction:column;gap:12px;padding:15px 17px;margin:0 0 18px;border:1px solid var(--border);border-radius:12px;background:var(--panel);color:#e8eaf2}
+.bee-template-manager__heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bee-template-manager__heading>div{display:flex;flex-direction:column;gap:4px}
+.bee-template-manager__heading strong{font-size:13px}
+.bee-template-manager__eyebrow{font-size:9px;letter-spacing:1.4px;color:#a99aff;font-weight:700}
+.bee-template-manager__status{font-size:9px;color:#6ed8a7;border:1px solid #59d59c33;padding:5px 8px;border-radius:20px}
+.bee-template-manager__fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.bee-template-manager__fields label{display:flex;flex-direction:column;gap:6px;color:#9da6b8;font-size:10px}
+.bee-template-manager__fields select{width:100%;min-width:0;border:1px solid var(--border);border-radius:8px;background:#0b0e17;color:#e8eaf2;padding:9px;font:inherit;font-size:11px}
+.bee-template-manager>p{margin:0;color:#8791a5;font-size:10px;line-height:1.55}
+footer .bee-template-manager{width:min(100%,420px);margin:0 0 15px}
+body[data-bee-dashboard-template="paper"] .dashboard{background:#f3f5fa;color:#20283a}
+body[data-bee-dashboard-template="paper"] .dash-sidebar{background:#fff;border-color:#e2e6ef}
+body[data-bee-dashboard-template="paper"] .dash-header{border-color:#e2e6ef}
+body[data-bee-dashboard-template="paper"] .dash-stat,body[data-bee-dashboard-template="paper"] .panel,body[data-bee-dashboard-template="paper"] .bee-template-manager{background:#fff;border-color:#e2e6ef;color:#20283a}
+body[data-bee-dashboard-template="paper"] .workspace{background:#f7f8fc;border-color:#e2e6ef}
+body[data-bee-dashboard-template="paper"] .workspace b,body[data-bee-dashboard-template="paper"] .dash-welcome h1,body[data-bee-dashboard-template="paper"] .panel-heading h2,body[data-bee-dashboard-template="paper"] .runtime-plugin b,body[data-bee-dashboard-template="paper"] .quick-action b{color:#20283a}
+body[data-bee-dashboard-template="paper"] .dash-nav{color:#68738a}
+body[data-bee-dashboard-template="paper"] .dash-nav.active{background:#eeeaff;color:#6550c8;border-color:#e1dcff}
+body[data-bee-dashboard-template="paper"] .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
+body[data-bee-public-template="editorial"]{background:#f6f7fb;color:#20283a}
+body[data-bee-public-template="editorial"] .site-header,body[data-bee-public-template="editorial"] footer{border-color:#e1e5ee}
+body[data-bee-public-template="editorial"] .brand,body[data-bee-public-template="editorial"] .hero h1,body[data-bee-public-template="editorial"] .feature-section h2,body[data-bee-public-template="editorial"] .architecture h2{color:#20283a}
+body[data-bee-public-template="editorial"] .nav-links,body[data-bee-public-template="editorial"] .hero-copy,body[data-bee-public-template="editorial"] .section-copy{color:#5f6b80}
+body[data-bee-public-template="editorial"] .preview,body[data-bee-public-template="editorial"] .preview-sidebar,body[data-bee-public-template="editorial"] .preview-main{background:#fff;color:#20283a}
+body[data-bee-public-template="editorial"] .feature-grid article,body[data-bee-public-template="editorial"] .architecture-stack{background:#fff;border-color:#e1e5ee}
+body[data-bee-public-template="editorial"] .feature-grid h3,body[data-bee-public-template="editorial"] .stack-plugins>div{color:#20283a}
+body[data-bee-public-template="editorial"] .bee-template-manager{background:#fff;color:#20283a;border-color:#e1e5ee}
+body[data-bee-public-template="editorial"] .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
+@media(max-width:759px){.bee-template-manager__fields{grid-template-columns:1fr}footer .bee-template-manager{width:100%}}
