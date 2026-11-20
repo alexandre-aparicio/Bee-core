@@ -82,7 +82,7 @@ export const organizationsPlugin:BeePlugin={
   };
   const requireCompanyAdmin=(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>requireCompanyPermission(auth,companyId,"members.manage",reply);
   // Custom company roles: tenant-scoped, owner-managed and permission-validated.
-  const ownerOnly=async(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>{
+  const ownerOnly=async(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>{
    const actor=await requireCompanyPermission(auth,companyId,"members.manage",reply);
    if(!actor)return null;
    if(actor.role!=="owner"){reply.code(403).send({error:"Only the company owner can manage custom roles"});return null;}
