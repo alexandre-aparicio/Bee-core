@@ -25,7 +25,7 @@ Companies without a subscription record receive a 14-day Starter trial on first 
 - `DELETE /marketplace/plugins/:pluginId/install`: checks management permission, prevents removal of system packages and dependencies in use, then enqueues a durable uninstall job and returns HTTP `202` with `jobId` and `statusUrl`.
 - `GET /billing/subscription`: current subscription and effective plan.
 
-Installation state and lifecycle jobs are company-scoped. The worker activates or uninstalls only trusted code already compiled into the Bee-Core runtime; it does not download or execute arbitrary package code. MongoDB job records survive API restarts, concurrent requests for the same company/plugin and action share one active job, worker claims use expiring leases, and failed jobs retry up to three attempts with backoff. The Angular marketplace waits for install and uninstall job results and displays progress. Uninstall transitions through `uninstalling` and returns to `installed` if the hook fails; successful uninstall preserves tenant business data.
+Installation state and lifecycle jobs are company-scoped. The worker activates or uninstalls only trusted code already compiled into the Bee-Core runtime; it does not download or execute arbitrary package code. MongoDB job records survive API restarts, concurrent requests for the same company/plugin and action share one active job, worker claims use expiring leases that are renewed while long-running jobs execute; expired workers cannot renew, complete or fail a job after losing ownership. Failed jobs retry up to three attempts with backoff. Plugin migrations are checksum-immutable and tenant-scoped. If a later migration fails, completed migrations are compensated in reverse order; if a post-migration install/update hook fails, migrations applied during that lifecycle attempt are also compensated. Missing or failing rollback handlers are persisted as `rollback_failed` for operator recovery. Update hooks receive the previous installed version. The Angular marketplace waits for install, update and uninstall job results and displays progress. Uninstall transitions through `uninstalling` and returns to `installed` if the hook fails; successful uninstall preserves tenant business data.
 
 ## Billing integration
 
@@ -49,7 +49,7 @@ The `notes` plugin demonstrates the intended pattern:
 ## Important limitations before commercial launch
 
 - The catalogue and plan metadata are in MongoDB, but executable packages are currently trusted code bundled into the server build. Immutable downloadable package archives are not yet stored centrally.
-- The business-plugin manifest validator defines a signed package contract, but signature/digest verification is not yet wired into package installation.
+- The business-plugin manifest validator enforces semantic version dependency ranges, unique dependency/permission/collection/migration/route declarations and safe backend/frontend/storage paths. The manifest contains digest/signature metadata, but cryptographic signature/digest verification is not yet wired into package installation.
 - Plan definitions and trusted package definitions are code-managed; a platform administration UI/API is pending.
 - Purchase and subscription webhook events are implemented, but no payment provider or checkout integration is connected.
 - Install and uninstall jobs are durable and recover expired worker leases. Version upgrades, rollback, immutable package archive verification and full dependency graph resolution remain pending.
