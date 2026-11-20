@@ -73,10 +73,14 @@ export const authPlugin:BeePlugin={
    if(!u||!await bcrypt.compare(password,u.passwordHash))return reply.code(401).send({error:"Invalid credentials"});
    if(!u.allowedClients.includes(client))return reply.code(403).send({error:"Client access denied"});
    if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
-   const sessionId=randomUUID(),accessToken=issue(u,client,u.tenantId??defaultTenantId,sessionId),refreshToken=makeRefreshToken();
-   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId:u.tenantId??defaultTenantId,expiresAt:refreshExpiry(),revokedAt:null,createdAt:new Date()});
+   const tenantId=u.tenantId??defaultTenantId;
+   const membership=await db.collection("memberships").findOne({userId:u.id,tenantId,status:"active"});
+   if(!membership)return reply.code(403).send({error:"No active company membership"});
+   const membershipRole=String(membership.role??"member"),effectiveRoles:Role[]=membershipRole==="owner"||membershipRole==="admin"?["admin"]:["user"];
+   const sessionId=randomUUID(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId),refreshToken=makeRefreshToken();
+   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt:refreshExpiry(),revokedAt:null,createdAt:new Date()});
    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
-   return {accessToken,refreshToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,user:publicUser(u),client};
+   return {accessToken,refreshToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,user:publicUser({...u,roles:effectiveRoles}),client,tenantId};
   });
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
    const raw=String(req.body?.refreshToken??"");if(raw.length<40)return reply.code(400).send({error:"refreshToken required"});
