@@ -99,7 +99,7 @@ test('tenant admin can install and activate a trusted dashboard template package
   await page.goto('/dashboard');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
-  await manager.getByRole('button', { name: 'Install' }).filter({ has: page.locator('text=Install') }).first().click();
+  await manager.getByRole('button', { name: 'Install' }).first().click();
   await expect(manager.getByText('Package installed for this tenant.')).toBeVisible();
   await manager.getByLabel('Dashboard').selectOption('glass');
   await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
