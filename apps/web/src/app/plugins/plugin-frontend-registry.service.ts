@@ -1,5 +1,6 @@
 import { Injectable, type Type } from "@angular/core";
 import { BeeNotesComponent } from "../notes/notes.component";
+import { BeeHelloWorldComponent } from "./hello-world.component";
 
 export type BeePluginFrontendContext = {
   tenantId: string;
@@ -24,6 +25,10 @@ export class BeePluginFrontendRegistry {
         tenantId: context.tenantId,
         canWrite: ["owner", "admin", "manager"].includes(context.role)
       })
+    }],
+    ["hello-world", {
+      component: BeeHelloWorldComponent,
+      inputs: () => ({})
     }]
   ]);
 
