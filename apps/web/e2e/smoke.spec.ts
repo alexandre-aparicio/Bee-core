@@ -292,3 +292,40 @@ test('company owner can invite, change roles and suspend company members', async
   await newInvitation.getByRole('button', { name: 'Cancel' }).click();
   await expect(newInvitation).toContainText('cancelled');
 });
+
+
+test('a signed-in member can accept an invitation and see the new company in the switcher', async ({ page }) => {
+  let accepted = false;
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
+      accessToken: 'company-a-token',
+      tenantId: 'company-a',
+      user: { id: 'user-a', email: 'user@example.test', roles: ['user'], tenantId: 'company-a' }
+    }));
+  });
+  await page.route('**/api/companies', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ companies: [
+      { id: 'company-a', name: 'Company A', role: 'member', active: true },
+      ...(accepted ? [{ id: 'company-b', name: 'Company B', role: 'member', active: false }] : [])
+    ] })
+  }));
+  await page.route('**/api/companies/company-a/memberships', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: [] })
+  }));
+  await page.route('**/api/invitations/accept', route => {
+    accepted = true;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, company: { id: 'company-b', name: 'Company B' }, membership: { role: 'member' } })
+    });
+  });
+  await page.goto('/dashboard');
+  await page.getByPlaceholder('Paste a company invitation token').fill('one-time-invitation-token');
+  await page.getByRole('button', { name: 'Accept invitation' }).click();
+  await expect(page.getByText('Invitation accepted for Company B. Select that company in the workspace switcher.')).toBeVisible();
+  await expect(page.getByLabel('Active company')).toHaveValue('company-a');
+  await expect(page.getByLabel('Active company').locator('option[value="company-b"]')).toHaveCount(1);
+});
