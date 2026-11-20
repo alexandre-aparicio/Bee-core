@@ -116,7 +116,7 @@ export async function seedPluginCommerce(db: Db): Promise<void> {
     db.collection("plugin_purchases").createIndex({ tenantId: 1, providerReference: 1 }, { unique: true, name: "tenant_plugin_purchase_reference_unique" })
   ]);
   for (const plan of BUILT_IN_PLANS) {
-    await plans.updateOne({ id: plan.id }, { $setOnInsert: plan }, { upsert: true });
+    await plans.updateOne({ id: plan.id }, { $set: plan }, { upsert: true });
   }
   for (const plugin of TRUSTED_PLUGIN_PACKAGES) {
     const { installTenant: _installTenant, uninstallTenant: _uninstallTenant, ...metadata } = plugin;
