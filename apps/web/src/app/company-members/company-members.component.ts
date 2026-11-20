@@ -252,11 +252,12 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   }
 
   async changeRole(member: CompanyMember, role: string): Promise<void> {
-    if (!["admin", "manager", "member"].includes(role)) return;
+    const customRoleId = role.startsWith("custom:") ? role.slice("custom:".length) : "";
+    if (customRoleId ? (!this.canManageCustomRoles || !this.customRoles.some(item => item.id === customRoleId)) : !["admin", "manager", "member"].includes(role)) return;
     this.busyId = member.userId;
     this.error = "";
     try {
-      await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/memberships/" + encodeURIComponent(member.userId), "PUT", { role });
+      await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/memberships/" + encodeURIComponent(member.userId), "PUT", customRoleId ? { customRoleId } : { role });
       this.message = "Membership role updated. The member must sign in again.";
       await this.load();
     } catch (error) {
