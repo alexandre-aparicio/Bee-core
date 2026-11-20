@@ -13,11 +13,12 @@ This document records security checks currently covered and gaps that remain bef
 - Auth plugin records successful login and logout events, including active tenant and client; integration test asserts both records.
 - Organization invitation creation, acceptance and cancellation emit tenant-scoped audit events; auth integration tests assert the lifecycle events.
 - Membership role changes emit audit events with old/new roles; integration test asserts the record.
+- Marketplace plugin installation and uninstallation events are tenant-scoped and integration-tested.
 
 ## Not complete
 
 - Custom roles are not yet persisted or wired into membership/auth permission resolution.
-- Audit event coverage now includes successful login/logout, invitation create/accept/cancel, and membership role changes. Marketplace and permission-denial actions are not yet wired.
+- Audit event coverage now includes successful login/logout, invitation create/accept/cancel, membership role changes, and plugin install/uninstall. Permission-denial actions are not yet wired.
 - No end-to-end audit query/export or retention controls.
 - Tenant isolation audit of every route and background/async entrypoint is incomplete.
 - MFA, rate limiting, password recovery, email verification and robust token revocation remain outstanding.
