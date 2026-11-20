@@ -14,7 +14,10 @@ import { PlatformAdminComponent } from './platform-admin/platform-admin.componen
 export class AppComponent implements OnInit {
   constructor(private readonly templates: BeeTemplateEngine) {}
 
-  ngOnInit(): void { if (this.dashboard && this.auth?.accessToken) void this.loadCompanies(); }
+  ngOnInit(): void {
+    if (this.dashboard && this.auth?.accessToken) void this.loadCompanies();
+    else if (!['/login', '/register', '/forgot'].includes(this.path)) void this.loadPublicTenant();
+  }
 
   layoutId(target: 'public' | 'dashboard'): string { return this.templates.getActive(target).layout; }
   layoutClass(target: 'public' | 'dashboard'): string { return 'bee-layout--' + this.layoutId(target).replace('.', '-'); }
@@ -24,6 +27,10 @@ export class AppComponent implements OnInit {
   email = ''; password = ''; reveal = false; busy = false; error = '';
   auth: any = this.readSession();
   api = '/api';
+  publicTenant: { id: string; name: string; slug: string | null } | null = null;
+  publicTenantLoading = false;
+  publicTenantNotFound = false;
+  publicTenantError = '';
   companies: Array<{id:string;name:string;role:string;active:boolean}> = [];
   activeCompanyId = '';
   activeCompanyName = 'Bee workspace';
@@ -38,6 +45,31 @@ export class AppComponent implements OnInit {
   get initial(): string { return this.signedEmail.charAt(0).toUpperCase(); }
   private readSession(): any { try { return JSON.parse(localStorage.getItem('bee-auth') || 'null'); } catch { return null; } }
   async signIn(e: Event): Promise<void> { e.preventDefault(); this.error = ''; if (this.mode !== 'login') { this.error = this.mode === 'register' ? 'Self-registration is not enabled yet. Contact your workspace administrator.' : 'Password recovery is not configured yet. Contact your workspace administrator.'; return; } this.busy = true; try { const response = await fetch(this.api + '/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: this.email, password: this.password, client: 'dashboard' }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Login failed'); localStorage.setItem('bee-auth', JSON.stringify(result)); window.location.assign('/dashboard'); } catch (err) { this.error = err instanceof Error ? err.message : 'Sign in failed'; } finally { this.busy = false; } }
+  async loadPublicTenant(): Promise<void> {
+    this.publicTenantLoading = true;
+    this.publicTenantNotFound = false;
+    this.publicTenantError = '';
+    try {
+      const response = await fetch(this.api + '/public/tenant');
+      if (response.status === 404) {
+        this.publicTenantNotFound = true;
+        return;
+      }
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not resolve public website');
+      if (result.kind === 'tenant' && result.tenant?.id && result.tenant?.name) {
+        this.publicTenant = result.tenant;
+      } else if (result.kind !== 'corporate') {
+        this.publicTenantNotFound = true;
+      }
+    } catch (error) {
+      this.publicTenantError = error instanceof Error ? error.message : 'Public website is unavailable';
+      this.publicTenantNotFound = true;
+    } finally {
+      this.publicTenantLoading = false;
+    }
+  }
+
   async loadCompanies(): Promise<void> {
     try {
       const response = await fetch(this.api + '/companies', { headers: { authorization: 'Bearer ' + this.auth.accessToken } });
