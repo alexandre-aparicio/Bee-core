@@ -24,6 +24,7 @@ export type PluginPackageDefinition = Document & {
   system: boolean;
   dependencies: string[];
   codeAvailable: true;
+  status: "published" | "draft" | "deprecated";
   installTenant?: (db: Db, tenantId: string) => Promise<void>;
   uninstallTenant?: (db: Db, tenantId: string) => Promise<void>;
 };
@@ -77,7 +78,8 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     purchasable: false,
     system: true,
     dependencies: [],
-    codeAvailable: true
+    codeAvailable: true,
+    status: "published"
   },
   {
     id: "notes",
@@ -91,6 +93,7 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     system: false,
     dependencies: [],
     codeAvailable: true,
+    status: "published",
     installTenant: async (db, tenantId) => {
       await db.collection("tenant_notes").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "tenant_notes_company_id_unique" });
       await db.collection("tenant_notes").createIndex({ tenantId: 1, updatedAt: -1 }, { name: "tenant_notes_company_updated" });
@@ -110,11 +113,11 @@ export async function seedPluginCommerce(db: Db): Promise<void> {
     db.collection("plugin_purchases").createIndex({ tenantId: 1, providerReference: 1 }, { unique: true, name: "tenant_plugin_purchase_reference_unique" })
   ]);
   for (const plan of BUILT_IN_PLANS) {
-    await plans.updateOne({ id: plan.id }, { $set: plan }, { upsert: true });
+    await plans.updateOne({ id: plan.id }, { $setOnInsert: plan }, { upsert: true });
   }
   for (const plugin of TRUSTED_PLUGIN_PACKAGES) {
     const { installTenant: _installTenant, uninstallTenant: _uninstallTenant, ...metadata } = plugin;
-    await catalog.updateOne({ id: plugin.id }, { $set: metadata }, { upsert: true });
+    await catalog.updateOne({ id: plugin.id }, { $setOnInsert: metadata }, { upsert: true });
   }
 }
 
@@ -157,7 +160,10 @@ export async function getTenantSubscription(db: Db, tenantId: string): Promise<T
 export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const subscription = await getTenantSubscription(db, tenantId);
   const subscriptionActive = (subscription.status === "active" || subscription.status === "trial") && (!subscription.currentPeriodEnd || subscription.currentPeriodEnd > new Date());
-  const plan = (subscriptionActive ? plansById.get(subscription.planId) : undefined) ?? BUILT_IN_PLANS[0]!;
+  const plan = subscriptionActive
+    ? await db.collection<PluginPlan>("plugin_plans").findOne({ id: subscription.planId })
+    : null;
+  const effectivePlan = plan ?? BUILT_IN_PLANS[0]!;
   const purchases = new TenantCollection<TenantPluginPurchase>(db.collection<TenantPluginPurchase>("plugin_purchases"), tenantId);
   const activePurchases = await purchases.find({
     status: "active",
@@ -171,8 +177,13 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const installed = await installations.find({ status: "installed" }).toArray();
   const installedIds = new Set(installed.map(item => item.pluginId));
 
-  return TRUSTED_PLUGIN_PACKAGES
-    .filter(plugin => plan.visiblePluginIds.includes(plugin.id) || purchasedIds.has(plugin.id))
+  const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...purchasedIds])];
+  const catalog = await db.collection<PluginPackageDefinition>("plugin_catalog")
+    .find({ id: { $in: visibleIds }, status: "published" })
+    .sort({ name: 1 })
+    .toArray();
+  return catalog
+    .filter(plugin => packagesById.has(plugin.id))
     .map(plugin => ({
       id: plugin.id,
       name: plugin.name,
@@ -181,8 +192,8 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
       category: plugin.category,
       purchasable: plugin.purchasable,
       system: plugin.system,
-      entitled: plan.includedPluginIds.includes(plugin.id) || purchasedIds.has(plugin.id),
-      accessSource: plan.includedPluginIds.includes(plugin.id) ? "plan" : purchasedIds.has(plugin.id) ? "purchase" : null,
+      entitled: effectivePlan.includedPluginIds.includes(plugin.id) || purchasedIds.has(plugin.id),
+      accessSource: effectivePlan.includedPluginIds.includes(plugin.id) ? "plan" : purchasedIds.has(plugin.id) ? "purchase" : null,
       installed: installedIds.has(plugin.id)
     }));
 }
