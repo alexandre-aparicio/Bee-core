@@ -261,3 +261,23 @@ body[data-bee-custom-theme="true"] .hero h1 span{color:var(--purple)}
 .bee-company-members__accept button{border:1px solid transparent;border-radius:8px;padding:8px 12px;background:var(--purple);color:#fff;font-size:10px;font-weight:600;cursor:pointer}
 .bee-company-members__accept button:disabled{opacity:.5;cursor:wait}
 @media(max-width:600px){.bee-company-members__accept form{grid-template-columns:minmax(0,1fr)}}
+
+/* Tenant-scoped Notes plugin UI */
+.bee-notes{margin-top:16px}
+.bee-notes__refresh,.bee-notes__editor-actions button,.bee-notes__item-actions button{border:1px solid var(--border);border-radius:8px;padding:8px 12px;background:#ffffff0a;color:inherit;font-size:11px;cursor:pointer}
+.bee-notes__editor{display:grid;gap:10px;margin:14px 0;padding:14px;border:1px solid var(--border);border-radius:10px;background:#ffffff04}
+.bee-notes__editor label{display:grid;gap:6px;color:var(--muted);font-size:10px}
+.bee-notes__editor input,.bee-notes__editor textarea{width:100%;min-width:0;border:1px solid var(--border);border-radius:8px;padding:10px;background:#ffffff08;color:inherit;font:inherit;font-size:12px;resize:vertical}
+.bee-notes__editor-actions,.bee-notes__item-actions{display:flex;gap:8px;justify-content:flex-end}
+.bee-notes__editor-actions button[type=submit]{background:var(--purple);border-color:transparent;color:#fff;font-weight:600}
+.bee-notes__secondary{background:transparent!important}
+.bee-notes__danger{color:#f0a2a2!important}
+.bee-notes__item{margin-top:10px;padding:14px;border:1px solid var(--border);border-radius:10px;background:#ffffff04}
+.bee-notes__item-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bee-notes__item-head h3{margin:0;font-size:13px}
+.bee-notes__item-head span{color:var(--muted);font-size:10px}
+.bee-notes__item p{margin:10px 0 0;color:var(--muted);font-size:12px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.bee-notes__state,.bee-notes__message,.bee-notes__error{margin:12px 0;padding:10px 12px;border-radius:8px;font-size:11px}
+.bee-notes__state{color:var(--muted);background:#ffffff05}
+.bee-notes__message{color:#8ddbb2;background:#3b9c6c18}
+.bee-notes__error{color:#f0aaaa;background:#b94a4a18}
