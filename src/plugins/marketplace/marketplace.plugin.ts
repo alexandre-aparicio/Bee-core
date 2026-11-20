@@ -27,6 +27,8 @@ export const marketplacePlugin: BeePlugin = {
     await mongoClient.connect();
     const db = mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
     await seedPluginCommerce(db);
+    // Recover interrupted synchronous installs after a process restart; never leave the tenant stuck in installing.
+    await db.collection("tenant_plugin_installations").updateMany({status:"installing"},{$set:{status:"failed",error:"Installation interrupted by platform restart; retry installation",updatedAt:new Date()}});
     const billingWebhookSecret = String(ctx.config.billingWebhookSecret ?? "");
     ctx.server.post<{ Body: {
       event?: "plugin.purchase" | "plugin.revoke" | "subscription.updated";
