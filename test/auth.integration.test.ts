@@ -304,7 +304,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const cancelledAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyCancelledLogin.json().accessToken},payload:{token:createCancelledInvite.json().acceptanceToken}});
     assert.equal(cancelledAccept.statusCode,404);
 
-    const managerPermissions=await app.inject({method:"GET",url:"/companies/active/permissions",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
+    // Role assignment revokes previous sessions; authenticate again after reset to manager.
+    const betaManagerReLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
+    const betaManagerFreshContext=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaManagerReLogin.json().accessToken}});
+    assert.equal(betaManagerFreshContext.statusCode,200);
+    const managerPermissions=await app.inject({method:"GET",url:"/companies/active/permissions",headers:{authorization:"Bearer "+betaManagerFreshContext.json().accessToken}});
     assert.equal(managerPermissions.statusCode,200);
     assert.equal(managerPermissions.json().role,"manager");
     assert.ok(managerPermissions.json().permissions.includes("files.read"));
