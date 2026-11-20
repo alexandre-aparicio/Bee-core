@@ -105,6 +105,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(betaRead.statusCode,200);
     assert.equal(betaRead.json().tenantId,"tenant-beta");
     assert.deepEqual(betaRead.json().selection,{public:"aurora",dashboard:"midnight"});
+    const betaDomainWrite=await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{domains:["beta-new.example.test"]}});
+    assert.equal(betaDomainWrite.statusCode,403);
+    const conflictingDomain=await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+tokens.accessToken},payload:{domains:["beta.example.test"]}});
+    assert.equal(conflictingDomain.statusCode,409);
+
     const betaTheme = await app.inject({method:"GET",url:"/templates/theme",headers:{authorization:"Bearer "+betaTokens.accessToken}});
     assert.equal(betaTheme.statusCode,200);
     assert.equal(betaTheme.json().tokens["--bg"],"#080a12");
@@ -114,6 +119,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(betaThemeWrite.statusCode,403);
     const alphaRecheck=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.deepEqual(alphaRecheck.json().selection,{public:"editorial",dashboard:"paper"});
+    await db.collection("users").updateOne({id:"test-user"},{$set:{tenantId:"tenant-beta"}});
+    const staleTenantToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(staleTenantToken.statusCode,401);
+    await db.collection("users").updateOne({id:"test-user"},{$set:{tenantId:"tenant-alpha"}});
+
     const invalidTemplate = await app.inject({ method: "PUT", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken }, payload: { public: "remote-script" } });
     assert.equal(invalidTemplate.statusCode, 400);
     const unauthenticatedTemplates = await app.inject({ method: "GET", url: "/templates/preferences" });
