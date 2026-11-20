@@ -55,3 +55,22 @@ After verifying the JWT with Fastify's `request.jwtVerify()`, use `resolveTenant
 ## Current limitation
 
 The facade and its MongoDB integration tests are a foundation for new plugins. Existing authentication, organization and template collections have not all been migrated to this facade, and Bee-Core does not yet have the private file/image storage service. Do not claim universal tenant isolation until every tenant-owned route and asynchronous path has been audited and tested.
+
+
+## Private file and image storage foundation
+
+The `files` plugin provides tenant-scoped private storage through:
+- `POST /files` — upload a raw `application/octet-stream` body; pass the original name in `x-file-name` and the allow-listed MIME type in `x-file-content-type`.
+- `GET /files` — list the active company's files.
+- `GET /files/:fileId` — retrieve a file only when its metadata belongs to the active company.
+- `DELETE /files/:fileId` — delete the active company's file.
+
+Current limits and protections:
+- 10 MB maximum per file.
+- Allow-listed JPEG, PNG, WebP, PDF, plain text and CSV. SVG and arbitrary executable formats are not accepted.
+- Each metadata query uses `TenantCollection`; metadata stores tenant ID, uploader, MIME type, byte size, SHA-256 checksum and opaque storage key.
+- Physical files are stored beneath a directory derived from a SHA-256 hash of the tenant ID. User-provided filenames never form filesystem paths.
+- Private downloads require a fresh verified session and active membership. Images are served inline with `nosniff` and private no-store caching; other files are attachments.
+- Docker Compose mounts a dedicated persistent `bee_core_files` volume at `/data/bee-files`.
+
+This is the first local-volume storage adapter, not yet a complete media platform. S3-compatible storage, malware scanning, quotas, signed temporary links, image transformations/thumbnails, retention policies and backup/restore validation remain future work. Existing business plugins must still migrate their own tenant-owned data to tenant-scoped repositories.
