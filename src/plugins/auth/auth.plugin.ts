@@ -115,6 +115,8 @@ export const authPlugin:BeePlugin={
   });
   ctx.server.put<{Body:{public?:string;dashboard?:string}}>("/templates/preferences",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const claims=req.user as {roles?:Role[]};
+   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
    const body=req.body??{};
    if(body.public!==undefined&&!(allowedTemplates.public as readonly string[]).includes(body.public))return reply.code(400).send({error:"Invalid public template"});
    if(body.dashboard!==undefined&&!(allowedTemplates.dashboard as readonly string[]).includes(body.dashboard))return reply.code(400).send({error:"Invalid dashboard template"});
@@ -132,6 +134,8 @@ export const authPlugin:BeePlugin={
   });
   ctx.server.put<{Body:{tokens?:Record<string,string>}}>("/templates/theme",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const claims=req.user as {roles?:Role[]};
+   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
    const input=req.body?.tokens;
    if(!input||typeof input!=="object"||Array.isArray(input)||!Object.keys(input).length)return reply.code(400).send({error:"Theme tokens are required"});
    for(const [key,value] of Object.entries(input)){
