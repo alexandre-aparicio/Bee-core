@@ -4,7 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext, type TenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
-import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type TenantAuditEvent } from "../../core/audit-log.js";
 
 type Company = { id:string; name:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
@@ -267,8 +267,8 @@ export const organizationsPlugin:BeePlugin={
     return reply.code(403).send({error:"Only company owners and administrators can read audit events"});
    }
    const page=Number(req.query.page??1),limit=Number(req.query.limit??25),action=String(req.query.action??"").trim();
-   if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(limit)||limit<1||limit>100)return reply.code(400).send({error:"Page must be positive and limit must be between 1 and 100"});
-   const allowedActions=["auth.login","auth.logout","member.invited","member.role_changed","member.removed","member.suspended","invitation.cancelled","role.created","role.updated","role.deleted","permission.denied","plugin.installed","plugin.updated","plugin.uninstalled"];
+   if(!Number.isSafeInteger(page)||page<1||page>10000||!Number.isSafeInteger(limit)||limit<1||limit>100)return reply.code(400).send({error:"Page must be between 1 and 10000 and limit must be between 1 and 100"});
+   const allowedActions:readonly string[]=AUDIT_ACTIONS;
    if(action&&!allowedActions.includes(action))return reply.code(400).send({error:"Unsupported audit action filter"});
    const filter:import("mongodb").Filter<TenantAuditEvent>={tenantId:companyId};
    if(action)filter.action=action as TenantAuditEvent["action"];
