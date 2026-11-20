@@ -109,9 +109,9 @@ Platform-wide superadministrator foundation is merged into `main` at `53a427c`. 
 
 ## Dashboard navigation and Settings reorganization (in progress)
 
-- Dashboard content is split into role/context-driven sections: Dashboard, Plugins, Organization, Activity, Settings, and Platform Administration.
-- Platform Superadmin receives additional platform-only navigation groups, including global company controls and reserved global settings entries; organization users do not receive those menu entries.
-- Owner/admin/manager/member menus are filtered to different navigation subsets in the Angular UI. This is navigation visibility only; backend permissions remain authoritative.
-- Theme manager moved out of the public footer and into authenticated Settings routes: Dashboard Theme, Public Theme, and Branding. The component now accepts a target to show the relevant theme surface and catalog.
-- Domain, integrations, security, and system sections are placeholders until corresponding APIs and access checks are implemented. No feature completion is claimed for those areas.
-- Pending verification: Angular compile, browser smoke, and role-based navigation tests. This PR has not yet been merged.
+- Dashboard content is split into sections: Dashboard, Plugins, Organization, Activity, Settings, and Platform Administration.
+- Platform Superadmin menu omits tenant Organization management and exposes platform/global company controls plus additional platform sections. Owners, admins, managers and members see reduced menu sets; members retain Organization to accept invitations.
+- Menu visibility is a frontend convenience only; backend permission checks remain authoritative.
+- Theme controls moved from the public footer to authenticated Settings routes: Dashboard Theme, Public Theme, and Branding. The theme manager accepts a target and filters the trusted package catalog.
+- The color-token palette remains shared between public and dashboard surfaces in this first pass; independent palettes are a follow-up. Domain, integrations, security, and system pages are navigation placeholders only.
+- Pending verification: Angular compile, browser smoke, and role-based navigation tests. This PR is not merged.
