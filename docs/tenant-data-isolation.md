@@ -60,7 +60,7 @@ After verifying the JWT with Fastify's `request.jwtVerify()`, use `resolveTenant
 
 ## Current limitation
 
-The facade and its MongoDB integration tests are a foundation for new plugins. Existing authentication, organization and template collections have not all been migrated to this facade, and Bee-Core does not yet have the private file/image storage service. Do not claim universal tenant isolation until every tenant-owned route and asynchronous path has been audited and tested.
+The facade, shared tenant-context resolver, authorization guards and private local-volume file service are foundations for new plugins. Existing authentication, organization and template collections have not all been migrated to the facade, and tenant context is not yet propagated through every queue, scheduled job, webhook or SSE path. Do not claim universal tenant isolation until every tenant-owned route and asynchronous path has been audited and tested.
 
 
 ## Private file and image storage foundation
