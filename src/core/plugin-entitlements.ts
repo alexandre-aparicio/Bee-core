@@ -172,7 +172,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const installedIds = new Set(installed.map(item => item.pluginId));
 
   return TRUSTED_PLUGIN_PACKAGES
-    .filter(plugin => plan.visiblePluginIds.includes(plugin.id) || plugin.purchasable || purchasedIds.has(plugin.id))
+    .filter(plugin => plan.visiblePluginIds.includes(plugin.id) || purchasedIds.has(plugin.id))
     .map(plugin => ({
       id: plugin.id,
       name: plugin.name,
