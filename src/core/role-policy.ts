@@ -2,6 +2,18 @@ import type { CompanyRole } from "./tenant-context.js";
 
 export const CUSTOM_ROLE_PERMISSION_PATTERN = /^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*$/;
 export const MAX_CUSTOM_ROLE_PERMISSIONS = 100;
+export const CUSTOM_ROLE_ALLOWED_PERMISSIONS = [
+  "members.read", "plugins.read", "plugins.install",
+  "files.read", "files.write", "notes.read", "notes.write"
+] as const;
+
+export function normalizeTenantCustomRolePermissions(input: unknown): string[] {
+  const permissions = normalizeCustomRolePermissions(input);
+  const allowed = new Set<string>(CUSTOM_ROLE_ALLOWED_PERMISSIONS);
+  const unsupported = permissions.filter(permission => !allowed.has(permission));
+  if (unsupported.length) throw new Error("Custom roles cannot grant protected permissions: " + unsupported.join(", "));
+  return permissions;
+}
 
 export type CustomRolePolicy = {
   id: string;
@@ -41,7 +53,7 @@ export function normalizeCustomRoleName(input: unknown): string {
 }
 
 export function permissionsForCustomRole(role: Pick<CustomRolePolicy, "permissions">): readonly string[] {
-  return normalizeCustomRolePermissions(role.permissions);
+  return normalizeTenantCustomRolePermissions(role.permissions);
 }
 
 export function hasPolicyPermission(policy: RolePolicy, permission: string): boolean {
