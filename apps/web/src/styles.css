@@ -373,3 +373,21 @@ body[data-bee-public-mode="light"] .tenant-public-page .auth-card h1{color:#2028
 body[data-bee-public-mode="light"] .tenant-public-page .auth-card>p,body[data-bee-public-mode="light"] .tenant-public-page .auth-card>small{color:#657187}
 body[data-bee-public-mode="light"] .tenant-public-page .auth-footer{color:#657187}
 @media(max-width:520px){.tenant-public-actions{gap:8px}.tenant-public-actions>a{font-size:10px}}
+
+/* Tenant public websites use the selected public layout as a full-page shell. */
+.tenant-public-layout{min-height:100vh;display:flex;flex-direction:column}
+.tenant-site-header{width:100%;max-width:none;padding:0 clamp(20px,5vw,72px);gap:28px}
+.tenant-public-nav{display:flex;align-items:center;gap:28px;margin-left:auto;color:var(--muted);font-size:13px}
+.tenant-public-nav a{transition:color .18s ease}
+.tenant-public-nav a:hover,.tenant-public-nav a.active{color:var(--purple)}
+.tenant-public-actions{display:flex;align-items:center;gap:18px}
+.tenant-powered-by{font-size:11px;color:var(--muted)}
+.tenant-public-main{flex:1;min-height:calc(100vh - 140px);width:100%;display:flex;align-items:center;justify-content:center;padding:clamp(48px,9vh,110px) 24px}
+.tenant-public-content{width:min(100%,1100px);margin:0 auto}
+.tenant-public-content .eyebrow{justify-content:flex-start}
+.tenant-public-content h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(42px,7vw,76px);line-height:1.06;letter-spacing:-3px;margin:22px 0 16px}
+.tenant-public-content p{max-width:680px;color:var(--muted);font-size:clamp(15px,2vw,19px);line-height:1.8;margin:0}
+.tenant-plugin-page{padding:clamp(28px,5vw,64px) 0}
+.tenant-public-footer{width:100%;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px clamp(20px,5vw,72px);border-top:1px solid var(--border);color:var(--muted);font-size:11px}
+.tenant-public-footer a:hover{color:var(--purple)}
+@media(max-width:760px){.tenant-site-header{height:auto;min-height:64px;flex-wrap:wrap;padding:14px 18px;gap:14px}.tenant-public-nav{order:3;width:100%;margin:0;gap:20px;padding-top:8px}.tenant-public-actions{margin-left:auto;gap:10px}.tenant-powered-by{display:none}.tenant-public-main{min-height:calc(100vh - 150px);padding:54px 22px}.tenant-public-content h1{letter-spacing:-1.8px}.tenant-public-footer{padding:18px;flex-wrap:wrap}}
