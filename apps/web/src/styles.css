@@ -112,3 +112,7 @@ body[data-bee-public-template="editorial"] .bee-template-manager__fields select{
 .bee-layout--dashboard-paper .dash-nav.active{background:#eeeaff;color:#6550c8;border-color:#e1dcff}
 .bee-layout--dashboard-paper .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
 @media(max-width:759px){.bee-layout--public-editorial .hero{padding-inline:16px}.bee-layout--public-editorial footer{padding-inline:16px}}
+
+.bee-template-slot:empty{display:none}
+.bee-template-slot:not(:empty){display:contents}
+.bee-template-slot [data-plugin-ui]{min-width:0}
