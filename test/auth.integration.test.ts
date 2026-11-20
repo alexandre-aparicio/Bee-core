@@ -253,7 +253,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const customRoleId=createCustomRole.json().role.id as string;
     const companyRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(companyRoles.json().roles.some((role:{id:string;name:string})=>role.id===customRoleId&&role.name==="Notes reader"));
-    const crossTenantCustomRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+tokens.accessToken}});
+    const crossTenantCustomRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+betaTokens.accessToken}});
     assert.equal(crossTenantCustomRoles.statusCode,403);
     const customRoleUpdate=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Notes reader updated",description:"Updated",permissions:["notes.read","files.read"]}});
     assert.equal(customRoleUpdate.statusCode,200);
