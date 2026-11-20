@@ -4,7 +4,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
-import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, type AuditEventDraft, type TenantAuditEvent } from "../../core/audit-log.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
@@ -30,7 +30,7 @@ export const marketplacePlugin: BeePlugin = {
     const db = mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
     const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
     await ensureTenantAuditIndexes(auditEvents);
-    const auditMarketplaceEvent=async(event:Omit<TenantAuditEvent,"id"|"occurredAt">)=>{try{await appendTenantAuditEvent(auditEvents,{...event,id:randomUUID(),occurredAt:new Date()});}catch(error){ctx.logger.error("Marketplace audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
+    const auditMarketplaceEvent=async(event:AuditEventDraft)=>{try{await appendTenantAuditEvent(auditEvents,{...event,id:randomUUID(),occurredAt:new Date()});}catch(error){ctx.logger.error("Marketplace audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
     await seedPluginCommerce(db);
     // Recover interrupted synchronous installs after a process restart; never leave the tenant stuck in installing.
     await db.collection("tenant_plugin_installations").updateMany({status:"installing"},{$set:{status:"failed",error:"Installation interrupted by platform restart; retry installation",updatedAt:new Date()}});
