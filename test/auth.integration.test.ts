@@ -16,7 +16,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   const db = client.db(dbName);
   const passwordHash = await bcrypt.hash("Test-password-12345", 10);
   await db.collection("tenants").insertMany([{id:"tenant-alpha",name:"Alpha",domains:["alpha.example.test"],createdAt:new Date()},{id:"tenant-beta",name:"Beta",domains:["beta.example.test"],createdAt:new Date()},{id:"tenant-legacy",name:"Legacy",createdAt:new Date()}]);
-  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() },{id:"legacy-user",email:"legacy@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-legacy",createdAt:new Date(),updatedAt:new Date()},{id:"no-tenant-user",email:"no-tenant@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],createdAt:new Date(),updatedAt:new Date()}]);
+  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-alpha-admin-two",email:"alpha-admin-two@example.com",passwordHash,roles:["admin"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-alpha",createdAt:new Date(Date.now()+1000),updatedAt:new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() },{id:"legacy-user",email:"legacy@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-legacy",createdAt:new Date(),updatedAt:new Date()},{id:"no-tenant-user",email:"no-tenant@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],createdAt:new Date(),updatedAt:new Date()}]);
   await db.collection("template_preferences").createIndex({userId:1},{unique:true,name:"template_preferences_user_unique"});
   await db.collection("template_preferences").insertOne({userId:"legacy-user",public:"editorial",dashboard:"paper",updatedAt:new Date()});
   const app = Fastify();
@@ -25,6 +25,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   try {
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
+    const alphaOwners=await db.collection("memberships").find({tenantId:"tenant-alpha",role:"owner",status:"active"}).toArray();
+    assert.equal(alphaOwners.length,1,"each company must have exactly one active owner");
+    const secondAlphaAdmin=await db.collection("memberships").findOne({userId:"test-user-alpha-admin-two",tenantId:"tenant-alpha"});
+    assert.equal(secondAlphaAdmin?.role,"admin");
     await app.ready();
     const bad = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "wrong", client: "dashboard" } });
     assert.equal(bad.statusCode, 401);
