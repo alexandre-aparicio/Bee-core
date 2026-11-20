@@ -104,6 +104,21 @@ jobs:
           const me = await fetch(base + "/auth/me", { headers: { authorization: `Bearer ${tokens.accessToken}` } });
           if (!me.ok || !(await me.json()).authenticated) throw new Error("Authenticated /auth/me failed");
           console.log("PASS authenticated profile");
+          const defaultPreferences = await fetch(base + "/templates/preferences", { headers: { authorization: `Bearer ${tokens.accessToken}` } });
+          if (!defaultPreferences.ok) throw new Error("Template preferences read failed");
+          const defaults = await defaultPreferences.json();
+          if (defaults.selection?.public !== "aurora" || defaults.selection?.dashboard !== "midnight") throw new Error("Unexpected default template preferences");
+          const savedPreferences = await fetch(base + "/templates/preferences", {
+            method: "PUT",
+            headers: { "content-type": "application/json", authorization: `Bearer ${tokens.accessToken}` },
+            body: JSON.stringify({ public: "editorial", dashboard: "paper" })
+          });
+          if (!savedPreferences.ok) throw new Error("Template preferences save failed");
+          const persistedPreferences = await fetch(base + "/templates/preferences", { headers: { authorization: `Bearer ${tokens.accessToken}` } });
+          const persisted = await persistedPreferences.json();
+          if (persisted.selection?.public !== "editorial" || persisted.selection?.dashboard !== "paper") throw new Error("Template preferences were not persisted");
+          console.log("PASS MongoDB template preference persistence");
+
 
           const refresh = await fetch(base + "/auth/refresh", {
             method: "POST", headers: { "content-type": "application/json" },
