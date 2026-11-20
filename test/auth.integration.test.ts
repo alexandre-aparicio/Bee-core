@@ -46,6 +46,15 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(defaultTemplates.statusCode, 200);
     assert.equal(defaultTemplates.json().tenantId,"tenant-alpha");
     assert.deepEqual(defaultTemplates.json().selection, { public: "aurora", dashboard: "midnight" });
+    assert.deepEqual(defaultTemplates.json().installedTemplates.sort(),["aurora","editorial","midnight","paper"]);
+    const catalog = await app.inject({method:"GET",url:"/templates/catalog",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(catalog.statusCode,200);
+    assert.ok(catalog.json().catalog.some((item:{id:string})=>item.id==="studio"));
+    const installStudio = await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+tokens.accessToken},payload:{templateId:"studio"}});
+    assert.equal(installStudio.statusCode,200);
+    assert.ok(installStudio.json().installedTemplates.includes("studio"));
+    const rejectUnknownPackage = await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+tokens.accessToken},payload:{templateId:"remote-code"}});
+    assert.equal(rejectUnknownPackage.statusCode,404);
     const saveTemplates = await app.inject({ method: "PUT", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken }, payload: { public: "editorial", dashboard: "paper" } });
     assert.equal(saveTemplates.statusCode, 200);
     assert.deepEqual(saveTemplates.json().selection, { public: "editorial", dashboard: "paper" });
@@ -86,7 +95,24 @@ test("auth integration: login, token introspection, refresh rotation and logout"
       pushedText += new TextDecoder().decode(chunk.value);
     }
     assert.match(pushedText,/#334455/);
+    const liveInstall = await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+tokens.accessToken},payload:{templateId:"glass"}});
+    assert.equal(liveInstall.statusCode,200);
+    let installEventText = "";
+    while (!installEventText.includes('"type":"installed"')) {
+      const chunk = await liveReader.read();
+      assert.equal(chunk.done, false, "SSE stream closed before package install update");
+      installEventText += new TextDecoder().decode(chunk.value);
+    }
+    assert.match(installEventText,/"glass"/);
     await liveReader.cancel();
+    const activateStudio = await app.inject({method:"PUT",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken},payload:{public:"studio"}});
+    assert.equal(activateStudio.statusCode,200);
+    const rejectActiveUninstall = await app.inject({method:"DELETE",url:"/templates/install/studio",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(rejectActiveUninstall.statusCode,409);
+    await app.inject({method:"PUT",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken},payload:{public:"editorial"}});
+    const uninstallStudio = await app.inject({method:"DELETE",url:"/templates/install/studio",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(uninstallStudio.statusCode,200);
+    assert.ok(!uninstallStudio.json().installedTemplates.includes("studio"));
     const publicAlphaUpdated = await app.inject({method:"GET",url:"/templates/public",headers:{host:"www.alpha.example.test"}});
     assert.equal(publicAlphaUpdated.json().selection.public,"editorial");
     assert.equal(publicAlphaUpdated.json().tokens["--bg"],"#334455");
@@ -105,6 +131,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(betaRead.statusCode,200);
     assert.equal(betaRead.json().tenantId,"tenant-beta");
     assert.deepEqual(betaRead.json().selection,{public:"aurora",dashboard:"midnight"});
+    assert.ok(!betaRead.json().installedTemplates.includes("studio"));
+    const betaInstall = await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{templateId:"studio"}});
+    assert.equal(betaInstall.statusCode,403);
     const betaDomainWrite=await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{domains:["beta-new.example.test"]}});
     assert.equal(betaDomainWrite.statusCode,403);
     const conflictingDomain=await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+tokens.accessToken},payload:{domains:["beta.example.test"]}});
