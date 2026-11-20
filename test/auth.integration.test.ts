@@ -186,6 +186,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(!betaRead.json().installedTemplates.includes("studio"));
     const betaInstall = await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{templateId:"studio"}});
     assert.equal(betaInstall.statusCode,403);
+    const betaClaims=JSON.parse(Buffer.from(betaTokens.accessToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const staleAdminToken=app.jwt.sign({sub:"test-user-beta",email:"beta@example.com",roles:["admin"],tenantId:"tenant-beta",client:"dashboard",aud:"bee-core",sid:betaClaims.sid});
+    const staleAdminTemplateInstall=await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+staleAdminToken},payload:{templateId:"studio"}});
+    assert.equal(staleAdminTemplateInstall.statusCode,403,"template writes must use the live tenant membership role, not stale JWT roles");
     const betaDomainWrite=await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{domains:["beta-new.example.test"]}});
     assert.equal(betaDomainWrite.statusCode,403);
     const conflictingDomain=await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+tokens.accessToken},payload:{domains:["beta.example.test"]}});
