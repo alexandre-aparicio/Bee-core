@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import type { BeeTemplateManifest, BeeTemplateSelection, BeeTemplateTarget } from './template.types';
 
 const STORAGE_KEY = 'bee-template-selection';
+const DEFAULT_THEME_TOKENS: Record<string, string> = { '--bg': '#080a12', '--panel': '#10131e', '--muted': '#8991a4', '--border': '#303447', '--purple': '#8c72ff', '--cyan': '#69e5d4' };
+const THEME_TOKEN_KEYS = Object.keys(DEFAULT_THEME_TOKENS);
 
 const BUILT_IN_TEMPLATES: BeeTemplateManifest[] = [
   { id: 'aurora', name: 'Aurora', version: '1.0.0', target: 'public', description: 'Dark, expressive public experience.', builtIn: true, layout: 'public.aurora', slots: ['header', 'hero', 'content', 'footer'] },
@@ -17,6 +19,8 @@ export class BeeTemplateEngine {
   private readonly registry = new Map<string, BeeTemplateManifest>();
   private selection: BeeTemplateSelection = this.readSelection();
   private selectionRevision = 0;
+  private stream?: EventSource;
+  themeTokens: Record<string, string> = { ...DEFAULT_THEME_TOKENS };
 
   constructor() {
     for (const manifest of BUILT_IN_TEMPLATES) this.register(manifest);
@@ -68,6 +72,11 @@ export class BeeTemplateEngine {
   }
 
 
+  private storageKey(): string {
+    if (typeof localStorage === 'undefined') return STORAGE_KEY;
+    try { const session = JSON.parse(localStorage.getItem('bee-auth') || 'null') as { user?: { tenantId?: string } } | null; return `${STORAGE_KEY}:${session?.user?.tenantId || 'anonymous'}`; } catch { return `${STORAGE_KEY}:anonymous`; }
+  }
+
   private authToken(): string | null {
     if (typeof localStorage === 'undefined') return null;
     try {
@@ -92,9 +101,72 @@ export class BeeTemplateEngine {
       if (dashboardId && this.registry.get(dashboardId)?.target === 'dashboard') this.selection.dashboard = dashboardId;
       this.persist();
       this.apply();
+      await this.restoreRemoteTheme();
+      await this.connectRemoteEvents();
     } catch {
       // Local selection remains the offline fallback.
     }
+  }
+
+  private async restoreRemoteTheme(): Promise<void> {
+    const token = this.authToken();
+    if (!token || typeof fetch === 'undefined') return;
+    try {
+      const response = await fetch('/api/templates/theme', { headers: { authorization: `Bearer ${token}` } });
+      if (!response.ok) return;
+      const payload = await response.json() as { tokens?: Record<string, string> };
+      if (payload.tokens) this.applyThemeTokens(payload.tokens);
+    } catch { /* Keep the last known theme when offline. */ }
+  }
+
+  async saveThemeTokens(tokens: Record<string, string>): Promise<boolean> {
+    const token = this.authToken();
+    if (!token || typeof fetch === 'undefined') return false;
+    const safeTokens: Record<string, string> = {};
+    for (const key of THEME_TOKEN_KEYS) {
+      const value = tokens[key];
+      if (value !== undefined && /^#[0-9a-fA-F]{6}$/.test(value)) safeTokens[key] = value;
+    }
+    if (!Object.keys(safeTokens).length) return false;
+    const response = await fetch('/api/templates/theme', { method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ tokens: safeTokens }) });
+    if (!response.ok) return false;
+    const payload = await response.json() as { tokens?: Record<string, string> };
+    if (payload.tokens) this.applyThemeTokens(payload.tokens);
+    return true;
+  }
+
+  private applyThemeTokens(tokens: Record<string, string>): void {
+    for (const key of THEME_TOKEN_KEYS) {
+      const value = tokens[key];
+      if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) {
+        this.themeTokens[key] = value;
+        if (typeof document !== 'undefined') document.documentElement.style.setProperty(key, value);
+      }
+    }
+  }
+
+  private async connectRemoteEvents(): Promise<void> {
+    const token = this.authToken();
+    if (!token || typeof fetch === 'undefined' || typeof EventSource === 'undefined' || this.stream) return;
+    try {
+      const ticketResponse = await fetch('/api/templates/stream-ticket', { method: 'POST', headers: { authorization: `Bearer ${token}` } });
+      if (!ticketResponse.ok) return;
+      const ticket = await ticketResponse.json() as { ticket?: string };
+      if (!ticket.ticket) return;
+      this.stream = new EventSource(`/api/templates/events?ticket=${encodeURIComponent(ticket.ticket)}`);
+      this.stream.addEventListener('template-update', (event: MessageEvent) => {
+        try {
+          const update = JSON.parse(event.data) as { type?: string; selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string> };
+          if (update.selection) {
+            if (this.registry.get(update.selection.public || '')?.target === 'public') this.selection.public = update.selection.public!;
+            if (this.registry.get(update.selection.dashboard || '')?.target === 'dashboard') this.selection.dashboard = update.selection.dashboard!;
+            this.persist(); this.apply();
+          }
+          if (update.tokens) this.applyThemeTokens(update.tokens);
+        } catch { /* Ignore malformed server events. */ }
+      });
+      this.stream.onerror = () => { this.stream?.close(); this.stream = undefined; };
+    } catch { /* SSE is an enhancement; local UI remains usable. */ }
   }
 
   private async persistRemoteSelection(): Promise<void> {
@@ -120,7 +192,7 @@ export class BeeTemplateEngine {
   private readSelection(): BeeTemplateSelection {
     if (typeof localStorage === 'undefined') return { ...DEFAULT_SELECTION };
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') as Partial<BeeTemplateSelection>;
+      const saved = JSON.parse(localStorage.getItem(this.storageKey()) || '{}') as Partial<BeeTemplateSelection>;
       return {
         public: typeof saved.public === 'string' ? saved.public : DEFAULT_SELECTION.public,
         dashboard: typeof saved.dashboard === 'string' ? saved.dashboard : DEFAULT_SELECTION.dashboard
@@ -131,6 +203,6 @@ export class BeeTemplateEngine {
   }
 
   private persist(): void {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, JSON.stringify(this.selection));
+    if (typeof localStorage !== 'undefined') localStorage.setItem(this.storageKey(), JSON.stringify(this.selection));
   }
 }
