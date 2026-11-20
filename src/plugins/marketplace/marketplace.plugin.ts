@@ -168,9 +168,19 @@ export const marketplacePlugin: BeePlugin = {
       if (!tenant) return;
       const plugin = (await getTenantPluginCatalog(db, tenant.tenantId)).find(item => item.id === request.params.pluginId);
       if (!plugin || !plugin.entitled) return reply.code(404).send({ error: "Plugin version information is unavailable" });
-      const trusted = getTrustedPluginPackage(plugin.id);
-      if (!trusted) return reply.code(404).send({ error: "Plugin package not found" });
-      return { pluginId: plugin.id, versions: [{ version: trusted.version, dependencies: trusted.dependencies, published: true }] };
+      const publishedVersions = await db.collection("plugin_versions")
+        .find({ pluginId: plugin.id, status: "published" })
+        .sort({ publishedAt: -1 })
+        .toArray();
+      return {
+        pluginId: plugin.id,
+        versions: publishedVersions.map(item => ({
+          version: item.version,
+          compatibility: item.compatibility ?? null,
+          dependencies: item.dependencies ?? [],
+          publishedAt: item.publishedAt ?? null
+        }))
+      };
     });
 
     ctx.server.post<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId/install", async (request: any, reply: any) => {
