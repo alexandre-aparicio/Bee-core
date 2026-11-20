@@ -353,6 +353,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(managerPermissions.json().role,"manager");
     assert.ok(managerPermissions.json().permissions.includes("files.read"));
     assert.ok(!managerPermissions.json().permissions.includes("members.manage"));
+    const managerAudit=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+betaManagerFreshContext.json().accessToken}});
+    assert.equal(managerAudit.statusCode,403,"company managers must not read owner/admin audit events");
 
 
     const staleCompanyToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
