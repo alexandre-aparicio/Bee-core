@@ -82,7 +82,7 @@ jobs:
             const response = await fetch(url);
             if (!response.ok) throw new Error(`${name} failed: HTTP ${response.status}`);
             const body = await response.text();
-            if (name === "Angular web" && !body.includes("<app-root")) throw new Error("Angular app root missing from served HTML");
+            if (name === "Angular web" && !body.includes("<bee-root")) throw new Error("Angular bee-root element missing from served HTML");
             if (name === "Plugin registry" && !body.includes("auth")) throw new Error("Auth plugin missing from registry");
             console.log(`PASS ${name} (${response.status})`);
           }
