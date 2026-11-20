@@ -14,8 +14,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   await client.connect();
   const db = client.db(dbName);
   const passwordHash = await bcrypt.hash("Test-password-12345", 10);
-  await db.collection("tenants").insertMany([{id:"tenant-alpha",name:"Alpha",createdAt:new Date()},{id:"tenant-beta",name:"Beta",createdAt:new Date()}]);
-  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() }]);
+  await db.collection("tenants").insertMany([{id:"tenant-alpha",name:"Alpha",domains:["alpha.example.test"],createdAt:new Date()},{id:"tenant-beta",name:"Beta",domains:["beta.example.test"],createdAt:new Date()}]);
+  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() }]);
   const app = Fastify();
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
   const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, authAdminEmail: "", authAdminPassword: "" } };
@@ -30,6 +30,13 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
     assert.ok(tokens.accessToken); assert.ok(tokens.refreshToken);
+    const publicAlpha = await app.inject({method:"GET",url:"/templates/public",headers:{host:"alpha.example.test"}});
+    assert.equal(publicAlpha.statusCode,200);
+    assert.equal(publicAlpha.json().tenantId,"tenant-alpha");
+    const setAlphaDomains = await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+tokens.accessToken},payload:{domains:["www.alpha.example.test"]}});
+    assert.equal(setAlphaDomains.statusCode,200);
+    const publicUpdatedDomain = await app.inject({method:"GET",url:"/templates/public",headers:{host:"www.alpha.example.test"}});
+    assert.equal(publicUpdatedDomain.json().tenantId,"tenant-alpha");
     const defaultTemplates = await app.inject({ method: "GET", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken } });
     assert.equal(defaultTemplates.statusCode, 200);
     assert.equal(defaultTemplates.json().tenantId,"tenant-alpha");
