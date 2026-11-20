@@ -45,18 +45,14 @@ export const organizationsPlugin:BeePlugin={
    for(const duplicate of owners.slice(1))await memberships.updateOne({id:duplicate.id},{$set:{role:"admin",updatedAt:new Date()}});
   }
   await memberships.createIndex({tenantId:1},{unique:true,partialFilterExpression:{role:"owner",status:"active"},name:"memberships_one_active_owner_per_company"});
-  const authenticate=async(req:any,reply:any):Promise<{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null}|null>=>{
+  const authenticate=async(req:any,reply:any,options:{allowSuspendedCompany?:boolean}={}):Promise<{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null}|null>=>{
    try{
     await req.jwtVerify();
     const claims=req.user as Claims;
-    if(claims.aud!=="bee-core"||!claims.sub){reply.code(401).send({error:"Unauthorized"});return null;}
-    const user=await users.findOne({id:claims.sub,enabled:true});
+    const tenantContext=await resolveTenantContext(db,claims,options);
+    if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
+    const user=await users.findOne({id:tenantContext.userId,enabled:true});
     if(!user){reply.code(401).send({error:"Unauthorized"});return null;}
-    if(claims.sid){
-     const tenantId=String(claims.tenantId??user.tenantId??"");
-     const session=await db.collection("refresh_sessions").findOne({id:claims.sid,userId:user.id,tenantId,revokedAt:null,expiresAt:{$gt:new Date()}});
-     if(!session){reply.code(401).send({error:"Session expired, revoked or company context changed"});return null;}
-    }
     return {claims,user};
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
@@ -99,7 +95,7 @@ export const organizationsPlugin:BeePlugin={
    return {success:true,status:"cancelled"};
   });
   ctx.server.post<{Body:{token?:string}}>("/invitations/accept",async(req,reply)=>{
-   const auth=await authenticate(req,reply);if(!auth)return;
+   const auth=await authenticate(req,reply,{allowSuspendedCompany:true});if(!auth)return;
    const token=String(req.body?.token??"");
    if(token.length<32)return reply.code(400).send({error:"A valid invitation token is required"});
    const tokenHash=createHash("sha256").update(token).digest("hex"),now=new Date();
@@ -164,7 +160,7 @@ export const organizationsPlugin:BeePlugin={
    return {success:true,status:"suspended"};
   });
   ctx.server.get("/companies",async(req,reply)=>{
-   const auth=await authenticate(req,reply);if(!auth)return;
+   const auth=await authenticate(req,reply,{allowSuspendedCompany:true});if(!auth)return;
    const rows=await memberships.find({userId:auth.user!.id,status:"active"}).toArray();
    const result=[];
    for(const membership of rows){
@@ -186,7 +182,7 @@ export const organizationsPlugin:BeePlugin={
    return reply.code(201).send({company:{id,name,status:"active"},membership:{role:"owner",status:"active"},next:"POST /companies/"+id+"/activate to switch the current session"});
   });
   ctx.server.post<{Params:{companyId:string}}>("/companies/:companyId/activate",async(req,reply)=>{
-   const auth=await authenticate(req,reply);if(!auth)return;
+   const auth=await authenticate(req,reply,{allowSuspendedCompany:true});if(!auth)return;
    const {claims,user}=auth;
    if(!claims.sid||!claims.client)return reply.code(401).send({error:"Session cannot change company context"});
    const membership=await memberships.findOne({userId:user!.id,tenantId:req.params.companyId,status:"active"});
