@@ -2,8 +2,9 @@ import type { BeePlugin } from "../../core/types.js";
 import bcrypt from "bcryptjs";
 import { MongoClient, type Db } from "mongodb";
 import { randomUUID } from "node:crypto";
+import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
 
-type Company={id:string;name:string;createdAt:Date;status:"active"|"suspended"};
+type Company={id:string;name:string;slug?:string;createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
 type Membership={id:string;userId:string;tenantId:string;role:"owner"|"admin"|"manager"|"member";status:"active";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string;platformRole?:string};
@@ -23,13 +24,16 @@ export const platformAdminPlugin:BeePlugin={
    }catch{return reply.code(401).send({error:"Unauthorized"}),null;}
   };
   ctx.server.get("/platform/me",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;return {platformAdmin:true,role:user.platformRole,email:user.email};});
-  ctx.server.get("/platform/companies",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;const list=await companies.find({}).sort({createdAt:-1}).toArray();return {companies:await Promise.all(list.map(async c=>({id:c.id,name:c.name,status:c.status??"active",createdAt:c.createdAt,membersCount:await memberships.countDocuments({tenantId:c.id,status:"active"})}))) };});
-  ctx.server.post<{Body:{name?:string;ownerEmail?:string;ownerPassword?:string}}>("/platform/companies",async(req,reply)=>{
+  ctx.server.get("/platform/companies",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;const list=await companies.find({}).sort({createdAt:-1}).toArray();return {companies:await Promise.all(list.map(async c=>({id:c.id,name:c.name,slug:c.slug??null,status:c.status??"active",createdAt:c.createdAt,membersCount:await memberships.countDocuments({tenantId:c.id,status:"active"})}))) };});
+  ctx.server.post<{Body:{name?:string;slug?:string;ownerEmail?:string;ownerPassword?:string}}>("/platform/companies",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const name=String(req.body?.name??"").trim();const ownerEmail=String(req.body?.ownerEmail??"").trim().toLowerCase();
    if(name.length<2||name.length>120||!ownerEmail||!/^\S+@\S+\.\S+$/.test(ownerEmail))return reply.code(400).send({error:"Company name and valid owner email are required"});
+   let slug:string;
+   try{slug=normalizeTenantSlug(req.body?.slug||slugifyTenantName(name));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid tenant slug"});}
+   if(await companies.findOne({slug},{projection:{_id:1}}))return reply.code(409).send({error:"This tenant slug is already in use"});
    const now=new Date(),tenantId=randomUUID();
-   const company:Company={id:tenantId,name,createdAt:now,status:"active"};
+   const company:Company={id:tenantId,name,slug,createdAt:now,status:"active"};
    let owner:User|null=await users.findOne({email:ownerEmail});
    if(!owner){const password=String(req.body?.ownerPassword??"");if(password.length<12)return reply.code(400).send({error:"For a new owner, ownerPassword must contain at least 12 characters"});
     owner={id:randomUUID(),email:ownerEmail,passwordHash:await bcrypt.hash(password,12),roles:["user"],enabled:true,allowedClients:["dashboard","public"],tenantId,createdAt:now,updatedAt:now};
@@ -38,7 +42,7 @@ export const platformAdminPlugin:BeePlugin={
    if(!owner.enabled)return reply.code(409).send({error:"Owner account is disabled"});
    await companies.insertOne(company);
    await memberships.updateOne({userId:owner.id,tenantId},{$setOnInsert:{id:randomUUID(),userId:owner.id,tenantId,role:"owner",status:"active",createdAt:now,updatedAt:now}},{upsert:true});
-   return reply.code(201).send({company:{id:company.id,name:company.name,status:company.status,createdAt:company.createdAt},owner:{id:owner.id,email:owner.email}});
+   return reply.code(201).send({company:{id:company.id,name:company.name,slug:company.slug,status:company.status,createdAt:company.createdAt},owner:{id:owner.id,email:owner.email}});
   });
   ctx.server.patch<{Params:{companyId:string};Body:{status?:"active"|"suspended"}}>("/platform/companies/:companyId",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;const status=req.body?.status;
