@@ -242,6 +242,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(betaSecondCompanyPreferences.json().tenantId,secondCompanyId);
     const betaCannotManageMembers=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
     assert.equal(betaCannotManageMembers.statusCode,403);
+    const betaCompanyClaims=app.jwt.decode(betaActivateSecond.json().accessToken) as {sid:string};
+    const staleOwnerOrganizationToken=app.jwt.sign({sub:"test-user-beta",email:"beta@example.com",roles:["owner"],tenantId:secondCompanyId,client:"dashboard",aud:"bee-core",sid:betaCompanyClaims.sid});
+    const staleOwnerRoleCreate=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+staleOwnerOrganizationToken},payload:{name:"Forged owner role",permissions:["notes.read"]}});
+    assert.equal(staleOwnerRoleCreate.statusCode,403,"organization writes must use the current membership role, not stale JWT roles");
+    assert.equal(await db.collection("company_roles").countDocuments({tenantId:secondCompanyId,name:"Forged owner role"}),0);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user-beta",action:"permission.denied",outcome:"denied","metadata.permission":"members.manage"}),"denied company permission should be audited");
     const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(updateBetaRole.statusCode,200);

@@ -1,7 +1,7 @@
 import type { BeePlugin } from "../../core/types.js";
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext } from "../../core/tenant-context.js";
+import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext, type TenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
@@ -55,7 +55,7 @@ export const organizationsPlugin:BeePlugin={
    for(const duplicate of owners.slice(1))await memberships.updateOne({id:duplicate.id},{$set:{role:"admin",updatedAt:new Date()}});
   }
   await memberships.createIndex({tenantId:1},{unique:true,partialFilterExpression:{role:"owner",status:"active"},name:"memberships_one_active_owner_per_company"});
-  const authenticate=async(req:any,reply:any,options:{allowSuspendedCompany?:boolean}={}):Promise<{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null}|null>=>{
+  const authenticate=async(req:any,reply:any,options:{allowSuspendedCompany?:boolean}={}):Promise<{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null}|null>=>{
    try{
     await req.jwtVerify();
     const claims=req.user as Claims;
@@ -63,12 +63,12 @@ export const organizationsPlugin:BeePlugin={
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
     const user=await users.findOne({id:tenantContext.userId,enabled:true});
     if(!user){reply.code(401).send({error:"Unauthorized"});return null;}
-    return {claims,user};
+    return {claims,tenantContext,user};
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
   const rolePermissions=COMPANY_ROLE_PERMISSIONS;
-  const requireCompanyPermission=async(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,permission:string,reply:any)=>{
-   const activeTenantId=String(auth.claims.tenantId??auth.user!.tenantId??"");
+  const requireCompanyPermission=async(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,permission:string,reply:any)=>{
+   const activeTenantId=auth.tenantContext.tenantId;
    if(companyId!==activeTenantId){reply.code(403).send({error:"Switch to this company before accessing its resources"});return null;}
    const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
    let effectivePermissions:readonly string[]=[];
@@ -80,9 +80,9 @@ export const organizationsPlugin:BeePlugin={
    }
    return actor;
   };
-  const requireCompanyAdmin=(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>requireCompanyPermission(auth,companyId,"members.manage",reply);
+  const requireCompanyAdmin=(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>requireCompanyPermission(auth,companyId,"members.manage",reply);
   // Custom company roles: tenant-scoped, owner-managed and permission-validated.
-  const ownerOnly=async(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>{
+  const ownerOnly=async(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>{
    const actor=await requireCompanyPermission(auth,companyId,"members.manage",reply);
    if(!actor)return null;
    if(actor.role!=="owner"){reply.code(403).send({error:"Only the company owner can manage custom roles"});return null;}
@@ -263,7 +263,7 @@ export const organizationsPlugin:BeePlugin={
    const result=[];
    for(const membership of rows){
     const company=await companies.findOne({id:membership.tenantId});
-    if(company)result.push({id:company.id,name:company.name,status:company.status??"active",role:membership.role,active:membership.tenantId===(auth.claims.tenantId??auth.user!.tenantId)});
+    if(company)result.push({id:company.id,name:company.name,status:company.status??"active",role:membership.role,active:membership.tenantId===auth.tenantContext.tenantId});
    }
    return {companies:result};
   });
@@ -287,7 +287,7 @@ export const organizationsPlugin:BeePlugin={
    if(!membership)return reply.code(403).send({error:"Active membership required for this company"});
    const company=await companies.findOne({id:req.params.companyId,status:{$ne:"suspended"}});
    if(!company)return reply.code(404).send({error:"Company not found or suspended"});
-   const currentTenantId=String(claims.tenantId??user!.tenantId??"");
+   const currentTenantId=auth.tenantContext.tenantId;
    const session=await db.collection("refresh_sessions").findOneAndUpdate({id:claims.sid,userId:user!.id,tenantId:currentTenantId,revokedAt:null,expiresAt:{$gt:new Date()}},{$set:{tenantId:company.id}},{returnDocument:"after"});
    if(!session)return reply.code(401).send({error:"Session expired or revoked"});
    const role: string=membership.role;
@@ -297,7 +297,7 @@ export const organizationsPlugin:BeePlugin={
   });
   ctx.server.get("/companies/active/permissions",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
-   const tenantId=String(auth.claims.tenantId??auth.user!.tenantId??"");
+   const tenantId=auth.tenantContext.tenantId;
    const membership=await memberships.findOne({userId:auth.user!.id,tenantId,status:"active"});
    if(!membership)return reply.code(403).send({error:"Active company membership required"});
    if(membership.role==="custom"&&membership.customRoleId){
