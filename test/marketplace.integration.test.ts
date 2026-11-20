@@ -17,6 +17,17 @@ test("company plans and purchases control plugin visibility, installation and ac
   const client = new MongoClient(uri!);
   await client.connect();
   const db = client.db(dbName);
+
+  const waitForInstallJob = async (jobId: string) => {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      const job = await db.collection("plugin_install_jobs").findOne({ id: jobId });
+      if (job?.status === "succeeded") return job;
+      if (job?.status === "failed") throw new Error("Plugin install job failed: " + String(job.error));
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error("Timed out waiting for plugin install job " + jobId);
+  };
   const passwordHash = await bcrypt.hash("Test-password-12345", 10);
   const now = new Date();
   await db.collection("tenants").insertMany([
@@ -100,8 +111,13 @@ test("company plans and purchases control plugin visibility, installation and ac
       app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } }),
       app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } })
     ]);
-    assert.ok(betaNotesInstallAttempts.some(response => response.statusCode === 201));
-    assert.ok(betaNotesInstallAttempts.every(response => [200, 201, 409].includes(response.statusCode)));
+    assert.ok(betaNotesInstallAttempts.every(response => response.statusCode === 202));
+    const betaInstallJobId = betaNotesInstallAttempts[0].json().jobId as string;
+    assert.equal(betaNotesInstallAttempts[1].json().jobId, betaInstallJobId, "concurrent install requests must share one durable job");
+    const foreignJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaInstallJobId, headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(foreignJobRead.statusCode, 404, "install jobs must be tenant-scoped");
+    const betaInstallJob = await waitForInstallJob(betaInstallJobId);
+    assert.equal(betaInstallJob.attempts, 1);
     assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.installed",resourceType:"plugin",resourceId:"notes"}),1,"successful concurrent plugin installation should be audited once");
     assert.equal(await db.collection("tenant_plugin_installations").countDocuments({ tenantId: "market-beta", pluginId: "notes", status: "installed" }), 1);
     const betaNotesList = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
@@ -123,7 +139,8 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(betaAfterUninstall.statusCode, 403);
     assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-beta" }), 1);
     const betaReinstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
-    assert.equal(betaReinstall.statusCode, 201);
+    assert.equal(betaReinstall.statusCode, 202);
+    await waitForInstallJob(betaReinstall.json().jobId as string);
     assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.installed",resourceType:"plugin",resourceId:"notes"}),2,"plugin reinstall should produce a second install event");
     const betaAfterReinstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterReinstall.statusCode, 200);
@@ -161,7 +178,9 @@ test("company plans and purchases control plugin visibility, installation and ac
     const alphaPurchasedCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; entitled: boolean; accessSource: string }) => plugin.id === "notes" && plugin.entitled && plugin.accessSource === "purchase"));
     const alphaNotesInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + alphaToken } });
-    assert.equal(alphaNotesInstall.statusCode, 201);
+    assert.equal(alphaNotesInstall.statusCode, 202);
+    const alphaInstallJob = await waitForInstallJob(alphaNotesInstall.json().jobId as string);
+    assert.equal(alphaInstallJob.status, "succeeded");
     const alphaNoteCreate = await app.inject({
       method: "POST",
       url: "/notes",
