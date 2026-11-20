@@ -2,6 +2,7 @@ import type { BeePlugin } from "../../core/types.js";
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext } from "../../core/tenant-context.js";
+import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 
 type Company = { id:string; name:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
@@ -78,6 +79,14 @@ export const organizationsPlugin:BeePlugin={
    await invitations.updateMany({tenantId:req.params.companyId,email,acceptedAt:null,cancelledAt:null,expiresAt:{$lte:invitationNow}},{$set:{cancelledAt:invitationNow}});
    const pending=await invitations.findOne({tenantId:req.params.companyId,email,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()}});
    if(pending)return reply.code(409).send({error:"An active invitation already exists for this email"});
+   const userLimit=await getTenantUserLimit(db,req.params.companyId);
+   if(userLimit!==null){
+    const [activeMembers,pendingInvitations]=await Promise.all([
+     memberships.countDocuments({tenantId:req.params.companyId,status:"active"}),
+     invitations.countDocuments({tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()}})
+    ]);
+    if(activeMembers+pendingInvitations>=userLimit)return reply.code(409).send({error:"Company user limit reached for the current plan"});
+   }
    const token=randomBytes(32).toString("base64url"),now=new Date(),invitation:Invitation={id:randomUUID(),tenantId:req.params.companyId,email,role,tokenHash:createHash("sha256").update(token).digest("hex"),createdBy:auth.user!.id,createdAt:now,expiresAt:new Date(now.getTime()+7*24*60*60*1000),acceptedAt:null,cancelledAt:null};
    await invitations.insertOne(invitation);
    return reply.code(201).send({invitation:{id:invitation.id,email,role,expiresAt:invitation.expiresAt},acceptanceToken:token});
@@ -105,9 +114,13 @@ export const organizationsPlugin:BeePlugin={
    if(invitation.email!==auth.user!.email.toLowerCase())return reply.code(403).send({error:"Invitation email does not match the signed-in account"});
    const company=await companies.findOne({id:invitation.tenantId,status:{$ne:"suspended"}});
    if(!company)return reply.code(404).send({error:"Company is unavailable"});
+   const existing=await memberships.findOne({userId:auth.user!.id,tenantId:invitation.tenantId});
+   if(existing?.status!=="active"){
+    const userLimit=await getTenantUserLimit(db,invitation.tenantId);
+    if(userLimit!==null&&await memberships.countDocuments({tenantId:invitation.tenantId,status:"active"})>=userLimit)return reply.code(409).send({error:"Company user limit reached for the current plan"});
+   }
    const consumed=await invitations.updateOne({id:invitation.id,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:now}},{$set:{acceptedAt:now}});
    if(!consumed.modifiedCount)return reply.code(409).send({error:"Invitation has already been used"});
-   const existing=await memberships.findOne({userId:auth.user!.id,tenantId:invitation.tenantId});
    if(existing)await memberships.updateOne({id:existing.id},{$set:{role:invitation.role,status:"active",updatedAt:now}});
    else await memberships.insertOne({id:randomUUID(),userId:auth.user!.id,tenantId:invitation.tenantId,role:invitation.role,status:"active",createdAt:now,updatedAt:now});
    return {success:true,company:{id:company.id,name:company.name},membership:{role:invitation.role,status:"active"}};
@@ -131,6 +144,8 @@ export const organizationsPlugin:BeePlugin={
    if(!target)return reply.code(404).send({error:"An existing enabled user is required"});
    const existing=await memberships.findOne({userId:target.id,tenantId:req.params.companyId});
    if(existing?.status==="active")return reply.code(409).send({error:"User is already a company member"});
+   const userLimit=await getTenantUserLimit(db,req.params.companyId);
+   if(userLimit!==null&&await memberships.countDocuments({tenantId:req.params.companyId,status:"active"})>=userLimit)return reply.code(409).send({error:"Company user limit reached for the current plan"});
    const now=new Date();
    if(existing)await memberships.updateOne({id:existing.id},{$set:{role,status:"active",updatedAt:now}});
    else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
