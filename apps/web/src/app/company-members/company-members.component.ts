@@ -2,7 +2,8 @@ import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
-type CompanyMember = { userId: string; email: string | null; role: "owner" | "admin" | "manager" | "member"; status: "active" | "suspended"; createdAt: string };
+type CompanyMember = { userId: string; email: string | null; role: string; customRoleId?: string | null; status: "active" | "suspended"; createdAt: string };
+type CustomRole = { id: string; name: string; description: string; permissions: string[] };
 type CompanyInvitation = { id: string; email: string; role: string; createdAt: string; expiresAt: string; acceptedAt: string | null; cancelledAt: string | null };
 
 @Component({
@@ -31,11 +32,12 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
             <tr *ngFor="let member of members; trackBy: trackMember">
               <td><strong>{{member.email || member.userId}}</strong><small>{{member.userId}}</small></td>
               <td>
-                <select *ngIf="canManage && member.role !== 'owner' && (role === 'owner' || member.role !== 'admin')" [value]="member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
+                <select *ngIf="canManage && member.role !== 'owner' && (role === 'owner' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
                   <option value="member">Member</option><option value="manager">Manager</option>
                   <option *ngIf="role === 'owner'" value="admin">Admin</option>
+                  <option *ngFor="let customRole of customRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
                 </select>
-                <span *ngIf="!canManage || member.role === 'owner'">{{member.role}}</span>
+                <span *ngIf="!canManage || member.role === 'owner'">{{member.role === 'custom' ? customRoleName(member.customRoleId) : member.role}}</span>
               </td>
               <td><span class="bee-company-members__status" [class.is-suspended]="member.status !== 'active'">{{member.status}}</span></td>
               <td *ngIf="canManage"><button *ngIf="member.role !== 'owner' && member.status === 'active' && (role === 'owner' || member.role !== 'admin')" class="bee-company-members__danger" type="button" (click)="suspend(member)" [disabled]="busyId === member.userId">Suspend</button></td>
@@ -44,6 +46,21 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
         </table>
       </div>
       <div *ngIf="canRead && !loading && !members.length" class="bee-company-members__state">No members found.</div>
+
+      <div *ngIf="canManageCustomRoles" class="bee-company-members__roles">
+        <div class="bee-company-members__roles-head"><div><h3>Custom roles</h3><p>Create company-specific access profiles using the permissions below.</p></div></div>
+        <form class="bee-company-members__role-form" (submit)="saveCustomRole($event)">
+          <input type="text" name="customRoleName" [(ngModel)]="customRoleNameInput" placeholder="Role name" maxlength="48" required>
+          <input type="text" name="customRoleDescription" [(ngModel)]="customRoleDescriptionInput" placeholder="Description (optional)" maxlength="240">
+          <div class="bee-company-members__permission-grid">
+            <label *ngFor="let permission of customRolePermissionOptions"><input type="checkbox" [checked]="permission.selected" (change)="permission.selected = $any($event.target).checked"><span>{{permission.label}}<small>{{permission.key}}</small></span></label>
+          </div>
+          <div class="bee-company-members__role-actions"><button type="submit" [disabled]="busyId === 'custom-role' || !customRoleNameInput.trim()">{{busyId === 'custom-role' ? 'Saving…' : customRoleEditingId ? 'Update role' : 'Create role'}}</button><button *ngIf="customRoleEditingId" type="button" class="bee-company-members__role-cancel" (click)="resetCustomRoleForm()">Cancel edit</button></div>
+        </form>
+        <div class="bee-company-members__role-list" *ngIf="customRoles.length">
+          <div class="bee-company-members__role-item" *ngFor="let customRole of customRoles; trackBy: trackCustomRole"><span><strong>{{customRole.name}}</strong><small>{{customRole.description || "No description"}} · {{customRole.permissions.length}} permissions</small></span><div><button type="button" (click)="editCustomRole(customRole)">Edit</button><button type="button" class="bee-company-members__danger" (click)="deleteCustomRole(customRole)" [disabled]="busyId === customRole.id">Delete</button></div></div>
+        </div>
+      </div>
 
       <div *ngIf="canInvite" class="bee-company-members__invite">
         <h3>Invite a colleague</h3>
