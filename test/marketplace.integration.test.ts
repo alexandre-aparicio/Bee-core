@@ -106,6 +106,17 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(betaNoteCreate.statusCode, 201);
     const betaNoteId = betaNoteCreate.json().note.id as string;
 
+    const betaUninstall = await app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaUninstall.statusCode, 200);
+    const betaAfterUninstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaAfterUninstall.statusCode, 403);
+    assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-beta" }), 1);
+    const betaReinstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaReinstall.statusCode, 201);
+    const betaAfterReinstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaAfterReinstall.statusCode, 200);
+    assert.equal(betaAfterReinstall.json().notes.length, 1);
+
     const alphaCannotUseNotes = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCannotUseNotes.statusCode, 403);
 
@@ -149,6 +160,18 @@ test("company plans and purchases control plugin visibility, installation and ac
     const alphaAfterRevoke = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaAfterRevoke.statusCode, 403);
     assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-alpha" }), 1);
+
+    const expireBetaSubscription = await webhook({
+      event: "subscription.updated",
+      tenantId: "market-beta",
+      planId: "pro",
+      status: "active",
+      expiresAt: new Date(Date.now() - 60_000).toISOString()
+    });
+    assert.equal(expireBetaSubscription.statusCode, 200);
+    const betaAfterExpiry = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaAfterExpiry.statusCode, 403);
+    assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-beta" }), 1);
   } finally {
     await app.close();
     await notesPlugin.stop?.(ctx);
