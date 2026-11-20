@@ -55,7 +55,7 @@ export class BeeTemplateManagerComponent {
   updateToken(key: string, value: string): void {
     this.draftTokens[key] = value;
     this.engine.themeTokens[key] = value;
-    if (typeof document !== 'undefined') document.documentElement.style.setProperty(key, value);
+    if (typeof document !== 'undefined') { document.documentElement.style.setProperty(key, value); document.body.dataset['beeCustomTheme'] = 'true'; }
   }
 
   async saveTheme(): Promise<void> {
