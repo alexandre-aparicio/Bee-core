@@ -288,8 +288,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(replay.statusCode, 401);
     const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken }, payload: { refreshToken: refreshed.refreshToken } });
     assert.equal(logout.statusCode, 200);
-    const logoutAudit = await db.collection("tenant_audit_events").find({tenantId:"tenant-alpha",actorId:"test-user",action:"auth.logout"}).toArray();
-    assert.equal(logoutAudit.length,1,"logout should be audited for the active tenant");
+    const logoutAudit = await db.collection("tenant_audit_events").find({actorId:"test-user",action:"auth.logout"}).toArray();
+    assert.equal(logoutAudit.length,1,"logout should be audited for the authenticated user");
+    assert.equal(logoutAudit[0].tenantId,"tenant-alpha","logout audit should retain the current company context");
     assert.equal(logoutAudit[0].metadata.refreshTokenProvided,true);
     const afterLogout = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: refreshed.refreshToken } });
     assert.equal(afterLogout.statusCode, 401);
