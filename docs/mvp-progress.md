@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — `main` is at `d69b09e757741c0246bc3e74d3b39b7c7573a279`, including PRs #29–#35. PR #34 post-merge backend/full-stack CI (`44779902641`) and production Compose (`44779902679`) passed on `a87db5d`; PR #35 backend/auth and Docker full-stack checks passed on exact head `09237c13` before merge. Post-merge checks for `d69b09e` are running.
+Updated: 2026-11-20 — `main` is at `d69b09e757741c0246bc3e74d3b39b7c7573a279`, including PRs #29–#35. PR #34 post-merge backend/full-stack CI (`44779902641`) and production Compose (`44779902679`) passed on `a87db5d`; PR #35 backend/auth and Docker full-stack checks passed on exact head `09237c13` before merge; post-merge backend/full-stack CI (`44780741763`) and production Compose (`44780741842`) passed on exact main SHA `d69b09e`.
 
 ## How progress is measured
 
@@ -45,7 +45,7 @@ The weighted capability score is **92.15%** (92% rounded). The broader SaaS plug
 - PR #32 — automated MongoDB logical dump, isolated restore, sentinel verification and temporary-database cleanup. PR-head production Compose run `44777108094` and post-merge run `44777925729` passed.
 - PR #33 — template/domain write authorization now uses the live tenant membership role; stale JWT `admin` claim regression test. Backend/auth and Docker full-stack checks passed on PR head `858d044`; post-merge CI and production Compose passed on main SHA `02e7766` (runs `44778714998` and `44778715071`).
 - PR #34 — migration compensation after lifecycle-hook failures, reverse-order rollback and persisted rollback failures; plugin manifest validation for semantic dependency ranges, duplicate declarations and unsafe paths; lifecycle worker lease renewal and rejection of stale worker completion. Backend/MongoDB and Docker full-stack CI passed on PR head `cb511cad`; post-merge backend/full-stack CI (`44779902641`) and production Compose (`44779902679`) passed on `a87db5d`.
-- PR #35 — organization routes now carry the live server-resolved `TenantContext` for permission checks; stale JWT `owner` claim cannot create company roles. Backend/auth and Docker full-stack CI passed on exact PR head `09237c13`; post-merge checks on `d69b09e` are pending.
+- PR #35 — organization routes now carry the live server-resolved `TenantContext` for permission checks; stale JWT `owner` claim cannot create company roles. Backend/auth and Docker full-stack CI passed on exact PR head `09237c13`; post-merge backend/full-stack CI (`44780741763`) and production Compose (`44780741842`) passed on exact main SHA `d69b09e`.
 
 PR #20 passed backend typecheck/build/MongoDB auth tests and Docker Compose full-stack integration. The dedicated Angular workflow was correctly skipped because no Angular files changed; Angular was built and exercised within the full-stack workflow. Post-merge checks passed on `1c96e8100d2145f518a0232d300122c866551c1b`: backend and full-stack CI run `44764328710`, plus production Compose run `44764328866`.
 
