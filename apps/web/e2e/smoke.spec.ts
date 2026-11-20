@@ -90,10 +90,12 @@ test('tenant admin can install and activate a trusted dashboard template package
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ selection: { public: 'aurora', dashboard: 'midnight' }, installedTemplates: ['aurora', 'editorial', 'midnight', 'paper'] })
   }));
-  await page.route('**/api/templates/theme', route => route.fulfill({
-    status: 200, contentType: 'application/json',
-    body: JSON.stringify({ tokens: { '--bg': '#080a12', '--panel': '#10131e', '--muted': '#8991a4', '--border': '#303447', '--purple': '#8c72ff', '--cyan': '#69e5d4' }, customized: false })
-  }));
+  await page.route('**/api/templates/theme', route => {
+    const tokens = route.request().method() === 'PUT'
+      ? { '--bg': '#101827', '--panel': '#1b2940', '--muted': '#a2b1c7', '--border': '#40516b', '--purple': '#8b9dff', '--cyan': '#69d9e8' }
+      : { '--bg': '#080a12', '--panel': '#10131e', '--muted': '#8991a4', '--border': '#303447', '--purple': '#8c72ff', '--cyan': '#69e5d4' };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tokens, customized: route.request().method() === 'PUT' }) });
+  });
   await page.route('**/api/templates/stream-ticket', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: 'one-use-test-ticket' })
   }));
@@ -108,5 +110,11 @@ test('tenant admin can install and activate a trusted dashboard template package
   await expect(manager.getByText('Package installed for this tenant.')).toBeVisible();
   await manager.getByLabel('Dashboard').selectOption('glass');
   await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
+  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#101827');
+  await manager.getByRole('button', { name: 'Discard preview' }).click();
+  await expect(page.locator('[data-bee-layout="dashboard.midnight"]')).toBeVisible();
+  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
+  await manager.getByLabel('Dashboard').selectOption('glass');
   await manager.getByRole('button', { name: 'Apply template changes' }).click();
+  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#101827');
 });
