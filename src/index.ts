@@ -3,6 +3,7 @@ import { BeeEventBus } from "./core/event-bus.js";
 import { BeePluginManager } from "./core/plugin-manager.js";
 import type { BeeContext, BeeLogger } from "./core/types.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
+import { authPlugin } from "./plugins/auth/auth.plugin.js";
 
 const logger: BeeLogger = {
   info: (message, context) => console.log("[INFO]", message, context ?? ""),
@@ -12,17 +13,23 @@ const logger: BeeLogger = {
 
 const events = new BeeEventBus();
 const plugins = new BeePluginManager();
+const app = Fastify({ logger: false });
 const ctx: BeeContext = {
   appName: "Bee-Core",
-  version: "0.1.0",
+  version: "0.2.0",
   events,
   logger,
-  config: Object.freeze({ environment: process.env.NODE_ENV ?? "development" })
+  server: app,
+  config: Object.freeze({
+    environment: process.env.NODE_ENV ?? "development",
+    jwtSecret: process.env.JWT_SECRET ?? "",
+    authAdminEmail: process.env.AUTH_ADMIN_EMAIL ?? "",
+    authAdminPassword: process.env.AUTH_ADMIN_PASSWORD ?? ""
+  })
 };
 
 plugins.register(helloPlugin);
-
-const app = Fastify({ logger: false });
+plugins.register(authPlugin);
 
 app.get("/health", async () => ({
   status: "ok",
@@ -38,7 +45,7 @@ app.get("/", async () => ({
   slogan: "All Is a Plugin",
   version: ctx.version,
   status: "running",
-  endpoints: ["/health", "/plugins"]
+  endpoints: ["/health", "/plugins", "/auth/login", "/auth/me", "/auth/logout"]
 }));
 
 async function bootstrap() {
