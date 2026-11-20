@@ -200,6 +200,27 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(updateBetaRole.statusCode,200);
     assert.equal(updateBetaRole.json().membership.role,"manager");
+    const managerInviteAdmin=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken},payload:{email:"admin-invite@example.com",role:"admin"}});
+    assert.equal(managerInviteAdmin.statusCode,403);
+    const createInvite=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
+    assert.equal(createInvite.statusCode,201);
+    assert.ok(createInvite.json().acceptanceToken);
+    const wrongAccountAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
+    assert.equal(wrongAccountAccept.statusCode,403);
+    const acceptedInvite=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
+    assert.equal(acceptedInvite.statusCode,200);
+    assert.equal(acceptedInvite.json().company.id,secondCompanyId);
+    const duplicateAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
+    assert.equal(duplicateAccept.statusCode,404);
+    const invitedMemberList=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+    assert.ok(invitedMemberList.json().memberships.some((member:{email:string;role:string})=>member.email==="legacy@example.com"&&member.role==="member"));
+    const createCancelledInvite=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"cancelled@example.com",role:"member"}});
+    assert.equal(createCancelledInvite.statusCode,201);
+    const cancelInvite=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/invitations/"+createCancelledInvite.json().invitation.id,headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+    assert.equal(cancelInvite.statusCode,200);
+    const cancelledAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createCancelledInvite.json().acceptanceToken}});
+    assert.equal(cancelledAccept.statusCode,404);
+
     const betaOldRoleSession=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken}});
     assert.equal(betaOldRoleSession.statusCode,401);
     const staleCompanyToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
