@@ -34,3 +34,19 @@ Backend synchronization across browsers/devices is a follow-up task. This does n
 ## Design rule
 
 Template packages define their own fixed palette and must support both modes. The mode switch changes semantic surfaces, text, borders and contrast without exposing arbitrary color controls. Plugin components should use the active template's semantic CSS tokens and inherit the current mode.
+
+
+## Source package structure
+
+Each first-party template has a package directory under `apps/web/src/app/templates/packages/<template-id>/`:
+
+- `manifest.ts`: package identity, target, version, supported slots and registered Angular layout component.
+- `theme-tokens.ts`: fixed semantic palette for that template.
+- `components/layout.component.ts`: standalone Angular layout wrapper.
+- `styles.css`: template-specific layout rules.
+- `assets/`: package-owned preview and future images/fonts/illustrations.
+- `README.md`: package contract and ownership.
+
+The shared template core contains the registry/engine and `core/appearance-modes.css`. The shared application still owns page content, navigation and plugin-slot composition; each layout component currently wraps that shared page tree. This keeps behavior and tenant/plugin integration shared while separating the six visual style packages.
+
+Packages are trusted Angular code compiled with the application. The install/uninstall API controls tenant availability of registered packages; it does not download and execute arbitrary JavaScript at runtime.
