@@ -46,7 +46,8 @@ export const authPlugin:BeePlugin={
   const preferenceIndexes=await templatePreferences.listIndexes().toArray();
   if(preferenceIndexes.some(index=>index.name==="template_preferences_user_unique"))await templatePreferences.dropIndex("template_preferences_user_unique");
   for await(const legacy of templatePreferences.find({tenantId:{$exists:false},userId:{$exists:true}}).sort({updatedAt:-1})){
-   const owner=await users.findOne({id:legacy.userId});
+   const legacyUserId=String(legacy.userId??"");
+   const owner=legacyUserId?await users.findOne({id:legacyUserId}):null;
    const tenantId=owner?.tenantId??defaultTenantId;
    await templatePreferences.updateOne({tenantId},{$setOnInsert:{tenantId,public:legacy.public??"aurora",dashboard:legacy.dashboard??"midnight",...(legacy.themeTokens?{themeTokens:legacy.themeTokens}:{}),updatedAt:legacy.updatedAt??new Date()}},{upsert:true});
    await templatePreferences.deleteOne({_id:legacy._id});
