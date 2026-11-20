@@ -96,7 +96,7 @@ export class BeeTemplateManagerComponent {
   }
 
   isActive(id: string): boolean {
-    const selection = this.engine.getSelection();
+    const selection = this.engine.getCommittedSelection();
     return selection.public === id || selection.dashboard === id;
   }
 
