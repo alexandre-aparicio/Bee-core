@@ -129,6 +129,20 @@ test("company plans and purchases control plugin visibility, installation and ac
       event: "plugin.purchase", tenantId: "market-alpha", pluginId: "notes", providerReference: "alpha-notes-001"
     }, "wrong-secret");
     assert.equal(invalidWebhook.statusCode, 401);
+    const invalidPlanWebhook = await webhook({
+      event: "subscription.updated", tenantId: "market-alpha", planId: "unknown-plan", status: "active"
+    });
+    assert.equal(invalidPlanWebhook.statusCode, 400);
+    const invalidExpiryPurchase = await webhook({
+      event: "plugin.purchase", tenantId: "market-alpha", pluginId: "notes",
+      providerReference: "alpha-invalid-date", expiresAt: "not-a-date"
+    });
+    assert.equal(invalidExpiryPurchase.statusCode, 400);
+    const unknownTenantWebhook = await webhook({
+      event: "plugin.purchase", tenantId: "no-such-company", pluginId: "notes",
+      providerReference: "unknown-tenant-purchase"
+    });
+    assert.equal(unknownTenantWebhook.statusCode, 400);
 
     const alphaPurchase = await webhook({
       event: "plugin.purchase",
