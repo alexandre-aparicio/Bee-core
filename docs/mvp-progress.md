@@ -182,3 +182,11 @@ The product model is now specified in `docs/template-business-model.md`.
 - Browser back/forward navigation updates the active tenant page as well.
 - The tenant shell retains its public template layout class, Light/Dark control, and tenant-specific public appearance scope.
 - No tests, builds, or GitHub Actions workflows were run for this change, as requested. Runtime verification remains pending after deployment.
+
+
+## Template package source separation
+
+- Template metadata has been moved out of the central template engine into six package folders under `apps/web/src/app/templates/packages/`: Aurora, Editorial, Studio, Midnight, Paper and Glass.
+- Each package now owns its manifest, semantic theme-token definition and package README. The package barrel exports the built-in catalogue, installable package catalogue and package palette registry; the central engine consumes these exports instead of defining the manifests inline.
+- This is the first structural extraction, not yet complete visual/component isolation: the public/dashboard shells, shared slot runtime and legacy template CSS still live in shared application files. Per-template components, scoped styles and assets still need to be extracted before claiming each package is fully autonomous or independently distributable.
+- No tests, builds or GitHub Actions workflows were run, per user instruction.
