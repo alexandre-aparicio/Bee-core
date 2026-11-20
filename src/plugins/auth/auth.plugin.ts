@@ -30,7 +30,7 @@ export const authPlugin:BeePlugin={
   const templatePreferences=db.collection<{tenantId:string;public:string;dashboard:string;themeTokens?:Record<string,string>;updatedAt:Date}>("template_preferences");
   const templateStreamTickets=new Map<string,{tenantId:string;expiresAt:number}>();
   const templateSubscribers=new Map<string,Set<import("node:http").ServerResponse>>();
-  const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\\ndata: ${JSON.stringify(payload)}\\n\\n`;for(const client of clients){if(client.destroyed){clients.delete(client);continue;}client.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
+  const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.destroyed){clients.delete(client);continue;}client.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
   const tenants=db.collection<{id:string;name:string;createdAt:Date}>("tenants");
   await Promise.all([
@@ -136,14 +136,14 @@ export const authPlugin:BeePlugin={
    templateStreamTickets.delete(ticket);
    if(!record||record.expiresAt<Date.now())return reply.code(401).send({error:"Invalid stream ticket"});
    const raw=reply.raw;
+   reply.hijack();
    raw.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-cache, no-transform","connection":"keep-alive","x-accel-buffering":"no"});
-   raw.write(": connected\\n\\n");
+   raw.write(": connected\n\n");
    const saved=await templatePreferences.findOne({tenantId:record.tenantId});
-   raw.write("event: template-update\\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})}})+"\\n\\n");
+   raw.write("event: template-update\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})}})+"\n\n");
    const clients=templateSubscribers.get(record.tenantId)??new Set<import("node:http").ServerResponse>();
    clients.add(raw);templateSubscribers.set(record.tenantId,clients);
    raw.on("close",()=>{clients.delete(raw);if(!clients.size)templateSubscribers.delete(record.tenantId);});
-   reply.hijack();
    return reply;
   });
   ctx.server.addHook("onClose",async()=>{await mongo.close();});
