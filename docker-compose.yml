@@ -38,5 +38,18 @@ services:
       timeout: 5s
       retries: 3
 
+  web:
+    build:
+      context: ./apps/web
+      args:
+        VITE_BEE_API: /api
+    container_name: bee-core-web
+    restart: unless-stopped
+    depends_on:
+      bee-core:
+        condition: service_healthy
+    ports:
+      - "${BEE_WEB_PORT:-8080}:80"
+
 volumes:
   bee_core_mongodb_data:
