@@ -40,6 +40,22 @@ import type { BeeTemplateTarget } from './template.types';
           <button type="button" class="bee-template-manager__save" [disabled]="saving" (click)="saveTheme()">{{ saving ? 'Saving…' : 'Save live theme' }}</button>
           @if (saveMessage) { <span class="bee-template-manager__message">{{ saveMessage }}</span> }
         </div>
+        <div class="bee-template-manager__catalog">
+          <strong>Template package catalog</strong>
+          <p>Install trusted design packages for this tenant. They become available immediately to connected sessions.</p>
+          @for (item of engine.catalog(); track item.id) {
+            <div class="bee-template-package">
+              <div><b>{{ item.name }}</b><small>{{ item.target }} · v{{ item.version }}</small><span>{{ item.description }}</span></div>
+              @if (engine.isInstalled(item.id)) {
+                <button type="button" [disabled]="installingId === item.id || isActive(item.id)" (click)="uninstall(item.id)">{{ installingId === item.id ? 'Working…' : isActive(item.id) ? 'Active' : 'Uninstall' }}</button>
+              } @else {
+                <button type="button" [disabled]="installingId === item.id" (click)="install(item.id)">{{ installingId === item.id ? 'Installing…' : 'Install' }}</button>
+              }
+            </div>
+          }
+          @if (packageMessage) { <span class="bee-template-manager__message">{{ packageMessage }}</span> }
+        </div>
+        </div>
       }
       <p>Each surface has an independent theme. Saved design tokens are pushed to connected sessions in this tenant without rebuilding or restarting the app.</p>
     </section>
@@ -49,6 +65,8 @@ export class BeeTemplateManagerComponent {
   saving = false;
   saveMessage = '';
   private draftTokens: Record<string, string> = {};
+  installingId = '';
+  packageMessage = '';
 
   constructor(readonly engine: BeeTemplateEngine) {}
 
@@ -70,6 +88,25 @@ export class BeeTemplateManagerComponent {
     } finally {
       this.saving = false;
     }
+  }
+
+  isActive(id: string): boolean {
+    const selection = this.engine.getSelection();
+    return selection.public === id || selection.dashboard === id;
+  }
+
+  async install(id: string): Promise<void> {
+    this.installingId = id; this.packageMessage = '';
+    try { this.packageMessage = await this.engine.installTemplate(id) ? 'Package installed for this tenant.' : 'Package installation failed.'; }
+    catch { this.packageMessage = 'Package installation failed.'; }
+    finally { this.installingId = ''; }
+  }
+
+  async uninstall(id: string): Promise<void> {
+    this.installingId = id; this.packageMessage = '';
+    try { this.packageMessage = await this.engine.uninstallTemplate(id) ? 'Package removed from this tenant.' : 'Package could not be removed.'; }
+    catch { this.packageMessage = 'Package could not be removed.'; }
+    finally { this.installingId = ''; }
   }
 
   activate(target: BeeTemplateTarget, id: string): void {
