@@ -423,9 +423,10 @@ test('company member data cannot leak across a rapid active-company switch', asy
   const selector = page.getByLabel('Active company');
   await selector.selectOption('company-b');
   await expect(page.getByText('member-b@example.test')).toBeVisible();
-  await expect(page.getByText('Company B custom role')).toBeVisible();
+  const companyBMemberRow = page.locator('.bee-company-members__table tr').filter({ hasText: 'member-b@example.test' });
+  await expect(companyBMemberRow.locator('option[value="custom:role-b"]')).toHaveText('Company B custom role');
   await page.waitForTimeout(850);
   await expect(page.getByText('member-a@example.test')).toHaveCount(0);
-  await expect(page.getByText('Company B custom role')).toBeVisible();
+  await expect(companyBMemberRow.locator('option[value="custom:role-b"]')).toHaveText('Company B custom role');
   await expect(page.getByLabel('Active company')).toHaveValue('company-b');
 });
