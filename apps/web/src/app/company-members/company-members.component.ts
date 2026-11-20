@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input, OnChanges, OnInit, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
 type CompanyMember = { userId: string; email: string | null; role: "owner" | "admin" | "manager" | "member"; status: "active" | "suspended"; createdAt: string };
@@ -15,6 +15,12 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
         <div><h2>Company members</h2><p>Memberships and roles apply only to the active company.</p></div>
         <button class="bee-company-members__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
       </div>
+      <div class="bee-company-members__accept">
+        <form (submit)="acceptInvitation($event)">
+          <input type="text" name="acceptInvitationToken" [(ngModel)]="inviteTokenInput" placeholder="Paste a company invitation token">
+          <button type="submit" [disabled]="busyId === 'accept' || !inviteTokenInput.trim()">{{busyId === 'accept' ? 'Joining…' : 'Accept invitation'}}</button>
+        </form>
+      </div>
       <div *ngIf="loading" class="bee-company-members__state">Loading members…</div>
       <div *ngIf="error" class="bee-company-members__error" role="alert">{{error}}</div>
       <div *ngIf="message" class="bee-company-members__message" role="status">{{message}}</div>
@@ -25,7 +31,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
             <tr *ngFor="let member of members; trackBy: trackMember">
               <td><strong>{{member.email || member.userId}}</strong><small>{{member.userId}}</small></td>
               <td>
-                <select *ngIf="canManage && member.role !== 'owner'" [value]="member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
+                <select *ngIf="canManage && member.role !== 'owner' && (role === 'owner' || member.role !== 'admin')" [value]="member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
                   <option value="member">Member</option><option value="manager">Manager</option>
                   <option *ngIf="role === 'owner'" value="admin">Admin</option>
                 </select>
@@ -68,11 +74,13 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
 export class CompanyMembersComponent implements OnInit, OnChanges {
   @Input() tenantId = "";
   @Input() role = "member";
+  @Output() membershipChanged = new EventEmitter<void>();
   members: CompanyMember[] = [];
   invitations: CompanyInvitation[] = [];
   inviteEmail = "";
   inviteRole: "member" | "manager" | "admin" = "member";
   acceptanceToken = "";
+  inviteTokenInput = "";
   loading = false;
   busyId = "";
   error = "";
@@ -140,6 +148,26 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not create invitation";
+    } finally {
+      this.busyId = "";
+    }
+  }
+
+  async acceptInvitation(event: Event): Promise<void> {
+    event.preventDefault();
+    const token = this.inviteTokenInput.trim();
+    if (!token || this.busyId) return;
+    this.busyId = "accept";
+    this.error = "";
+    this.message = "";
+    try {
+      const result = await this.request("/invitations/accept", "POST", { token });
+      this.inviteTokenInput = "";
+      this.message = "Invitation accepted for " + result.company.name + ". Select that company in the workspace switcher.";
+      this.membershipChanged.emit();
+      await this.load();
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : "Could not accept invitation";
     } finally {
       this.busyId = "";
     }
