@@ -10,7 +10,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section *ngIf="canRead" id="users" class="panel bee-company-members">
+    <section id="users" class="panel bee-company-members">
       <div class="panel-heading">
         <div><h2>Company members</h2><p>Memberships and roles apply only to the active company.</p></div>
         <button class="bee-company-members__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
@@ -21,10 +21,10 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
           <button type="submit" [disabled]="busyId === 'accept' || !inviteTokenInput.trim()">{{busyId === 'accept' ? 'Joining…' : 'Accept invitation'}}</button>
         </form>
       </div>
-      <div *ngIf="loading" class="bee-company-members__state">Loading members…</div>
+      <div *ngIf="canRead && loading" class="bee-company-members__state">Loading members…</div>
       <div *ngIf="error" class="bee-company-members__error" role="alert">{{error}}</div>
       <div *ngIf="message" class="bee-company-members__message" role="status">{{message}}</div>
-      <div class="bee-company-members__table-wrap" *ngIf="!loading && members.length">
+      <div class="bee-company-members__table-wrap" *ngIf="canRead && !loading && members.length">
         <table class="bee-company-members__table">
           <thead><tr><th>Member</th><th>Role</th><th>Status</th><th *ngIf="canManage">Actions</th></tr></thead>
           <tbody>
@@ -43,7 +43,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
           </tbody>
         </table>
       </div>
-      <div *ngIf="!loading && !members.length" class="bee-company-members__state">No members found.</div>
+      <div *ngIf="canRead && !loading && !members.length" class="bee-company-members__state">No members found.</div>
 
       <div *ngIf="canInvite" class="bee-company-members__invite">
         <h3>Invite a colleague</h3>
