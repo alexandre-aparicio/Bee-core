@@ -1,0 +1,79 @@
+name: Bee-Core production Compose profile
+
+on:
+  pull_request:
+    paths:
+      - "docker-compose.yml"
+      - "docker-compose.prod.yml"
+      - ".env.production.example"
+      - ".github/workflows/docker-prod-profile.yml"
+      - "Dockerfile"
+      - "apps/web/**"
+      - "src/**"
+  push:
+    branches: [main]
+    paths:
+      - "docker-compose.yml"
+      - "docker-compose.prod.yml"
+      - ".env.production.example"
+      - ".github/workflows/docker-prod-profile.yml"
+      - "Dockerfile"
+      - "apps/web/**"
+      - "src/**"
+  workflow_dispatch:
+
+jobs:
+  production-compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure isolated production environment
+        run: |
+          cp .env.production.example .env
+          sed -i 's|^JWT_SECRET=.*|JWT_SECRET='"$(openssl rand -hex 48)"'|' .env
+          sed -i 's|^AUTH_ADMIN_EMAIL=.*|AUTH_ADMIN_EMAIL=ci-admin@example.test|' .env
+          sed -i 's|^AUTH_ADMIN_PASSWORD=.*|AUTH_ADMIN_PASSWORD=CI-Admin-Password-2026!|' .env
+          sed -i 's|^BEE_WEB_PORT=.*|BEE_WEB_PORT=18080|' .env
+          chmod 600 .env
+
+      - name: Validate production Compose exposure
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml config --format json > compose.json
+          jq -e '
+            ((.services.mongodb.ports // []) | length == 0) and
+            ((.services["bee-core"].ports // []) | length == 0) and
+            ((.services.web.ports // []) | length == 1) and
+            ((.services.web.ports[0].published | tostring) == "18080")
+          ' compose.json
+
+      - name: Build and launch production overlay
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+      - name: Verify web and internal API health
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18080/ >/dev/null; then
+              echo "Web smoke test passed"
+              break
+            fi
+            sleep 3
+          done
+          curl -fsS http://127.0.0.1:18080/ >/dev/null
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T bee-core node -e "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+
+      - name: Verify persistent data volumes exist
+        run: |
+          docker volume ls --format '{{.Name}}' | grep 'bee_core_mongodb_data'
+          docker volume ls --format '{{.Name}}' | grep 'bee_core_files'
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color
+
+      - name: Tear down isolated stack
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
