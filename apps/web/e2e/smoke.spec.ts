@@ -204,16 +204,6 @@ test('dashboard marketplace shows company packages and installs an entitled plug
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
   });
-  const notes: Array<{id:string;title:string;content:string;createdBy:string;createdAt:string;updatedAt:string}> = [];
-  await page.route('**/api/notes', route => {
-    if (route.request().method() === 'GET') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ notes }) });
-    }
-    const body = route.request().postDataJSON();
-    const note = { id: 'note-1', title: body.title, content: body.content, createdBy: 'owner-1', createdAt: '2026-11-20T00:00:00.000Z', updatedAt: '2026-11-20T00:00:00.000Z' };
-    notes.push(note);
-    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ note }) });
-  });
   await page.route('**/api/marketplace/plugins/notes/install', route => {
     if (route.request().method() === 'POST') {
       notesInstalled = true;
