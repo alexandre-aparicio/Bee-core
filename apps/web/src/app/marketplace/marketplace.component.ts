@@ -123,7 +123,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       this.message = job.status === "running" ? verb + this.plugins.find(item => item.id === this.busyId)?.name + "…" : "Waiting for plugin lifecycle worker…";
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-    throw new Error("Installation is still running. Refresh the marketplace to check its status.");
+    throw new Error("Plugin " + (action === "POST" ? "installation" : "uninstallation") + " is still running. Refresh the marketplace to check its status.");
   }
 
   private async runAction(plugin: MarketplacePlugin, method: "POST" | "DELETE"): Promise<void> {
