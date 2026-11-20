@@ -3,7 +3,7 @@ import { MongoClient, type Collection } from "mongodb";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
-import { claimPluginInstallJob, completePluginInstallJob, enqueuePluginInstallJob, enqueuePluginUpdateJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
+import { claimPluginInstallJob, completePluginInstallJob, renewPluginInstallJobLease, enqueuePluginInstallJob, enqueuePluginUpdateJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import {
@@ -313,6 +313,12 @@ export const marketplacePlugin: BeePlugin = {
       try {
         const job = await claimPluginInstallJob(installJobs, workerId);
         if (!job) return;
+        const leaseHeartbeat = setInterval(() => {
+          void renewPluginInstallJobLease(installJobs, job, workerId).then(renewed => {
+            if (!renewed) ctx.logger.warn("Plugin lifecycle worker lease was lost", { tenantId: job.tenantId, pluginId: job.pluginId, jobId: job.id });
+          }).catch(error => ctx.logger.error("Plugin lifecycle worker lease renewal failed", { jobId: job.id, error }));
+        }, 20_000);
+        leaseHeartbeat.unref();
         try {
           const tenantRecord = await db.collection("tenants").findOne({ id: job.tenantId, status: "active" });
           if (!tenantRecord) throw new Error("Company is not active");
@@ -428,6 +434,8 @@ export const marketplacePlugin: BeePlugin = {
           }
           await failPluginInstallJob(installJobs, job, workerId, error);
           ctx.logger.error("Tenant plugin lifecycle job failed", { tenantId: job.tenantId, pluginId: job.pluginId, jobId: job.id, error });
+        } finally {
+          clearInterval(leaseHeartbeat);
         }
       } catch (error) {
         ctx.logger.error("Plugin lifecycle worker failed to claim a job", { error });
