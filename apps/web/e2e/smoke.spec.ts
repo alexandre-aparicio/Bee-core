@@ -199,3 +199,32 @@ test('dashboard marketplace shows company packages and installs an entitled plug
   await expect(page.getByText('Team Notes installed for this company.')).toBeVisible();
   await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' }).getByText('Installed', { exact: true })).toBeVisible();
 });
+
+
+test('starter company sees purchasable add-ons but cannot install them without entitlement or role', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
+      accessToken: 'starter-member-token',
+      tenantId: 'company-starter',
+      user: { id: 'member-1', email: 'member@example.test', roles: ['user'], tenantId: 'company-starter' }
+    }));
+  });
+  await page.route('**/api/companies', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: 'company-starter', name: 'Starter Company', role: 'member', active: true }] })
+  }));
+  await page.route('**/api/marketplace/plugins', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ tenantId: 'company-starter', plugins: [
+      { id: 'files', name: 'Private Files', version: '0.1.0', description: 'Private company file and image storage', category: 'platform', system: true, entitled: true, accessSource: 'plan', installed: true, purchasable: false },
+      { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: false, accessSource: null, installed: false, purchasable: true }
+    ] })
+  }));
+  await page.goto('/dashboard');
+  const notesRow = page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' });
+  await expect(notesRow).toBeVisible();
+  await expect(notesRow.getByText('Available as add-on')).toBeVisible();
+  await expect(notesRow.getByRole('button', { name: 'Install' })).toHaveCount(0);
+});
