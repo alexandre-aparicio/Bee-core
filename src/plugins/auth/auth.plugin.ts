@@ -93,7 +93,7 @@ export const authPlugin:BeePlugin={
    {id:"studio",name:"Studio",version:"1.0.0",target:"public",description:"Warm editorial landing page with a bright accent palette.",layout:"public.studio",tokens:{"--bg":"#f4f0e9","--panel":"#fffaf2","--muted":"#756e65","--border":"#ded5c8","--purple":"#b85d3b","--cyan":"#397d78"}},
    {id:"glass",name:"Glass",version:"1.0.0",target:"dashboard",description:"Soft glass workspace with cool blue and violet accents.",layout:"dashboard.glass",tokens:{"--bg":"#101827","--panel":"#1b2940","--muted":"#a2b1c7","--border":"#40516b","--purple":"#8b9dff","--cyan":"#69d9e8"}}
   ] as const;
-  const getInstalledTemplates=(saved?:{installedTemplates?:string[]})=>[...baseTemplateIds,...(saved?.installedTemplates??[]).filter(id=>templateCatalog.some(item=>item.id===id))];
+  const getInstalledTemplates=(saved?:{installedTemplates?:string[]}|null)=>[...baseTemplateIds,...(saved?.installedTemplates??[]).filter(id=>templateCatalog.some(item=>item.id===id))];
   const readTemplateTenant=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
    try{
     await req.jwtVerify();
