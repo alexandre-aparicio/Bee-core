@@ -114,6 +114,36 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
   }
 ];
 
+
+/**
+ * Resolve a plugin and all of its transitive dependencies in dependency-first
+ * order. Missing packages and cycles fail closed before a lifecycle operation.
+ */
+export function resolvePluginDependencyOrder(
+  pluginId: string,
+  definitions: readonly Pick<PluginPackageDefinition, "id" | "dependencies">[] = TRUSTED_PLUGIN_PACKAGES
+): string[] {
+  const byId = new Map(definitions.map(item => [item.id, item]));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const ordered: string[] = [];
+
+  const visit = (id: string): void => {
+    if (visiting.has(id)) throw new Error("Plugin dependency cycle detected at: " + id);
+    if (visited.has(id)) return;
+    const definition = byId.get(id);
+    if (!definition) throw new Error("Missing trusted plugin dependency: " + id);
+    visiting.add(id);
+    for (const dependency of definition.dependencies) visit(dependency);
+    visiting.delete(id);
+    visited.add(id);
+    if (id !== pluginId) ordered.push(id);
+  };
+
+  visit(pluginId);
+  return ordered;
+}
+
 const packagesById = new Map(TRUSTED_PLUGIN_PACKAGES.map(item => [item.id, item]));
 const plansById = new Map(BUILT_IN_PLANS.map(item => [item.id, item]));
 
