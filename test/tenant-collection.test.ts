@@ -29,15 +29,15 @@ test("tenant collection scopes every query and mutation to one company", { skip:
     assert.equal(crossTenantDelete.deletedCount, 0);
     assert.equal((await beta.findOne({ id: "beta-contact" }))?.label, "Beta record");
 
-    await assert.rejects(
+    assert.throws(
       () => alpha.insertOne({ id: "bad-contact", email: "bad@example.test", label: "Bad", tenantId: "company-beta" }),
       /does not match/
     );
-    await assert.rejects(
+    assert.throws(
       () => alpha.updateOne({ id: "alpha-contact" }, { $set: { tenantId: "company-beta" } } as never),
       /tenantId is immutable/
     );
-    await assert.rejects(
+    assert.throws(
       () => alpha.updateOne({ id: "alpha-contact" }, { tenantId: "company-beta" } as never),
       /Replacement updates are not supported/
     );
