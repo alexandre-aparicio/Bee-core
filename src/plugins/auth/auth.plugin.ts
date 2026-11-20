@@ -28,7 +28,7 @@ export const authPlugin:BeePlugin={
   await mongo.connect(); const db:Db=mongo.db(dbName);
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
   await Promise.all([
-   users.createIndex({email:1},{unique:true,name:"users_email_unique"}),
+   users.createIndex({email:1},{unique:true,name:"users_email_unique"}),\n   users.createIndex({id:1},{unique:true,name:"users_id_unique"}),
    sessions.createIndex({tokenHash:1},{unique:true,name:"refresh_token_hash_unique"}),
    sessions.createIndex({userId:1},{name:"refresh_sessions_user"}),
    sessions.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"refresh_sessions_ttl"})
@@ -36,7 +36,7 @@ export const authPlugin:BeePlugin={
   const adminEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase(),adminPassword=String(ctx.config.authAdminPassword??"");
   if(adminEmail&&adminPassword){
    if(adminPassword.length<12)throw new Error("Auth: bootstrap admin password must be at least 12 characters.");
-   if(!await users.findOne({email:adminEmail}))await users.insertOne({id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,createdAt:new Date(),updatedAt:new Date()});
+   await users.updateOne({email:adminEmail},{$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
    ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
   }
   const issue=(u:Pick<UserRecord,"id"|"email"|"roles">,client:ClientType)=>ctx.server.jwt.sign({sub:u.id,email:u.email,roles:u.roles,client,aud:"bee-core"});
