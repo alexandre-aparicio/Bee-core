@@ -10,6 +10,7 @@ export interface BeeTemplateManifest {
   description: string;
   builtIn: boolean;
   layout: string;
+  componentId: string;
   slots: BeeTemplateSlotName[];
 }
 
