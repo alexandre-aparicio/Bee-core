@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import type { BeeTemplateManifest, BeeTemplateSelection, BeeTemplateTarget } from './template.types';
 
 const STORAGE_KEY = 'bee-template-selection';
+export type BeeThemeMode = 'light' | 'dark';
+const THEME_MODE_KEY = 'bee-template-mode';
 const DEFAULT_THEME_TOKENS: Record<string, string> = { '--bg': '#080a12', '--panel': '#10131e', '--muted': '#8991a4', '--border': '#303447', '--purple': '#8c72ff', '--cyan': '#69e5d4' };
 const THEME_TOKEN_KEYS = Object.keys(DEFAULT_THEME_TOKENS);
 
@@ -357,10 +359,33 @@ export class BeeTemplateEngine {
     }
   }
 
+  private modeStorageKey(target: BeeTemplateTarget): string {
+    const scope = this.storageKey().replace(STORAGE_KEY, '');
+    return `${THEME_MODE_KEY}:${target}:${this.selection[target]}:${scope}`;
+  }
+
+  getMode(target: BeeTemplateTarget): BeeThemeMode {
+    if (typeof localStorage === 'undefined') return 'dark';
+    const saved = localStorage.getItem(this.modeStorageKey(target));
+    return saved === 'light' || saved === 'dark' ? saved : 'dark';
+  }
+
+  setMode(target: BeeTemplateTarget, mode: BeeThemeMode): void {
+    if (mode !== 'light' && mode !== 'dark') return;
+    if (typeof localStorage !== 'undefined') localStorage.setItem(this.modeStorageKey(target), mode);
+    this.apply();
+  }
+
+  toggleMode(target: BeeTemplateTarget): void {
+    this.setMode(target, this.getMode(target) === 'dark' ? 'light' : 'dark');
+  }
+
   private apply(): void {
     if (typeof document === 'undefined') return;
     document.body.dataset['beePublicTemplate'] = this.selection.public;
     document.body.dataset['beeDashboardTemplate'] = this.selection.dashboard;
+    document.body.dataset['beePublicMode'] = this.getMode('public');
+    document.body.dataset['beeDashboardMode'] = this.getMode('dashboard');
   }
 
   private readSelection(): BeeTemplateSelection {
