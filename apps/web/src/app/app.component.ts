@@ -2,10 +2,15 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateManagerComponent } from './templates/template-manager.component';
-import { BeeTemplateOutletComponent } from './templates/template-outlet.component';
+import { BeeTemplateEngine } from './templates/template-engine.service';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateOutletComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent], templateUrl: './app.component.html' })
 export class AppComponent {
+  constructor(private readonly templates: BeeTemplateEngine) {}
+
+  layoutId(target: 'public' | 'dashboard'): string { return this.templates.getActive(target).layout; }
+  layoutClass(target: 'public' | 'dashboard'): string { return 'bee-layout--' + this.layoutId(target).replace('.', '-'); }
+
   path = window.location.pathname;
   menuOpen = false;
   email = ''; password = ''; reveal = false; busy = false; error = '';
