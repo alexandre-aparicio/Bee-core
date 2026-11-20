@@ -101,21 +101,21 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - Acceptance: automated cross-tenant tests cover CRUD, files, images, SSE, search and background work; no route accepts a caller-selected tenant without membership validation.
 
 ### Phase 3 — Plugin registry and runtime contract
-- Define and validate immutable plugin manifests and package metadata.
-- Extend the plugin manager with dependency resolution, lifecycle states, scoped registration and failure isolation.
-- Define backend API, permissions, frontend Angular registration, settings, migrations and health checks.
+- Define and validate immutable plugin manifests and package metadata. (Initial manifest contract and validator implemented.)
+- Extend the plugin manager with dependency resolution, lifecycle states, scoped registration and failure isolation. (Trusted compiled packages and company installation state are implemented; arbitrary package loading and durable lifecycle jobs remain pending.)
+- Define backend API, permissions, frontend Angular registration, settings, migrations and health checks. (The Notes reference plugin validates tenant-scoped API routes and role permissions.)
 - Acceptance: a trusted sample plugin can register backend and Angular surfaces without modifying core code; invalid/incompatible packages are rejected.
 
 ### Phase 4 — Plans, subscriptions and entitlements
-- Add plan catalog, plan-plugin mapping, subscription lifecycle and individual purchases.
-- Build a server-side entitlement resolver and explain why a plugin is or is not available.
-- Support trial, grace period, suspension and reactivation policies.
+- Add plan catalog, plan-plugin mapping, subscription lifecycle and individual purchases. (Starter, Pro and Enterprise plans, tenant subscriptions and purchase records are modeled; Starter trial seeding is implemented.)
+- Build a server-side entitlement resolver and explain why a plugin is or is not available. (Marketplace API filters visible packages by company plan and active purchases; direct install requests re-check entitlement server-side.)
+- Support trial, grace period, suspension and reactivation policies. (Basic trial expiry and purchase revocation/expiry are modeled; billing provider, grace periods and renewal workflows remain pending.)
 - Acceptance: plan-only, add-on purchase, expired subscription and revoked purchase scenarios are covered by integration tests; direct API calls cannot bypass entitlements.
 
 ### Phase 5 — Company-scoped plugin installer
-- Add catalog visibility, install/update/rollback/uninstall APIs and UI.
-- Add durable jobs, dependency ordering, migration locks and recovery.
-- Separate installed, enabled, suspended and failed states.
+- Add catalog visibility, install/update/rollback/uninstall APIs and UI. (Tenant-filtered catalog, install/uninstall APIs and installed/failed/uninstalled state are implemented; UI, upgrade and rollback are pending.)
+- Add durable jobs, dependency ordering, migration locks and recovery. (Current install hooks run synchronously; durable jobs, dependency graph resolution and crash recovery remain pending.)
+- Separate installed, enabled, suspended and failed states. (Initial installed/installing/failed/uninstalled states exist; entitlement suspension/reactivation handling remains pending.)
 - Acceptance: install, upgrade, failed migration recovery, dependency conflict, suspension, reactivation and uninstall are tested with two isolated companies.
 
 ### Phase 6 — First reference plugin and release readiness
@@ -132,7 +132,7 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - Company invitations now have hashed one-time acceptance tokens, seven-day expiry, email/account matching, cancellation and duplicate-pending protection. The API is implemented; invitation email delivery and the management UI are not yet implemented.
 - A shared tenant context resolver validates JWT audience, session, client access, active membership and company status. A shared role permission matrix is exposed by `/companies/active/permissions`; organization membership routes use permission checks. The dashboard includes an active-company selector.
 - Remaining Phase 1 work: UI for inviting/managing users, role editor/custom roles, explicit owner transfer, and a complete audit of every protected route and SSE channel.
-- Existing template package installer is not the business-plugin installer and has no commercial entitlement integration.
+- Existing template package installer remains distinct from business plugins. The business marketplace is an API foundation and is not yet connected to a payment provider or a customer-facing billing UI.
 - A tenant-scoped MongoDB collection facade now forces tenant predicates on reads/updates/deletes, stamps and validates inserts, prevents tenantId mutation and creates tenant-prefixed unique indexes. Integration tests cover cross-tenant reads/writes/deletes and same business keys across companies.
 - The facade and shared context resolver are foundations, not a claim of universal isolation: existing collections/routes have not all been migrated, private file/image storage is not implemented, and tenant context is not yet carried through every background job or event handler.
 - Commercial plans, subscriptions, purchases, entitlements and the full business-plugin lifecycle remain to be implemented.
