@@ -1,0 +1,66 @@
+import Fastify from "fastify";
+import { BeeEventBus } from "./core/event-bus.js";
+import { BeePluginManager } from "./core/plugin-manager.js";
+import type { BeeContext, BeeLogger } from "./core/types.js";
+import { helloPlugin } from "./plugins/hello.plugin.js";
+
+const logger: BeeLogger = {
+  info: (message, context) => console.log("[INFO]", message, context ?? ""),
+  warn: (message, context) => console.warn("[WARN]", message, context ?? ""),
+  error: (message, context) => console.error("[ERROR]", message, context ?? "")
+};
+
+const events = new BeeEventBus();
+const plugins = new BeePluginManager();
+const ctx: BeeContext = {
+  appName: "Bee-Core",
+  version: "0.1.0",
+  events,
+  logger,
+  config: Object.freeze({ environment: process.env.NODE_ENV ?? "development" })
+};
+
+plugins.register(helloPlugin);
+
+const app = Fastify({ logger: false });
+
+app.get("/health", async () => ({
+  status: "ok",
+  name: ctx.appName,
+  version: ctx.version,
+  uptime: process.uptime()
+}));
+
+app.get("/plugins", async () => ({ plugins: plugins.list() }));
+
+app.get("/", async () => ({
+  name: "Bee-Core",
+  slogan: "All Is a Plugin",
+  version: ctx.version,
+  status: "running",
+  endpoints: ["/health", "/plugins"]
+}));
+
+async function bootstrap() {
+  await plugins.initializeAll(ctx);
+  await plugins.startAll(ctx);
+  await events.emit("bee.started", { at: new Date().toISOString() });
+  const port = Number(process.env.PORT ?? 3000);
+  const host = process.env.HOST ?? "0.0.0.0";
+  await app.listen({ port, host });
+  logger.info(`Bee-Core listening at http://${host}:${port}`);
+}
+
+const shutdown = async (signal: string) => {
+  logger.info(`Received ${signal}, shutting down`);
+  await app.close();
+  await plugins.stopAll(ctx);
+  process.exit(0);
+};
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
+
+bootstrap().catch(error => {
+  logger.error("Bootstrap failed", error);
+  process.exit(1);
+});
