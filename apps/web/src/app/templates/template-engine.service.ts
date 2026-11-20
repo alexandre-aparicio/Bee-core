@@ -3,6 +3,7 @@ import type { BeeTemplateManifest, BeeTemplateSelection, BeeTemplateTarget } fro
 import { BUILT_IN_TEMPLATES, PACKAGE_TEMPLATES, PACKAGE_THEME_TOKENS, BASE_TEMPLATE_IDS } from './packages';
 
 const STORAGE_KEY = 'bee-template-selection';
+const DEFAULT_SELECTION: BeeTemplateSelection = { public: 'aurora', dashboard: 'midnight' };
 export type BeeThemeMode = 'light' | 'dark';
 const THEME_MODE_KEY = 'bee-template-mode';
 const DEFAULT_THEME_TOKENS: Record<string, string> = { '--bg': '#080a12', '--panel': '#10131e', '--muted': '#8991a4', '--border': '#303447', '--purple': '#8c72ff', '--cyan': '#69e5d4' };
