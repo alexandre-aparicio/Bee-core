@@ -6,6 +6,7 @@ import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../..
 import { claimPluginInstallJob, completePluginInstallJob, renewPluginInstallJobLease, enqueuePluginInstallJob, enqueuePluginUpdateJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
+import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
@@ -170,6 +171,17 @@ export const marketplacePlugin: BeePlugin = {
       const tenant = await authenticate(request, reply);
       if (!tenant) return;
       return { tenantId: tenant.tenantId, plugins: await getTenantPluginCatalog(db, tenant.tenantId) };
+    });
+    ctx.server.get("/public/tenant/plugins", async (request: any, reply: any) => {
+      const hostname = String(request.hostname ?? "").trim().toLowerCase().replace(/\\.$/, "");
+      const baseDomain = String(ctx.config.publicBaseDomain ?? "beecore.beeprojects.net").trim().toLowerCase().replace(/^\\.+|\\.+$/g, "");
+      const slug = tenantSlugFromHost(hostname, baseDomain);
+      let company: any = null;
+      if (slug) company = await db.collection("tenants").findOne({ slug, status: { $ne: "suspended" } });
+      else if (!hostname.endsWith("." + baseDomain) && hostname !== baseDomain) company = await db.collection("tenants").findOne({ domains: hostname, status: { $ne: "suspended" } });
+      if (!company) return reply.code(404).send({ error: "Public tenant not found" });
+      const plugins = await getTenantPluginCatalog(db, String(company.id));
+      return { tenantId: company.id, pluginIds: plugins.filter((plugin: any) => plugin.installed && plugin.entitled).map((plugin: any) => plugin.id) };
     });
 
     ctx.server.get<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId", async (request: any, reply: any) => {
