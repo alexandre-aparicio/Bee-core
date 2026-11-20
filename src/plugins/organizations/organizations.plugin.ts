@@ -207,19 +207,29 @@ export const organizationsPlugin:BeePlugin={
    else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
    return reply.code(201).send({membership:{userId:target.id,email:target.email,role,status:"active"}});
   });
-  ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member"}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
+  ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member";customRoleId?:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
-   const role=req.body?.role;
-   if(!role||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid membership role is required"});
-   if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign administrators"});
    const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
    if(!target)return reply.code(404).send({error:"Company membership not found"});
    if(target.role==="owner")return reply.code(409).send({error:"The company owner role cannot be changed here"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot change other administrator roles"});
-   await memberships.updateOne({id:target.id},{$set:{role,updatedAt:new Date()}});
+   const customRoleId=String(req.body?.customRoleId??"").trim();
+   let update:any;
+   if(customRoleId){
+    if(actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign custom roles"});
+    const customRole=await customRoles.findOne({id:customRoleId,tenantId:req.params.companyId});
+    if(!customRole)return reply.code(404).send({error:"Custom role not found"});
+    update={$set:{role:"custom",customRoleId,updatedAt:new Date()}};
+   }else{
+    const role=req.body?.role;
+    if(!role||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A built-in membership role or customRoleId is required"});
+    if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign administrators"});
+    update={$set:{role,updatedAt:new Date()},$unset:{customRoleId:""}};
+   }
+   await memberships.updateOne({id:target.id},update);
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
-   return {membership:{userId:target.userId,role,status:"active"},sessionsRevoked:true};
+   return {membership:{userId:target.userId,role:update.$set.role,customRoleId:update.$set.customRoleId??null,status:"active"},sessionsRevoked:true};
   });
   ctx.server.delete<{Params:{companyId:string;userId:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -275,7 +285,12 @@ export const organizationsPlugin:BeePlugin={
    const tenantId=String(auth.claims.tenantId??auth.user!.tenantId??"");
    const membership=await memberships.findOne({userId:auth.user!.id,tenantId,status:"active"});
    if(!membership)return reply.code(403).send({error:"Active company membership required"});
-   return {tenantId,role:membership.role,permissions:rolePermissions[membership.role]};
+   if(membership.role==="custom"&&membership.customRoleId){
+    const custom=await customRoles.findOne({id:membership.customRoleId,tenantId});
+    if(!custom)return reply.code(403).send({error:"Assigned custom role is unavailable"});
+    return {tenantId,role:membership.role,customRoleId:membership.customRoleId,permissions:permissionsForCustomRole(custom)};
+   }
+   return {tenantId,role:membership.role,permissions:rolePermissions[membership.role as keyof typeof rolePermissions]};
   });
   ctx.server.get("/companies/active",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
