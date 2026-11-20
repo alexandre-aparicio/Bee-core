@@ -46,7 +46,31 @@ import type { BeeTemplateTarget } from './template.types';
   `,
 })
 export class BeeTemplateManagerComponent {
+  saving = false;
+  saveMessage = '';
+  private draftTokens: Record<string, string> = {};
+
   constructor(readonly engine: BeeTemplateEngine) {}
+
+  updateToken(key: string, value: string): void {
+    this.draftTokens[key] = value;
+    this.engine.themeTokens[key] = value;
+    if (typeof document !== 'undefined') document.documentElement.style.setProperty(key, value);
+  }
+
+  async saveTheme(): Promise<void> {
+    this.saving = true;
+    this.saveMessage = '';
+    try {
+      const saved = await this.engine.saveThemeTokens(this.draftTokens);
+      this.saveMessage = saved ? 'Applied to this tenant.' : 'Could not save theme.';
+      if (saved) this.draftTokens = {};
+    } catch {
+      this.saveMessage = 'Could not save theme.';
+    } finally {
+      this.saving = false;
+    }
+  }
 
   activate(target: BeeTemplateTarget, id: string): void {
     this.engine.activate(target, id);
