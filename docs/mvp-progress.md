@@ -8,6 +8,7 @@ This file records only repository changes and checks observed in GitHub. It is n
 
 - PR #8 — tenant cross-company IDOR mutation regression tests and security foundation — merged.
 - Merge commit: `331a0b3527936c4d2de2d7073f97761ecdb04f73`.
+- PR #7 — production Docker Compose overlay and install guide — merged in this session (merge commit `2bbea958e6072538fedd1dcb2e550c6178f6e129`).
 - PR #5 — full-stack CI foundation — merged previously.
 - PR #4 — Angular migration — merged previously.
 - PR #3 — public/dashboard/auth UI foundation — merged previously.
@@ -15,9 +16,9 @@ This file records only repository changes and checks observed in GitHub. It is n
 
 ## Verified CI, not yet merged
 
-- PR #9 production Docker Compose profile: CI checks succeeded (backend, Angular and Docker production profile).
+- PR #9 production Docker Compose profile: earlier backend, Angular and production-profile checks succeeded; it has now been retargeted to `main` after PR #7. Its current mergeability is not yet confirmed and the CI for the retargeted state must be rechecked.
 - PR #15 custom company roles: backend CI and Angular CI succeeded on commit `d50f08f`, but merge into `main` currently fails due to merge conflicts. It is **not merged**.
-- PR #16 custom-company-role integration: Angular CI succeeded on earlier commit `110d5f2`; backend integration failed at test line 308 because a manager session had been revoked after role assignment/reset, while the test still reused the old token. The test was corrected in commit `a705233` to log in again and activate the company before checking manager permissions. Backend CI for that correction is now green, and Angular CI is green. Docker Compose full-stack integration is still running.
+- PR #16 custom-company-role integration: Angular CI succeeded on earlier commit `110d5f2`; backend integration failed at test line 308 because a manager session had been revoked after role assignment/reset, while the test still reused the old token. The test was corrected in commit `a705233` to log in again and activate the company before checking manager permissions. Backend CI for that correction is now green, and Angular CI is green. Docker Compose full-stack integration is green. Corrected PR #16 commit `a705233` now has backend CI, Docker Compose full-stack integration, and Angular CI all green.
 
 ## Remaining work
 
