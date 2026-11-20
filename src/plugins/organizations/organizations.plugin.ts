@@ -40,6 +40,11 @@ export const organizationsPlugin:BeePlugin={
     if(claims.aud!=="bee-core"||!claims.sub){reply.code(401).send({error:"Unauthorized"});return null;}
     const user=await users.findOne({id:claims.sub,enabled:true});
     if(!user){reply.code(401).send({error:"Unauthorized"});return null;}
+    if(claims.sid){
+     const tenantId=String(claims.tenantId??user.tenantId??"");
+     const session=await db.collection("refresh_sessions").findOne({id:claims.sid,userId:user.id,tenantId,revokedAt:null,expiresAt:{$gt:new Date()}});
+     if(!session){reply.code(401).send({error:"Session expired, revoked or company context changed"});return null;}
+    }
     return {claims,user};
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
@@ -85,7 +90,8 @@ export const organizationsPlugin:BeePlugin={
    if(!target)return reply.code(404).send({error:"Company membership not found"});
    if(target.role==="owner")return reply.code(409).send({error:"The company owner role cannot be changed here"});
    await memberships.updateOne({id:target.id},{$set:{role,updatedAt:new Date()}});
-   return {membership:{userId:target.userId,role,status:"active"}};
+   await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
+   return {membership:{userId:target.userId,role,status:"active"},sessionsRevoked:true};
   });
   ctx.server.delete<{Params:{companyId:string;userId:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
