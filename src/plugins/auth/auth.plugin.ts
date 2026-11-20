@@ -157,6 +157,16 @@ export const authPlugin:BeePlugin={
    broadcastTemplateUpdate(tenantId,{type:"theme",tokens,customized:true});
    return {tenantId,tokens,customized:true};
   });
+  ctx.server.post("/templates/public-stream-ticket",async(req)=>{
+   const host=String(req.hostname??"").toLowerCase().replace(/:\\d+$/,"");
+   const tenant=await tenants.findOne({domains:host});
+   const tenantId=tenant?.id??defaultTenantId;
+   const now=Date.now();
+   for(const [key,value] of templateStreamTickets){if(value.expiresAt<now)templateStreamTickets.delete(key);}
+   const ticket=randomBytes(24).toString("base64url");
+   templateStreamTickets.set(ticket,{tenantId,expiresAt:now+30_000});
+   return {ticket,expiresIn:30};
+  });
   ctx.server.post("/templates/stream-ticket",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
    const now=Date.now();
