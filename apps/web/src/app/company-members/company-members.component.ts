@@ -12,7 +12,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
   template: `
     <section id="users" class="panel bee-company-members">
       <div class="panel-heading">
-        <div><h2>Company members</h2><p>Memberships and roles apply only to the active company.</p></div>
+        <div><h2>{{canRead ? "Company members" : "Join a company"}}</h2><p>{{canRead ? "Memberships and roles apply only to the active company." : "Have an invitation token? Accept it to join another company."}}</p></div>
         <button class="bee-company-members__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
       </div>
       <div class="bee-company-members__accept">
