@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { marketplacePlugin } from "../src/plugins/marketplace/marketplace.plugin.js";
+import { notesPlugin } from "../src/plugins/notes/notes.plugin.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
@@ -54,6 +55,7 @@ test("marketplace filters plugins by company plan and individual purchases", { s
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
     await marketplacePlugin.initialize?.(ctx);
+    await notesPlugin.initialize?.(ctx);
     await app.ready();
 
     const login = async (email: string) => {
@@ -97,9 +99,23 @@ test("marketplace filters plugins by company plan and individual purchases", { s
     const betaAfterPurchase = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterPurchase.json().plugins.find((plugin: { id: string }) => plugin.id === "notes").entitled, true);
 
+    const alphaBeforeInstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(alphaBeforeInstall.statusCode, 403);
+    const alphaInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(alphaInstall.statusCode, 200);
+    const alphaCreateNote = await app.inject({ method: "POST", url: "/notes", headers: { authorization: "Bearer " + alphaToken }, payload: { title: "Alpha confidential", content: "Only Alpha can read this." } });
+    assert.equal(alphaCreateNote.statusCode, 201);
+    const alphaNoteId = alphaCreateNote.json().note.id as string;
     const betaInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaInstall.statusCode, 200);
     assert.equal(betaInstall.json().status, "installed");
+    const betaCreateNote = await app.inject({ method: "POST", url: "/notes", headers: { authorization: "Bearer " + betaToken }, payload: { title: "Beta private", content: "Only Beta can read this." } });
+    assert.equal(betaCreateNote.statusCode, 201);
+    const betaCannotReadAlphaNote = await app.inject({ method: "GET", url: "/notes/" + alphaNoteId, headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaCannotReadAlphaNote.statusCode, 404);
+    const gammaCannotUseNotes = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + gammaToken } });
+    assert.equal(gammaCannotUseNotes.statusCode, 403);
+
     assert.equal(await db.collection("tenant_notes").indexExists("tenant_notes_company_id_unique"), true);
 
     const alphaVersions = await app.inject({ method: "GET", url: "/marketplace/plugins/notes/versions", headers: { authorization: "Bearer " + alphaToken } });
@@ -116,6 +132,7 @@ test("marketplace filters plugins by company plan and individual purchases", { s
     assert.equal(uninstall.json().dataPreserved, true);
   } finally {
     await app.close();
+    await notesPlugin.stop?.(ctx);
     await marketplacePlugin.stop?.(ctx);
     await organizationsPlugin.stop?.(ctx);
     await db.dropDatabase();
