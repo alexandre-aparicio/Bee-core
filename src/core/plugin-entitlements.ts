@@ -139,14 +139,18 @@ export async function getTenantSubscription(db: Db, tenantId: string): Promise<T
   let subscription = await subscriptions.findOne({});
   if (!subscription) {
     const now = new Date();
-    await subscriptions.insertOne({
-      id: randomUUID(),
-      planId: "starter",
-      status: "trial",
-      startedAt: now,
-      currentPeriodEnd: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
-      updatedAt: now
-    });
+    try {
+      await subscriptions.insertOne({
+        id: randomUUID(),
+        planId: "starter",
+        status: "trial",
+        startedAt: now,
+        currentPeriodEnd: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+        updatedAt: now
+      });
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+    }
     subscription = await subscriptions.findOne({});
   }
   if (!subscription) throw new Error("Could not initialize tenant subscription");
@@ -158,14 +162,18 @@ export async function getTenantSubscription(db: Db, tenantId: string): Promise<T
   const filesInstalled = await installations.findOne({ pluginId: "files", status: "installed" });
   if (!filesInstalled) {
     const now = new Date();
-    await installations.insertOne({
-      id: randomUUID(),
-      pluginId: "files",
-      version: packagesById.get("files")!.version,
-      status: "installed",
-      installedAt: now,
-      updatedAt: now
-    });
+    try {
+      await installations.insertOne({
+        id: randomUUID(),
+        pluginId: "files",
+        version: packagesById.get("files")!.version,
+        status: "installed",
+        installedAt: now,
+        updatedAt: now
+      });
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+    }
   }
   return subscription;
 }
