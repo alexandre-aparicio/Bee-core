@@ -21,7 +21,7 @@ test("company plan user quota reserves capacity for active members and pending i
   await db.collection("tenants").insertOne({ id: "quota-company", name: "Quota Company", status: "active", createdAt: now });
   await db.collection("users").insertMany([
     { id: "quota-owner", email: "owner@quota.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "quota-company", createdAt: now, updatedAt: now },
-    { id: "quota-member", email: "member@quota.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], tenantId: "quota-company", createdAt: now, updatedAt: now }
+    { id: "quota-member", email: "member@quota.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], createdAt: now, updatedAt: now }
   ]);
   await seedPluginCommerce(db);
   await db.collection("plugin_plans").updateOne({ id: "starter" }, { $set: { maxUsers: 2 } });
