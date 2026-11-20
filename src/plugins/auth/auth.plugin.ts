@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { resolveTenantContext } from "../../core/tenant-context.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
@@ -27,6 +28,9 @@ export const authPlugin:BeePlugin={
   await ctx.server.register(jwt,{secret,sign:{expiresIn:"20m"}});
   const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongo.connect(); const db:Db=mongo.db(dbName);
+  const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
+  await ensureTenantAuditIndexes(auditEvents);
+  const auditAuthEvent=async(event:{tenantId:string;actorId:string;action:TenantAuditEvent["action"];outcome:TenantAuditEvent["outcome"];metadata?:TenantAuditEvent["metadata"]})=>{try{await appendTenantAuditEvent(auditEvents,{tenantId:event.tenantId,actorId:event.actorId,action:event.action,outcome:event.outcome,metadata:event.metadata,id:randomUUID(),occurredAt:new Date()});}catch(error){ctx.logger.error("Auth audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
   const templatePreferences=db.collection<{tenantId?:string;userId?:string;public:string;dashboard:string;themeTokens?:Record<string,string>;installedTemplates?:string[];updatedAt:Date}>("template_preferences");
   const templateStreamTickets=new Map<string,{tenantId:string;expiresAt:number}>();
@@ -82,6 +86,7 @@ export const authPlugin:BeePlugin={
    const sessionId=randomUUID(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId),refreshToken=makeRefreshToken();
    await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt:refreshExpiry(),revokedAt:null,createdAt:new Date()});
    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
+   await auditAuthEvent({tenantId,actorId:u.id,action:"auth.login",outcome:"success",metadata:{client}});
    return {accessToken,refreshToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,user:publicUser({...u,roles:effectiveRoles}),client,tenantId};
   });
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
@@ -97,7 +102,7 @@ export const authPlugin:BeePlugin={
    return {accessToken:issue({...u,roles},session.client,activeTenantId,session.id),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,client:session.client,tenantId:activeTenantId};
   });
   ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string;tenantId?:string;sid?:string};const tenantContext=await resolveTenantContext(db,c);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});return {authenticated:true,user:{id:tenantContext.userId,email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:tenantContext.tenantId};}catch{return reply.code(401).send({error:"Unauthorized"});}});
-  ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const claims=req.user as {sub?:string;aud?:string};if(claims.aud!=="bee-core"||!claims.sub)return reply.code(401).send({error:"Unauthorized"});const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({tokenHash:hashToken(raw),userId:claims.sub,revokedAt:null},{$set:{revokedAt:new Date()}});return {success:true,message:"Refresh session revoked. Current access token expires within 20 minutes."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
+  ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const claims=req.user as {sub?:string;aud?:string};if(claims.aud!=="bee-core"||!claims.sub)return reply.code(401).send({error:"Unauthorized"});const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({tokenHash:hashToken(raw),userId:claims.sub,revokedAt:null},{$set:{revokedAt:new Date()}});const tenantId=String((claims as {tenantId?:string}).tenantId??"");if(tenantId)await auditAuthEvent({tenantId,actorId:claims.sub,action:"auth.logout",outcome:"success",metadata:{refreshTokenProvided:Boolean(raw)}});return {success:true,message:"Refresh session revoked. Current access token expires within 20 minutes."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
   const allowedThemeTokens=["--bg","--panel","--muted","--border","--purple","--cyan"] as const;
