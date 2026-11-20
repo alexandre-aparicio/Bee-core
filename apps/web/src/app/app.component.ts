@@ -16,8 +16,22 @@ export class AppComponent implements OnInit {
   constructor(private readonly templates: BeeTemplateEngine) {}
 
   ngOnInit(): void {
+    window.addEventListener('popstate', this.handlePublicPopState);
     if (this.dashboard && this.auth?.accessToken) void this.loadCompanies();
     else if (!['/login', '/register', '/forgot'].includes(this.path)) void this.loadPublicTenant();
+  }
+
+  private readonly handlePublicPopState = (): void => {
+    this.path = window.location.pathname;
+    this.menuOpen = false;
+  };
+
+  navigatePublicPath(path: '/' | '/hello-world', event: Event): void {
+    event.preventDefault();
+    if (this.path === path) return;
+    window.history.pushState({}, '', path);
+    this.path = path;
+    this.menuOpen = false;
   }
 
   layoutId(target: 'public' | 'dashboard'): string { return this.templates.getActive(target).layout; }
