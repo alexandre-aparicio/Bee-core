@@ -106,12 +106,17 @@ export const authPlugin:BeePlugin={
   const readTemplateTenant=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
    try{
     await req.jwtVerify();
-    const claims=req.user as {sub?:string;tenantId?:string;aud?:string};
+    const claims=req.user as {sub?:string;tenantId?:string;aud?:string;sid?:string};
     if(claims.aud!=="bee-core"||!claims.sub){reply.code(401).send({error:"Unauthorized"});return null;}
     const user=await users.findOne({id:claims.sub,enabled:true});
     if(!user){reply.code(401).send({error:"Unauthorized"});return null;}
-    const tenantId=String(user.tenantId??defaultTenantId);
-    if(claims.tenantId&&claims.tenantId!==tenantId){reply.code(401).send({error:"Tenant membership changed; sign in again"});return null;}
+    const tenantId=String(claims.tenantId??user.tenantId??defaultTenantId);
+    const membership=await db.collection("memberships").findOne({userId:user.id,tenantId,status:"active"});
+    if(!membership){reply.code(403).send({error:"Active company membership required"});return null;}
+    if(claims.sid){
+     const session=await sessions.findOne({id:claims.sid,userId:user.id,tenantId,revokedAt:null,expiresAt:{$gt:new Date()}});
+     if(!session){reply.code(401).send({error:"Session company context changed or session revoked"});return null;}
+    }
     return tenantId;
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
