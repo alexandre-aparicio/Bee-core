@@ -42,14 +42,15 @@ type MarketplacePlugin = {
             </div>
           </div>
           <div class="bee-marketplace__actions">
-            <button *ngIf="plugin.entitled && !plugin.installed" type="button" (click)="install(plugin)" [disabled]="busyId !== ''">
+            <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" (click)="install(plugin)" [disabled]="busyId !== ''">
               {{busyId === plugin.id ? 'Installing…' : 'Install'}}
             </button>
-            <button *ngIf="plugin.installed && !plugin.system" type="button" class="bee-marketplace__remove" (click)="uninstall(plugin)" [disabled]="busyId !== ''">
+            <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" class="bee-marketplace__remove" (click)="uninstall(plugin)" [disabled]="busyId !== ''">
               {{busyId === plugin.id ? 'Removing…' : 'Uninstall'}}
             </button>
             <span *ngIf="plugin.installed && plugin.system" class="bee-marketplace__system">System</span>
-            <span *ngIf="!plugin.entitled" class="bee-marketplace__locked">Plan required</span>
+            <span *ngIf="!plugin.entitled && plugin.purchasable" class="bee-marketplace__locked">Available as add-on</span>
+            <span *ngIf="!plugin.entitled && !plugin.purchasable" class="bee-marketplace__locked">Plan required</span>
           </div>
         </article>
       </div>
@@ -59,6 +60,7 @@ type MarketplacePlugin = {
 })
 export class BeeMarketplaceComponent implements OnInit, OnChanges {
   @Input() tenantId = "";
+  @Input() canManage = false;
   plugins: MarketplacePlugin[] = [];
   loading = false;
   busyId = "";
@@ -114,8 +116,8 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Plugin action failed");
-      this.message = method === "POST" ? plugin.name + " installed for this company." : plugin.name + " uninstalled. Company data is preserved.";
       await this.load();
+      this.message = method === "POST" ? plugin.name + " installed for this company." : plugin.name + " uninstalled. Company data is preserved.";
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Plugin action failed";
     } finally {
