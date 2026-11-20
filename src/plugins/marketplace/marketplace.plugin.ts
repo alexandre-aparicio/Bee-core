@@ -1,8 +1,10 @@
 import type { BeePlugin } from "../../core/types.js";
 import { MongoClient } from "mongodb";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import { TenantCollection } from "../../core/tenant-collection.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import {
+  getBuiltInPlan,
   getTenantPluginCatalog,
   getTenantSubscription,
   getTrustedPluginPackage,
@@ -25,6 +27,86 @@ export const marketplacePlugin: BeePlugin = {
     await mongoClient.connect();
     const db = mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
     await seedPluginCommerce(db);
+    const billingWebhookSecret = String(ctx.config.billingWebhookSecret ?? "");
+    ctx.server.post<{ Body: {
+      event?: "plugin.purchase" | "plugin.revoke" | "subscription.updated";
+      tenantId?: string;
+      pluginId?: string;
+      providerReference?: string;
+      expiresAt?: string | null;
+      planId?: string;
+      status?: "trial" | "active" | "past_due" | "cancelled";
+    } }>("/billing/webhooks/entitlement", async (request, reply) => {
+      if (!billingWebhookSecret) return reply.code(503).send({ error: "Billing webhook is not configured" });
+      const authorization = String(request.headers.authorization ?? "");
+      const supplied = Buffer.from(authorization.startsWith("Bearer ") ? authorization.slice(7) : "");
+      const expected = Buffer.from(billingWebhookSecret);
+      if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+        return reply.code(401).send({ error: "Invalid billing webhook credentials" });
+      }
+
+      const body = request.body ?? {};
+      const tenantId = String(body.tenantId ?? "");
+      if (!tenantId || !await db.collection("tenants").findOne({ id: tenantId })) {
+        return reply.code(400).send({ error: "A valid tenantId is required" });
+      }
+
+      if (body.event === "subscription.updated") {
+        const plan = body.planId ? getBuiltInPlan(body.planId) : undefined;
+        const status = body.status;
+        if (!plan || !status || !["trial", "active", "past_due", "cancelled"].includes(status)) {
+          return reply.code(400).send({ error: "Valid planId and subscription status are required" });
+        }
+        const subscriptions = new TenantCollection<import("../../core/plugin-entitlements.js").TenantSubscription>(
+          db.collection("tenant_subscriptions"),
+          tenantId
+        );
+        const current = await getTenantSubscription(db, tenantId);
+        const periodEnd = body.expiresAt ? new Date(body.expiresAt) : null;
+        if (periodEnd && Number.isNaN(periodEnd.getTime())) return reply.code(400).send({ error: "Invalid subscription expiry date" });
+        await subscriptions.updateOne(
+          { id: current.id },
+          { $set: { planId: plan.id, status, currentPeriodEnd: periodEnd, updatedAt: new Date() } }
+        );
+        await ctx.events.emit("subscription.updated", { tenantId, planId: plan.id, status });
+        return { success: true, event: body.event };
+      }
+
+      if (body.event === "plugin.purchase" || body.event === "plugin.revoke") {
+        const pluginId = String(body.pluginId ?? "");
+        const providerReference = String(body.providerReference ?? "");
+        const definition = getTrustedPluginPackage(pluginId);
+        if (!definition || !definition.purchasable || !providerReference) {
+          return reply.code(400).send({ error: "A purchasable plugin and providerReference are required" });
+        }
+        type Purchase = import("mongodb").Document & {
+          id: string; tenantId: string; pluginId: string; providerReference: string;
+          status: "active" | "revoked"; purchasedAt: Date; expiresAt: Date | null;
+        };
+        const purchases = new TenantCollection<Purchase>(db.collection<Purchase>("plugin_purchases"), tenantId);
+        const current = await purchases.findOne({ providerReference });
+        if (body.event === "plugin.purchase") {
+          const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
+          if (expiresAt && Number.isNaN(expiresAt.getTime())) return reply.code(400).send({ error: "Invalid purchase expiry date" });
+          if (current) {
+            await purchases.updateOne({ providerReference }, { $set: { pluginId, status: "active", expiresAt } });
+          } else {
+            await purchases.insertOne({
+              id: randomUUID(), pluginId, providerReference, status: "active",
+              purchasedAt: new Date(), expiresAt
+            });
+          }
+        } else {
+          if (!current) return reply.code(404).send({ error: "Purchase reference not found" });
+          await purchases.updateOne({ providerReference }, { $set: { status: "revoked" } });
+        }
+        await ctx.events.emit("plugin.entitlement.updated", { tenantId, pluginId, event: body.event });
+        return { success: true, event: body.event };
+      }
+
+      return reply.code(400).send({ error: "Unsupported entitlement event" });
+    });
+
 
     const authenticate = async (request: any, reply: any) => {
       try {
