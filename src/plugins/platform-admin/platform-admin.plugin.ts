@@ -30,7 +30,7 @@ export const platformAdminPlugin:BeePlugin={
    if(name.length<2||name.length>120||!ownerEmail||!/^\S+@\S+\.\S+$/.test(ownerEmail))return reply.code(400).send({error:"Company name and valid owner email are required"});
    const now=new Date(),tenantId=randomUUID();
    const company:Company={id:tenantId,name,createdAt:now,status:"active"};
-   let owner=await users.findOne({email:ownerEmail});
+   let owner:User|null=await users.findOne({email:ownerEmail});
    if(!owner){const password=String(req.body?.ownerPassword??"");if(password.length<12)return reply.code(400).send({error:"For a new owner, ownerPassword must contain at least 12 characters"});
     owner={id:randomUUID(),email:ownerEmail,passwordHash:await bcrypt.hash(password,12),roles:["user"],enabled:true,allowedClients:["dashboard","public"],tenantId,createdAt:now,updatedAt:now};
     await users.insertOne(owner);
