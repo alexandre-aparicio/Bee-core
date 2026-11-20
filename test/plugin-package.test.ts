@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validatePluginManifest, type BeeBusinessPluginManifest } from "../src/core/plugin-package.js";
+import { resolvePluginDependencyOrder } from "../src/core/plugin-entitlements.js";
 
 const validManifest: BeeBusinessPluginManifest = {
   id: "crm.contacts",
@@ -30,4 +31,28 @@ test("plugin manifest rejects unsafe paths, invalid IDs, duplicate permissions a
   assert.throws(() => validatePluginManifest({ ...validManifest, package: { ...validManifest.package, storageKey: "../outside.tgz" } }), /package digest/);
   assert.throws(() => validatePluginManifest({ ...validManifest, package: { ...validManifest.package, sha256: "bad" } }), /package digest/);
   assert.throws(() => validatePluginManifest({ ...validManifest, permissions: [...validManifest.permissions, ...validManifest.permissions] }), /unique/);
+});
+
+test("plugin dependency resolver orders transitive dependencies before dependents", () => {
+  const packages = [
+    { id: "app", dependencies: ["reports", "search"] },
+    { id: "reports", dependencies: ["database"] },
+    { id: "search", dependencies: ["database"] },
+    { id: "database", dependencies: [] }
+  ];
+  assert.deepEqual(resolvePluginDependencyOrder("app", packages), ["database", "reports", "search"]);
+});
+
+test("plugin dependency resolver rejects missing dependencies and dependency cycles", () => {
+  assert.throws(
+    () => resolvePluginDependencyOrder("app", [{ id: "app", dependencies: ["missing"] }]),
+    /Missing trusted plugin dependency/
+  );
+  assert.throws(
+    () => resolvePluginDependencyOrder("app", [
+      { id: "app", dependencies: ["reports"] },
+      { id: "reports", dependencies: ["app"] }
+    ]),
+    /dependency cycle/
+  );
 });
