@@ -3,7 +3,7 @@ import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
-import { normalizeCustomRoleName, normalizeCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
+import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
 
 type Company = { id:string; name:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
@@ -91,7 +91,7 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await ownerOnly(auth,req.params.companyId,reply);if(!actor)return;
    let name:string,permissions:string[];
-   try{name=normalizeCustomRoleName(req.body?.name);permissions=normalizeCustomRolePermissions(req.body?.permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
+   try{name=normalizeCustomRoleName(req.body?.name);permissions=normalizeTenantCustomRolePermissions(req.body?.permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
    const description=String(req.body?.description??"").trim().slice(0,240);
    const now=new Date(),role:CustomRolePolicy={id:randomUUID(),tenantId:req.params.companyId,name,description,permissions,createdBy:auth.user!.id,updatedBy:auth.user!.id,createdAt:now,updatedAt:now};
    try{await customRoles.insertOne(role);}catch{return reply.code(409).send({error:"A custom role with this name already exists"});}
