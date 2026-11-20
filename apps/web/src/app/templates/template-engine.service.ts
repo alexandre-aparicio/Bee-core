@@ -94,11 +94,11 @@ export class BeeTemplateEngine {
     try {
       const response = await fetch('/api/templates/public');
       if (!response.ok) return;
-      const payload = await response.json() as { selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string> };
+      const payload = await response.json() as { selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string>; customized?: boolean };
       if (payload.selection?.public && this.registry.get(payload.selection.public)?.target === 'public') this.selection.public = payload.selection.public;
       if (payload.selection?.dashboard && this.registry.get(payload.selection.dashboard)?.target === 'dashboard') this.selection.dashboard = payload.selection.dashboard;
       this.apply();
-      if (payload.tokens) this.applyThemeTokens(payload.tokens);
+      if (payload.tokens && payload.customized) this.applyThemeTokens(payload.tokens);
     } catch { /* The built-in public template is the offline fallback. */ }
   }
 
@@ -131,8 +131,8 @@ export class BeeTemplateEngine {
     try {
       const response = await fetch('/api/templates/theme', { headers: { authorization: `Bearer ${token}` } });
       if (!response.ok) return;
-      const payload = await response.json() as { tokens?: Record<string, string> };
-      if (payload.tokens) this.applyThemeTokens(payload.tokens);
+      const payload = await response.json() as { tokens?: Record<string, string>; customized?: boolean };
+      if (payload.tokens && payload.customized) this.applyThemeTokens(payload.tokens);
     } catch { /* Keep the last known theme when offline. */ }
   }
 
@@ -147,7 +147,7 @@ export class BeeTemplateEngine {
     if (!Object.keys(safeTokens).length) return false;
     const response = await fetch('/api/templates/theme', { method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ tokens: safeTokens }) });
     if (!response.ok) return false;
-    const payload = await response.json() as { tokens?: Record<string, string> };
+    const payload = await response.json() as { tokens?: Record<string, string>; customized?: boolean };
     if (payload.tokens) this.applyThemeTokens(payload.tokens);
     return true;
   }
@@ -157,7 +157,7 @@ export class BeeTemplateEngine {
       const value = tokens[key];
       if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) {
         this.themeTokens[key] = value;
-        if (typeof document !== 'undefined') document.documentElement.style.setProperty(key, value);
+        if (typeof document !== 'undefined') { document.documentElement.style.setProperty(key, value); document.body.dataset['beeCustomTheme'] = 'true'; }
       }
     }
   }
@@ -179,7 +179,7 @@ export class BeeTemplateEngine {
             if (this.registry.get(update.selection.dashboard || '')?.target === 'dashboard') this.selection.dashboard = update.selection.dashboard!;
             this.persist(); this.apply();
           }
-          if (update.tokens) this.applyThemeTokens(update.tokens);
+          if (update.tokens && update.customized) this.applyThemeTokens(update.tokens);
         } catch { /* Ignore malformed server events. */ }
       });
       this.stream.onerror = () => {
