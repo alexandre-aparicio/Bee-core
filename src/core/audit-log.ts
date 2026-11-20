@@ -1,0 +1,49 @@
+import type { Collection, Document } from "mongodb";
+import { TenantCollection } from "./tenant-collection.js";
+
+export type AuditAction =
+  | "auth.login" | "auth.logout"
+  | "member.invited" | "member.role_changed" | "member.removed"
+  | "role.created" | "role.updated" | "role.deleted"
+  | "permission.denied"
+  | "plugin.installed" | "plugin.uninstalled";
+
+export type TenantAuditEvent = Document & {
+  id: string;
+  tenantId: string;
+  actorId: string;
+  action: AuditAction;
+  resourceType?: string;
+  resourceId?: string;
+  outcome: "success" | "denied";
+  metadata?: Record<string, string | number | boolean | null>;
+  occurredAt: Date;
+};
+
+const SAFE_METADATA_KEY = /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/;
+const MAX_METADATA_ENTRIES = 20;
+
+/** Append-only service surface; event documents are written tenant-scoped. */
+export async function appendTenantAuditEvent(
+  collection: Collection<TenantAuditEvent>,
+  event: Omit<TenantAuditEvent, "tenantId"> & { tenantId: string }
+): Promise<void> {
+  const metadata = event.metadata ?? {};
+  if (Object.keys(metadata).length > MAX_METADATA_ENTRIES) throw new Error("Audit metadata entry limit exceeded");
+  for (const [key, value] of Object.entries(metadata)) {
+    if (!SAFE_METADATA_KEY.test(key)) throw new Error("Invalid audit metadata key");
+    if (typeof value === "string" && value.length > 256) throw new Error("Audit metadata value too long");
+  }
+  const scoped = new TenantCollection(collection, event.tenantId);
+  await scoped.insertOne({
+    ...event,
+    metadata: { ...metadata },
+    occurredAt: event.occurredAt instanceof Date ? event.occurredAt : new Date(event.occurredAt)
+  });
+}
+
+export async function ensureTenantAuditIndexes(collection: Collection<TenantAuditEvent>): Promise<void> {
+  await collection.createIndex({ tenantId: 1, occurredAt: -1 }, { name: "audit_tenant_time" });
+  await collection.createIndex({ tenantId: 1, actorId: 1, occurredAt: -1 }, { name: "audit_tenant_actor_time" });
+  await collection.createIndex({ tenantId: 1, action: 1, occurredAt: -1 }, { name: "audit_tenant_action_time" });
+}
