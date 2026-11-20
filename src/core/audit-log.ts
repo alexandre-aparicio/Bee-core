@@ -6,7 +6,7 @@ export type AuditAction =
   | "member.invited" | "member.role_changed" | "member.removed" | "member.suspended" | "invitation.cancelled"
   | "role.created" | "role.updated" | "role.deleted"
   | "permission.denied"
-  | "plugin.installed" | "plugin.uninstalled";
+  | "plugin.installed" | "plugin.updated" | "plugin.uninstalled";
 
 export type AuditEventInput = {
   id: string;
