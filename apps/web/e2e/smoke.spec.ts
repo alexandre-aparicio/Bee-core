@@ -164,6 +164,7 @@ test('dashboard company selector switches the active tenant session', async ({ p
 
 test('dashboard marketplace shows company packages and installs an entitled plugin', async ({ page }) => {
   let notesInstalled = false;
+  const notes: Array<{id:string;title:string;content:string;createdBy:string;createdAt:string;updatedAt:string}> = [];
   await page.addInitScript(() => {
     if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
       accessToken: 'marketplace-token',
@@ -184,6 +185,25 @@ test('dashboard marketplace shows company packages and installs an entitled plug
       { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: true, accessSource: 'plan', installed: notesInstalled }
     ] })
   }));
+  await page.route('**/api/notes', route => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ notes }) });
+    }
+    const body = route.request().postDataJSON();
+    const now = new Date().toISOString();
+    const note = { id: 'note-1', title: body.title, content: body.content, createdBy: 'owner-1', createdAt: now, updatedAt: now };
+    notes.push(note);
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ note }) });
+  });
+  await page.route('**/api/notes/**', route => {
+    const noteId = route.request().url().split('/').pop() || '';
+    if (route.request().method() === 'DELETE') {
+      const index = notes.findIndex(note => note.id === noteId);
+      if (index >= 0) notes.splice(index, 1);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+  });
   await page.route('**/api/marketplace/plugins/notes/install', route => {
     if (route.request().method() === 'POST') {
       notesInstalled = true;
@@ -199,6 +219,13 @@ test('dashboard marketplace shows company packages and installs an entitled plug
   await notesRow.getByRole('button', { name: 'Install' }).click();
   await expect(page.getByText('Team Notes installed for this company.')).toBeVisible();
   await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' }).getByText('Installed', { exact: true })).toBeVisible();
+  const notesPanel = page.locator('.bee-notes');
+  await expect(notesPanel).toBeVisible();
+  await notesPanel.getByPlaceholder('Note title').fill('First company note');
+  await notesPanel.getByPlaceholder('Write something for your team…').fill('This note belongs to Company Pro');
+  await notesPanel.getByRole('button', { name: 'Create note' }).click();
+  await expect(notesPanel.getByText('First company note')).toBeVisible();
+  await expect(notesPanel.getByText('Note saved for this company.')).toBeVisible();
 });
 
 
