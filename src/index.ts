@@ -16,13 +16,14 @@ const plugins = new BeePluginManager();
 const app = Fastify({ logger: false });
 const ctx: BeeContext = {
   appName: "Bee-Core",
-  version: "0.2.0",
+  version: "0.3.0",
   events,
   logger,
   server: app,
   config: Object.freeze({
     environment: process.env.NODE_ENV ?? "development",
     jwtSecret: process.env.JWT_SECRET ?? "",
+    databaseUrl: process.env.DATABASE_URL ?? "",
     authAdminEmail: process.env.AUTH_ADMIN_EMAIL ?? "",
     authAdminPassword: process.env.AUTH_ADMIN_PASSWORD ?? ""
   })
@@ -45,7 +46,7 @@ app.get("/", async () => ({
   slogan: "All Is a Plugin",
   version: ctx.version,
   status: "running",
-  endpoints: ["/health", "/plugins", "/auth/login", "/auth/me", "/auth/logout"]
+  endpoints: ["/health", "/plugins", "/auth/login", "/auth/refresh", "/auth/me", "/auth/logout"]
 }));
 
 async function bootstrap() {
