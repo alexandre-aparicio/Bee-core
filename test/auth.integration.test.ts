@@ -207,7 +207,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const createInvite=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
     assert.equal(createInvite.statusCode,201);
     assert.ok(createInvite.json().acceptanceToken);
-    const wrongAccountAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
+    const wrongAccountAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(wrongAccountAccept.statusCode,403);
     const acceptedInvite=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(acceptedInvite.statusCode,200);
