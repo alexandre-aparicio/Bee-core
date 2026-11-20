@@ -140,6 +140,8 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaUninstallJobId = betaUninstallAttempts[0].json().jobId as string;
     assert.equal(betaUninstallAttempts[1].json().jobId, betaUninstallJobId, "concurrent uninstall requests must share one durable job");
     assert.equal(betaUninstallAttempts[0].json().action, "uninstall");
+    const conflictingInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(conflictingInstall.statusCode, 409, "install must not race an active uninstall for the same company/plugin");
     const foreignUninstallJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaUninstallJobId, headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(foreignUninstallJobRead.statusCode, 404, "uninstall jobs must be tenant-scoped");
     const betaUninstallJob = await waitForInstallJob(betaUninstallJobId);
