@@ -1,5 +1,5 @@
 /* Glass package-owned dashboard layout styles. */
-:host{display:block;min-height:100vh}
+.bee-template-package-host--glass{display:block;min-height:100vh}
 .bee-layout--dashboard-glass .dashboard{background:radial-gradient(ellipse at 75% 0%,#6377bd24,transparent 45%),#101827}
 .bee-layout--dashboard-glass .dash-sidebar,.bee-layout--dashboard-glass .dash-header{background:#17243ad9;border-color:#40516b;backdrop-filter:blur(18px)}
 .bee-layout--dashboard-glass .dash-stat,.bee-layout--dashboard-glass .panel,.bee-layout--dashboard-glass .bee-template-manager{background:#1b2940c9;border-color:#40516b;backdrop-filter:blur(16px)}
