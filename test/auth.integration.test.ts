@@ -3,8 +3,12 @@ import assert from "node:assert/strict";
 import Fastify from "fastify";
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
+import { filesPlugin } from "../src/plugins/files/files.plugin.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
@@ -14,6 +18,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   const client = new MongoClient(uri!);
   await client.connect();
   const db = client.db(dbName);
+  const fileStoragePath = await mkdtemp(path.join(tmpdir(), "bee-files-test-"));
   const passwordHash = await bcrypt.hash("Test-password-12345", 10);
   await db.collection("tenants").insertMany([{id:"tenant-alpha",name:"Alpha",domains:["alpha.example.test"],createdAt:new Date()},{id:"tenant-beta",name:"Beta",domains:["beta.example.test"],createdAt:new Date()},{id:"tenant-legacy",name:"Legacy",createdAt:new Date()}]);
   await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-alpha-admin-two",email:"alpha-admin-two@example.com",passwordHash,roles:["admin"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-alpha",createdAt:new Date(Date.now()+1000),updatedAt:new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() },{id:"legacy-user",email:"legacy@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-legacy",createdAt:new Date(),updatedAt:new Date()},{id:"no-tenant-user",email:"no-tenant@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],createdAt:new Date(),updatedAt:new Date()}]);
@@ -21,10 +26,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   await db.collection("template_preferences").insertOne({userId:"legacy-user",public:"editorial",dashboard:"paper",updatedAt:new Date()});
   const app = Fastify();
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
-  const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, authAdminEmail: "", authAdminPassword: "" } };
+  const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, fileStoragePath, authAdminEmail: "", authAdminPassword: "" } };
   try {
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
+    await filesPlugin.initialize?.(ctx);
     const alphaOwners=await db.collection("memberships").find({tenantId:"tenant-alpha",role:"owner",status:"active"}).toArray();
     assert.equal(alphaOwners.length,1,"each company must have exactly one active owner");
     const secondAlphaAdmin=await db.collection("memberships").findOne({userId:"test-user-alpha-admin-two",tenantId:"tenant-alpha"});
@@ -144,6 +150,21 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(betaLogin.statusCode,200);
     const betaTokens=betaLogin.json();
     assert.deepEqual(betaTokens.user.roles,["user"],"company membership role must override legacy global admin role");
+    const uploadPrivateFile=await app.inject({method:"POST",url:"/files",headers:{authorization:"Bearer "+tokens.accessToken,"content-type":"application/octet-stream","x-file-name":"../../private-notes.txt","x-file-content-type":"text/plain"},payload:Buffer.from("alpha private content")});
+    assert.equal(uploadPrivateFile.statusCode,201);
+    const privateFileId=uploadPrivateFile.json().file.id as string;
+    assert.equal(uploadPrivateFile.json().file.name,"private-notes.txt");
+    const alphaFileRead=await app.inject({method:"GET",url:"/files/"+privateFileId,headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(alphaFileRead.statusCode,200);
+    assert.equal(alphaFileRead.body,"alpha private content");
+    const betaFileList=await app.inject({method:"GET",url:"/files",headers:{authorization:"Bearer "+betaTokens.accessToken}});
+    assert.equal(betaFileList.statusCode,200);
+    assert.equal(betaFileList.json().files.length,0);
+    const betaCrossCompanyFile=await app.inject({method:"GET",url:"/files/"+privateFileId,headers:{authorization:"Bearer "+betaTokens.accessToken}});
+    assert.equal(betaCrossCompanyFile.statusCode,404);
+    const betaCannotUpload=await app.inject({method:"POST",url:"/files",headers:{authorization:"Bearer "+betaTokens.accessToken,"content-type":"application/octet-stream","x-file-content-type":"text/plain"},payload:Buffer.from("forbidden")});
+    assert.equal(betaCannotUpload.statusCode,403);
+
     const betaRead=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+betaTokens.accessToken}});
     assert.equal(betaRead.statusCode,200);
     assert.equal(betaRead.json().tenantId,"tenant-beta");
@@ -254,8 +275,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const afterLogout = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: refreshed.refreshToken } });
     assert.equal(afterLogout.statusCode, 401);
   } finally {
+    await filesPlugin.stop?.(ctx);
     await organizationsPlugin.stop?.(ctx);
     await app.close();
+    await rm(fileStoragePath,{recursive:true,force:true});
     await client.db(dbName).dropDatabase();
     await client.close();
   }
