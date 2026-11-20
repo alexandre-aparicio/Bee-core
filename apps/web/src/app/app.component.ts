@@ -33,6 +33,7 @@ export class AppComponent implements OnInit {
   auth: any = this.readSession();
   api = '/api';
   publicTenant: { id: string; name: string; slug: string | null } | null = null;
+  publicTenantPlugins: string[] = [];
   publicTenantLoading = false;
   publicTenantNotFound = false;
   publicTenantError = '';
@@ -64,6 +65,8 @@ export class AppComponent implements OnInit {
       if (!response.ok) throw new Error(result.error || 'Could not resolve public website');
       if (result.kind === 'tenant' && result.tenant?.id && result.tenant?.name) {
         this.publicTenant = result.tenant;
+        const pluginResponse = await fetch(this.api + '/public/tenant/plugins');
+        if (pluginResponse.ok) { const pluginResult = await pluginResponse.json(); this.publicTenantPlugins = pluginResult.pluginIds || []; }
       } else if (result.kind !== 'corporate') {
         this.publicTenantNotFound = true;
       }
