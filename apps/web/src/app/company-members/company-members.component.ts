@@ -10,7 +10,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section id="users" class="panel bee-company-members">
+    <section *ngIf="canRead" id="users" class="panel bee-company-members">
       <div class="panel-heading">
         <div><h2>Company members</h2><p>Memberships and roles apply only to the active company.</p></div>
         <button class="bee-company-members__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
@@ -86,6 +86,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   error = "";
   message = "";
 
+  get canRead(): boolean { return this.role === "owner" || this.role === "admin" || this.role === "manager"; }
   get canManage(): boolean { return this.role === "owner" || this.role === "admin"; }
   get canInvite(): boolean { return this.canManage; }
 
@@ -114,7 +115,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   }
 
   async load(): Promise<void> {
-    if (!this.tenantId || !this.token) return;
+    if (!this.canRead || !this.tenantId || !this.token) return;
     this.loading = true;
     this.error = "";
     try {
