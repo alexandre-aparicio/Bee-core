@@ -93,14 +93,15 @@ PR #20 selectively ported the unique audit functionality onto current `main`, ra
 - PR #32 — automated MongoDB logical dump, isolated restore and sentinel verification in production Compose CI. PR-head run `44777108094` and post-merge main run `44777925729` passed on `b2cbc63`.
 
 
-## Platform Superadministrator (PR #43 — work in progress)
+## Platform Superadministrator (PR #43 — merged into main)
 
-A separate platform-wide role is being implemented on branch `feature/platform-superadmin`; it is not yet merged into main and is not included in the MVP completion percentages.
+Platform-wide superadministrator foundation is merged into `main` at `53a427c`. It is not included in the MVP capability completion percentages pending focused verification and acceptance review.
 
 - Persisted bootstrap `platformRole: superadmin`, with existing bootstrap credentials preserved.
 - Auth JWT/login/refresh profile carries the platform role.
 - Separate platform-admin plugin validates dashboard client, JWT session, persisted active refresh session, enabled user and persisted superadmin role.
 - Global company list/create/status endpoints and Angular panel are added.
 - Integration test added for superadmin bootstrap, company create/list/activate/suspend and tenant-user denial.
-- CI validation is pending; merge only after both backend and web/Docker workflows pass and failures are fixed.
+- Validation at merge: backend TypeScript check and build passed; Angular CI passed; Docker Compose full-stack integration passed (API/plugin registry, Nginx proxy, auth and refresh rotation). Backend auth integration test job was still running at merge time and is pending follow-up verification.
 - Details: `docs/platform-superadmin.md` and PR https://github.com/alexandre-aparicio/Bee-core/pull/43.
+- Main merge commit: `53a427cfd4419d0fd658f7715553ed60e96684d5`.
