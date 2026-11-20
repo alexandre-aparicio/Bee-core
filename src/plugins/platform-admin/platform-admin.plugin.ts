@@ -23,7 +23,7 @@ export const platformAdminPlugin:BeePlugin={
    }catch{return reply.code(401).send({error:"Unauthorized"}),null;}
   };
   ctx.server.get("/platform/me",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;return {platformAdmin:true,role:user.platformRole,email:user.email};});
-  ctx.server.get("/platform/companies",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;const list=await companies.find({}).sort({createdAt:-1}).toArray();return {companies:list.map(c=>({id:c.id,name:c.name,status:c.status??"active",createdAt:c.createdAt,membersCount:0}))};});
+  ctx.server.get("/platform/companies",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;const list=await companies.find({}).sort({createdAt:-1}).toArray();return {companies:await Promise.all(list.map(async c=>({id:c.id,name:c.name,status:c.status??"active",createdAt:c.createdAt,membersCount:await memberships.countDocuments({tenantId:c.id,status:"active"})}))) };});
   ctx.server.post<{Body:{name?:string;ownerEmail?:string;ownerPassword?:string}}>("/platform/companies",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const name=String(req.body?.name??"").trim();const ownerEmail=String(req.body?.ownerEmail??"").trim().toLowerCase();
@@ -38,7 +38,7 @@ export const platformAdminPlugin:BeePlugin={
    if(!owner.enabled)return reply.code(409).send({error:"Owner account is disabled"});
    await companies.insertOne(company);
    await memberships.updateOne({userId:owner.id,tenantId},{$setOnInsert:{id:randomUUID(),userId:owner.id,tenantId,role:"owner",status:"active",createdAt:now,updatedAt:now}},{upsert:true});
-   return reply.code(201).send({company:{id:company.id,name:company.name,status:company.status,createdAt:company.createdAt},owner:{id:owner.id,email:owner.email,existingAccount:Boolean(await users.countDocuments({id:owner.id,createdAt:{$lt:now}}))}});
+   return reply.code(201).send({company:{id:company.id,name:company.name,status:company.status,createdAt:company.createdAt},owner:{id:owner.id,email:owner.email}});
   });
   ctx.server.patch<{Params:{companyId:string};Body:{status?:"active"|"suspended"}}>("/platform/companies/:companyId",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;const status=req.body?.status;
