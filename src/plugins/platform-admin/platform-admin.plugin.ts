@@ -4,7 +4,7 @@ import { MongoClient, type Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 
 type Company={id:string;name:string;createdAt:Date;status:"active"|"suspended"};
-type User={id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
+type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
 type Membership={id:string;userId:string;tenantId:string;role:"owner"|"admin"|"manager"|"member";status:"active";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string;platformRole?:string};
 export const platformAdminPlugin:BeePlugin={
