@@ -1,5 +1,5 @@
 /* Studio package-owned layout styles. */
-:host{display:block;min-height:100vh}
+.bee-template-package-host--studio{display:block;min-height:100vh}
 /* Trusted declarative template packages */
 .bee-layout--public-studio{background:#f4f0e9;color:#29251f}
 .bee-layout--public-studio .site-header{border-color:#ded5c8;color:#29251f}
