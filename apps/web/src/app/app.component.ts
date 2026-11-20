@@ -60,7 +60,9 @@ export class AppComponent implements OnInit {
       const roles = result.membership?.role === 'owner' || result.membership?.role === 'admin' ? ['admin'] : ['user'];
       this.auth = { ...this.auth, accessToken: result.accessToken, tenantId: result.tenantId, user: { ...this.auth.user, tenantId: result.tenantId, roles } };
       localStorage.setItem('bee-auth', JSON.stringify(this.auth));
-      window.location.reload();
+      await this.templates.refreshForActiveCompany();
+      await this.loadCompanies();
+      this.companyBusy = false;
     } catch (error) {
       this.companyError = error instanceof Error ? error.message : 'Could not switch company';
       this.companyBusy = false;
