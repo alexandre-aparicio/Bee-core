@@ -55,7 +55,6 @@ import type { BeeTemplateTarget } from './template.types';
           }
           @if (packageMessage) { <span class="bee-template-manager__message">{{ packageMessage }}</span> }
         </div>
-        </div>
       }
       <p>Each surface has an independent theme. Saved design tokens are pushed to connected sessions in this tenant without rebuilding or restarting the app.</p>
     </section>
