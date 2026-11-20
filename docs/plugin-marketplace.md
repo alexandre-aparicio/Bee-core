@@ -52,6 +52,7 @@ The `notes` plugin demonstrates the intended pattern:
 - Purchase and subscription webhook events are implemented, but no payment provider or checkout integration is connected.
 - The installer is synchronous. Durable jobs, migration checkpoints, version upgrades, rollback, crash recovery and full dependency graph resolution remain pending.
 - Plan user/storage quotas are modeled but not yet enforced.
+- A company-facing dashboard catalogue with install/uninstall controls is implemented and hides management actions from non-admin roles. Checkout, subscription management and payment-provider UI remain pending.
 - Notes currently demonstrates backend APIs; tenant-specific Angular routes, menus and component registration remain pending.
 
 Do not treat the marketplace as production billing or arbitrary third-party plugin execution yet.
