@@ -1,11 +1,12 @@
 import type { BeePlugin } from "../../core/types.js";
 import { MongoClient, type Collection, type Db } from "mongodb";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 type Company = { id:string; name:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantId?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string };
+type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
 let mongoClient:MongoClient|undefined;
 
 export const organizationsPlugin:BeePlugin={
@@ -18,11 +19,14 @@ export const organizationsPlugin:BeePlugin={
   const users=db.collection<{id:string;email:string;enabled:boolean;tenantId?:string;roles?:string[]}>("users");
   const companies:Collection<Company>=db.collection("tenants");
   const memberships:Collection<Membership>=db.collection("memberships");
+  const invitations:Collection<Invitation>=db.collection("company_invitations");
   await Promise.all([
    memberships.createIndex({id:1},{unique:true,name:"memberships_id_unique"}),
    memberships.createIndex({userId:1,tenantId:1},{unique:true,name:"memberships_user_company_unique"}),
    memberships.createIndex({tenantId:1,status:1},{name:"memberships_company_status"}),
-   memberships.createIndex({userId:1,status:1},{name:"memberships_user_status"})
+   memberships.createIndex({userId:1,status:1},{name:"memberships_user_status"}),
+   invitations.createIndex({tokenHash:1},{unique:true,name:"company_invitation_token_unique"}),
+   invitations.createIndex({tenantId:1,email:1,acceptedAt:1,cancelledAt:1},{name:"company_invitations_tenant_email"})
   ]);
   // Backfill the current single-tenant model into explicit memberships.
   for await(const user of users.find({tenantId:{$exists:true,$ne:""}})){
@@ -55,6 +59,50 @@ export const organizationsPlugin:BeePlugin={
    if(!actor||!(actor.role==="owner"||actor.role==="admin")){reply.code(403).send({error:"Company administrator role required"});return null;}
    return actor;
   };
+  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/invitations",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
+   if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
+   if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can invite administrators"});
+   const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
+   if(existingMembership)return reply.code(409).send({error:"User is already a company member"});
+   const pending=await invitations.findOne({tenantId:req.params.companyId,email,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()}});
+   if(pending)return reply.code(409).send({error:"An active invitation already exists for this email"});
+   const token=randomBytes(32).toString("base64url"),now=new Date(),invitation:Invitation={id:randomUUID(),tenantId:req.params.companyId,email,role,tokenHash:createHash("sha256").update(token).digest("hex"),createdBy:auth.user!.id,createdAt:now,expiresAt:new Date(now.getTime()+7*24*60*60*1000),acceptedAt:null,cancelledAt:null};
+   await invitations.insertOne(invitation);
+   return reply.code(201).send({invitation:{id:invitation.id,email,role,expiresAt:invitation.expiresAt},acceptanceToken:token});
+  });
+  ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/invitations",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const rows=await invitations.find({tenantId:req.params.companyId}).sort({createdAt:-1}).toArray();
+   return {invitations:rows.map(row=>({id:row.id,email:row.email,role:row.role,createdAt:row.createdAt,expiresAt:row.expiresAt,acceptedAt:row.acceptedAt,cancelledAt:row.cancelledAt,status:row.acceptedAt?"accepted":row.cancelledAt?"cancelled":row.expiresAt<=new Date()?"expired":"pending"}))};
+  });
+  ctx.server.delete<{Params:{companyId:string;invitationId:string}}>("/companies/:companyId/invitations/:invitationId",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const result=await invitations.updateOne({id:req.params.invitationId,tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null},{$set:{cancelledAt:new Date()}});
+   if(!result.matchedCount)return reply.code(404).send({error:"Pending invitation not found"});
+   return {success:true,status:"cancelled"};
+  });
+  ctx.server.post<{Body:{token?:string}}>("/invitations/accept",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const token=String(req.body?.token??"");
+   if(token.length<32)return reply.code(400).send({error:"A valid invitation token is required"});
+   const tokenHash=createHash("sha256").update(token).digest("hex"),now=new Date();
+   const invitation=await invitations.findOne({tokenHash,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:now}});
+   if(!invitation)return reply.code(404).send({error:"Invitation is invalid, expired or already used"});
+   if(invitation.email!==auth.user!.email.toLowerCase())return reply.code(403).send({error:"Invitation email does not match the signed-in account"});
+   const company=await companies.findOne({id:invitation.tenantId,status:{$ne:"suspended"}});
+   if(!company)return reply.code(404).send({error:"Company is unavailable"});
+   const consumed=await invitations.updateOne({id:invitation.id,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:now}},{$set:{acceptedAt:now}});
+   if(!consumed.modifiedCount)return reply.code(409).send({error:"Invitation has already been used"});
+   const existing=await memberships.findOne({userId:auth.user!.id,tenantId:invitation.tenantId});
+   if(existing)await memberships.updateOne({id:existing.id},{$set:{role:invitation.role,status:"active",updatedAt:now}});
+   else await memberships.insertOne({id:randomUUID(),userId:auth.user!.id,tenantId:invitation.tenantId,role:invitation.role,status:"active",createdAt:now,updatedAt:now});
+   return {success:true,company:{id:company.id,name:company.name},membership:{role:invitation.role,status:"active"}};
+  });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/memberships",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const companyId=req.params.companyId;
