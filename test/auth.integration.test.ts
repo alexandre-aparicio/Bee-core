@@ -55,8 +55,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const publicCompanyList=await app.inject({method:"GET",url:"/companies",headers:publicClientHeaders});
     assert.equal(publicCompanyList.statusCode,403,"public-client tokens must not access company administration");
     const loginAudit = await db.collection("tenant_audit_events").find({tenantId:"tenant-alpha",actorId:"test-user",action:"auth.login"}).toArray();
-    assert.equal(loginAudit.length,1,"successful login should be audited for the active tenant");
-    assert.equal(loginAudit[0].metadata.client,"dashboard");
+    assert.equal(loginAudit.length,2,"successful dashboard and public logins should both be audited for the active tenant");
+    assert.ok(loginAudit.some(event=>event.metadata.client==="dashboard"));
     const ownerGuard=await app.inject({method:"GET",url:"/test/company-admin",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(ownerGuard.statusCode,200);
     assert.equal(ownerGuard.json().role,"owner");
