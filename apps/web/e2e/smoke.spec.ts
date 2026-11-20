@@ -204,6 +204,16 @@ test('dashboard marketplace shows company packages and installs an entitled plug
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
   });
+  const notes: Array<{id:string;title:string;content:string;createdBy:string;createdAt:string;updatedAt:string}> = [];
+  await page.route('**/api/notes', route => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ notes }) });
+    }
+    const body = route.request().postDataJSON();
+    const note = { id: 'note-1', title: body.title, content: body.content, createdBy: 'owner-1', createdAt: '2026-11-20T00:00:00.000Z', updatedAt: '2026-11-20T00:00:00.000Z' };
+    notes.push(note);
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ note }) });
+  });
   await page.route('**/api/marketplace/plugins/notes/install', route => {
     if (route.request().method() === 'POST') {
       notesInstalled = true;
@@ -219,6 +229,11 @@ test('dashboard marketplace shows company packages and installs an entitled plug
   await notesRow.getByRole('button', { name: 'Install' }).click();
   await expect(page.getByText('Team Notes installed for this company.')).toBeVisible();
   await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' }).getByText('Installed', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Team Notes' })).toBeVisible();
+  await page.getByPlaceholder('Note title').fill('Quarterly planning');
+  await page.getByPlaceholder('Write something for your team…').fill('Private notes stay in this company.');
+  await page.getByRole('button', { name: 'Create note' }).click();
+  await expect(page.getByRole('heading', { name: 'Quarterly planning' })).toBeVisible();
   const notesPanel = page.locator('.bee-notes');
   await expect(notesPanel).toBeVisible();
   await notesPanel.getByPlaceholder('Note title').fill('First company note');
