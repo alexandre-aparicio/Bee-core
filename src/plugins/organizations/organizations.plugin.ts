@@ -145,6 +145,7 @@ export const organizationsPlugin:BeePlugin={
    const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
    if(!target)return reply.code(404).send({error:"Company membership not found"});
    if(target.role==="owner")return reply.code(409).send({error:"The company owner role cannot be changed here"});
+   if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot change other administrator roles"});
    await memberships.updateOne({id:target.id},{$set:{role,updatedAt:new Date()}});
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
    return {membership:{userId:target.userId,role,status:"active"},sessionsRevoked:true};
