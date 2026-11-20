@@ -22,7 +22,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   const fileStoragePath = await mkdtemp(path.join(tmpdir(), "bee-files-test-"));
   const passwordHash = await bcrypt.hash("Test-password-12345", 10);
   await db.collection("tenants").insertMany([{id:"tenant-alpha",name:"Alpha",domains:["alpha.example.test"],createdAt:new Date()},{id:"tenant-beta",name:"Beta",domains:["beta.example.test"],createdAt:new Date()},{id:"tenant-legacy",name:"Legacy",createdAt:new Date()}]);
-  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-alpha-admin-two",email:"alpha-admin-two@example.com",passwordHash,roles:["admin"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-alpha",createdAt:new Date(Date.now()+1000),updatedAt:new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() },{id:"legacy-user",email:"legacy@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-legacy",createdAt:new Date(),updatedAt:new Date()},{id:"no-tenant-user",email:"no-tenant@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],createdAt:new Date(),updatedAt:new Date()}]);
+  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard","public"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-alpha-admin-two",email:"alpha-admin-two@example.com",passwordHash,roles:["admin"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-alpha",createdAt:new Date(Date.now()+1000),updatedAt:new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() },{id:"legacy-user",email:"legacy@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-legacy",createdAt:new Date(),updatedAt:new Date()},{id:"no-tenant-user",email:"no-tenant@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],createdAt:new Date(),updatedAt:new Date()}]);
   await db.collection("template_preferences").createIndex({userId:1},{unique:true,name:"template_preferences_user_unique"});
   await db.collection("template_preferences").insertOne({userId:"legacy-user",public:"editorial",dashboard:"paper",updatedAt:new Date()});
   const app = Fastify();
@@ -47,6 +47,13 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const login = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "Test-password-12345", client: "dashboard" } });
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
+    const publicClientLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"public"}});
+    assert.equal(publicClientLogin.statusCode,200,"the fixture account may authenticate to the public client");
+    const publicClientHeaders={authorization:"Bearer "+publicClientLogin.json().accessToken};
+    const publicTemplatePreferences=await app.inject({method:"GET",url:"/templates/preferences",headers:publicClientHeaders});
+    assert.equal(publicTemplatePreferences.statusCode,403,"public-client tokens must not access private template management");
+    const publicCompanyList=await app.inject({method:"GET",url:"/companies",headers:publicClientHeaders});
+    assert.equal(publicCompanyList.statusCode,403,"public-client tokens must not access company administration");
     const loginAudit = await db.collection("tenant_audit_events").find({tenantId:"tenant-alpha",actorId:"test-user",action:"auth.login"}).toArray();
     assert.equal(loginAudit.length,1,"successful login should be audited for the active tenant");
     assert.equal(loginAudit[0].metadata.client,"dashboard");
