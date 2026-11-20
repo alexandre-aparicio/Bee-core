@@ -61,6 +61,19 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(streamTicket.json().ticket);
     const invalidStream = await app.inject({method:"GET",url:"/templates/events?ticket=invalid-ticket"});
     assert.equal(invalidStream.statusCode,401);
+    const listenAddress = await app.listen({port:0,host:"127.0.0.1"});
+    const liveResponse = await fetch(listenAddress + "/templates/events?ticket=" + streamTicket.json().ticket);
+    assert.equal(liveResponse.status,200);
+    assert.match(liveResponse.headers.get("content-type") || "",/text\\/event-stream/);
+    const liveReader = liveResponse.body!.getReader();
+    const initialEvent = await liveReader.read();
+    assert.match(new TextDecoder().decode(initialEvent.value),/type":"snapshot"/);
+    const liveThemeUpdate = await app.inject({method:"PUT",url:"/templates/theme",headers:{authorization:"Bearer "+tokens.accessToken},payload:{tokens:{"--bg":"#334455"}}});
+    assert.equal(liveThemeUpdate.statusCode,200);
+    const pushedEvent = await liveReader.read();
+    assert.match(new TextDecoder().decode(pushedEvent.value),/type":"theme"/);
+    assert.match(new TextDecoder().decode(pushedEvent.value),/#334455/);
+    await liveReader.cancel();
 
     const betaLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(betaLogin.statusCode,200);
