@@ -8,12 +8,12 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
-type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; createdAt:Date; updatedAt:Date };
+type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; platformRole?: "superadmin"; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; createdAt:Date; updatedAt:Date };
 type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; tenantId?:string; expiresAt:Date; revokedAt:Date|null; createdAt:Date };
 type LoginBody = { email?:string; password?:string; client?:ClientType };
 type RefreshBody = { refreshToken?:string };
 const validClients:ClientType[]=["backend","dashboard","public"];
-const publicUser=(u:UserRecord)=>({id:u.id,email:u.email,roles:u.roles,allowedClients:u.allowedClients,tenantId:u.tenantId??"default"});
+const publicUser=(u:UserRecord)=>({id:u.id,email:u.email,roles:u.roles,allowedClients:u.allowedClients,tenantId:u.tenantId??"default",...(u.platformRole?{platformRole:u.platformRole}:{})});
 const clientFrom=(v:unknown):ClientType|null=>validClients.includes(v as ClientType)?v as ClientType:null;
 const hashToken=(t:string)=>createHash("sha256").update(t).digest("hex");
 const makeRefreshToken=()=>randomBytes(48).toString("base64url");
@@ -68,10 +68,10 @@ export const authPlugin:BeePlugin={
   const adminEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase(),adminPassword=String(ctx.config.authAdminPassword??"");
   if(adminEmail&&adminPassword){
    if(adminPassword.length<12)throw new Error("Auth: bootstrap admin password must be at least 12 characters.");
-   await users.updateOne({email:adminEmail},{$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,tenantId:defaultTenantId,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
+   await users.updateOne({email:adminEmail},{$set:{platformRole:"superadmin"},$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,tenantId:defaultTenantId,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
    ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
   }
-  const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId">,client:ClientType,tenantId=u.tenantId??defaultTenantId,sessionId?:string)=>ctx.server.jwt.sign({sub:u.id,email:u.email,roles:u.roles,tenantId,client,aud:"bee-core",...(sessionId?{sid:sessionId}:{})});
+  const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId"|"platformRole">,client:ClientType,tenantId=u.tenantId??defaultTenantId,sessionId?:string)=>ctx.server.jwt.sign({sub:u.id,email:u.email,roles:u.roles,...(u.platformRole?{platformRole:u.platformRole}:{}),tenantId,client,aud:"bee-core",...(sessionId?{sid:sessionId}:{})});
   ctx.server.post<{Body:LoginBody}>("/auth/login",async(req,reply)=>{
    const email=String(req.body?.email??"").trim().toLowerCase(),password=String(req.body?.password??""),client=clientFrom(req.body?.client);
    if(!email||!password||!client)return reply.code(400).send({error:"email, password and valid client required"});
@@ -87,7 +87,7 @@ export const authPlugin:BeePlugin={
    await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt:refreshExpiry(),revokedAt:null,createdAt:new Date()});
    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
    await auditAuthEvent({tenantId,actorId:u.id,action:"auth.login",outcome:"success",metadata:{client}});
-   return {accessToken,refreshToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,user:publicUser({...u,roles:effectiveRoles}),client,tenantId};
+   return {accessToken,refreshToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,user:publicUser({...u,roles:effectiveRoles}),client,tenantId, ...(u.platformRole?{platformRole:u.platformRole}:{})};
   });
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
    const raw=String(req.body?.refreshToken??"");if(raw.length<40)return reply.code(400).send({error:"refreshToken required"});
@@ -99,9 +99,9 @@ export const authPlugin:BeePlugin={
    const membership=await db.collection("memberships").findOne({userId:u.id,tenantId:activeTenantId,status:"active"});
    if(!membership){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Company membership is no longer active"});}
    const role=String(membership.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
-   return {accessToken:issue({...u,roles},session.client,activeTenantId,session.id),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,client:session.client,tenantId:activeTenantId};
+   return {accessToken:issue({...u,roles},session.client,activeTenantId,session.id),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,client:session.client,tenantId:activeTenantId,...(u.platformRole?{platformRole:u.platformRole}:{})};
   });
-  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string;tenantId?:string;sid?:string};const tenantContext=await resolveTenantContext(db,c);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});return {authenticated:true,user:{id:tenantContext.userId,email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:tenantContext.tenantId};}catch{return reply.code(401).send({error:"Unauthorized"});}});
+  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string;tenantId?:string;sid?:string};const tenantContext=await resolveTenantContext(db,c);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});return {authenticated:true,user:{id:tenantContext.userId,email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:tenantContext.tenantId,platformRole:(await users.findOne({id:tenantContext.userId}))?.platformRole??null};}catch{return reply.code(401).send({error:"Unauthorized"});}});
   ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const claims=req.user as {sub?:string;aud?:string};if(claims.aud!=="bee-core"||!claims.sub)return reply.code(401).send({error:"Unauthorized"});const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({tokenHash:hashToken(raw),userId:claims.sub,revokedAt:null},{$set:{revokedAt:new Date()}});const tenantId=String((claims as {tenantId?:string}).tenantId??"");if(tenantId)await auditAuthEvent({tenantId,actorId:claims.sub,action:"auth.logout",outcome:"success",metadata:{refreshTokenProvided:Boolean(raw)}});return {success:true,message:"Refresh session revoked. Current access token expires within 20 minutes."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
@@ -271,6 +271,6 @@ export const authPlugin:BeePlugin={
    return reply;
   });
   ctx.server.addHook("onClose",async()=>{await mongo.close();});
-  ctx.logger.info("Auth plugin initialized",{clients:validClients,persistence:"mongodb",refreshRotation:true});
+  ctx.logger.info("Auth plugin initialized",{clients:validClients,persistence:"mongodb",refreshRotation:true,platformSuperadminBootstrap:Boolean(adminEmail&&adminPassword)});
  }
 };

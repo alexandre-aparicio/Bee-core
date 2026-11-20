@@ -8,8 +8,9 @@ import { BeeMarketplaceComponent } from './marketplace/marketplace.component';
 import { CompanyMembersComponent } from './company-members/company-members.component';
 import { BeePluginOutletComponent } from './plugins/plugin-outlet.component';
 import { AuditLogComponent } from './audit-log/audit-log.component';
+import { PlatformAdminComponent } from './platform-admin/platform-admin.component';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateSlotComponent, BeeMarketplaceComponent, CompanyMembersComponent, BeePluginOutletComponent, AuditLogComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateSlotComponent, BeeMarketplaceComponent, CompanyMembersComponent, BeePluginOutletComponent, AuditLogComponent, PlatformAdminComponent], templateUrl: './app.component.html' })
 export class AppComponent implements OnInit {
   constructor(private readonly templates: BeeTemplateEngine) {}
 
