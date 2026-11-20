@@ -11,7 +11,7 @@ type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:s
 type Membership={id:string;userId:string;tenantId:string;role:"owner"|"admin"|"manager"|"member";status:"active";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string;platformRole?:string};
 export const platformAdminPlugin:BeePlugin={
- manifest:{name:"platform-admin",version:"0.1.0",description:"Platform-wide administration for the bootstrap superadministrator",dependencies:["auth","organizations"]},
+ manifest:{name:"platform-admin",version:"0.1.0",description:"Platform-wide administration for the bootstrap superadministrator",dependencies:["auth","organizations","marketplace"]},
  async initialize(ctx){
   const mongo=new MongoClient(String(ctx.config.mongoUri??""),{maxPoolSize:8,serverSelectionTimeoutMS:10000});
   await mongo.connect();const db:Db=mongo.db(String(ctx.config.mongoDbName??"bee_core"));
