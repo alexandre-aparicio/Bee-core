@@ -3,7 +3,7 @@ import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
-import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, type AuditEventDraft } from "../../core/audit-log.js";
 
 type Company = { id:string; name:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
@@ -21,7 +21,7 @@ export const organizationsPlugin:BeePlugin={
   const db:Db=mongoClient.db(dbName);
   const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
   await ensureTenantAuditIndexes(auditEvents);
-  const auditOrganizationEvent=async(event:Omit<TenantAuditEvent,"id"|"occurredAt">)=>{try{await appendTenantAuditEvent(auditEvents,{...event,id:randomUUID(),occurredAt:new Date()});}catch(error){ctx.logger.error("Organization audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
+  const auditOrganizationEvent=async(event:AuditEventDraft)=>{try{await appendTenantAuditEvent(auditEvents,{...event,id:randomUUID(),occurredAt:new Date()});}catch(error){ctx.logger.error("Organization audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
   const users=db.collection<{id:string;email:string;enabled:boolean;tenantId?:string;roles?:string[]}>("users");
   const companies:Collection<Company>=db.collection("tenants");
   const memberships:Collection<Membership>=db.collection("memberships");
