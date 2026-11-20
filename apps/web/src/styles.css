@@ -72,48 +72,10 @@
 .bee-template-manager__fields select{width:100%;min-width:0;border:1px solid var(--border);border-radius:8px;background:#0b0e17;color:#e8eaf2;padding:9px;font:inherit;font-size:11px}
 .bee-template-manager>p{margin:0;color:#8791a5;font-size:10px;line-height:1.55}
 footer .bee-template-manager{width:min(100%,420px);margin:0 0 15px}
-body[data-bee-dashboard-template="paper"] .dashboard{background:#f3f5fa;color:#20283a}
-body[data-bee-dashboard-template="paper"] .dash-sidebar{background:#fff;border-color:#e2e6ef}
-body[data-bee-dashboard-template="paper"] .dash-header{border-color:#e2e6ef}
-body[data-bee-dashboard-template="paper"] .dash-stat,body[data-bee-dashboard-template="paper"] .panel,body[data-bee-dashboard-template="paper"] .bee-template-manager{background:#fff;border-color:#e2e6ef;color:#20283a}
-body[data-bee-dashboard-template="paper"] .workspace{background:#f7f8fc;border-color:#e2e6ef}
-body[data-bee-dashboard-template="paper"] .workspace b,body[data-bee-dashboard-template="paper"] .dash-welcome h1,body[data-bee-dashboard-template="paper"] .panel-heading h2,body[data-bee-dashboard-template="paper"] .runtime-plugin b,body[data-bee-dashboard-template="paper"] .quick-action b{color:#20283a}
-body[data-bee-dashboard-template="paper"] .dash-nav{color:#68738a}
-body[data-bee-dashboard-template="paper"] .dash-nav.active{background:#eeeaff;color:#6550c8;border-color:#e1dcff}
-body[data-bee-dashboard-template="paper"] .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
-body[data-bee-public-template="editorial"]{background:#f6f7fb;color:#20283a}
-body[data-bee-public-template="editorial"] .site-header,body[data-bee-public-template="editorial"] footer{border-color:#e1e5ee}
-body[data-bee-public-template="editorial"] .brand,body[data-bee-public-template="editorial"] .hero h1,body[data-bee-public-template="editorial"] .feature-section h2,body[data-bee-public-template="editorial"] .architecture h2{color:#20283a}
-body[data-bee-public-template="editorial"] .nav-links,body[data-bee-public-template="editorial"] .hero-copy,body[data-bee-public-template="editorial"] .section-copy{color:#5f6b80}
-body[data-bee-public-template="editorial"] .preview,body[data-bee-public-template="editorial"] .preview-sidebar,body[data-bee-public-template="editorial"] .preview-main{background:#fff;color:#20283a}
-body[data-bee-public-template="editorial"] .feature-grid article,body[data-bee-public-template="editorial"] .architecture-stack{background:#fff;border-color:#e1e5ee}
-body[data-bee-public-template="editorial"] .feature-grid h3,body[data-bee-public-template="editorial"] .stack-plugins>div{color:#20283a}
-body[data-bee-public-template="editorial"] .bee-template-manager{background:#fff;color:#20283a;border-color:#e1e5ee}
-body[data-bee-public-template="editorial"] .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
-@media(max-width:759px){.bee-template-manager__fields{grid-template-columns:1fr}footer .bee-template-manager{width:100%}}
+{grid-template-columns:1fr}footer .bee-template-manager{width:100%}}
 
 
-/* Compiled layout shells selected by the Angular template outlet. */
-.bee-layout{min-height:100vh;width:100%;isolation:isolate}
-.bee-layout--public-editorial{background:#f6f7fb;color:#20283a}
-.bee-layout--public-editorial .site-header{max-width:1280px;border-bottom:1px solid #e1e5ee}
-.bee-layout--public-editorial .hero{max-width:1280px;margin-inline:auto}
-.bee-layout--public-editorial .feature-section,.bee-layout--public-editorial .architecture{max-width:1280px;margin-inline:auto}
-.bee-layout--public-editorial .cta{max-width:1240px;margin-inline:auto}
-.bee-layout--public-aurora{background:var(--bg);color:#e8eaf2}
-.bee-layout--dashboard-paper .dashboard{background:#f3f5fa;color:#20283a}
-.bee-layout--dashboard-midnight .dashboard{background:#090b13;color:#e8eaf2}
-.bee-layout--dashboard-paper .dash-sidebar{background:#fff;border-color:#e2e6ef}
-.bee-layout--dashboard-paper .dash-header{background:#fff;border-color:#e2e6ef}
-.bee-layout--dashboard-paper .dash-stat,.bee-layout--dashboard-paper .panel,.bee-layout--dashboard-paper .bee-template-manager{background:#fff;border-color:#e2e6ef;color:#20283a}
-.bee-layout--dashboard-paper .workspace{background:#f7f8fc;border-color:#e2e6ef}
-.bee-layout--dashboard-paper .workspace b,.bee-layout--dashboard-paper .dash-welcome h1,.bee-layout--dashboard-paper .panel-heading h2,.bee-layout--dashboard-paper .runtime-plugin b,.bee-layout--dashboard-paper .quick-action b{color:#20283a}
-.bee-layout--dashboard-paper .dash-nav{color:#68738a}
-.bee-layout--dashboard-paper .dash-nav.active{background:#eeeaff;color:#6550c8;border-color:#e1dcff}
-.bee-layout--dashboard-paper .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
-@media(max-width:759px){.bee-layout--public-editorial .hero{padding-inline:16px}.bee-layout--public-editorial footer{padding-inline:16px}}
-
-.bee-template-slot:empty{display:none}
+{display:none}
 .bee-template-slot:not(:empty){display:contents}
 .bee-template-slot [data-plugin-ui]{min-width:0}
 
@@ -143,23 +105,7 @@ body[data-bee-custom-theme="true"] .btn-primary{background:var(--purple)!importa
 body[data-bee-custom-theme="true"] .bee-template-manager__eyebrow,
 body[data-bee-custom-theme="true"] .hero h1 span{color:var(--purple)}
 
-/* Trusted declarative template packages */
-.bee-layout--public-studio{background:#f4f0e9;color:#29251f}
-.bee-layout--public-studio .site-header{border-color:#ded5c8;color:#29251f}
-.bee-layout--public-studio .nav-links,.bee-layout--public-studio .hero-copy,.bee-layout--public-studio footer{color:#756e65}
-.bee-layout--public-studio .hero{background:radial-gradient(ellipse at 50% 10%,#b85d3b18,transparent 55%)}
-.bee-layout--public-studio .hero h1 span{background:linear-gradient(95deg,#b85d3b,#397d78);background-clip:text;color:transparent}
-.bee-layout--public-studio .btn-primary{background:#b85d3b;box-shadow:0 8px 28px #b85d3b28}
-.bee-layout--public-studio .btn-secondary,.bee-layout--public-studio .feature-grid article,.bee-layout--public-studio .architecture-stack,.bee-layout--public-studio .cta{border-color:#ded5c8;background:#fffaf2;color:#29251f}
-.bee-layout--public-studio .feature-section p,.bee-layout--public-studio .section-copy{color:#756e65}
-.bee-layout--public-studio .stack-plugins>div{color:#51483f;border-color:#ded5c8}
-.bee-layout--public-studio footer{border-color:#ded5c8}
-.bee-layout--dashboard-glass .dashboard{background:radial-gradient(ellipse at 75% 0%,#6377bd24,transparent 45%),#101827}
-.bee-layout--dashboard-glass .dash-sidebar,.bee-layout--dashboard-glass .dash-header{background:#17243ad9;border-color:#40516b;backdrop-filter:blur(18px)}
-.bee-layout--dashboard-glass .dash-stat,.bee-layout--dashboard-glass .panel,.bee-layout--dashboard-glass .bee-template-manager{background:#1b2940c9;border-color:#40516b;backdrop-filter:blur(16px)}
-.bee-layout--dashboard-glass .dash-nav.active{background:#8b9dff20;color:#c4ccff}
-.bee-layout--dashboard-glass .bee-template-manager__status{background:#69d9e81a;color:#8ce5ef}
-.bee-template-manager__catalog{display:grid;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+{display:grid;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
 .bee-template-manager__catalog>strong{font-size:13px}
 .bee-template-manager__catalog>p{margin:0;color:var(--muted);font-size:11px;line-height:1.5}
 .bee-template-package{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px;border:1px solid var(--border);border-radius:10px;background:#ffffff05}
@@ -319,44 +265,6 @@ button.dash-nav{width:100%;border:0;background:transparent;text-align:left;curso
 button.dash-nav:focus-visible{outline:2px solid var(--purple);outline-offset:2px;}
 .dash-nav-label{margin-top:15px;}
 .dash-content>.panel{margin-bottom:16px;}
-
-/* Per-template light/dark modes. Templates own their palette; users only choose the mode. */
-.theme-mode-toggle{display:inline-flex;align-items:center;justify-content:center;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--panel);color:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
-.theme-mode-toggle:hover{filter:brightness(1.12)}
-.bee-template-manager__mode-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
-.bee-template-mode{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);font-size:12px}
-.bee-template-mode>div{display:flex;gap:4px;padding:3px;border-radius:8px;background:color-mix(in srgb,var(--muted) 12%,transparent)}
-.bee-template-mode button{border:0;border-radius:6px;padding:7px 9px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer}
-.bee-template-mode button.active{background:var(--bg);color:inherit;box-shadow:0 1px 4px #0002}
-body[data-bee-dashboard-mode="light"] .dashboard{background:#f5f7fb;color:#20283a}
-body[data-bee-dashboard-mode="light"] .dash-sidebar,body[data-bee-dashboard-mode="light"] .dash-header{background:#fff;border-color:#dfe5ef;color:#20283a}
-body[data-bee-dashboard-mode="light"] .workspace,body[data-bee-dashboard-mode="light"] .dash-stat,body[data-bee-dashboard-mode="light"] .panel{background:#fff;border-color:#dfe5ef}
-body[data-bee-dashboard-mode="light"] .dash-nav{color:#59657a}
-body[data-bee-dashboard-mode="light"] .dash-nav.active{background:#eeeaff;color:#5542bd;border-color:#e1dcff}
-body[data-bee-dashboard-mode="light"] .dash-user b,body[data-bee-dashboard-mode="light"] .quick-action b,body[data-bee-dashboard-mode="light"] .panel-heading h2,body[data-bee-dashboard-mode="light"] .dash-welcome h1{color:#20283a}
-body[data-bee-dashboard-mode="light"] .crumb,body[data-bee-dashboard-mode="light"] .dash-welcome p,body[data-bee-dashboard-mode="light"] .quick-action,body[data-bee-dashboard-mode="light"] .stat-top,body[data-bee-dashboard-mode="light"] .dash-stat>small,body[data-bee-dashboard-mode="light"] .dash-user small,body[data-bee-dashboard-mode="light"] .workspace small{color:#657187}
-body[data-bee-dashboard-mode="light"] .bee-template-manager,body[data-bee-dashboard-mode="light"] .bee-template-package{color:#20283a}
-body[data-bee-public-mode="light"]{background:#f7f8fc;color:#20283a}
-body[data-bee-public-mode="light"] .site-header{border-color:#e1e5ef}
-body[data-bee-public-mode="light"] .nav-links,body[data-bee-public-mode="light"] .hero-copy,body[data-bee-public-mode="light"] .section-copy{color:#657187}
-body[data-bee-public-mode="light"] .nav-links a:hover,body[data-bee-public-mode="light"] .header-login:hover{color:#20283a}
-body[data-bee-public-mode="light"] .hero:before{background:#8c72ff18}
-body[data-bee-public-mode="light"] .hero-grid{opacity:.55}
-body[data-bee-public-mode="light"] .btn-secondary{background:#fff;color:#39445a;border-color:#dfe5ef}
-body[data-bee-public-mode="light"] .preview{background:#fff;border-color:#dfe5ef;box-shadow:0 24px 70px #28344a18}
-body[data-bee-public-mode="light"] .preview-sidebar{background:#f3f5fa;border-color:#e1e5ef}
-body[data-bee-public-mode="light"] .preview-main,body[data-bee-public-mode="light"] .stat-card,body[data-bee-public-mode="light"] .preview-chart{background:#fff;border-color:#e1e5ef;color:#20283a}
-body[data-bee-public-mode="light"] .side-item,body[data-bee-public-mode="light"] .chart-head span,body[data-bee-public-mode="light"] .stat-card small,body[data-bee-public-mode="light"] .plugin-list small{color:#657187}
-body[data-bee-public-mode="light"] .plugin-list>div{border-color:#e1e5ef}
-body[data-bee-public-mode="light"] .feature-grid article{background:#fff;border-color:#e1e5ef}
-body[data-bee-public-mode="light"] .feature-grid p{color:#657187}
-body[data-bee-public-mode="light"] .architecture-stack{background:linear-gradient(140deg,#fff,#f2f4fa);border-color:#e1e5ef}
-body[data-bee-public-mode="light"] .stack-plugins>div{color:#39445a;border-color:#e1e5ef}
-body[data-bee-public-mode="light"] .cta{background:linear-gradient(120deg,#8a73ff0d,#58d4d40a);border-color:#e1e5ef}
-body[data-bee-public-mode="light"] footer{border-color:#e1e5ef;color:#657187}
-body[data-bee-public-mode="light"] footer .brand{color:#20283a}
-body[data-bee-public-mode="light"] .header-login{color:#39445a;border-color:#dfe5ef}
-@media(max-width:760px){.bee-template-mode{align-items:flex-start;flex-direction:column}}
 
 /* Tenant public placeholder uses the same per-host Light/Dark preference as public templates. */
 .tenant-public-actions{display:flex;align-items:center;gap:14px}
