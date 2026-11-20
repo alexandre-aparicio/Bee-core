@@ -19,6 +19,8 @@ export class BeeTemplateEngine {
 
   constructor() {
     for (const manifest of BUILT_IN_TEMPLATES) this.register(manifest);
+    if (!this.registry.has(this.selection.public) || this.registry.get(this.selection.public)?.target !== 'public') this.selection.public = DEFAULT_SELECTION.public;
+    if (!this.registry.has(this.selection.dashboard) || this.registry.get(this.selection.dashboard)?.target !== 'dashboard') this.selection.dashboard = DEFAULT_SELECTION.dashboard;
     this.apply();
   }
 
