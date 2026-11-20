@@ -40,6 +40,18 @@ const ALLOWED_TYPES = new Set([
   "text/plain",
   "text/csv"
 ]);
+
+function matchesContentType(contentType: string, data: Buffer): boolean {
+  if (contentType === "image/png") return data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (contentType === "image/jpeg") return data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+  if (contentType === "image/webp") return data.length >= 12 && data.toString("ascii", 0, 4) === "RIFF" && data.toString("ascii", 8, 12) === "WEBP";
+  if (contentType === "application/pdf") return data.length >= 5 && data.toString("ascii", 0, 5) === "%PDF-";
+  if (contentType === "text/plain" || contentType === "text/csv") {
+    if (data.includes(0)) return false;
+    try { new TextDecoder("utf-8", { fatal: true }).decode(data); return true; } catch { return false; }
+  }
+  return false;
+}
 let mongoClient: MongoClient | undefined;
 
 export const filesPlugin: BeePlugin = {
@@ -104,6 +116,7 @@ export const filesPlugin: BeePlugin = {
       if (body.length > MAX_FILE_SIZE) return reply.code(413).send({ error: "Maximum file size is 10 MB" });
       const contentType = String(request.headers["x-file-content-type"] ?? "application/octet-stream").split(";")[0].trim().toLowerCase();
       if (!ALLOWED_TYPES.has(contentType)) return reply.code(415).send({ error: "File type is not allowed" });
+      if (!matchesContentType(contentType, body)) return reply.code(400).send({ error: "File content does not match the declared MIME type" });
       if (!validPayload(contentType, body)) return reply.code(400).send({ error: "File content does not match its declared type" });
       const id = randomUUID();
       const originalName = safeName(String(request.headers["x-file-name"] ?? "file"));
