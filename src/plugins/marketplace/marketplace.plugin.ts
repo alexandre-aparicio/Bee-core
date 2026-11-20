@@ -4,6 +4,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, type AuditEventDraft, type TenantAuditEvent } from "../../core/audit-log.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
