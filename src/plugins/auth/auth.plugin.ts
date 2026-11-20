@@ -119,7 +119,7 @@ export const authPlugin:BeePlugin={
     await req.jwtVerify();
     const tenantContext=await resolveTenantContext(db,req.user as {sub?:string;email?:string;tenantId?:string;sid?:string;client?:"backend"|"dashboard"|"public";aud?:string});
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
-    return tenantContext.tenantId;
+    return tenantContext;
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
   ctx.server.get("/templates/public",async(req)=>{
@@ -130,9 +130,9 @@ export const authPlugin:BeePlugin={
    return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)};
   });
   ctx.server.put<{Body:{domains?:string[]}}>("/tenants/domains",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
-   const claims=req.user as {roles?:Role[]};
-   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
+   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
    const domains=req.body?.domains;
    if(!Array.isArray(domains)||domains.some(domain=>typeof domain!=="string"||!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain.trim())))return reply.code(400).send({error:"Provide valid domain names"});
    const normalized=[...new Set(domains.map(domain=>domain.trim().toLowerCase()))];
@@ -141,20 +141,22 @@ export const authPlugin:BeePlugin={
    return {tenantId,domains:normalized};
   });
   ctx.server.get("/templates/catalog",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
    const saved=await templatePreferences.findOne({tenantId});
    const installed=getInstalledTemplates(saved);
    return {catalog:templateCatalog.map(({tokens,...item})=>({...item,installed:installed.includes(item.id)}))};
   });
   ctx.server.get("/templates/installed",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
    const saved=await templatePreferences.findOne({tenantId});
    return {tenantId,installedTemplates:getInstalledTemplates(saved)};
   });
   ctx.server.post<{Body:{templateId?:string}}>("/templates/install",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
-   const claims=req.user as {roles?:Role[]};
-   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
+   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
    const templateId=String(req.body?.templateId??"");
    if(!templateCatalog.some(item=>item.id===templateId))return reply.code(404).send({error:"Template package not found"});
    await templatePreferences.updateOne({tenantId},{$addToSet:{installedTemplates:templateId},$set:{updatedAt:new Date()}},{upsert:true});
@@ -164,9 +166,9 @@ export const authPlugin:BeePlugin={
    return {tenantId,installedTemplates};
   });
   ctx.server.delete<{Params:{templateId:string}}>("/templates/install/:templateId",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
-   const claims=req.user as {roles?:Role[]};
-   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
+   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
    const templateId=req.params.templateId;
    const packageInfo=templateCatalog.find(item=>item.id===templateId);
    if(!packageInfo)return reply.code(404).send({error:"Template package not found"});
@@ -180,14 +182,15 @@ export const authPlugin:BeePlugin={
    return {tenantId,installedTemplates};
   });
   ctx.server.get("/templates/preferences",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
    const saved=await templatePreferences.findOne({tenantId});
    return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},installedTemplates:getInstalledTemplates(saved)};
   });
   ctx.server.put<{Body:{public?:string;dashboard?:string}}>("/templates/preferences",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
-   const claims=req.user as {roles?:Role[]};
-   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
+   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
    const body=req.body??{};
    const current=await templatePreferences.findOne({tenantId});
    const installed=new Set(getInstalledTemplates(current));
@@ -200,14 +203,15 @@ export const authPlugin:BeePlugin={
    return {tenantId,selection};
   });
   ctx.server.get("/templates/theme",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
    const saved=await templatePreferences.findOne({tenantId});
    return {tenantId,tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens)};
   });
   ctx.server.put<{Body:{tokens?:Record<string,string>}}>("/templates/theme",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
-   const claims=req.user as {roles?:Role[]};
-   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
+   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
    const input=req.body?.tokens;
    if(!input||typeof input!=="object"||Array.isArray(input)||!Object.keys(input).length)return reply.code(400).send({error:"Theme tokens are required"});
    for(const [key,value] of Object.entries(input)){
@@ -230,7 +234,8 @@ export const authPlugin:BeePlugin={
    return {ticket,expiresIn:30};
   });
   ctx.server.post("/templates/stream-ticket",async(req,reply)=>{
-   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
+   const tenantId=tenantContext.tenantId;
    const claims=req.user as import("../../core/tenant-context.js").TenantClaims;
    if(claims.client!=="dashboard")return reply.code(403).send({error:"Dashboard client required"});
    const now=Date.now();
