@@ -367,18 +367,24 @@ export const marketplacePlugin: BeePlugin = {
             const installation = await installations.findOne({ tenantId: job.tenantId, pluginId: job.pluginId });
             if (!installation || !["installed", "updating"].includes(String(installation.status))) throw new Error("Plugin is not installed");
             const previousVersion = String(installation.version ?? job.previousVersion ?? "");
-            if (!previousVersion || previousVersion === trusted.version) throw new Error("Plugin is already at the target version");
-            await installations.updateOne(
-              { tenantId: job.tenantId, pluginId: job.pluginId, status: { $in: ["installed", "updating"] } },
-              { $set: { status: "updating", updatedAt: new Date(), error: null } }
-            );
-            await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
-            await installations.updateOne(
-              { tenantId: job.tenantId, pluginId: job.pluginId, status: "updating" },
-              { $set: { status: "installed", version: trusted.version, updatedAt: new Date() }, $unset: { error: "" } }
-            );
-            const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
-            if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.updated", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { fromVersion: previousVersion, version: trusted.version, jobId: job.id } });
+            if (!previousVersion) throw new Error("Installed plugin version is missing");
+            if (installation.status === "installed" && previousVersion === trusted.version) {
+              // A worker may have committed the version switch but crashed before completing its durable job.
+              await completePluginInstallJob(installJobs, job, workerId, trusted.version);
+            } else {
+              if (previousVersion === trusted.version) throw new Error("Plugin update state is inconsistent");
+              await installations.updateOne(
+                { tenantId: job.tenantId, pluginId: job.pluginId, status: { $in: ["installed", "updating"] } },
+                { $set: { status: "updating", updatedAt: new Date(), error: null } }
+              );
+              await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
+              await installations.updateOne(
+                { tenantId: job.tenantId, pluginId: job.pluginId, status: "updating" },
+                { $set: { status: "installed", version: trusted.version, updatedAt: new Date() }, $unset: { error: "" } }
+              );
+              const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
+              if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.updated", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { fromVersion: previousVersion, version: trusted.version, jobId: job.id } });
+            }
           }
         } catch (error) {
           if (job.action === "install") {
