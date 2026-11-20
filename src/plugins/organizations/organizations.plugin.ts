@@ -43,6 +43,61 @@ export const organizationsPlugin:BeePlugin={
     return {claims,user};
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
+  const requireCompanyAdmin=async(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>{
+   const activeTenantId=String(auth.claims.tenantId??auth.user!.tenantId??"");
+   if(companyId!==activeTenantId){reply.code(403).send({error:"Switch to this company before managing its members"});return null;}
+   const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
+   if(!actor||!(actor.role==="owner"||actor.role==="admin")){reply.code(403).send({error:"Company administrator role required"});return null;}
+   return actor;
+  };
+  ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/memberships",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const companyId=req.params.companyId;
+   const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
+   if(!actor)return reply.code(403).send({error:"Company membership required"});
+   const rows=await memberships.find({tenantId:companyId}).toArray();
+   const memberUsers=await users.find({id:{$in:rows.map(row=>row.userId)}}).project({id:1,email:1}).toArray();
+   const emails=new Map(memberUsers.map(user=>[user.id,user.email]));
+   return {memberships:rows.map(row=>({userId:row.userId,email:emails.get(row.userId)??null,role:row.role,status:row.status,createdAt:row.createdAt}))};
+  });
+  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/memberships",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
+   if(!email||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid email and role are required"});
+   if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign administrators"});
+   const target=await users.findOne({email,enabled:true});
+   if(!target)return reply.code(404).send({error:"An existing enabled user is required"});
+   const existing=await memberships.findOne({userId:target.id,tenantId:req.params.companyId});
+   if(existing?.status==="active")return reply.code(409).send({error:"User is already a company member"});
+   const now=new Date();
+   if(existing)await memberships.updateOne({id:existing.id},{$set:{role,status:"active",updatedAt:now}});
+   else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
+   return reply.code(201).send({membership:{userId:target.id,email:target.email,role,status:"active"}});
+  });
+  ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member"}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const role=req.body?.role;
+   if(!role||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid membership role is required"});
+   if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign administrators"});
+   const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
+   if(!target)return reply.code(404).send({error:"Company membership not found"});
+   if(target.role==="owner")return reply.code(409).send({error:"The company owner role cannot be changed here"});
+   await memberships.updateOne({id:target.id},{$set:{role,updatedAt:new Date()}});
+   return {membership:{userId:target.userId,role,status:"active"}};
+  });
+  ctx.server.delete<{Params:{companyId:string;userId:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
+   if(!target)return reply.code(404).send({error:"Company membership not found"});
+   if(target.role==="owner")return reply.code(409).send({error:"The company owner cannot be removed"});
+   if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot remove other administrators"});
+   await memberships.updateOne({id:target.id},{$set:{status:"suspended",updatedAt:new Date()}});
+   await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
+   return {success:true,status:"suspended"};
+  });
   ctx.server.get("/companies",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const rows=await memberships.find({userId:auth.user!.id,status:"active"}).toArray();
