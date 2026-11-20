@@ -78,6 +78,7 @@ export class BeeTemplateEngine {
       };
     }
     this.selection = { ...this.selection, [target]: templateId };
+    this.selectionRevision++;
     this.previewThemePackage = PACKAGE_THEME_TOKENS[templateId] ? templateId : null;
     if (this.previewThemePackage) this.applyThemeTokens(PACKAGE_THEME_TOKENS[this.previewThemePackage]);
     else this.restorePreviewTokens();
