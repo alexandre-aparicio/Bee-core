@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { MongoClient, type Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
+import { enqueuePluginInstallJob, enqueuePluginUninstallJob } from "../../core/plugin-install-jobs.js";
+import { getTrustedPluginPackage, isPluginInstalled } from "../../core/plugin-entitlements.js";
 
 type Company={id:string;name:string;slug?:string;createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
@@ -50,6 +52,33 @@ export const platformAdminPlugin:BeePlugin={
    const result=await companies.updateOne({id:req.params.companyId},{$set:{status}});
    if(!result.matchedCount)return reply.code(404).send({error:"Company not found"});
    return {success:true,companyId:req.params.companyId,status};
+  });
+  ctx.server.get<{Params:{companyId:string}}>("/platform/companies/:companyId/plugins",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const company=await companies.findOne({id:req.params.companyId});
+   if(!company)return reply.code(404).send({error:"Company not found"});
+   const plugin=getTrustedPluginPackage("hello-world");
+   if(!plugin)return reply.code(404).send({error:"Plugin package not found"});
+   const installation=await db.collection("tenant_plugin_installations").findOne({tenantId:company.id,pluginId:plugin.id});
+   return {tenantId:company.id,plugins:[{id:plugin.id,name:plugin.name,description:plugin.description,installed:await isPluginInstalled(db,company.id,plugin.id),status:installation?.status??"uninstalled"}]};
+  });
+  ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{enabled?:boolean}}>("/platform/companies/:companyId/plugins/:pluginId",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const company=await companies.findOne({id:req.params.companyId,status:"active"});
+   if(!company)return reply.code(404).send({error:"Active company not found"});
+   const plugin=getTrustedPluginPackage(req.params.pluginId);
+   if(!plugin||plugin.system)return reply.code(404).send({error:"Manageable plugin package not found"});
+   if(typeof req.body?.enabled!=="boolean")return reply.code(400).send({error:"enabled must be a boolean"});
+   const installed=await isPluginInstalled(db,company.id,plugin.id);
+   if(req.body.enabled===installed)return {success:true,tenantId:company.id,pluginId:plugin.id,enabled:installed,unchanged:true};
+   if(req.body.enabled){
+    const queued=await enqueuePluginInstallJob(db.collection("plugin_install_jobs") as any,{tenantId:company.id,pluginId:plugin.id,actorId:actor.id});
+    if(queued.job.action!=="install")return reply.code(409).send({error:"A plugin lifecycle operation is already in progress"});
+    return reply.code(202).send({success:true,tenantId:company.id,pluginId:plugin.id,enabled:true,jobId:queued.job.id,status:queued.job.status});
+   }
+   const queued=await enqueuePluginUninstallJob(db.collection("plugin_install_jobs") as any,{tenantId:company.id,pluginId:plugin.id,actorId:actor.id});
+   if(queued.job.action!=="uninstall")return reply.code(409).send({error:"A plugin lifecycle operation is already in progress"});
+   return reply.code(202).send({success:true,tenantId:company.id,pluginId:plugin.id,enabled:false,jobId:queued.job.id,status:queued.job.status});
   });
   ctx.server.addHook("onClose",async()=>mongo.close());
   ctx.logger.info("Platform admin plugin initialized",{platformRole:"superadmin"});
