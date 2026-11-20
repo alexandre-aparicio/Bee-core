@@ -253,7 +253,7 @@ export const organizationsPlugin:BeePlugin={
    if(target.role==="owner")return reply.code(409).send({error:"The company owner cannot be removed"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot remove other administrators"});
    await memberships.updateOne({id:target.id},{$set:{status:"suspended",updatedAt:new Date()}});
-   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.removed",outcome:"success",resourceType:"membership",resourceId:target.userId});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.suspended",outcome:"success",resourceType:"membership",resourceId:target.userId});
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
    return {success:true,status:"suspended"};
   });
