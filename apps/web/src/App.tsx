@@ -1,5 +1,5 @@
 import{useState}from"react";import{ArrowUpRight,Boxes,ChevronDown,Command,Globe,Layers3,LockKeyhole,Menu,Package,ShieldCheck,Sparkles,Zap,Activity,Settings,LogOut,Users,PanelLeft,Eye,EyeOff}from"lucide-react";
-const API=import.meta.env.VITE_BEE_API??"";
+const API=import.meta.env.VITE_BEE_API||"http://localhost:3000";
 type Auth={accessToken:string;refreshToken:string;user:{email:string;roles:string[]}};
 function Brand(){return <a className="brand" href="/"><span className="brand-mark"><Sparkles size={19}/></span><span>bee<span className="brand-muted">-core</span></span></a>}
 function Header(){return <header className="site-header"><Brand/><nav className="nav-links"><a href="#features">Platform</a><a href="#plugins">Plugins</a><a href="#docs">Docs</a></nav><a className="header-login" href="/login">Sign in <ArrowUpRight size={16}/></a><button className="mobile-menu" aria-label="Open menu"><Menu/></button></header>}
