@@ -170,15 +170,14 @@ export const authPlugin:BeePlugin={
    const record=templateStreamTickets.get(ticket);
    templateStreamTickets.delete(ticket);
    if(!record||record.expiresAt<Date.now())return reply.code(401).send({error:"Invalid stream ticket"});
+   const saved=await templatePreferences.findOne({tenantId:record.tenantId});
    const raw=reply.raw;
    reply.hijack();
    raw.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-cache, no-transform","connection":"keep-alive","x-accel-buffering":"no"});
-   raw.write(": connected\n\n");
-   const saved=await templatePreferences.findOne({tenantId:record.tenantId});
-   raw.write("event: template-update\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})}})+"\n\n");
+   raw.write("event: template-update\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens)})+"\n\n");
    const clients=templateSubscribers.get(record.tenantId)??new Set<import("node:http").ServerResponse>();
    clients.add(raw);templateSubscribers.set(record.tenantId,clients);
-   const heartbeat=setInterval(()=>{if(raw.destroyed){clearInterval(heartbeat);return;}raw.write(": keep-alive\\n\\n");},20_000);
+   const heartbeat=setInterval(()=>{if(raw.destroyed){clearInterval(heartbeat);return;}raw.write(": keep-alive\n\n");},20_000);
    raw.on("close",()=>{clearInterval(heartbeat);clients.delete(raw);if(!clients.size)templateSubscribers.delete(record.tenantId);});
    return reply;
   });
