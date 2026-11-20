@@ -69,7 +69,7 @@ Create a standalone component under `apps/web/src/app/<plugin-id>/`. Use the aut
 
 For write controls, pass the active company role or effective permission state and hide actions the user cannot perform. The backend must still enforce the permission independently.
 
-At present, frontend component registration is statically wired in `AppComponent`; the manifest route is metadata, not a remote Angular loader.
+Register the standalone component in `BeePluginFrontendRegistry`; `BeePluginOutletComponent` mounts it when the marketplace reports the plugin as entitled and installed. The registry currently contains statically bundled trusted components; the manifest route is metadata, not a remote Angular loader.
 
 ## 6. Tests required before merging
 
