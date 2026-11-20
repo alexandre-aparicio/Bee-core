@@ -1,0 +1,39 @@
+/* Shared Light/Dark appearance contract consumed by all template packages. */
+/* Per-template light/dark modes. Templates own their palette; users only choose the mode. */
+.theme-mode-toggle{display:inline-flex;align-items:center;justify-content:center;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--panel);color:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.theme-mode-toggle:hover{filter:brightness(1.12)}
+.bee-template-manager__mode-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
+.bee-template-mode{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);font-size:12px}
+.bee-template-mode>div{display:flex;gap:4px;padding:3px;border-radius:8px;background:color-mix(in srgb,var(--muted) 12%,transparent)}
+.bee-template-mode button{border:0;border-radius:6px;padding:7px 9px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer}
+.bee-template-mode button.active{background:var(--bg);color:inherit;box-shadow:0 1px 4px #0002}
+body[data-bee-dashboard-mode="light"] .dashboard{background:#f5f7fb;color:#20283a}
+body[data-bee-dashboard-mode="light"] .dash-sidebar,body[data-bee-dashboard-mode="light"] .dash-header{background:#fff;border-color:#dfe5ef;color:#20283a}
+body[data-bee-dashboard-mode="light"] .workspace,body[data-bee-dashboard-mode="light"] .dash-stat,body[data-bee-dashboard-mode="light"] .panel{background:#fff;border-color:#dfe5ef}
+body[data-bee-dashboard-mode="light"] .dash-nav{color:#59657a}
+body[data-bee-dashboard-mode="light"] .dash-nav.active{background:#eeeaff;color:#5542bd;border-color:#e1dcff}
+body[data-bee-dashboard-mode="light"] .dash-user b,body[data-bee-dashboard-mode="light"] .quick-action b,body[data-bee-dashboard-mode="light"] .panel-heading h2,body[data-bee-dashboard-mode="light"] .dash-welcome h1{color:#20283a}
+body[data-bee-dashboard-mode="light"] .crumb,body[data-bee-dashboard-mode="light"] .dash-welcome p,body[data-bee-dashboard-mode="light"] .quick-action,body[data-bee-dashboard-mode="light"] .stat-top,body[data-bee-dashboard-mode="light"] .dash-stat>small,body[data-bee-dashboard-mode="light"] .dash-user small,body[data-bee-dashboard-mode="light"] .workspace small{color:#657187}
+body[data-bee-dashboard-mode="light"] .bee-template-manager,body[data-bee-dashboard-mode="light"] .bee-template-package{color:#20283a}
+body[data-bee-public-mode="light"]{background:#f7f8fc;color:#20283a}
+body[data-bee-public-mode="light"] .site-header{border-color:#e1e5ef}
+body[data-bee-public-mode="light"] .nav-links,body[data-bee-public-mode="light"] .hero-copy,body[data-bee-public-mode="light"] .section-copy{color:#657187}
+body[data-bee-public-mode="light"] .nav-links a:hover,body[data-bee-public-mode="light"] .header-login:hover{color:#20283a}
+body[data-bee-public-mode="light"] .hero:before{background:#8c72ff18}
+body[data-bee-public-mode="light"] .hero-grid{opacity:.55}
+body[data-bee-public-mode="light"] .btn-secondary{background:#fff;color:#39445a;border-color:#dfe5ef}
+body[data-bee-public-mode="light"] .preview{background:#fff;border-color:#dfe5ef;box-shadow:0 24px 70px #28344a18}
+body[data-bee-public-mode="light"] .preview-sidebar{background:#f3f5fa;border-color:#e1e5ef}
+body[data-bee-public-mode="light"] .preview-main,body[data-bee-public-mode="light"] .stat-card,body[data-bee-public-mode="light"] .preview-chart{background:#fff;border-color:#e1e5ef;color:#20283a}
+body[data-bee-public-mode="light"] .side-item,body[data-bee-public-mode="light"] .chart-head span,body[data-bee-public-mode="light"] .stat-card small,body[data-bee-public-mode="light"] .plugin-list small{color:#657187}
+body[data-bee-public-mode="light"] .plugin-list>div{border-color:#e1e5ef}
+body[data-bee-public-mode="light"] .feature-grid article{background:#fff;border-color:#e1e5ef}
+body[data-bee-public-mode="light"] .feature-grid p{color:#657187}
+body[data-bee-public-mode="light"] .architecture-stack{background:linear-gradient(140deg,#fff,#f2f4fa);border-color:#e1e5ef}
+body[data-bee-public-mode="light"] .stack-plugins>div{color:#39445a;border-color:#e1e5ef}
+body[data-bee-public-mode="light"] .cta{background:linear-gradient(120deg,#8a73ff0d,#58d4d40a);border-color:#e1e5ef}
+body[data-bee-public-mode="light"] footer{border-color:#e1e5ef;color:#657187}
+body[data-bee-public-mode="light"] footer .brand{color:#20283a}
+body[data-bee-public-mode="light"] .header-login{color:#39445a;border-color:#dfe5ef}
+@media(max-width:760px){.bee-template-mode{align-items:flex-start;flex-direction:column}}
+
