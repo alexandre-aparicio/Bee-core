@@ -364,6 +364,11 @@ export const marketplacePlugin: BeePlugin = {
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.installed", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
+            for (const dependency of resolvePluginDependencyOrder(job.pluginId)) {
+              if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency)) {
+                throw new Error("Required plugin dependency is not installed: " + dependency);
+              }
+            }
             const installations = db.collection("tenant_plugin_installations");
             const installation = await installations.findOne({ tenantId: job.tenantId, pluginId: job.pluginId });
             if (!installation || !["installed", "updating"].includes(String(installation.status))) throw new Error("Plugin is not installed");
