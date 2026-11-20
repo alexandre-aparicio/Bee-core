@@ -61,6 +61,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(tenantAuditPage.json().events[0].action,"auth.login");
     const invalidAuditFilter=await app.inject({method:"GET",url:"/companies/tenant-alpha/audit-events?action=unknown",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(invalidAuditFilter.statusCode,400);
+    const invalidAuditPage=await app.inject({method:"GET",url:"/companies/tenant-alpha/audit-events?page=10001",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(invalidAuditPage.statusCode,400,"audit pagination must reject excessive offsets");
     const crossTenantAudit=await app.inject({method:"GET",url:"/companies/tenant-beta/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(crossTenantAudit.statusCode,403,"audit queries must remain bound to the active company");
     const loginAudit = await db.collection("tenant_audit_events").find({tenantId:"tenant-alpha",actorId:"test-user",action:"auth.login"}).toArray();
