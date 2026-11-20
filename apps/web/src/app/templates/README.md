@@ -10,7 +10,7 @@ A template manifest declares a stable id, semantic version, target surface, regi
 
 ## Runtime contract
 
-`BeeTemplateEngine` registers manifests, validates target compatibility, activates one template per surface, persists a tenant-scoped local fallback and synchronizes the tenant's public/dashboard selections to MongoDB through `/templates/preferences`, then applies stable body data attributes. The manager UI changes either surface independently without touching authentication, routes, plugin state or business data.
+`BeeTemplateEngine` registers manifests, validates target compatibility, activates one template per surface, persists a tenant-scoped local fallback and synchronizes the tenant's public/dashboard selections to MongoDB through `/templates/preferences`, then applies stable body data attributes. The manager UI previews a template locally before publishing it. Administrators can discard the preview to restore the previous selection and palette, or apply it to persist the selection for the tenant and broadcast the update. This does not touch authentication, routes, plugin state or business data.
 
 The first release ships Aurora + Editorial public themes and Midnight + Paper dashboard themes. The registry is the controlled extension point for later packaged Angular layouts. A manifest does not execute arbitrary remote JavaScript: external templates must be supplied as trusted, versioned Angular code and registered through the application build/plugin loader.
 
@@ -41,7 +41,7 @@ The first tenant package catalog ships two trusted packages:
 
 Tenant administrators can inspect the catalog with `GET /templates/catalog`, install with `POST /templates/install` (`{ "templateId": "studio" }`), and uninstall with `DELETE /templates/install/:templateId`. `GET /templates/installed` returns the tenant's installed package ids. The active package cannot be uninstalled; switch the relevant surface to another installed template first. Only catalog ids are accepted, and activation is rejected unless the package is installed for that tenant.
 
-Installed package ids live in the tenant's MongoDB `template_preferences` document. Installation and removal are broadcast through the same tenant-scoped SSE channel, so connected browser sessions update their available template options without a frontend restart. The package styles are trusted CSS compiled into the Angular application; the installer does **not** download or execute JavaScript, HTML templates, or Angular component bundles. This is a safe first package lifecycle, not yet a general-purpose third-party marketplace.
+Installed package ids live in the tenant's MongoDB `template_preferences` document. Installation, removal and published selection changes are broadcast through the same tenant-scoped SSE channel, so connected browser sessions update their available template options and active shell without a frontend restart. The package styles are trusted CSS compiled into the Angular application; the installer does **not** download or execute JavaScript, HTML templates, or Angular component bundles. This is a safe first package lifecycle, not yet a general-purpose third-party marketplace.
 
 ## Angular layout resolver and plugin slots
 
