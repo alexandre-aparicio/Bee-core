@@ -5,7 +5,7 @@ export type AuditAction =
   | "auth.login" | "auth.logout"
   | "member.invited" | "member.role_changed" | "member.removed"
   | "role.created" | "role.updated" | "role.deleted"
-  | "permission.denied"
+  | "permission.denied" | "invitation.cancelled"
   | "plugin.installed" | "plugin.uninstalled";
 
 export type TenantAuditEvent = Document & {
