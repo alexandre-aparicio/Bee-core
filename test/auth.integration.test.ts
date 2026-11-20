@@ -228,6 +228,12 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const betaReLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     const betaManagerContext=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaReLogin.json().accessToken}});
     assert.equal(betaManagerContext.statusCode,200);
+    const managerPermissions=await app.inject({method:"GET",url:"/companies/active/permissions",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
+    assert.equal(managerPermissions.statusCode,200);
+    assert.equal(managerPermissions.json().role,"manager");
+    assert.ok(managerPermissions.json().permissions.includes("files.read"));
+    assert.ok(!managerPermissions.json().permissions.includes("members.manage"));
+
     const managerInviteAdmin=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken},payload:{email:"admin-invite@example.com",role:"admin"}});
     assert.equal(managerInviteAdmin.statusCode,403);
 
