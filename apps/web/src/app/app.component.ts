@@ -81,6 +81,7 @@ export class AppComponent implements OnInit {
 
   activeSection = 'dashboard';
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
+  get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get sectionTitle(): string { return this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
   get navigationItems(): Array<{id:string;label:string;icon:string;group:string}> {
     const base = [
