@@ -388,16 +388,6 @@ test('company member data cannot leak across a rapid active-company switch', asy
       body: JSON.stringify({ accessToken: 'company-b-token', tenantId: 'company-b', membership: { role: 'owner' } })
     });
   });
-  await page.route('**/api/companies/company-a/memberships', async route => {
-    await new Promise(resolve => setTimeout(resolve, 700));
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ memberships: [
-        { userId: 'member-a', email: 'member-a@example.test', role: 'member', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' }
-      ] })
-    });
-  });
   await page.route('**/api/companies/company-b/memberships', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -419,8 +409,17 @@ test('company member data cannot leak across a rapid active-company switch', asy
     status: 200, contentType: 'application/json', body: JSON.stringify({ events: [], page: 1, hasMore: false })
   }));
 
+  let signalCompanyAStarted!: () => void;
+  const companyAStarted = new Promise<void>(resolve => { signalCompanyAStarted = resolve; });
+  await page.route('**/api/companies/company-a/memberships', async route => {
+    signalCompanyAStarted();
+    await new Promise(resolve => setTimeout(resolve, 700));
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: [
+      { userId: 'member-a', email: 'member-a@example.test', role: 'member', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' }
+    ] }) });
+  });
   await page.goto('/dashboard');
-  await page.waitForRequest(request => request.url().includes('/api/companies/company-a/memberships'));
+  await companyAStarted;
   const selector = page.getByLabel('Active company');
   await selector.selectOption('company-b');
   await expect(page.getByText('member-b@example.test')).toBeVisible();
