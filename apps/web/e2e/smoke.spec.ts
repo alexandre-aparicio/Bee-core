@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test('landing page renders the main message', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /build less core/i })).toBeVisible();
+  await expect(page.locator('[data-bee-layout="public.aurora"]')).toBeVisible();
   await expect(page.getByRole('link', { name: /sign in/i })).toBeVisible();
 });
 
@@ -35,6 +36,7 @@ test('template manager keeps public and dashboard themes independent', async ({ 
   await expect(manager).toBeVisible();
   await manager.getByLabel('Public website').selectOption('editorial');
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
+  await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
@@ -48,5 +50,6 @@ test('dashboard template can be selected without changing public theme', async (
   await expect(manager).toBeVisible();
   await manager.getByLabel('Dashboard').selectOption('paper');
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'paper');
+  await expect(page.locator('[data-bee-layout="dashboard.paper"]')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'aurora');
 });
