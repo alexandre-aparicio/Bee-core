@@ -10,7 +10,7 @@ A template manifest declares a stable id, semantic version, target surface, regi
 
 ## Runtime contract
 
-`BeeTemplateEngine` registers manifests, validates target compatibility, activates one template per surface, persists selections in local storage and applies stable body data attributes. The manager UI changes either surface independently without touching authentication, routes, plugin state or business data.
+`BeeTemplateEngine` registers manifests, validates target compatibility, activates one template per surface, persists a local fallback and synchronizes authenticated users' public/dashboard selections to MongoDB through `/templates/preferences`, then applies stable body data attributes. The manager UI changes either surface independently without touching authentication, routes, plugin state or business data.
 
 The first release ships Aurora + Editorial public themes and Midnight + Paper dashboard themes. The registry is the controlled extension point for later packaged Angular layouts. A manifest does not execute arbitrary remote JavaScript: external templates must be supplied as trusted, versioned Angular code and registered through the application build/plugin loader.
 
@@ -59,4 +59,4 @@ unregister();
 
 Supported slots are `header`, `hero`, `content`, `footer`, `sidebar`, `topbar` and `widgets`. Contributions are ordered by priority and plugin id, one contribution per plugin and slot. Plugins must be trusted Angular code compiled into or loaded by the application. A JSON manifest cannot execute code or download arbitrary JavaScript.
 
-The current milestone supplies the runtime resolver, four compiled visual shells and the typed slot registration/rendering contract. A package installer, signed template bundles, compatibility checks, preview/rollback UI and backend persistence of per-workspace template choices remain subsequent work.
+The current milestone supplies the runtime resolver, four compiled visual shells and the typed slot registration/rendering contract. A package installer, signed template bundles, compatibility checks, preview/rollback UI and workspace/tenant-scoped selection (the current persistence scope is per user) remain subsequent work.
