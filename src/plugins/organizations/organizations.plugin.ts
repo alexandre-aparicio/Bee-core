@@ -6,14 +6,15 @@ type Company = { id:string; name:string; domains?:string[]; createdAt:Date; stat
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantId?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string };
+let mongoClient:MongoClient|undefined;
 
 export const organizationsPlugin:BeePlugin={
  manifest:{name:"organizations",version:"0.1.0",description:"Company records, user memberships and active-company session context",dependencies:["auth"]},
  async initialize(ctx){
   const mongoUri=String(ctx.config.mongoUri??""),dbName=String(ctx.config.mongoDbName??"bee_core");
-  const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
-  await mongo.connect();
-  const db:Db=mongo.db(dbName);
+  mongoClient=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
+  await mongoClient.connect();
+  const db:Db=mongoClient.db(dbName);
   const users=db.collection<{id:string;email:string;enabled:boolean;tenantId?:string;roles?:string[]}>("users");
   const companies:Collection<Company>=db.collection("tenants");
   const memberships:Collection<Membership>=db.collection("memberships");
@@ -91,5 +92,5 @@ export const organizationsPlugin:BeePlugin={
   });
   ctx.logger.info("Organizations plugin initialized: company memberships backfilled and indexed.");
  },
- async stop(){/* Mongo client is short-lived at process scope; connections close on process shutdown. */}
+ async stop(){await mongoClient?.close();mongoClient=undefined;}
 };
