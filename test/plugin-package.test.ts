@@ -59,7 +59,7 @@ test("plugin dependency resolver rejects missing dependencies and dependency cyc
 
 
 import { MongoClient } from "mongodb";
-import { runTenantPluginMigrations } from "../src/core/plugin-migrations.js";
+import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../src/core/plugin-migrations.js";
 
 const migrationMongoUri = process.env.MONGODB_TEST_URI;
 
@@ -144,6 +144,40 @@ test("migration rollback failures are persisted for operator recovery", { skip: 
     const record = await db.collection("tenant_plugin_migrations").findOne({ tenantId: "tenant-a", migrationId: "001-no-compensation" });
     assert.equal(record?.status, "rollback_failed");
     assert.match(String(record?.error), /No rollback handler/);
+  } finally {
+    await client.db(dbName).dropDatabase();
+    await client.close();
+  }
+});
+
+
+test("successful migrations can be compensated when a later lifecycle hook fails", { skip: !migrationMongoUri }, async () => {
+  const client = new MongoClient(migrationMongoUri!);
+  await client.connect();
+  const dbName = "bee_plugin_migration_lifecycle_compensation_" + Date.now();
+  const db = client.db(dbName);
+  const order: string[] = [];
+  const migrations = [
+    {
+      id: "001-add-column",
+      checksum: "4".repeat(64),
+      up: async () => { order.push("up-1"); },
+      down: async () => { order.push("down-1"); }
+    },
+    {
+      id: "002-backfill",
+      checksum: "5".repeat(64),
+      up: async () => { order.push("up-2"); },
+      down: async () => { order.push("down-2"); }
+    }
+  ];
+  try {
+    const result = await runTenantPluginMigrations(db, "tenant-a", "crm.contacts", migrations);
+    assert.deepEqual(result.applied, ["001-add-column", "002-backfill"]);
+    const rollback = await rollbackTenantPluginMigrations(db, "tenant-a", "crm.contacts", migrations, result.applied);
+    assert.deepEqual(rollback, { rolledBack: ["002-backfill", "001-add-column"], failed: [] });
+    assert.deepEqual(order, ["up-1", "up-2", "down-2", "down-1"]);
+    assert.equal(await db.collection("tenant_plugin_migrations").countDocuments({ tenantId: "tenant-a", status: "applied" }), 0);
   } finally {
     await client.db(dbName).dropDatabase();
     await client.close();
