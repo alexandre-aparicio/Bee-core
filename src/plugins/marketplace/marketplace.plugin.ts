@@ -1,5 +1,5 @@
 import type { BeePlugin } from "../../core/types.js";
-import { MongoClient } from "mongodb";
+import { MongoClient, type Collection } from "mongodb";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { runTenantPluginMigrations } from "../../core/plugin-migrations.js";
@@ -27,6 +27,9 @@ export const marketplacePlugin: BeePlugin = {
     mongoClient = new MongoClient(String(ctx.config.mongoUri ?? ""), { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
     await mongoClient.connect();
     const db = mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
+    await ensureTenantAuditIndexes(auditEvents);
+    const auditMarketplaceEvent=async(event:AuditEventDraft)=>{try{await appendTenantAuditEvent(auditEvents,{...event,id:randomUUID(),occurredAt:new Date()});}catch(error){ctx.logger.error("Marketplace audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
     await seedPluginCommerce(db);
     // Recover interrupted synchronous installs after a process restart; never leave the tenant stuck in installing.
     await db.collection("tenant_plugin_installations").updateMany({status:"installing"},{$set:{status:"failed",error:"Installation interrupted by platform restart; retry installation",updatedAt:new Date()}});
@@ -221,6 +224,7 @@ export const marketplacePlugin: BeePlugin = {
         await runTenantPluginMigrations(db, tenant.tenantId, pluginId, trusted.migrations ?? []);
         await trusted.installTenant?.(db, tenant.tenantId);
         await installations.updateOne({ tenantId: tenant.tenantId, pluginId }, { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } });
+        await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"plugin.installed",outcome:"success",resourceType:"plugin",resourceId:pluginId,metadata:{version:trusted.version}});
         return reply.code(201).send({ pluginId, status: "installed", version: trusted.version });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Plugin installation failed";
@@ -253,6 +257,7 @@ export const marketplacePlugin: BeePlugin = {
         { tenantId: tenant.tenantId, pluginId },
         { $set: { status: "uninstalled", updatedAt: new Date() } }
       );
+      await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"plugin.uninstalled",outcome:"success",resourceType:"plugin",resourceId:pluginId});
       return { pluginId, status: "uninstalled", dataPreserved: true };
     });
 
