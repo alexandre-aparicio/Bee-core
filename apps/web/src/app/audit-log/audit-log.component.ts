@@ -55,6 +55,7 @@ export class AuditLogComponent implements OnChanges {
   hasMore = false;
   loading = false;
   error = "";
+  private requestSequence = 0;
   readonly actionOptions = [
     {value:"auth.login",label:"Logins"},{value:"auth.logout",label:"Logouts"},
     {value:"member.invited",label:"Invitations"},{value:"member.role_changed",label:"Role changes"},
@@ -68,7 +69,8 @@ export class AuditLogComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["tenantId"] || changes["role"]) {
-      this.events = []; this.page = 1; this.hasMore = false; this.error = "";
+      this.requestSequence++;
+      this.events = []; this.page = 1; this.hasMore = false; this.error = ""; this.loading = false;
       if (this.canRead && this.tenantId) void this.load(1);
     }
   }
@@ -86,16 +88,23 @@ export class AuditLogComponent implements OnChanges {
   }
 
   async load(page:number):Promise<void> {
-    if (!this.canRead || !this.tenantId || !this.token || this.loading) return;
+    if (!this.canRead || !this.tenantId || !this.token) return;
+    const requestId = ++this.requestSequence;
+    const requestedTenantId = this.tenantId;
+    const requestedRole = this.role;
     this.loading = true; this.error = "";
     try {
       const params = new URLSearchParams({page:String(page),limit:String(this.limit)});
       if (this.action) params.set("action",this.action);
-      const response = await fetch("/api/companies/"+encodeURIComponent(this.tenantId)+"/audit-events?"+params.toString(), {headers:{authorization:"Bearer "+this.token}});
+      const response = await fetch("/api/companies/"+encodeURIComponent(requestedTenantId)+"/audit-events?"+params.toString(), {headers:{authorization:"Bearer "+this.token}});
       const result = await response.json();
+      if (requestId !== this.requestSequence || requestedTenantId !== this.tenantId || requestedRole !== this.role) return;
       if (!response.ok) throw new Error(result.error || "Could not load activity");
       this.events = result.events || []; this.page = result.page || page; this.hasMore = Boolean(result.hasMore);
-    } catch (error) { this.error = error instanceof Error ? error.message : "Could not load activity"; }
-    finally { this.loading = false; }
+    } catch (error) {
+      if (requestId === this.requestSequence) this.error = error instanceof Error ? error.message : "Could not load activity";
+    } finally {
+      if (requestId === this.requestSequence) this.loading = false;
+    }
   }
 }
