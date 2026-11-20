@@ -123,11 +123,13 @@ test('tenant admin can install and activate a trusted dashboard template package
 test('dashboard company selector switches the active tenant session', async ({ page }) => {
   let activeCompany = 'company-a';
   let companyListRequests = 0;
-  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
-    accessToken: 'company-a-token',
-    tenantId: 'company-a',
-    user: { id: 'user-1', email: 'owner@example.test', roles: ['admin'], tenantId: 'company-a' }
-  })));
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
+      accessToken: 'company-a-token',
+      tenantId: 'company-a',
+      user: { id: 'user-1', email: 'owner@example.test', roles: ['admin'], tenantId: 'company-a' }
+    }));
+  });
   await page.route('**/api/companies', route => {
     companyListRequests += 1;
     return route.fulfill({
