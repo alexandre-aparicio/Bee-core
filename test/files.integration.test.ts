@@ -87,7 +87,7 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     });
     assert.equal(alphaUpload.statusCode, 201);
     const alphaFileId = alphaUpload.json().file.id as string;
-    assert.equal(alphaUpload.json().file.name, undefined);
+    assert.equal(alphaUpload.json().file.name, "private-alpha.png");
 
     const betaUpload = await app.inject({
       method: "POST",
@@ -144,6 +144,18 @@ test("private files and images are isolated by active company", { skip: !uri }, 
       payload: Buffer.from("<script>alert(1)</script>")
     });
     assert.equal(unsupported.statusCode, 415);
+    const spoofedImage = await app.inject({
+      method: "POST",
+      url: "/files",
+      headers: {
+        authorization: "Bearer " + alphaToken,
+        "content-type": "application/octet-stream",
+        "x-file-content-type": "image/png",
+        "x-file-name": "spoofed.png"
+      },
+      payload: Buffer.from("<script>not an image</script>")
+    });
+    assert.equal(spoofedImage.statusCode, 400);
   } finally {
     await app.close();
     await filesPlugin.stop?.(ctx);
