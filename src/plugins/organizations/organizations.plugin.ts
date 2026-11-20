@@ -61,6 +61,7 @@ export const organizationsPlugin:BeePlugin={
     const claims=req.user as Claims;
     const tenantContext=await resolveTenantContext(db,claims,options);
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
+    if(tenantContext.client!=="dashboard"){reply.code(403).send({error:"Company administration requires a dashboard session"});return null;}
     const user=await users.findOne({id:tenantContext.userId,enabled:true});
     if(!user){reply.code(401).send({error:"Unauthorized"});return null;}
     return {claims,tenantContext,user};
