@@ -68,6 +68,36 @@ jobs:
           docker volume ls --format '{{.Name}}' | grep 'bee_core_mongodb_data'
           docker volume ls --format '{{.Name}}' | grep 'bee_core_files'
 
+      - name: Verify authentication and MongoDB persistence across restart
+        run: |
+          login_response=$(curl -fsS -X POST http://127.0.0.1:18080/api/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"ci-admin@example.test","password":"CI-Admin-Password-2026!","client":"dashboard"}')
+          refresh_token=$(printf '%s' "$login_response" | jq -er '.refreshToken')
+          test -n "$refresh_token"
+
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml restart mongodb
+          for attempt in $(seq 1 30); do
+            if docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then
+              break
+            fi
+            sleep 2
+          done
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1
+
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml restart bee-core
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18080/api/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+
+          refreshed=$(curl -fsS -X POST http://127.0.0.1:18080/api/auth/refresh \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -nc --arg token "$refresh_token" '{refreshToken:$token}')")
+          printf '%s' "$refreshed" | jq -e '.accessToken and .refreshToken' >/dev/null
+
       - name: Collect diagnostics on failure
         if: failure()
         run: |
