@@ -5,6 +5,7 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
+import { getTenantStorageLimitBytes, hasPluginEntitlement, isPluginInstalled, seedPluginCommerce } from "../../core/plugin-entitlements.js";
 
 type FileRecord = Document & {
   id: string;
@@ -55,8 +56,12 @@ export const filesPlugin: BeePlugin = {
     mongoClient = new MongoClient(mongoUri, { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
     await mongoClient.connect();
     const db = mongoClient.db(dbName);
+    await seedPluginCommerce(db);
     // The metadata collection is accessed through a tenant-scoped facade per request.
-    await db.collection("tenant_files").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "tenant_files_company_id_unique" });
+    await Promise.all([
+      db.collection("tenant_files").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "tenant_files_company_id_unique" }),
+      db.collection("tenant_files").createIndex({ tenantId: 1, createdAt: -1 }, { name: "tenant_files_company_created" })
+    ]);
     await mkdir(storageRoot, { recursive: true });
 
     ctx.server.addContentTypeParser("application/octet-stream", { parseAs: "buffer", bodyLimit: MAX_FILE_SIZE }, (_request, body, done) => {
@@ -69,6 +74,14 @@ export const filesPlugin: BeePlugin = {
         const tenant = await resolveTenantContext(db, request.user);
         if (!tenant) {
           reply.code(401).send({ error: "Unauthorized or active company session required" });
+          return null;
+        }
+        if (!hasTenantPermission(tenant, "files.read")) {
+          reply.code(403).send({ error: "File read permission required" });
+          return null;
+        }
+        if (!await hasPluginEntitlement(db, tenant.tenantId, "files") || !await isPluginInstalled(db, tenant.tenantId, "files")) {
+          reply.code(403).send({ error: "Files is not entitled or installed for this company" });
           return null;
         }
         return tenant;
@@ -104,6 +117,13 @@ export const filesPlugin: BeePlugin = {
       const contentType = String(request.headers["x-file-content-type"] ?? "application/octet-stream").split(";")[0].trim().toLowerCase();
       if (!ALLOWED_TYPES.has(contentType)) return reply.code(415).send({ error: "File type is not allowed" });
       if (!matchesContentType(contentType, body)) return reply.code(400).send({ error: "File content does not match the declared MIME type" });
+      const storageLimit = await getTenantStorageLimitBytes(db, tenant.tenantId);
+      const usageRows = await db.collection<FileRecord>("tenant_files").aggregate<{ total: number }>([
+        { $match: { tenantId: tenant.tenantId } },
+        { $group: { _id: null, total: { $sum: "$size" } } }
+      ]).toArray();
+      const currentUsage = usageRows[0]?.total ?? 0;
+      if (currentUsage + body.length > storageLimit) return reply.code(413).send({ error: "Company storage quota exceeded", storageLimitBytes: storageLimit, usedBytes: currentUsage });
       const id = randomUUID();
       const originalName = safeName(String(request.headers["x-file-name"] ?? "file"));
       const key = storagePath(tenant.tenantId, id);
