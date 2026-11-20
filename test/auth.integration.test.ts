@@ -135,9 +135,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const migratedCompany=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+noTenantLogin.json().accessToken}});
     assert.equal(migratedCompany.statusCode,200);
     assert.equal(migratedCompany.json().company.id,"default");
+    await db.collection("users").updateOne({id:"test-user-beta"},{$set:{roles:["admin"]}});
     const betaLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(betaLogin.statusCode,200);
     const betaTokens=betaLogin.json();
+    assert.deepEqual(betaTokens.user.roles,["user"],"company membership role must override legacy global admin role");
     const betaRead=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+betaTokens.accessToken}});
     assert.equal(betaRead.statusCode,200);
     assert.equal(betaRead.json().tenantId,"tenant-beta");
