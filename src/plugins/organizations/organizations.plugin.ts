@@ -263,7 +263,7 @@ export const organizationsPlugin:BeePlugin={
    const result=[];
    for(const membership of rows){
     const company=await companies.findOne({id:membership.tenantId});
-    if(company)result.push({id:company.id,name:company.name,status:company.status??"active",role:membership.role,active:membership.tenantId===(auth.claims.tenantId??auth.user!.tenantId)});
+    if(company)result.push({id:company.id,name:company.name,status:company.status??"active",role:membership.role,active:membership.tenantId===auth.tenantContext.tenantId});
    }
    return {companies:result};
   });
@@ -287,7 +287,7 @@ export const organizationsPlugin:BeePlugin={
    if(!membership)return reply.code(403).send({error:"Active membership required for this company"});
    const company=await companies.findOne({id:req.params.companyId,status:{$ne:"suspended"}});
    if(!company)return reply.code(404).send({error:"Company not found or suspended"});
-   const currentTenantId=String(claims.tenantId??user!.tenantId??"");
+   const currentTenantId=auth.tenantContext.tenantId;
    const session=await db.collection("refresh_sessions").findOneAndUpdate({id:claims.sid,userId:user!.id,tenantId:currentTenantId,revokedAt:null,expiresAt:{$gt:new Date()}},{$set:{tenantId:company.id}},{returnDocument:"after"});
    if(!session)return reply.code(401).send({error:"Session expired or revoked"});
    const role: string=membership.role;
@@ -297,7 +297,7 @@ export const organizationsPlugin:BeePlugin={
   });
   ctx.server.get("/companies/active/permissions",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
-   const tenantId=String(auth.claims.tenantId??auth.user!.tenantId??"");
+   const tenantId=auth.tenantContext.tenantId;
    const membership=await memberships.findOne({userId:auth.user!.id,tenantId,status:"active"});
    if(!membership)return reply.code(403).send({error:"Active company membership required"});
    if(membership.role==="custom"&&membership.customRoleId){
