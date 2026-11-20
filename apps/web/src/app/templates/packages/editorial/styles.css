@@ -1,5 +1,5 @@
 /* Editorial package-owned layout styles. */
-:host{display:block;min-height:100vh}
+.bee-template-package-host--editorial{display:block;min-height:100vh}
 body[data-bee-public-template="editorial"]{background:#f6f7fb;color:#20283a}
 body[data-bee-public-template="editorial"] .site-header,body[data-bee-public-template="editorial"] footer{border-color:#e1e5ee}
 body[data-bee-public-template="editorial"] .brand,body[data-bee-public-template="editorial"] .hero h1,body[data-bee-public-template="editorial"] .feature-section h2,body[data-bee-public-template="editorial"] .architecture h2{color:#20283a}
