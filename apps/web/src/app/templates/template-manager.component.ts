@@ -16,17 +16,17 @@ import type { BeeTemplateTarget } from './template.types';
       </div>
       <div class="bee-template-manager__fields">
         <label>Public website
-          <select [ngModel]="engine.getSelection().public" (ngModelChange)="activate('public', $event)">
+          <select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates" [ngModel]="engine.getSelection().public" (ngModelChange)="activate('public', $event)">
             <option *ngFor="let item of engine.list('public')" [value]="item.id">{{ item.name }}</option>
           </select>
         </label>
         <label>Dashboard
-          <select [ngModel]="engine.getSelection().dashboard" (ngModelChange)="activate('dashboard', $event)">
+          <select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates" [ngModel]="engine.getSelection().dashboard" (ngModelChange)="activate('dashboard', $event)">
             <option *ngFor="let item of engine.list('dashboard')" [value]="item.id">{{ item.name }}</option>
           </select>
         </label>
       </div>
-      @if (engine.hasAuthenticatedSession) {
+      @if (engine.canManageTemplates) {
         <div class="bee-template-manager__theme">
           <strong>Live theme tokens</strong>
           <div class="bee-template-manager__colors">
