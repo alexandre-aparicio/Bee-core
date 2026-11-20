@@ -42,7 +42,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     await app.ready();
     const bad = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "wrong", client: "dashboard" } });
     assert.equal(bad.statusCode, 401);
-    const denied = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "Test-password-12345", client: "public" } });
+    const denied = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "beta@example.com", password: "Test-password-12345", client: "public" } });
     assert.equal(denied.statusCode, 403);
     const login = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "Test-password-12345", client: "dashboard" } });
     assert.equal(login.statusCode, 200);
