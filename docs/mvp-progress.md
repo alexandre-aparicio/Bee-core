@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 (UTC) — verified main backend and Angular CI green after progress commit `8b1a36a`.
+Updated: 2026-11-20 (UTC) — PR #17 custom company roles merged; backend, Docker Compose full-stack and Angular CI all green.
 
 This file records only repository changes and checks observed in GitHub. It is not a claim that unmerged work is part of `main`.
 
@@ -15,21 +15,23 @@ This file records only repository changes and checks observed in GitHub. It is n
 - PR #3 — public/dashboard/auth UI foundation — merged previously.
 - PR #1 — MongoDB migration — merged previously.
 
+- PR #17 — custom company roles persisted per tenant, permission resolution, owner-only management, assignment and session revocation — merged to `main` (merge commit `63e3d14d5b3e9b0ec0078d521d5c35b820015089`); backend, Docker Compose full-stack and Angular CI all passed on head `971a790`.
+
 ## Verified CI, not yet merged
 
 - PR #9 production Docker Compose profile: backend, Angular and Docker production-profile CI are all green on its current head. Merge is blocked by conflicts with PR #7, which already integrated overlapping files..
-- PR #11 authentication audit-event integration: backend and Angular CI succeeded on its head, but merge conflicts against `main` currently block integration. **Not merged**.
+- PR #11 authentication audit-event integration: being reapplied on latest `main` in a fresh integration branch. Login/logout tests and implementation are awaiting CI; **not merged**.
 - PR #15 custom company roles: backend CI and Angular CI succeeded on commit `d50f08f`, but merge into `main` currently fails due to merge conflicts. It is **not merged**.
 - PR #16 custom-company-role integration: Angular CI succeeded on earlier commit `110d5f2`; backend integration failed at test line 308 because a manager session had been revoked after role assignment/reset, while the test still reused the old token. The test was corrected in commit `a705233` to log in again and activate the company before checking manager permissions. Backend CI for that correction is now green, and Angular CI is green. Docker Compose full-stack integration is green. Corrected PR #16 commit `a705233` now has backend CI, Docker Compose full-stack integration, and Angular CI all green.
 
 ## Remaining work
 
-1. Resolve the PR #11 audit-log merge conflict while retaining PR #8/#10 changes; validate and merge.
-2. Resolve PR #15 merge conflict against current `main` without losing PR #8 security changes; re-run backend, Angular and Docker integration CI; merge only after green.
-3. Retarget and validate PR #16 against the updated main/custom-role implementation; confirm custom-role CRUD, assignment, permission allowlist, revocation, cross-tenant denial and safe deletion tests all pass.
-4. Integrate the audit-event PR chain (#12–#14 in dependency order) after verifying each base/head and CI; do not merge out of order.
-5. Review the production Docker profile, clean-install/restart/persistence and rollback instructions; perform a final smoke test from a clean environment.
-6. Update progress here after each verified merge or test run; tag `0.1.0` only after release checks pass.
+1. Validate and merge the fresh PR #18 authentication audit integration, preserving the tenant-scoped audit service and custom-role tests.
+2. Complete audit coverage for role/member changes, plugin lifecycle and permission denials.
+3. Revisit production Docker clean-install/restart/persistence and rollback validation.
+4. Audit all tenant-sensitive routes and background/async entrypoints.
+5. Run the final clean Docker installation, restart/persistence and smoke test.
+6. Update progress after each verified merge; tag `0.1.0` only after release checks pass.
 
 ## Links
 
