@@ -129,6 +129,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
       installEventText += new TextDecoder().decode(chunk.value);
     }
     assert.match(installEventText,/"glass"/);
+    const liveClaims=JSON.parse(Buffer.from(tokens.accessToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    await db.collection("refresh_sessions").updateOne({id:liveClaims.sid},{$set:{revokedAt:new Date()}});
+    const revokedStreamRead=await liveReader.read();
+    assert.equal(revokedStreamRead.done,true,"private template SSE must close after its session is revoked");
     await liveReader.cancel();
     const activateStudio = await app.inject({method:"PUT",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken},payload:{public:"studio"}});
     assert.equal(activateStudio.statusCode,200);
