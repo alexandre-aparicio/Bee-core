@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — `main` is at `d69b09e757741c0246bc3e74d3b39b7c7573a279`, including PRs #29–#35. PR #34 post-merge backend/full-stack CI (`44779902641`) and production Compose (`44779902679`) passed on `a87db5d`; PR #35 backend/auth and Docker full-stack checks passed on exact head `09237c13` before merge; post-merge backend/full-stack CI (`44780741763`) and production Compose (`44780741842`) passed on exact main SHA `d69b09e`.
+Updated: 2026-11-20 — code validation baseline is main commit `d69b09e757741c0246bc3e74d3b39b7c7573a279` (PRs #29–#35); this progress reconciliation is integrated by PR #36 at `84bd3eb9dc074f46e6325358eb33efd6fba71261`. PR #34 post-merge backend/full-stack CI (`44779902641`) and production Compose (`44779902679`) passed on `a87db5d`; PR #35 backend/auth and Docker full-stack checks passed on exact head `09237c13` before merge; post-merge backend/full-stack CI (`44780741763`) and production Compose (`44780741842`) passed on exact main SHA `d69b09e`.
 
 ## How progress is measured
 
