@@ -4,6 +4,7 @@ import Fastify from "fastify";
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
+import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
@@ -23,6 +24,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, authAdminEmail: "", authAdminPassword: "" } };
   try {
     await authPlugin.initialize?.(ctx);
+    await organizationsPlugin.initialize?.(ctx);
     await app.ready();
     const bad = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "wrong", client: "dashboard" } });
     assert.equal(bad.statusCode, 401);
@@ -160,6 +162,23 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(invalidTemplate.statusCode, 400);
     const unauthenticatedTemplates = await app.inject({ method: "GET", url: "/templates/preferences" });
     assert.equal(unauthenticatedTemplates.statusCode, 401);
+
+    const companyList = await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(companyList.statusCode,200);
+    assert.ok(companyList.json().companies.some((company:{id:string;role:string})=>company.id==="tenant-alpha"&&company.role==="owner"));
+    const createCompany = await app.inject({method:"POST",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken},payload:{name:"Second Company"}});
+    assert.equal(createCompany.statusCode,201);
+    const secondCompanyId=createCompany.json().company.id as string;
+    const activateCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(activateCompany.statusCode,200);
+    assert.equal(activateCompany.json().tenantId,secondCompanyId);
+    const activeCompany=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+    assert.equal(activeCompany.statusCode,200);
+    assert.equal(activeCompany.json().company.id,secondCompanyId);
+    const rejectCrossCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaTokens.accessToken}});
+    assert.equal(rejectCrossCompany.statusCode,403);
+    const staleCompanyToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(staleCompanyToken.statusCode,401);
 
     const me = await app.inject({ method: "GET", url: "/auth/me", headers: { authorization: "Bearer " + tokens.accessToken } });
     assert.equal(me.statusCode, 200); assert.equal(me.json().authenticated, true);
