@@ -6,6 +6,7 @@ import {
   completePluginInstallJob,
   enqueuePluginInstallJob,
   ensurePluginInstallJobIndexes,
+  failPluginInstallJob,
   type PluginInstallJob
 } from "../src/core/plugin-install-jobs.js";
 
@@ -46,6 +47,26 @@ test("durable plugin install jobs deduplicate, recover expired leases and reject
     const nextInstall = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
     assert.equal(nextInstall.created, true, "a completed job must release its active deduplication key");
     assert.notEqual(nextInstall.job.id, first.job.id);
+
+    const failureOne = await claimPluginInstallJob(collection, "worker-failure-1");
+    assert.ok(failureOne);
+    await failPluginInstallJob(collection, failureOne, "worker-failure-1", new Error("temporary migration failure"));
+    let retryState = await collection.findOne({ id: nextInstall.job.id });
+    assert.equal(retryState?.status, "queued");
+    assert.match(String(retryState?.error), /temporary migration failure/);
+
+    await collection.updateOne({ id: nextInstall.job.id }, { $set: { nextRunAt: new Date(Date.now() - 1) } });
+    const failureTwo = await claimPluginInstallJob(collection, "worker-failure-2");
+    assert.ok(failureTwo);
+    await failPluginInstallJob(collection, failureTwo, "worker-failure-2", new Error("second failure"));
+    await collection.updateOne({ id: nextInstall.job.id }, { $set: { nextRunAt: new Date(Date.now() - 1) } });
+    const failureThree = await claimPluginInstallJob(collection, "worker-failure-3");
+    assert.ok(failureThree);
+    await failPluginInstallJob(collection, failureThree, "worker-failure-3", new Error("terminal failure"));
+    retryState = await collection.findOne({ id: nextInstall.job.id });
+    assert.equal(retryState?.status, "failed");
+    assert.equal(retryState?.attempts, 3);
+    assert.equal(retryState?.activeKey, undefined, "terminal failure must release the active job key");
   } finally {
     await client.db(dbName).dropDatabase();
     await client.close();
