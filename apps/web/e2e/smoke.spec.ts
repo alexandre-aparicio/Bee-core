@@ -154,7 +154,7 @@ test('dashboard company selector switches the active tenant session', async ({ p
   await selector.selectOption('company-b');
   const activationResponse = await activation;
   expect(activationResponse.status()).toBe(200);
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('bee-auth') || '{}').tenantId)).toBe('company-b');
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('bee-auth') || '{}').tenantId === 'company-b');
   await expect.poll(() => companyListRequests).toBeGreaterThan(1);
   await expect(page.getByLabel('Active company')).toHaveValue('company-b');
 });
