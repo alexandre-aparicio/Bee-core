@@ -54,6 +54,15 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(publicTemplatePreferences.statusCode,403,"public-client tokens must not access private template management");
     const publicCompanyList=await app.inject({method:"GET",url:"/companies",headers:publicClientHeaders});
     assert.equal(publicCompanyList.statusCode,403,"public-client tokens must not access company administration");
+    const tenantAuditPage=await app.inject({method:"GET",url:"/companies/tenant-alpha/audit-events?action=auth.login&limit=1",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(tenantAuditPage.statusCode,200);
+    assert.equal(tenantAuditPage.json().events.length,1);
+    assert.equal(tenantAuditPage.json().hasMore,true,"audit API must provide bounded pagination");
+    assert.equal(tenantAuditPage.json().events[0].action,"auth.login");
+    const invalidAuditFilter=await app.inject({method:"GET",url:"/companies/tenant-alpha/audit-events?action=unknown",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(invalidAuditFilter.statusCode,400);
+    const crossTenantAudit=await app.inject({method:"GET",url:"/companies/tenant-beta/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(crossTenantAudit.statusCode,403,"audit queries must remain bound to the active company");
     const loginAudit = await db.collection("tenant_audit_events").find({tenantId:"tenant-alpha",actorId:"test-user",action:"auth.login"}).toArray();
     assert.equal(loginAudit.length,2,"successful dashboard and public logins should both be audited for the active tenant");
     assert.ok(loginAudit.some(event=>event.metadata.client==="dashboard"));
@@ -344,6 +353,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(managerPermissions.json().role,"manager");
     assert.ok(managerPermissions.json().permissions.includes("files.read"));
     assert.ok(!managerPermissions.json().permissions.includes("members.manage"));
+    const managerAudit=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+betaManagerFreshContext.json().accessToken}});
+    assert.equal(managerAudit.statusCode,403,"company managers must not read owner/admin audit events");
 
 
     const staleCompanyToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
