@@ -152,10 +152,10 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - Plan storage quotas are enforced by the Files plugin using atomic per-company reservations; usage is tracked independently by tenant. User-count limits are enforced when adding or accepting company memberships.
 
 
-## Current verified status (2026-11-20, after PR #31)
+## Current verified status (2026-11-20, after PR #32)
 
 - PR #29 hardens tenant isolation by blocking tenantId mutation through MongoDB update operators and nested paths.
 - PR #30 adds durable company-scoped plugin updates, migration-aware worker execution, recovery around version switching, audit events and Angular progress.
 - PR #31 adds deterministic transitive dependency ordering, fail-closed handling of missing dependencies/cycles and dependency entitlement/installation checks during install and update.
-- Main commit `4dce576d8bcbe0a8676b6dd613647fa9486c910a` passed Bee-Core CI run `44774847013` and production Compose run `44774847047`.
-- PR #32 adds a MongoDB backup/restore round-trip to production Compose CI. It is not merged; the first malformed workflow attempts failed, and the repaired workflow is awaiting a fresh green run. Do not treat backup/restore as verified until that run passes.
+- Main commit `b2cbc63e9c002d6a20915473ece4425cbb7df9bd` includes PR #32. Its PR-head production Compose run `44777108094` and post-merge main run `44777925729` both passed.
+- PR #32 adds an automated MongoDB logical dump, restore into a separate database, sentinel-record verification and cleanup. This validates backup/restore mechanics in CI only; encrypted off-site storage, retention, monitoring and periodic production-sized restore drills remain operational requirements.
