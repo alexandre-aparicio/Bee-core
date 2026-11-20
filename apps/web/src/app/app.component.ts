@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateManagerComponent } from './templates/template-manager.component';
 import { BeeTemplateEngine } from './templates/template-engine.service';
+import { BeeTemplateSlotComponent } from './templates/template-slot.component';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateSlotComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   constructor(private readonly templates: BeeTemplateEngine) {}
 
