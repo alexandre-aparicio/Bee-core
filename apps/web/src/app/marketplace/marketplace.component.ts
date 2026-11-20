@@ -108,6 +108,23 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
     await this.runAction(plugin, "DELETE");
   }
 
+  private async waitForInstallJob(jobId: string): Promise<void> {
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      const response = await fetch("/api/marketplace/install-jobs/" + encodeURIComponent(jobId), {
+        headers: { authorization: "Bearer " + this.token }
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not check plugin installation");
+      const job = result.job as { status: string; error?: string };
+      if (job.status === "succeeded") return;
+      if (job.status === "failed") throw new Error(job.error || "Plugin installation failed");
+      this.message = job.status === "running" ? "Installing " + this.plugins.find(item => item.id === this.busyId)?.name + "…" : "Waiting for installation worker…";
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    throw new Error("Installation is still running. Refresh the marketplace to check its status.");
+  }
+
   private async runAction(plugin: MarketplacePlugin, method: "POST" | "DELETE"): Promise<void> {
     if (this.busyId) return;
     this.busyId = plugin.id;
@@ -120,6 +137,10 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Plugin action failed");
+      if (method === "POST" && result.jobId) {
+        this.message = plugin.name + " installation queued…";
+        await this.waitForInstallJob(result.jobId as string);
+      }
       await this.load();
       this.message = method === "POST" ? plugin.name + " installed for this company." : plugin.name + " uninstalled. Company data is preserved.";
     } catch (error) {
