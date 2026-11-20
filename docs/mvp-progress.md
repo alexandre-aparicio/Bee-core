@@ -173,3 +173,12 @@ The product model is now specified in `docs/template-business-model.md`.
 - Added a host-resolved public endpoint that returns only enabled plugin IDs; tenant landing navigation shows `Hola Mundo` and `/hello-world` renders its public page only while enabled.
 - Added `docs/hello-world-plugin.md`.
 - No tests, builds or GitHub workflows were run, per user instruction. The code has not been runtime-validated on the VPS.
+
+
+### Tenant public plugin page and navigation
+- The tenant public website now uses a full-viewport public-site shell instead of the centered authentication-card layout.
+- The first enabled public plugin page is **Hola Mundo**. Its navigation item is rendered only when the tenant's public plugin list contains `hello-world`.
+- Tenant public navigation uses the History API for the home and Hola Mundo links. Changing between these views updates the page content without reloading the document or recreating the shared site header/footer.
+- Browser back/forward navigation updates the active tenant page as well.
+- The tenant shell retains its public template layout class, Light/Dark control, and tenant-specific public appearance scope.
+- No tests, builds, or GitHub Actions workflows were run for this change, as requested. Runtime verification remains pending after deployment.
