@@ -178,13 +178,29 @@ export async function getTenantSubscription(db: Db, tenantId: string): Promise<T
   return subscription;
 }
 
-export async function getTenantPluginCatalog(db: Db, tenantId: string) {
+export async function getEffectiveTenantPlan(db: Db, tenantId: string): Promise<PluginPlan> {
   const subscription = await getTenantSubscription(db, tenantId);
-  const subscriptionActive = (subscription.status === "active" || subscription.status === "trial") && (!subscription.currentPeriodEnd || subscription.currentPeriodEnd > new Date());
-  const plan = subscriptionActive
-    ? await db.collection<PluginPlan>("plugin_plans").findOne({ id: subscription.planId })
-    : null;
-  const effectivePlan = plan ?? BUILT_IN_PLANS[0]!;
+  const active = (subscription.status === "active" || subscription.status === "trial") &&
+    (!subscription.currentPeriodEnd || subscription.currentPeriodEnd > new Date());
+  if (active) {
+    const plan = await db.collection<PluginPlan>("plugin_plans").findOne({ id: subscription.planId });
+    if (plan) return plan;
+  }
+  return BUILT_IN_PLANS[0]!;
+}
+
+export async function getTenantStorageLimitBytes(db: Db, tenantId: string): Promise<number> {
+  const plan = await getEffectiveTenantPlan(db, tenantId);
+  return plan.storageMb * 1024 * 1024;
+}
+
+export async function getTenantUserLimit(db: Db, tenantId: string): Promise<number | null> {
+  const plan = await getEffectiveTenantPlan(db, tenantId);
+  return plan.maxUsers;
+}
+
+export async function getTenantPluginCatalog(db: Db, tenantId: string) {
+  const effectivePlan = await getEffectiveTenantPlan(db, tenantId);
   const purchases = new TenantCollection<TenantPluginPurchase>(db.collection<TenantPluginPurchase>("plugin_purchases"), tenantId);
   const activePurchases = await purchases.find({
     status: "active",
