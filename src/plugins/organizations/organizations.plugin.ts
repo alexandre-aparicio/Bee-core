@@ -182,7 +182,7 @@ export const organizationsPlugin:BeePlugin={
    const rows=await memberships.find({tenantId:companyId}).toArray();
    const memberUsers=await users.find({id:{$in:rows.map(row=>row.userId)}}).project({id:1,email:1}).toArray();
    const emails=new Map(memberUsers.map(user=>[user.id,user.email]));
-   return {memberships:rows.map(row=>({userId:row.userId,email:emails.get(row.userId)??null,role:row.role,status:row.status,createdAt:row.createdAt}))};
+   return {memberships:rows.map(row=>({userId:row.userId,email:emails.get(row.userId)??null,role:row.role,customRoleId:row.customRoleId??null,status:row.status,createdAt:row.createdAt}))};
   });
   ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/memberships",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
