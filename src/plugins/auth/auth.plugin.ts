@@ -27,7 +27,10 @@ export const authPlugin:BeePlugin={
   const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongo.connect(); const db:Db=mongo.db(dbName);
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
-  const templatePreferences=db.collection<{tenantId:string;public:string;dashboard:string;updatedAt:Date}>("template_preferences");
+  const templatePreferences=db.collection<{tenantId:string;public:string;dashboard:string;themeTokens?:Record<string,string>;updatedAt:Date}>("template_preferences");
+  const templateStreamTickets=new Map<string,{tenantId:string;expiresAt:number}>();
+  const templateSubscribers=new Map<string,Set<import("node:http").ServerResponse>>();
+  const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\\ndata: ${JSON.stringify(payload)}\\n\\n`;for(const client of clients){if(client.destroyed){clients.delete(client);continue;}client.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
   const tenants=db.collection<{id:string;name:string;createdAt:Date}>("tenants");
   await Promise.all([
@@ -71,6 +74,8 @@ export const authPlugin:BeePlugin={
   ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({tokenHash:hashToken(raw),revokedAt:null},{$set:{revokedAt:new Date()}});return {success:true,message:"Refresh session revoked. Current access token expires within 20 minutes."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
+  const allowedThemeTokens=["--bg","--panel","--muted","--border","--purple","--cyan"] as const;
+  const defaultThemeTokens:Record<string,string>={"--bg":"#080a12","--panel":"#10131e","--muted":"#8991a4","--border":"#303447","--purple":"#8c72ff","--cyan":"#69e5d4"};
   const allowedTemplates={public:["aurora","editorial"],dashboard:["midnight","paper"]} as const;
   const readTemplateTenant=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
    try{
@@ -98,7 +103,48 @@ export const authPlugin:BeePlugin={
    const current=await templatePreferences.findOne({tenantId});
    const selection={public:body.public??current?.public??templateDefaults.public,dashboard:body.dashboard??current?.dashboard??templateDefaults.dashboard};
    await templatePreferences.updateOne({tenantId},{$set:{...selection,updatedAt:new Date()}},{upsert:true});
+   broadcastTemplateUpdate(tenantId,{type:"preferences",selection});
    return {tenantId,selection};
+  });
+  ctx.server.get("/templates/theme",async(req,reply)=>{
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const saved=await templatePreferences.findOne({tenantId});
+   return {tenantId,tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})}};
+  });
+  ctx.server.put<{Body:{tokens?:Record<string,string>}}>("/templates/theme",async(req,reply)=>{
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const input=req.body?.tokens;
+   if(!input||typeof input!=="object"||Array.isArray(input)||!Object.keys(input).length)return reply.code(400).send({error:"Theme tokens are required"});
+   for(const [key,value] of Object.entries(input)){
+    if(!(allowedThemeTokens as readonly string[]).includes(key)||typeof value!=="string"||!/^#[0-9a-fA-F]{6}$/.test(value))return reply.code(400).send({error:"Invalid theme token"});
+   }
+   const current=await templatePreferences.findOne({tenantId});
+   const tokens={...defaultThemeTokens,...(current?.themeTokens??{}),...input};
+   await templatePreferences.updateOne({tenantId},{$set:{themeTokens:tokens,updatedAt:new Date()}},{upsert:true});
+   broadcastTemplateUpdate(tenantId,{type:"theme",tokens});
+   return {tenantId,tokens};
+  });
+  ctx.server.post("/templates/stream-ticket",async(req,reply)=>{
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const ticket=randomBytes(24).toString("base64url");
+   templateStreamTickets.set(ticket,{tenantId,expiresAt:Date.now()+30_000});
+   return {ticket,expiresIn:30};
+  });
+  ctx.server.get<{Querystring:{ticket?:string}}>("/templates/events",async(req,reply)=>{
+   const ticket=String(req.query.ticket??"");
+   const record=templateStreamTickets.get(ticket);
+   templateStreamTickets.delete(ticket);
+   if(!record||record.expiresAt<Date.now())return reply.code(401).send({error:"Invalid stream ticket"});
+   const raw=reply.raw;
+   raw.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-cache, no-transform","connection":"keep-alive","x-accel-buffering":"no"});
+   raw.write(": connected\\n\\n");
+   const saved=await templatePreferences.findOne({tenantId:record.tenantId});
+   raw.write("event: template-update\\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})}})+"\\n\\n");
+   const clients=templateSubscribers.get(record.tenantId)??new Set<import("node:http").ServerResponse>();
+   clients.add(raw);templateSubscribers.set(record.tenantId,clients);
+   raw.on("close",()=>{clients.delete(raw);if(!clients.size)templateSubscribers.delete(record.tenantId);});
+   reply.hijack();
+   return reply;
   });
   ctx.server.addHook("onClose",async()=>{await mongo.close();});
   ctx.logger.info("Auth plugin initialized",{clients:validClients,persistence:"mongodb",refreshRotation:true});
