@@ -204,6 +204,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(updateBetaRole.statusCode,200);
     assert.equal(updateBetaRole.json().membership.role,"manager");
+    const betaOldRoleSession=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken}});
+    assert.equal(betaOldRoleSession.statusCode,401);
+    const betaReLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
+    const betaManagerContext=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaReLogin.json().accessToken}});
+    assert.equal(betaManagerContext.statusCode,200);
     const createInvite=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
     assert.equal(createInvite.statusCode,201);
     assert.ok(createInvite.json().acceptanceToken);
@@ -223,11 +228,6 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const cancelledAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createCancelledInvite.json().acceptanceToken}});
     assert.equal(cancelledAccept.statusCode,404);
 
-    const betaOldRoleSession=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken}});
-    assert.equal(betaOldRoleSession.statusCode,401);
-    const betaReLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
-    const betaManagerContext=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaReLogin.json().accessToken}});
-    assert.equal(betaManagerContext.statusCode,200);
     const managerPermissions=await app.inject({method:"GET",url:"/companies/active/permissions",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
     assert.equal(managerPermissions.statusCode,200);
     assert.equal(managerPermissions.json().role,"manager");
