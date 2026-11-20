@@ -1,12 +1,12 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — `main` includes PR #20, PR #21 and PR #22 at `15faa3b85cae75fc1812017f5467752a3ccddf33`; post-merge backend, full-stack and production Compose workflows passed. Durable plugin installation is in progress on PR #23 and is not counted in the current main percentages.
+Updated: 2026-11-20 — `main` includes PR #23 at `67986b586c95974b5a540efa2ee9ee1f41102996`. Post-merge backend/full-stack CI run `44767972917`, Angular CI run `44767972896` and production Compose run `44767972871` all passed.
 
 ## How progress is measured
 
 The percentages below measure distinct product capabilities, not the number of passing workflows or PRs. Each capability is counted once. Re-running backend, Angular or Docker regression suites protects existing work but does not increase implementation progress.
 
-- **MVP capability implementation: 85%.** Weighted assessment of the actual code and documented acceptance scope. The previous 78% estimate was too conservative: it treated marketplace purchase/install foundations and template capabilities as broadly pending even though their basic APIs, persistence and dashboard surfaces are already implemented. It also did not publish a repeatable scoring breakdown.
+- **MVP capability implementation: 86%.** Weighted assessment of the actual code and documented acceptance scope. The previous 78% estimate was too conservative: it treated marketplace purchase/install foundations and template capabilities as broadly pending even though their basic APIs, persistence and dashboard surfaces are already implemented. It also did not publish a repeatable scoring breakdown.
 - **Release readiness: 68%.** This is deliberately lower because production hardening, full tenant-route review, backup/restore, TLS/monitoring and some release gates remain incomplete.
 
 ## Capability breakdown (current `main`)
@@ -20,11 +20,11 @@ The percentages below measure distinct product capabilities, not the number of p
 | Angular public/dashboard/auth UI | 10% | 90% | Responsive shells, auth, company selector, members, marketplace and browser smoke tests; broader product workflows and UX polish remain. |
 | Template engine | 10% | 90% | Separate public/dashboard layouts, tenant tokens, installation/selection and SSE updates; arbitrary remote structural Angular bundles are intentionally not supported yet. |
 | Marketplace and entitlements | 10% | 85% | Catalog, Starter/Pro/Enterprise plans, trial, purchases, subscription updates, entitlement checks and dashboard install controls; checkout/provider integration and billing UX remain. |
-| Plugin lifecycle and package ecosystem | 15% | 65% | Trusted packages, manifests, dependencies, migrations, install/uninstall and static Angular registry; immutable signed archives, durable jobs, upgrades/rollback and dynamic frontend registration remain. |
+| Plugin lifecycle and package ecosystem | 15% | 72% | Trusted packages, manifests, dependencies, migrations, company-scoped install, durable MongoDB install jobs, active-job deduplication, worker leases/recovery, bounded retries, tenant-scoped job status and Angular progress; asynchronous uninstall, immutable signed archives, upgrades/rollback and dynamic frontend registration remain. |
 | Tenant isolation and security | 5% | 70% | Tenant context, scoped collection helper, IDOR regression coverage and auth audit; not every route, event and background task has been audited. |
 | Production operations and release packaging | 5% | 75% | Production Compose build/start/health, host-port isolation and Mongo/session persistence test; TLS, backup/restore drills, monitoring and release runbook hardening remain. |
 
-The weighted capability score is **85%**. The broader SaaS plugin-platform roadmap is approximately **67%** because durable third-party package distribution, billing-provider integration, plugin upgrade/rollback and universal tenant-isolation review extend beyond the Docker-installable MVP. It is an engineering estimate, not test coverage or a claim that all production requirements are complete.
+The weighted capability score is **86%** (86.05% before rounding). The broader SaaS plugin-platform roadmap is approximately **67%** because durable third-party package distribution, billing-provider integration, plugin upgrade/rollback and universal tenant-isolation review extend beyond the Docker-installable MVP. It is an engineering estimate, not test coverage or a claim that all production requirements are complete.
 
 ## Verified on `main`
 
@@ -40,6 +40,7 @@ The weighted capability score is **85%**. The broader SaaS plugin-platform roadm
 - PR #19 — production Compose CI, port isolation, stack health and refresh-session persistence across MongoDB/API restarts.
 - PR #20 — tenant-scoped audit events for invitations, custom roles, membership changes/suspension, plugin lifecycle and permission denials.
 - PR #22 — private template SSE session and active-membership revalidation; post-merge backend/full-stack CI run `44765696476` and production Compose run `44765696509` passed on `15faa3b`.
+- PR #23 — durable company-scoped installation jobs, active-job deduplication, lease recovery, bounded retries, tenant-scoped job status and Angular installation progress. Backend/MongoDB, Docker full-stack and Angular browser smoke checks passed before merge; post-merge backend/full-stack run `44767972917`, Angular run `44767972896` and production Compose run `44767972871` all passed on `67986b5`.
 
 PR #20 passed backend typecheck/build/MongoDB auth tests and Docker Compose full-stack integration. The dedicated Angular workflow was correctly skipped because no Angular files changed; Angular was built and exercised within the full-stack workflow. Post-merge checks passed on `1c96e8100d2145f518a0232d300122c866551c1b`: backend and full-stack CI run `44764328710`, plus production Compose run `44764328866`.
 
@@ -57,9 +58,9 @@ PR #20 selectively ported the unique audit functionality onto current `main`, ra
 
 ## Active next work
 
-1. Finish PR #23: validate durable installation jobs, tenant-scoped job status, retry/backoff, lease recovery and Angular progress; merge only when all required workflows pass on the exact head.
+1. Complete asynchronous uninstall jobs and lifecycle-state transitions; current uninstall remains synchronous.
 2. Complete tenant-isolation review across protected routes, file/media paths, webhooks and background tasks; PR #22 closes the private template SSE revocation gap but not the full audit.
-3. Complete durable update/uninstall jobs, dependency ordering, migration rollback and immutable signed package storage.
+3. Implement durable plugin update jobs, dependency ordering, migration rollback and immutable signed package storage.
 4. Add payment-provider integration, checkout/subscription management and billing reconciliation.
 5. Complete TLS, backup/restore drills, monitoring, production runbook and final clean-install release gate.
 6. Build and validate the `hello-world` reference plugin against the final manifest and tenant lifecycle contract.

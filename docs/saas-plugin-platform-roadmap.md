@@ -127,6 +127,7 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 ## Current verified status (2026-11-20)
 
 - PR #22 — private template SSE now revalidates persisted session and tenant membership every five seconds, fails closed on revocation, and has a MongoDB integration regression test. Post-merge backend/full-stack CI and production Compose workflows passed on `15faa3b85cae75fc1812017f5467752a3ccddf33`.
+- PR #23 — MongoDB-backed durable company-scoped install jobs, worker lease recovery, retries, tenant-scoped status and Angular progress. Pre-merge backend/MongoDB, Docker full-stack and Angular browser tests passed; post-merge backend/full-stack, Angular and production Compose workflows passed on `67986b586c95974b5a540efa2ee9ee1f41102996`.
 
 - Implemented foundation: Node.js/TypeScript, Fastify, MongoDB, Angular, Docker Compose, persistent authentication, refresh-token rotation/replay rejection, template selection/installation and tenant-scoped template preferences/SSE.
 - Company membership foundation is implemented: legacy `users.tenantId` values are backfilled into `memberships`; users can list/create companies, activate a company in the current refresh-token session, and list/add/update/suspend company members.
