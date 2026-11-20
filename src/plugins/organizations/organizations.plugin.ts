@@ -3,7 +3,7 @@ import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
-import { appendTenantAuditEvent, ensureTenantAuditIndexes, type AuditEventDraft } from "../../core/audit-log.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, type AuditEventDraft, type TenantAuditEvent } from "../../core/audit-log.js";
 
 type Company = { id:string; name:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
