@@ -1,6 +1,8 @@
-import type { Db } from "mongodb";\nimport { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
+import type { Db } from "mongodb";
+import { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
 
-export type CompanyRole = "owner" | "admin" | "manager" | "member";\nexport type MembershipRole = CompanyRole | "custom";
+export type CompanyRole = "owner" | "admin" | "manager" | "member";
+export type MembershipRole = CompanyRole | "custom";
 export type TenantClaims = {
   sub?: string;
   email?: string;
@@ -23,7 +25,8 @@ export type TenantContext = {
   tenantId: string;
   sessionId: string;
   client: NonNullable<TenantClaims["client"]>;
-  role: CompanyRole;
+  role: MembershipRole;
+  customRoleId?: string;
   permissions: readonly string[];
 };
 
@@ -63,7 +66,17 @@ export async function resolveTenantContext(
     tenantId: claims.tenantId,
     status: "active"
   });
-  if (!membership) return null;\n  let permissions: readonly string[];\n  if (membership.role === "custom") {\n    if (!membership.customRoleId) return null;\n    const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId: claims.tenantId });\n    if (!customRole) return null;\n    try { permissions = permissionsForCustomRole(customRole); } catch { return null; }\n  } else {\n    if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;\n    permissions = COMPANY_ROLE_PERMISSIONS[membership.role];\n  }
+  if (!membership) return null;
+  let permissions: readonly string[];
+  if (membership.role === "custom") {
+    if (!membership.customRoleId) return null;
+    const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId: claims.tenantId });
+    if (!customRole) return null;
+    try { permissions = permissionsForCustomRole(customRole); } catch { return null; }
+  } else {
+    if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
+    permissions = COMPANY_ROLE_PERMISSIONS[membership.role];
+  }
 
   if (!options.allowSuspendedCompany) {
     const company = await db.collection<{ id: string; status?: string }>("tenants").findOne({ id: claims.tenantId });
