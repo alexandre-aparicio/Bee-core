@@ -29,6 +29,19 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
     assert.ok(tokens.accessToken); assert.ok(tokens.refreshToken);
+    const defaultTemplates = await app.inject({ method: "GET", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken } });
+    assert.equal(defaultTemplates.statusCode, 200);
+    assert.deepEqual(defaultTemplates.json().selection, { public: "aurora", dashboard: "midnight" });
+    const saveTemplates = await app.inject({ method: "PUT", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken }, payload: { public: "editorial", dashboard: "paper" } });
+    assert.equal(saveTemplates.statusCode, 200);
+    assert.deepEqual(saveTemplates.json().selection, { public: "editorial", dashboard: "paper" });
+    const readTemplates = await app.inject({ method: "GET", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken } });
+    assert.deepEqual(readTemplates.json().selection, { public: "editorial", dashboard: "paper" });
+    const invalidTemplate = await app.inject({ method: "PUT", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken }, payload: { public: "remote-script" } });
+    assert.equal(invalidTemplate.statusCode, 400);
+    const unauthenticatedTemplates = await app.inject({ method: "GET", url: "/templates/preferences" });
+    assert.equal(unauthenticatedTemplates.statusCode, 401);
+
     const me = await app.inject({ method: "GET", url: "/auth/me", headers: { authorization: "Bearer " + tokens.accessToken } });
     assert.equal(me.statusCode, 200); assert.equal(me.json().authenticated, true);
     const refresh = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: tokens.refreshToken } });
