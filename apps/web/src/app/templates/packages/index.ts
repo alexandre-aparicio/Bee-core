@@ -15,3 +15,10 @@ export const PACKAGE_THEME_TOKENS: Record<string, Record<string, string>> = {
 };
 export const BASE_TEMPLATE_IDS = BUILT_IN_TEMPLATES.map(template => template.id);
 export const ALL_TEMPLATE_MANIFESTS = [...BUILT_IN_TEMPLATES, ...PACKAGE_TEMPLATES];
+
+export { BeeAuroraLayoutComponent } from './aurora/components/layout.component';
+export { BeeEditorialLayoutComponent } from './editorial/components/layout.component';
+export { BeeStudioLayoutComponent } from './studio/components/layout.component';
+export { BeeMidnightLayoutComponent } from './midnight/components/layout.component';
+export { BeePaperLayoutComponent } from './paper/components/layout.component';
+export { BeeGlassLayoutComponent } from './glass/components/layout.component';
