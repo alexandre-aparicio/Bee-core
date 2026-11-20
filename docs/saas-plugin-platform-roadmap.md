@@ -127,10 +127,11 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 ## Current verified status (2026-11-20)
 
 - Implemented foundation: Node.js/TypeScript, Fastify, MongoDB, Angular, Docker Compose, persistent authentication, refresh-token rotation/replay rejection, template selection/installation and tenant-scoped template preferences/SSE.
-- Existing tenant model is still single-`tenantId` per user; it is not yet a company-membership system.
-- Existing auth roles are coarse global user role strings; they are not yet tenant-scoped role assignments or granular permissions.
+- Company membership foundation is now implemented: legacy `users.tenantId` values are backfilled into `memberships`, users can list/create companies, activate a company in the current refresh-token session, and list/add/update/suspend company members.
+- Company roles currently include Owner, Admin, Manager and Member. Role changes and membership suspension revoke affected refresh sessions; protected company/template endpoints validate the session tenant context.
+- This is the first membership milestone, not the complete identity/authorization system: invitations, role editor, granular permission registry, route-wide policy enforcement and user-facing company switcher remain pending.
 - Existing template package installer is not the business-plugin installer and has no commercial entitlement integration.
-- General tenant-aware repositories, tenant file storage, company membership, commercial plans, subscriptions, purchases, entitlements and full plugin lifecycle remain to be implemented.
-- The latest verified `main` commit at roadmap creation is `fe9be9a30e9f7c08c13b9fa0100b27eaf505d7e9`.
-- GitHub Actions for that commit: Bee-Core CI and Bee-Core Angular CI both completed successfully. This is CI evidence for the current implemented scope, not proof of production readiness.
+- General tenant-aware repositories, tenant file storage, commercial plans, subscriptions, purchases, entitlements and full business-plugin lifecycle remain to be implemented.
+- The initial roadmap commit was `9627d652aeca321825f99ff66e033535d3d9653f`. Membership implementation is now on `main`; the latest source commit at this update is `ed0fd7bddcc1f6b0be8dfb0b231c10392081be57`.
+- GitHub Actions for the initial roadmap baseline (`fe9be9a30e9f7c08c13b9fa0100b27eaf505d7e9`) passed both backend and Angular workflows. The new membership changes have fresh CI runs in progress; do not treat them as green until both finish successfully.
 - Production VPS deployment is intentionally deferred.
