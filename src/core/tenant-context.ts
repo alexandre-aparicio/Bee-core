@@ -1,0 +1,86 @@
+import type { Db } from "mongodb";
+
+export type CompanyRole = "owner" | "admin" | "manager" | "member";
+export type TenantClaims = {
+  sub?: string;
+  email?: string;
+  tenantId?: string;
+  sid?: string;
+  client?: "backend" | "dashboard" | "public";
+  aud?: string;
+};
+
+export const COMPANY_ROLE_PERMISSIONS: Record<CompanyRole, readonly string[]> = {
+  owner: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "billing.manage", "files.read", "files.write"],
+  admin: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "files.read", "files.write"],
+  manager: ["members.read", "plugins.read", "files.read", "files.write"],
+  member: ["plugins.read", "files.read"]
+};
+
+export type TenantContext = {
+  userId: string;
+  email: string;
+  tenantId: string;
+  sessionId: string;
+  client: NonNullable<TenantClaims["client"]>;
+  role: CompanyRole;
+  permissions: readonly string[];
+};
+
+export type TenantContextOptions = {
+  allowSuspendedCompany?: boolean;
+};
+
+/**
+ * Resolve company identity only from a verified JWT and the persisted session.
+ * The caller must run Fastify's jwtVerify() before passing request.user here.
+ */
+export async function resolveTenantContext(
+  db: Db,
+  claims: TenantClaims,
+  options: TenantContextOptions = {}
+): Promise<TenantContext | null> {
+  if (claims.aud !== "bee-core" || !claims.sub || !claims.tenantId || !claims.sid || !claims.client) {
+    return null;
+  }
+
+  const now = new Date();
+  const users = db.collection<{ id: string; email: string; enabled: boolean; allowedClients?: string[] }>("users");
+  const user = await users.findOne({ id: claims.sub, enabled: true });
+  if (!user || (user.allowedClients && !user.allowedClients.includes(claims.client))) return null;
+
+  const session = await db.collection("refresh_sessions").findOne({
+    id: claims.sid,
+    userId: user.id,
+    tenantId: claims.tenantId,
+    revokedAt: null,
+    expiresAt: { $gt: now }
+  });
+  if (!session) return null;
+
+  const membership = await db.collection<{ role: CompanyRole; status: string }>("memberships").findOne({
+    userId: user.id,
+    tenantId: claims.tenantId,
+    status: "active"
+  });
+  if (!membership || !(membership.role in COMPANY_ROLE_PERMISSIONS)) return null;
+
+  if (!options.allowSuspendedCompany) {
+    const company = await db.collection<{ id: string; status?: string }>("tenants").findOne({ id: claims.tenantId });
+    if (!company || company.status === "suspended") return null;
+  }
+
+  return {
+    userId: user.id,
+    email: user.email,
+    tenantId: claims.tenantId,
+    sessionId: claims.sid,
+    client: claims.client,
+    role: membership.role,
+    permissions: COMPANY_ROLE_PERMISSIONS[membership.role]
+  };
+}
+
+export function hasTenantPermission(context: TenantContext, permission: string): boolean {
+  return context.permissions.includes(permission);
+}
