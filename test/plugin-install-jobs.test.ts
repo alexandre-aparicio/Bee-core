@@ -5,6 +5,7 @@ import {
   claimPluginInstallJob,
   completePluginInstallJob,
   enqueuePluginInstallJob,
+  enqueuePluginUpdateJob,
   enqueuePluginUninstallJob,
   ensurePluginInstallJobIndexes,
   failPluginInstallJob,
@@ -69,6 +70,13 @@ test("durable plugin install jobs deduplicate, recover expired leases and reject
     assert.equal(retryState?.attempts, 3);
     assert.equal(retryState?.activeKey, undefined, "terminal failure must release the active job key");
 
+    const update = await enqueuePluginUpdateJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a", previousVersion: "0.0.9" });
+    assert.equal(update.created, true);
+    assert.equal(update.job.action, "update");
+    assert.equal(update.job.previousVersion, "0.0.9");
+    const duplicateUpdate = await enqueuePluginUpdateJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a", previousVersion: "0.0.9" });
+    assert.equal(duplicateUpdate.created, false);
+    assert.equal(duplicateUpdate.job.id, update.job.id);
     const uninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
     assert.equal(uninstall.created, true);
     assert.equal(uninstall.job.action, "uninstall");
