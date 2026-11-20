@@ -9,6 +9,7 @@ import path from "node:path";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { filesPlugin } from "../src/plugins/files/files.plugin.js";
+import { requireAuth, requireRoles, requireTenantPermissions, type AuthenticatedRequest } from "../src/plugins/auth/auth.guard.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
@@ -31,6 +32,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
     await filesPlugin.initialize?.(ctx);
+    app.get("/test/company-admin", { preHandler: [requireAuth(db), requireRoles("owner", "admin")] }, async request => ({ role: (request as AuthenticatedRequest).tenantContext.role }));
+    app.get("/test/files-write", { preHandler: [requireAuth(db), requireTenantPermissions("files.write")] }, async request => ({ tenantId: (request as AuthenticatedRequest).tenantContext.tenantId }));
+
     const alphaOwners=await db.collection("memberships").find({tenantId:"tenant-alpha",role:"owner",status:"active"}).toArray();
     assert.equal(alphaOwners.length,1,"each company must have exactly one active owner");
     const secondAlphaAdmin=await db.collection("memberships").findOne({userId:"test-user-alpha-admin-two",tenantId:"tenant-alpha"});
@@ -43,6 +47,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const login = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "Test-password-12345", client: "dashboard" } });
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
+    const ownerGuard=await app.inject({method:"GET",url:"/test/company-admin",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(ownerGuard.statusCode,200);
+    assert.equal(ownerGuard.json().role,"owner");
     assert.ok(tokens.accessToken); assert.ok(tokens.refreshToken);
     const publicTicket = await app.inject({method:"POST",url:"/templates/public-stream-ticket",headers:{host:"alpha.example.test"}});
     assert.equal(publicTicket.statusCode,200);
@@ -150,6 +157,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(betaLogin.statusCode,200);
     const betaTokens=betaLogin.json();
     assert.deepEqual(betaTokens.user.roles,["user"],"company membership role must override legacy global admin role");
+    const betaAdminGuard=await app.inject({method:"GET",url:"/test/company-admin",headers:{authorization:"Bearer "+betaTokens.accessToken}});
+    assert.equal(betaAdminGuard.statusCode,403);
+    const betaWriteGuard=await app.inject({method:"GET",url:"/test/files-write",headers:{authorization:"Bearer "+betaTokens.accessToken}});
+    assert.equal(betaWriteGuard.statusCode,403);
     const uploadPrivateFile=await app.inject({method:"POST",url:"/files",headers:{authorization:"Bearer "+tokens.accessToken,"content-type":"application/octet-stream","x-file-name":"../../private-notes.txt","x-file-content-type":"text/plain"},payload:Buffer.from("alpha private content")});
     assert.equal(uploadPrivateFile.statusCode,201);
     const privateFileId=uploadPrivateFile.json().file.id as string;
@@ -189,6 +200,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     await db.collection("memberships").updateOne({userId:"test-user",tenantId:"tenant-alpha"},{$set:{status:"suspended"}});
     const staleTenantToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(staleTenantToken.statusCode,401);
+    const staleGuard=await app.inject({method:"GET",url:"/test/company-admin",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(staleGuard.statusCode,401);
     await db.collection("memberships").updateOne({userId:"test-user",tenantId:"tenant-alpha"},{$set:{status:"active"}});
 
     const invalidTemplate = await app.inject({ method: "PUT", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken }, payload: { public: "remote-script" } });
