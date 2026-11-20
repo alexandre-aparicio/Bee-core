@@ -92,7 +92,7 @@ export class AppComponent implements OnInit {
       {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
     ];
     if (this.isPlatformAdmin) return [
-      ...base,
+      base[0], base[1], base[3], base[4],
       {id:'platform',label:'Platform Administration',icon:'⬡',group:'PLATFORM'},
       {id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},
       {id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},
@@ -106,7 +106,7 @@ export class AppComponent implements OnInit {
     if (role === 'owner') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'},{id:'domains',label:'Domains',icon:'◎',group:'SYSTEM'},{id:'integrations',label:'Integrations',icon:'⌘',group:'SYSTEM'}];
     if (role === 'admin') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'}];
     if (role === 'manager') return base.filter(item => ['dashboard','plugins','organization','activity'].includes(item.id));
-    return base.filter(item => ['dashboard','plugins'].includes(item.id));
+    return base.filter(item => ['dashboard','plugins','organization'].includes(item.id));
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void { this.activeSection = id; this.menuOpen = false; }
