@@ -196,6 +196,6 @@ test('dashboard marketplace shows company packages and installs an entitled plug
   await expect(page.getByText('Private Files')).toBeVisible();
   await expect(page.getByText('Team Notes')).toBeVisible();
   await page.getByRole('button', { name: 'Install' }).click();
-  await expect(page.getByText('Notes installed for this company.')).toBeVisible();
-  await expect(page.getByText('Installed', { exact: true })).toBeVisible();
+  await expect(page.getByText('Team Notes installed for this company.')).toBeVisible();
+  await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' }).getByText('Installed', { exact: true })).toBeVisible();
 });
