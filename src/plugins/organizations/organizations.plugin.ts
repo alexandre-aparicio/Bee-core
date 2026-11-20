@@ -55,7 +55,7 @@ export const organizationsPlugin:BeePlugin={
    for(const duplicate of owners.slice(1))await memberships.updateOne({id:duplicate.id},{$set:{role:"admin",updatedAt:new Date()}});
   }
   await memberships.createIndex({tenantId:1},{unique:true,partialFilterExpression:{role:"owner",status:"active"},name:"memberships_one_active_owner_per_company"});
-  const authenticate=async(req:any,reply:any,options:{allowSuspendedCompany?:boolean}={}):Promise<{tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null}|null>=>{
+  const authenticate=async(req:any,reply:any,options:{allowSuspendedCompany?:boolean}={}):Promise<{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null}|null>=>{
    try{
     await req.jwtVerify();
     const claims=req.user as Claims;
@@ -63,11 +63,11 @@ export const organizationsPlugin:BeePlugin={
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
     const user=await users.findOne({id:tenantContext.userId,enabled:true});
     if(!user){reply.code(401).send({error:"Unauthorized"});return null;}
-    return {tenantContext,user};
+    return {claims,tenantContext,user};
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
   const rolePermissions=COMPANY_ROLE_PERMISSIONS;
-  const requireCompanyPermission=async(auth:{tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,permission:string,reply:any)=>{
+  const requireCompanyPermission=async(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,permission:string,reply:any)=>{
    const activeTenantId=auth.tenantContext.tenantId;
    if(companyId!==activeTenantId){reply.code(403).send({error:"Switch to this company before accessing its resources"});return null;}
    const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
@@ -80,7 +80,7 @@ export const organizationsPlugin:BeePlugin={
    }
    return actor;
   };
-  const requireCompanyAdmin=(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>requireCompanyPermission(auth,companyId,"members.manage",reply);
+  const requireCompanyAdmin=(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>requireCompanyPermission(auth,companyId,"members.manage",reply);
   // Custom company roles: tenant-scoped, owner-managed and permission-validated.
   const ownerOnly=async(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>{
    const actor=await requireCompanyPermission(auth,companyId,"members.manage",reply);
