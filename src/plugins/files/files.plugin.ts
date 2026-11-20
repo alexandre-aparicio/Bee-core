@@ -60,7 +60,8 @@ export const filesPlugin: BeePlugin = {
     // The metadata collection is accessed through a tenant-scoped facade per request.
     await Promise.all([
       db.collection("tenant_files").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "tenant_files_company_id_unique" }),
-      db.collection("tenant_files").createIndex({ tenantId: 1, createdAt: -1 }, { name: "tenant_files_company_created" })
+      db.collection("tenant_files").createIndex({ tenantId: 1, createdAt: -1 }, { name: "tenant_files_company_created" }),
+      db.collection("tenant_storage_usage").createIndex({ tenantId: 1 }, { unique: true, name: "tenant_storage_usage_company_unique" })
     ]);
     await mkdir(storageRoot, { recursive: true });
 
@@ -91,6 +92,30 @@ export const filesPlugin: BeePlugin = {
       }
     };
     const scopedFiles = (tenantId: string) => new TenantCollection<FileRecord>(db.collection<FileRecord>("tenant_files"), tenantId);
+    const storageUsage = db.collection<{ tenantId: string; usedBytes: number; updatedAt: Date }>("tenant_storage_usage");
+    const reserveStorage = async (tenantId: string, bytes: number, limit: number): Promise<boolean> => {
+      let usage = await storageUsage.findOne({ tenantId });
+      if (!usage) {
+        const rows = await db.collection<FileRecord>("tenant_files").aggregate<{ total: number }>([
+          { $match: { tenantId } },
+          { $group: { _id: null, total: { $sum: "$size" } } }
+        ]).toArray();
+        try {
+          await storageUsage.insertOne({ tenantId, usedBytes: rows[0]?.total ?? 0, updatedAt: new Date() });
+        } catch (error) {
+          if ((error as { code?: number }).code !== 11000) throw error;
+        }
+      }
+      const reservation = await storageUsage.findOneAndUpdate(
+        { tenantId, usedBytes: { $lte: limit - bytes } },
+        { $inc: { usedBytes: bytes }, $set: { updatedAt: new Date() } },
+        { returnDocument: "after" }
+      );
+      return Boolean(reservation);
+    };
+    const releaseStorage = async (tenantId: string, bytes: number) => {
+      await storageUsage.updateOne({ tenantId }, { $inc: { usedBytes: -bytes }, $set: { updatedAt: new Date() } });
+    };
     const tenantDirectory = (tenantId: string) => path.join(storageRoot, createHash("sha256").update(tenantId).digest("hex"));
     const storagePath = (tenantId: string, fileId: string) => path.join(tenantDirectory(tenantId), fileId);
     const safeName = (value: string) => {
@@ -118,12 +143,11 @@ export const filesPlugin: BeePlugin = {
       if (!ALLOWED_TYPES.has(contentType)) return reply.code(415).send({ error: "File type is not allowed" });
       if (!matchesContentType(contentType, body)) return reply.code(400).send({ error: "File content does not match the declared MIME type" });
       const storageLimit = await getTenantStorageLimitBytes(db, tenant.tenantId);
-      const usageRows = await db.collection<FileRecord>("tenant_files").aggregate<{ total: number }>([
-        { $match: { tenantId: tenant.tenantId } },
-        { $group: { _id: null, total: { $sum: "$size" } } }
-      ]).toArray();
-      const currentUsage = usageRows[0]?.total ?? 0;
-      if (currentUsage + body.length > storageLimit) return reply.code(413).send({ error: "Company storage quota exceeded", storageLimitBytes: storageLimit, usedBytes: currentUsage });
+      const reserved = await reserveStorage(tenant.tenantId, body.length, storageLimit);
+      if (!reserved) {
+        const usage = await storageUsage.findOne({ tenantId: tenant.tenantId });
+        return reply.code(413).send({ error: "Company storage quota exceeded", storageLimitBytes: storageLimit, usedBytes: usage?.usedBytes ?? 0 });
+      }
       const id = randomUUID();
       const originalName = safeName(String(request.headers["x-file-name"] ?? "file"));
       const key = storagePath(tenant.tenantId, id);
@@ -138,12 +162,13 @@ export const filesPlugin: BeePlugin = {
         uploadedBy: tenant.userId,
         createdAt: new Date()
       };
-      await mkdir(tenantDirectory(tenant.tenantId), { recursive: true });
-      await writeFile(key, body, { flag: "wx", mode: 0o600 });
       try {
+        await mkdir(tenantDirectory(tenant.tenantId), { recursive: true });
+        await writeFile(key, body, { flag: "wx", mode: 0o600 });
         await scopedFiles(tenant.tenantId).insertOne(record);
       } catch (error) {
         await unlink(key).catch(() => undefined);
+        await releaseStorage(tenant.tenantId, body.length);
         throw error;
       }
       return reply.code(201).send({ file: publicRecord(record) });
@@ -187,7 +212,8 @@ export const filesPlugin: BeePlugin = {
       await unlink(storagePath(tenant.tenantId, record.id)).catch((error: NodeJS.ErrnoException) => {
         if (error.code !== "ENOENT") throw error;
       });
-      await collection.deleteOne({ id: record.id });
+      const deleted = await collection.deleteOne({ id: record.id });
+      if (deleted.deletedCount) await releaseStorage(tenant.tenantId, record.size);
       return { success: true };
     });
 
