@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input, OnChanges, OnInit, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 
 type MarketplacePlugin = {
   id: string;
@@ -61,6 +61,7 @@ type MarketplacePlugin = {
 export class BeeMarketplaceComponent implements OnInit, OnChanges {
   @Input() tenantId = "";
   @Input() canManage = false;
+  @Output() activePluginsChange = new EventEmitter<string[]>();
   plugins: MarketplacePlugin[] = [];
   loading = false;
   busyId = "";
@@ -89,8 +90,11 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not load company plugins");
       this.plugins = result.plugins || [];
+      this.activePluginsChange.emit(this.plugins.filter(plugin => plugin.entitled && plugin.installed).map(plugin => plugin.id));
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not load company plugins";
+      this.plugins = [];
+      this.activePluginsChange.emit([]);
     } finally {
       this.loading = false;
     }
