@@ -2,6 +2,12 @@
 
 Bee-Core uses a company (tenant) as the ownership boundary for business data. A user may belong to several companies, but each request must resolve exactly one active company from the authenticated session and an active membership. Never accept a request-body or query-string `tenantId` as proof of access.
 
+## Shared authentication and authorization guard
+
+Private business-plugin routes should use `requireAuth(db, client?)` from `src/plugins/auth/auth.guard.ts` as a pre-handler. It verifies the JWT and then revalidates the persisted refresh session, enabled user, allowed client, active company membership and company status. It attaches the server-resolved `tenantContext` to the request.
+
+Use `requireTenantPermissions(...keys)` for capability checks, or `requireRoles(...companyRoles)` for a narrow role gate. Do not use the JWT `roles` array or legacy global user roles as the source of authorization. The helpers are available for new plugins; existing routes still need an explicit route-by-route migration and audit.
+
 ## TenantCollection
 
 For new tenant-owned MongoDB collections, use `TenantCollection` from `src/core/tenant-collection.ts`:
