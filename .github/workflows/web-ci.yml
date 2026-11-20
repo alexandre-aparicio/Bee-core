@@ -1,11 +1,13 @@
-name: Bee-Core Web CI
+name: Bee-Core Angular CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  web-build:
+  angular-build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -15,7 +17,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install UI dependencies
+          cache: npm
+          cache-dependency-path: apps/web/package.json
+      - name: Install Angular dependencies
         run: npm install
-      - name: Build web UI
+      - name: Build Angular production bundle
         run: npm run build
