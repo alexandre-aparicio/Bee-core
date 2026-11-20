@@ -173,8 +173,8 @@ export const marketplacePlugin: BeePlugin = {
       return { tenantId: tenant.tenantId, plugins: await getTenantPluginCatalog(db, tenant.tenantId) };
     });
     ctx.server.get("/public/tenant/plugins", async (request: any, reply: any) => {
-      const hostname = String(request.hostname ?? "").trim().toLowerCase().replace(/\\.$/, "");
-      const baseDomain = String(ctx.config.publicBaseDomain ?? "beecore.beeprojects.net").trim().toLowerCase().replace(/^\\.+|\\.+$/g, "");
+      const hostname = String(request.hostname ?? "").trim().toLowerCase().replace(/\.$/, "");
+      const baseDomain = String(ctx.config.publicBaseDomain ?? "beecore.beeprojects.net").trim().toLowerCase().replace(/^\.+|\.+$/g, "");
       const slug = tenantSlugFromHost(hostname, baseDomain);
       let company: any = null;
       if (slug) company = await db.collection("tenants").findOne({ slug, status: { $ne: "suspended" } });
