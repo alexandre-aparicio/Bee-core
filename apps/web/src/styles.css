@@ -357,3 +357,14 @@ body[data-bee-public-mode="light"] footer{border-color:#e1e5ef;color:#657187}
 body[data-bee-public-mode="light"] footer .brand{color:#20283a}
 body[data-bee-public-mode="light"] .header-login{color:#39445a;border-color:#dfe5ef}
 @media(max-width:760px){.bee-template-mode{align-items:flex-start;flex-direction:column}}
+
+/* Tenant public placeholder uses the same per-host Light/Dark preference as public templates. */
+.tenant-public-actions{display:flex;align-items:center;gap:14px}
+.tenant-public-actions>a{color:inherit;font-size:12px;text-decoration:none}
+body[data-bee-public-mode="light"] .tenant-public-page{background:#f7f8fc;color:#20283a}
+body[data-bee-public-mode="light"] .tenant-public-page .auth-top>a{color:#59657a}
+body[data-bee-public-mode="light"] .tenant-public-page .auth-card{background:#fff;border-color:#e1e5ef;box-shadow:0 24px 70px #28344a18}
+body[data-bee-public-mode="light"] .tenant-public-page .auth-card h1{color:#20283a}
+body[data-bee-public-mode="light"] .tenant-public-page .auth-card>p,body[data-bee-public-mode="light"] .tenant-public-page .auth-card>small{color:#657187}
+body[data-bee-public-mode="light"] .tenant-public-page .auth-footer{color:#657187}
+@media(max-width:520px){.tenant-public-actions{gap:8px}.tenant-public-actions>a{font-size:10px}}
