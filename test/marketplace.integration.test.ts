@@ -82,9 +82,12 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const alphaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCatalog.statusCode, 200);
-    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { id: string }) => plugin.id), ["files"]);
-    const alphaCannotSeeNotes = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + alphaToken } });
-    assert.equal(alphaCannotSeeNotes.statusCode, 404);
+    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { id: string }) => plugin.id), ["files", "notes"]);
+    const alphaNotesOffer = alphaCatalog.json().plugins.find((plugin: { id: string }) => plugin.id === "notes");
+    assert.equal(alphaNotesOffer.entitled, false);
+    assert.equal(alphaNotesOffer.purchasable, true);
+    const alphaCannotInstallNotes = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(alphaCannotInstallNotes.statusCode, 402);
 
     const betaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaCatalog.statusCode, 200);
