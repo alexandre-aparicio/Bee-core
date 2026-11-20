@@ -373,7 +373,6 @@ export const marketplacePlugin: BeePlugin = {
               { $set: { status: "updating", updatedAt: new Date(), error: null } }
             );
             await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
-            await trusted.updateTenant?.(db, job.tenantId, previousVersion);
             await installations.updateOne(
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "updating" },
               { $set: { status: "installed", version: trusted.version, updatedAt: new Date() }, $unset: { error: "" } }
