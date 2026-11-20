@@ -27,7 +27,7 @@ export const authPlugin:BeePlugin={
   const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongo.connect(); const db:Db=mongo.db(dbName);
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
-  const templatePreferences=db.collection<{tenantId?:string;userId?:string;public:string;dashboard:string;themeTokens?:Record<string,string>;updatedAt:Date}>("template_preferences");
+  const templatePreferences=db.collection<{tenantId?:string;userId?:string;public:string;dashboard:string;themeTokens?:Record<string,string>;installedTemplates?:string[];updatedAt:Date}>("template_preferences");
   const templateStreamTickets=new Map<string,{tenantId:string;expiresAt:number}>();
   const templateSubscribers=new Map<string,Set<import("node:http").ServerResponse>>();
   const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.destroyed){clients.delete(client);continue;}client.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
@@ -87,7 +87,13 @@ export const authPlugin:BeePlugin={
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
   const allowedThemeTokens=["--bg","--panel","--muted","--border","--purple","--cyan"] as const;
   const defaultThemeTokens:Record<string,string>={"--bg":"#080a12","--panel":"#10131e","--muted":"#8991a4","--border":"#303447","--purple":"#8c72ff","--cyan":"#69e5d4"};
-  const allowedTemplates={public:["aurora","editorial"],dashboard:["midnight","paper"]} as const;
+  const allowedTemplates={public:["aurora","editorial","studio"],dashboard:["midnight","paper","glass"]} as const;
+  const baseTemplateIds=["aurora","editorial","midnight","paper"];
+  const templateCatalog=[
+   {id:"studio",name:"Studio",version:"1.0.0",target:"public",description:"Warm editorial landing page with a bright accent palette.",layout:"public.studio",tokens:{"--bg":"#f4f0e9","--panel":"#fffaf2","--muted":"#756e65","--border":"#ded5c8","--purple":"#b85d3b","--cyan":"#397d78"}},
+   {id:"glass",name:"Glass",version:"1.0.0",target:"dashboard",description:"Soft glass workspace with cool blue and violet accents.",layout:"dashboard.glass",tokens:{"--bg":"#101827","--panel":"#1b2940","--muted":"#a2b1c7","--border":"#40516b","--purple":"#8b9dff","--cyan":"#69d9e8"}}
+  ] as const;
+  const getInstalledTemplates=(saved?:{installedTemplates?:string[]})=>[...baseTemplateIds,...(saved?.installedTemplates??[]).filter(id=>templateCatalog.some(item=>item.id===id))];
   const readTemplateTenant=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
    try{
     await req.jwtVerify();
@@ -105,7 +111,7 @@ export const authPlugin:BeePlugin={
    const tenant=await tenants.findOne({domains:host});
    const tenantId=tenant?.id??defaultTenantId;
    const saved=await templatePreferences.findOne({tenantId});
-   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens)};
+   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)};
   });
   ctx.server.put<{Body:{domains?:string[]}}>("/tenants/domains",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
@@ -117,6 +123,45 @@ export const authPlugin:BeePlugin={
    try{await tenants.updateOne({id:tenantId},{$set:{domains:normalized}},{upsert:true});}
    catch(error){return reply.code(409).send({error:"A domain is already assigned to another tenant"});}
    return {tenantId,domains:normalized};
+  });
+  ctx.server.get("/templates/catalog",async(req,reply)=>{
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const saved=await templatePreferences.findOne({tenantId});
+   const installed=getInstalledTemplates(saved);
+   return {catalog:templateCatalog.map(({tokens,...item})=>({...item,installed:installed.includes(item.id)}))};
+  });
+  ctx.server.get("/templates/installed",async(req,reply)=>{
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const saved=await templatePreferences.findOne({tenantId});
+   return {tenantId,installedTemplates:getInstalledTemplates(saved)};
+  });
+  ctx.server.post<{Body:{templateId?:string}}>("/templates/install",async(req,reply)=>{
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const claims=req.user as {roles?:Role[]};
+   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
+   const templateId=String(req.body?.templateId??"");
+   if(!templateCatalog.some(item=>item.id===templateId))return reply.code(404).send({error:"Template package not found"});
+   await templatePreferences.updateOne({tenantId},{$addToSet:{installedTemplates:templateId},$set:{updatedAt:new Date()}},{upsert:true});
+   const saved=await templatePreferences.findOne({tenantId});
+   const installedTemplates=getInstalledTemplates(saved);
+   broadcastTemplateUpdate(tenantId,{type:"installed",installedTemplates});
+   return {tenantId,installedTemplates};
+  });
+  ctx.server.delete<{Params:{templateId:string}}>("/templates/install/:templateId",async(req,reply)=>{
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const claims=req.user as {roles?:Role[]};
+   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
+   const templateId=req.params.templateId;
+   const packageInfo=templateCatalog.find(item=>item.id===templateId);
+   if(!packageInfo)return reply.code(404).send({error:"Template package not found"});
+   const saved=await templatePreferences.findOne({tenantId});
+   const active=packageInfo.target==="public"?saved?.public??templateDefaults.public:saved?.dashboard??templateDefaults.dashboard;
+   if(active===templateId)return reply.code(409).send({error:"Deactivate this template before uninstalling it"});
+   await templatePreferences.updateOne({tenantId},{$pull:{installedTemplates:templateId},$set:{updatedAt:new Date()}});
+   const updated=await templatePreferences.findOne({tenantId});
+   const installedTemplates=getInstalledTemplates(updated);
+   broadcastTemplateUpdate(tenantId,{type:"installed",installedTemplates});
+   return {tenantId,installedTemplates};
   });
   ctx.server.get("/templates/preferences",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
