@@ -351,6 +351,25 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(logoutAudit[0].metadata.refreshTokenProvided,true);
     const afterLogout = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: refreshed.refreshToken } });
     assert.equal(afterLogout.statusCode, 401);
+
+    const sseLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
+    assert.equal(sseLogin.statusCode,200);
+    const sseToken=sseLogin.json().accessToken as string;
+    const sseTicket=await app.inject({method:"POST",url:"/templates/stream-ticket",headers:{authorization:"Bearer "+sseToken}});
+    assert.equal(sseTicket.statusCode,200);
+    const revocationResponse=await fetch(listenAddress+"/templates/events?ticket="+sseTicket.json().ticket);
+    assert.equal(revocationResponse.status,200);
+    const revocationReader=revocationResponse.body!.getReader();
+    let revocationSnapshot="";
+    while(!revocationSnapshot.includes('"type":"snapshot"')){
+      const chunk=await revocationReader.read();
+      assert.equal(chunk.done,false,"private stream must send its initial snapshot");
+      revocationSnapshot+=new TextDecoder().decode(chunk.value);
+    }
+    const sseClaims=JSON.parse(Buffer.from(sseToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    await db.collection("refresh_sessions").updateOne({id:sseClaims.sid},{$set:{revokedAt:new Date()}});
+    const revokedStreamRead=await revocationReader.read();
+    assert.equal(revokedStreamRead.done,true,"private template SSE must close after its session is revoked");
   } finally {
     await filesPlugin.stop?.(ctx);
     await organizationsPlugin.stop?.(ctx);

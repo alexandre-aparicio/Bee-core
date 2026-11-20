@@ -60,7 +60,7 @@ After verifying the JWT with Fastify's `request.jwtVerify()`, use `resolveTenant
 
 ## Current limitation
 
-The facade, shared tenant-context resolver, authorization guards and private local-volume file service are foundations for new plugins. Existing authentication, organization and template collections have not all been migrated to the facade, and tenant context is not yet propagated through every queue, scheduled job, webhook or SSE path. Do not claim universal tenant isolation until every tenant-owned route and asynchronous path has been audited and tested.
+The facade, shared tenant-context resolver, authorization guards and private local-volume file service are foundations for new plugins. Existing authentication, organization and template collections have not all been migrated to the facade, and tenant context is not yet propagated through every queue, scheduled job or webhook. Private template SSE tickets are single-use and short-lived; active private streams now revalidate the persisted session, active membership and company status every five seconds and close when authorization is revoked. Public template streams are intentionally scoped by the verified request host and expose only the public template snapshot. Do not claim universal tenant isolation until every tenant-owned route and asynchronous path has been audited and tested.
 
 
 ## Private file and image storage foundation
@@ -80,3 +80,12 @@ Current limits and protections:
 - Docker Compose mounts a dedicated persistent `bee_core_files` volume at `/data/bee-files`.
 
 This is the first local-volume storage adapter, not yet a complete media platform. S3-compatible storage, malware scanning, quotas, signed temporary links, image transformations/thumbnails, retention policies and backup/restore validation remain future work. Existing business plugins must still migrate their own tenant-owned data to tenant-scoped repositories.
+
+
+## Private template SSE revocation
+
+- Authenticated dashboard clients obtain a 30-second, single-use stream ticket after the active tenant context is resolved.
+- The stream retains the verified JWT claims and re-runs `resolveTenantContext` every five seconds.
+- Revoked/expired sessions, suspended memberships, disabled users and suspended companies cause the private stream to close; lookup errors fail closed.
+- The public-domain stream ticket is a separate intentional path and is limited to the public template snapshot for the tenant selected by the request host.
+- Integration coverage revokes the persisted refresh session while a private stream is open and asserts that the connection closes.

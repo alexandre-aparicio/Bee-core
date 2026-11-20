@@ -33,9 +33,9 @@ export const authPlugin:BeePlugin={
   const auditAuthEvent=async(event:{tenantId:string;actorId:string;action:TenantAuditEvent["action"];outcome:TenantAuditEvent["outcome"];metadata?:TenantAuditEvent["metadata"]})=>{try{await appendTenantAuditEvent(auditEvents,{tenantId:event.tenantId,actorId:event.actorId,action:event.action,outcome:event.outcome,metadata:event.metadata,id:randomUUID(),occurredAt:new Date()});}catch(error){ctx.logger.error("Auth audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
   const templatePreferences=db.collection<{tenantId?:string;userId?:string;public:string;dashboard:string;themeTokens?:Record<string,string>;installedTemplates?:string[];updatedAt:Date}>("template_preferences");
-  const templateStreamTickets=new Map<string,{tenantId:string;expiresAt:number}>();
-  const templateSubscribers=new Map<string,Set<import("node:http").ServerResponse>>();
-  const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.destroyed){clients.delete(client);continue;}client.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
+  const templateStreamTickets=new Map<string,{tenantId:string;expiresAt:number;claims?:import("../../core/tenant-context.js").TenantClaims}>();
+  const templateSubscribers=new Map<string,Set<{response:import("node:http").ServerResponse;claims?:import("../../core/tenant-context.js").TenantClaims}>>();
+  const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.response.destroyed){clients.delete(client);continue;}client.response.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
   const tenants=db.collection<{id:string;name:string;domains?:string[];createdAt:Date}>("tenants");
   await Promise.all([
@@ -231,10 +231,12 @@ export const authPlugin:BeePlugin={
   });
   ctx.server.post("/templates/stream-ticket",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const claims=req.user as import("../../core/tenant-context.js").TenantClaims;
+   if(claims.client!=="dashboard")return reply.code(403).send({error:"Dashboard client required"});
    const now=Date.now();
    for(const [key,value] of templateStreamTickets){if(value.expiresAt<now)templateStreamTickets.delete(key);}
    const ticket=randomBytes(24).toString("base64url");
-   templateStreamTickets.set(ticket,{tenantId,expiresAt:now+30_000});
+   templateStreamTickets.set(ticket,{tenantId,expiresAt:now+30_000,claims:req.user as import("../../core/tenant-context.js").TenantClaims});
    return {ticket,expiresIn:30};
   });
   ctx.server.get<{Querystring:{ticket?:string}}>("/templates/events",async(req,reply)=>{
@@ -247,10 +249,19 @@ export const authPlugin:BeePlugin={
    reply.hijack();
    raw.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-cache, no-transform","connection":"keep-alive","x-accel-buffering":"no"});
    raw.write("event: template-update\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)})+"\n\n");
-   const clients=templateSubscribers.get(record.tenantId)??new Set<import("node:http").ServerResponse>();
-   clients.add(raw);templateSubscribers.set(record.tenantId,clients);
-   const heartbeat=setInterval(()=>{if(raw.destroyed){clearInterval(heartbeat);return;}raw.write(": keep-alive\n\n");},20_000);
-   raw.on("close",()=>{clearInterval(heartbeat);clients.delete(raw);if(!clients.size)templateSubscribers.delete(record.tenantId);});
+   const subscriber={response:raw,...(record.claims?{claims:record.claims}:{})};
+   const clients=templateSubscribers.get(record.tenantId)??new Set<typeof subscriber>();
+   clients.add(subscriber);templateSubscribers.set(record.tenantId,clients);
+   const closeSubscriber=()=>{clients.delete(subscriber);if(!clients.size)templateSubscribers.delete(record.tenantId);};
+   const heartbeat=setInterval(async()=>{
+    if(raw.destroyed){clearInterval(heartbeat);closeSubscriber();return;}
+    if(record.claims){
+     try{const current=await resolveTenantContext(db,record.claims);if(!current){clearInterval(heartbeat);raw.end();closeSubscriber();return;}}
+     catch{clearInterval(heartbeat);raw.end();closeSubscriber();return;}
+    }
+    if(!raw.destroyed)raw.write(": keep-alive\n\n");
+   },5_000);
+   raw.on("close",()=>{clearInterval(heartbeat);closeSubscriber();});
    return reply;
   });
   ctx.server.addHook("onClose",async()=>{await mongo.close();});
