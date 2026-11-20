@@ -173,6 +173,51 @@ test("company plans and purchases control plugin visibility, installation and ac
     const crossTenantReadOtherDirection = await app.inject({ method: "GET", url: "/notes/" + betaNoteId, headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(crossTenantReadOtherDirection.statusCode, 404);
 
+    // IDOR regression coverage: foreign IDs must not update or delete another company's notes.
+    const alphaCannotUpdateBeta = await app.inject({
+      method: "PUT",
+      url: "/notes/" + betaNoteId,
+      headers: { authorization: "Bearer " + alphaToken },
+      payload: { title: "Cross-tenant tampering", content: "Must not modify Beta data" }
+    });
+    assert.equal(alphaCannotUpdateBeta.statusCode, 404);
+    const alphaCannotDeleteBeta = await app.inject({
+      method: "DELETE",
+      url: "/notes/" + betaNoteId,
+      headers: { authorization: "Bearer " + alphaToken }
+    });
+    assert.equal(alphaCannotDeleteBeta.statusCode, 404);
+    const betaNoteAfterForeignMutations = await app.inject({
+      method: "GET",
+      url: "/notes/" + betaNoteId,
+      headers: { authorization: "Bearer " + betaToken }
+    });
+    assert.equal(betaNoteAfterForeignMutations.statusCode, 200);
+    assert.equal(betaNoteAfterForeignMutations.json().note.title, "Beta confidential");
+    assert.equal(betaNoteAfterForeignMutations.json().note.content, "Only Market Beta should read this");
+
+    const betaCannotUpdateAlpha = await app.inject({
+      method: "PUT",
+      url: "/notes/" + alphaNoteId,
+      headers: { authorization: "Bearer " + betaToken },
+      payload: { title: "Cross-tenant tampering", content: "Must not modify Alpha data" }
+    });
+    assert.equal(betaCannotUpdateAlpha.statusCode, 404);
+    const betaCannotDeleteAlpha = await app.inject({
+      method: "DELETE",
+      url: "/notes/" + alphaNoteId,
+      headers: { authorization: "Bearer " + betaToken }
+    });
+    assert.equal(betaCannotDeleteAlpha.statusCode, 404);
+    const alphaNoteAfterForeignMutations = await app.inject({
+      method: "GET",
+      url: "/notes/" + alphaNoteId,
+      headers: { authorization: "Bearer " + alphaToken }
+    });
+    assert.equal(alphaNoteAfterForeignMutations.statusCode, 200);
+    assert.equal(alphaNoteAfterForeignMutations.json().note.title, "Alpha private");
+    assert.equal(alphaNoteAfterForeignMutations.json().note.content, "This belongs to Alpha");
+
     const revokePurchase = await webhook({
       event: "plugin.revoke",
       tenantId: "market-alpha",
