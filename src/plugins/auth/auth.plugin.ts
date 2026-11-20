@@ -166,7 +166,7 @@ export const authPlugin:BeePlugin={
   ctx.server.get("/templates/preferences",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
    const saved=await templatePreferences.findOne({tenantId});
-   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard}};
+   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},installedTemplates:getInstalledTemplates(saved)};
   });
   ctx.server.put<{Body:{public?:string;dashboard?:string}}>("/templates/preferences",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
