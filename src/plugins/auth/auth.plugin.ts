@@ -28,7 +28,8 @@ export const authPlugin:BeePlugin={
   await mongo.connect(); const db:Db=mongo.db(dbName);
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
   await Promise.all([
-   users.createIndex({email:1},{unique:true,name:"users_email_unique"}),\n   users.createIndex({id:1},{unique:true,name:"users_id_unique"}),
+   users.createIndex({email:1},{unique:true,name:"users_email_unique"}),
+   users.createIndex({id:1},{unique:true,name:"users_id_unique"}),
    sessions.createIndex({tokenHash:1},{unique:true,name:"refresh_token_hash_unique"}),
    sessions.createIndex({userId:1},{name:"refresh_sessions_user"}),
    sessions.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"refresh_sessions_ttl"})
