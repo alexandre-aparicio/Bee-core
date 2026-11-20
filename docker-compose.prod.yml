@@ -12,6 +12,7 @@ services:
     restart: unless-stopped
 
   web:
+    # Dedicated host port for Nginx Proxy Manager; never bind public 80/443 here.
     ports:
-      - "${BEE_WEB_PORT:-80}:80"
+      - "${BEE_WEB_PORT:-3011}:80"
     restart: unless-stopped
