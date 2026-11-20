@@ -64,7 +64,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const listenAddress = await app.listen({port:0,host:"127.0.0.1"});
     const liveResponse = await fetch(listenAddress + "/templates/events?ticket=" + streamTicket.json().ticket);
     assert.equal(liveResponse.status,200);
-    assert.match(liveResponse.headers.get("content-type") || "",/text\\/event-stream/);
+    assert.match(liveResponse.headers.get("content-type") || "",/text\/event-stream/);
     const liveReader = liveResponse.body!.getReader();
     const initialEvent = await liveReader.read();
     assert.match(new TextDecoder().decode(initialEvent.value),/type":"snapshot"/);
