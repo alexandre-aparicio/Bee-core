@@ -233,10 +233,10 @@ export const marketplacePlugin: BeePlugin = {
       if (!tenant) return;
       const job = await installJobs.findOne(
         { id: String(request.params.jobId), tenantId: tenant.tenantId },
-        { projection: { _id: 0, id: 1, pluginId: 1, action: 1, status: 1, attempts: 1, maxAttempts: 1, createdAt: 1, updatedAt: 1, startedAt: 1, finishedAt: 1, result: 1, error: 1 } }
+        { projection: { _id: 0, id: 1, pluginId: 1, action: 1, status: 1, attempts: 1, maxAttempts: 1, createdAt: 1, updatedAt: 1, startedAt: 1, finishedAt: 1, result: 1,  } }
       );
       if (!job) return reply.code(404).send({ error: "Installation job not found" });
-      return { job };
+      return { job: { ...job, ...(job.status === "failed" ? { error: "Plugin installation failed. Contact an administrator." } : {}) } };
     });
 
     ctx.server.delete<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId/install", async (request: any, reply: any) => {
