@@ -91,3 +91,24 @@ body[data-bee-public-template="editorial"] .feature-grid h3,body[data-bee-public
 body[data-bee-public-template="editorial"] .bee-template-manager{background:#fff;color:#20283a;border-color:#e1e5ee}
 body[data-bee-public-template="editorial"] .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
 @media(max-width:759px){.bee-template-manager__fields{grid-template-columns:1fr}footer .bee-template-manager{width:100%}}
+
+
+/* Compiled layout shells selected by the Angular template outlet. */
+.bee-layout{min-height:100vh;width:100%;isolation:isolate}
+.bee-layout--public-editorial{background:#f6f7fb;color:#20283a}
+.bee-layout--public-editorial .site-header{max-width:1280px;border-bottom:1px solid #e1e5ee}
+.bee-layout--public-editorial .hero{max-width:1280px;margin-inline:auto}
+.bee-layout--public-editorial .feature-section,.bee-layout--public-editorial .architecture{max-width:1280px;margin-inline:auto}
+.bee-layout--public-editorial .cta{max-width:1240px;margin-inline:auto}
+.bee-layout--public-aurora{background:var(--bg);color:#e8eaf2}
+.bee-layout--dashboard-paper .dashboard{background:#f3f5fa;color:#20283a}
+.bee-layout--dashboard-midnight .dashboard{background:#090b13;color:#e8eaf2}
+.bee-layout--dashboard-paper .dash-sidebar{background:#fff;border-color:#e2e6ef}
+.bee-layout--dashboard-paper .dash-header{background:#fff;border-color:#e2e6ef}
+.bee-layout--dashboard-paper .dash-stat,.bee-layout--dashboard-paper .panel,.bee-layout--dashboard-paper .bee-template-manager{background:#fff;border-color:#e2e6ef;color:#20283a}
+.bee-layout--dashboard-paper .workspace{background:#f7f8fc;border-color:#e2e6ef}
+.bee-layout--dashboard-paper .workspace b,.bee-layout--dashboard-paper .dash-welcome h1,.bee-layout--dashboard-paper .panel-heading h2,.bee-layout--dashboard-paper .runtime-plugin b,.bee-layout--dashboard-paper .quick-action b{color:#20283a}
+.bee-layout--dashboard-paper .dash-nav{color:#68738a}
+.bee-layout--dashboard-paper .dash-nav.active{background:#eeeaff;color:#6550c8;border-color:#e1dcff}
+.bee-layout--dashboard-paper .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
+@media(max-width:759px){.bee-layout--public-editorial .hero{padding-inline:16px}.bee-layout--public-editorial footer{padding-inline:16px}}
