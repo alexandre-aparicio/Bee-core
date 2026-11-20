@@ -350,10 +350,10 @@ export const marketplacePlugin: BeePlugin = {
             );
           }
           await failPluginInstallJob(installJobs, job, workerId, error);
-          ctx.logger.error("Tenant plugin installation job failed", { tenantId: job.tenantId, pluginId: job.pluginId, jobId: job.id, error });
+          ctx.logger.error("Tenant plugin lifecycle job failed", { tenantId: job.tenantId, pluginId: job.pluginId, jobId: job.id, error });
         }
       } catch (error) {
-        ctx.logger.error("Plugin install worker failed to claim a job", { error });
+        ctx.logger.error("Plugin lifecycle worker failed to claim a job", { error });
       } finally {
         workerBusy = false;
       }
