@@ -5,11 +5,12 @@ import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext, type TenantContext } fr
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type TenantAuditEvent } from "../../core/audit-log.js";
+import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
 
-type Company = { id:string; name:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
+type Company = { id:string; name:string; slug?:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantId?:string; sid?:string; aud?:string };
-type CreateCompanyBody = { name?:string };
+type CreateCompanyBody = { name?:string; slug?:string };
 type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
 let mongoClient:MongoClient|undefined;
 
@@ -28,6 +29,30 @@ export const organizationsPlugin:BeePlugin={
   const memberships:Collection<Membership>=db.collection("memberships");
   const invitations:Collection<Invitation>=db.collection("company_invitations");
   const customRoles:Collection<CustomRolePolicy>=db.collection("company_roles");
+  // Backfill stable public subdomain slugs for tenants created before host routing existed.
+  const usedTenantSlugs=new Set<string>();
+  for await(const tenant of companies.find({}).sort({createdAt:1,id:1})){
+   let slug="";
+   try{slug=tenant.slug?normalizeTenantSlug(tenant.slug):slugifyTenantName(tenant.name);}catch{slug="";}
+   if(!slug||usedTenantSlugs.has(slug))slug="tenant-"+tenant.id.replace(/[^a-z0-9]/gi,"").slice(0,12).toLowerCase();
+   let candidate=slug,suffix=tenant.id.replace(/[^a-z0-9]/gi,"").slice(0,8).toLowerCase();
+   while(usedTenantSlugs.has(candidate))candidate=(slug.slice(0,39)+"-"+suffix).slice(0,48);
+   usedTenantSlugs.add(candidate);
+   if(tenant.slug!==candidate)await companies.updateOne({id:tenant.id},{$set:{slug:candidate}});
+  }
+  await companies.createIndex({slug:1},{unique:true,sparse:true,name:"tenants_slug_unique"});
+  const publicBaseDomain=String(ctx.config.publicBaseDomain??"beecore.beeprojects.net").trim().toLowerCase().replace(/^\.+|\.+$/g,"");
+  // Resolve from the preserved Host header; arbitrary X-Forwarded-Host is not trusted.
+  ctx.server.get("/public/tenant",async(req,reply)=>{
+   const hostname=String(req.hostname??"").trim().toLowerCase().replace(/\.$/,"");
+   if(hostname===publicBaseDomain)return {kind:"corporate"};
+   const slug=tenantSlugFromHost(hostname,publicBaseDomain);
+   let tenant:Company|null=null;
+   if(slug)tenant=await companies.findOne({slug});
+   else if(!hostname.endsWith("."+publicBaseDomain))tenant=await companies.findOne({domains:hostname});
+   if(!tenant||(tenant.status??"active")!=="active")return reply.code(404).send({error:"Public tenant not found"});
+   return {kind:"tenant",tenant:{id:tenant.id,name:tenant.name,slug:tenant.slug??null}};
+  });
   await Promise.all([
    memberships.createIndex({id:1},{unique:true,name:"memberships_id_unique"}),
    memberships.createIndex({userId:1,tenantId:1},{unique:true,name:"memberships_user_company_unique"}),
@@ -291,13 +316,16 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const name=String(req.body?.name??"").trim();
    if(name.length<2||name.length>120)return reply.code(400).send({error:"Company name must contain between 2 and 120 characters"});
+   let slug:string;
+   try{slug=normalizeTenantSlug(req.body?.slug||slugifyTenantName(name));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid tenant slug"});}
+   if(await companies.findOne({slug},{projection:{_id:1}}))return reply.code(409).send({error:"This tenant slug is already in use"});
    const id=randomUUID(),now=new Date();
-   const company:Company={id,name,createdAt:now,status:"active"};
+   const company:Company={id,name,slug,createdAt:now,status:"active"};
    const membership:Membership={id:randomUUID(),userId:auth.user!.id,tenantId:id,role:"owner",status:"active",createdAt:now,updatedAt:now};
    await db.collection("tenants").insertOne(company);
    try{await memberships.insertOne(membership);}
    catch(error){await companies.deleteOne({id});throw error;}
-   return reply.code(201).send({company:{id,name,status:"active"},membership:{role:"owner",status:"active"},next:"POST /companies/"+id+"/activate to switch the current session"});
+   return reply.code(201).send({company:{id,name,slug,status:"active"},membership:{role:"owner",status:"active"},next:"POST /companies/"+id+"/activate to switch the current session"});
   });
   ctx.server.post<{Params:{companyId:string}}>("/companies/:companyId/activate",async(req,reply)=>{
    const auth=await authenticate(req,reply,{allowSuspendedCompany:true});if(!auth)return;
