@@ -125,6 +125,10 @@ export class BeeTemplateEngine {
     return { ...this.selection };
   }
 
+  getCommittedSelection(): BeeTemplateSelection {
+    return { ...(this.previewSnapshot?.selection ?? this.selection) };
+  }
+
   getActive(target: BeeTemplateTarget): BeeTemplateManifest {
     const active = this.registry.get(this.selection[target]);
     return active?.target === target ? active : this.list(target)[0];
