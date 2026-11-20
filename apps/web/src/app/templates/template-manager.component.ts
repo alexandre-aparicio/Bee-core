@@ -1,12 +1,13 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { BeeTemplateEngine } from './template-engine.service';
 import type { BeeTemplateTarget } from './template.types';
 
 @Component({
   selector: 'bee-template-manager',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <section class="bee-template-manager" aria-label="Template manager">
       <div class="bee-template-manager__heading">
@@ -15,12 +16,12 @@ import type { BeeTemplateTarget } from './template.types';
       </div>
       <div class="bee-template-manager__fields">
         <label>Public website
-          <select [value]="engine.getSelection().public" (change)="activate('public', $any($event.target).value)">
+          <select [ngModel]="engine.getSelection().public" (ngModelChange)="activate('public', $event)">
             <option *ngFor="let item of engine.list('public')" [value]="item.id">{{ item.name }}</option>
           </select>
         </label>
         <label>Dashboard
-          <select [value]="engine.getSelection().dashboard" (change)="activate('dashboard', $any($event.target).value)">
+          <select [ngModel]="engine.getSelection().dashboard" (ngModelChange)="activate('dashboard', $event)">
             <option *ngFor="let item of engine.list('dashboard')" [value]="item.id">{{ item.name }}</option>
           </select>
         </label>
