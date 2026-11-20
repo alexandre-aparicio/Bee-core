@@ -158,7 +158,7 @@ export const authPlugin:BeePlugin={
    return {tenantId,tokens,customized:true};
   });
   ctx.server.post("/templates/public-stream-ticket",async(req)=>{
-   const host=String(req.hostname??"").toLowerCase().replace(/:\\d+$/,"");
+   const host=String(req.hostname??"").toLowerCase().replace(/:\d+$/,"");
    const tenant=await tenants.findOne({domains:host});
    const tenantId=tenant?.id??defaultTenantId;
    const now=Date.now();
