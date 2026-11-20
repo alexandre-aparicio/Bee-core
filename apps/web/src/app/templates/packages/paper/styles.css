@@ -1,5 +1,5 @@
 /* Paper package-owned layout styles. */
-:host{display:block;min-height:100vh}
+.bee-template-package-host--paper{display:block;min-height:100vh}
 body[data-bee-dashboard-template="paper"] .dashboard{background:#f3f5fa;color:#20283a}
 body[data-bee-dashboard-template="paper"] .dash-sidebar{background:#fff;border-color:#e2e6ef}
 body[data-bee-dashboard-template="paper"] .dash-header{border-color:#e2e6ef}
