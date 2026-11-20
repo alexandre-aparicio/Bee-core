@@ -343,7 +343,7 @@ export const marketplacePlugin: BeePlugin = {
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else if (job.action === "install") {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
-            for (const dependency of resolvePluginDependencyOrder(job.pluginId))
+            for (const dependency of resolvePluginDependencyOrder(job.pluginId)) {
               if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency)) {
                 throw new Error("Required plugin dependency is not installed: " + dependency);
               }
