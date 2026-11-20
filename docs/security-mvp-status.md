@@ -14,7 +14,7 @@ This document records security checks currently covered and gaps that remain bef
 ## Not complete
 
 - Custom roles are persisted per tenant and resolved through active membership; company-owner management, assignment and session revocation are implemented and merged in PR #17.
-- Successful login/logout audit integration is implemented in this branch; role/member, marketplace and permission-denial events are not yet wired.
+- Successful login/logout audit integration is implemented in PR #18; role/member, marketplace and permission-denial events are not yet wired.
 - No end-to-end audit query/export or retention controls.
 - Tenant isolation audit of every route and background/async entrypoint is incomplete.
 - MFA, rate limiting, password recovery, email verification and robust token revocation remain outstanding.
