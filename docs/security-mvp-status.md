@@ -12,6 +12,7 @@ This document records security checks currently covered and gaps that remain bef
 - Added tenant-scoped append-only audit event write service with metadata limits and indexes.
 - Auth plugin records successful login and logout events, including active tenant and client; integration test asserts both records.
 - Organization invitation creation, acceptance and cancellation emit tenant-scoped audit events; auth integration tests assert the lifecycle events.
+- Membership role changes emit audit events with old/new roles; integration test asserts the record.
 
 ## Not complete
 
