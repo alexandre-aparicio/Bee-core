@@ -194,3 +194,11 @@ The product model is now specified in `docs/template-business-model.md`.
 - The global stylesheet no longer contains the six template-specific layout selectors; the page shells and content composition remain shared and are projected into the package layout wrappers. Therefore this is a completed folder/source/style separation, but not yet six independently authored page compositions. A future step can move each public/dashboard page tree into its package if the templates must have completely different markup.
 - Template packages remain trusted, statically compiled Angular components. Tenant installation enables a registered package; it is not arbitrary runtime code upload or dynamic execution.
 - No tests, builds, GitHub Actions workflows or deployment checks were run, per explicit instruction. The changes are committed to `main`, but compile/runtime correctness has not been verified.
+
+
+## Template build-source corrections (2026-11-21)
+
+- Restored the explicit default selection in `template-engine.service.ts` (`aurora` for public and `midnight` for dashboard). The package-registry refactor had removed the constant while leaving its fallback references, causing the Angular TypeScript errors reported during the VPS image build.
+- Repaired three orphaned CSS rules in `styles.css`: the template-manager responsive rule, the empty template-slot display rule, and the template-manager catalog layout selector. These were left behind by the prior CSS extraction and generated CSS parser warnings.
+- These are source-level corrections only. No build, tests, or GitHub Actions workflows were run here. The user's next VPS build is still required to confirm the reported failures are resolved.
+- The six packages are not yet 100% composition-independent: their page markup/navigation and plugin composition still live in `app.component.html`. Do not begin plugin package separation until public and dashboard page composition has been moved behind the template package boundaries and the shared core only supplies runtime context/contracts.
