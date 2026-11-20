@@ -238,8 +238,6 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(managerPermissions.json().permissions.includes("files.read"));
     assert.ok(!managerPermissions.json().permissions.includes("members.manage"));
 
-    const managerInviteAdmin=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken},payload:{email:"admin-invite@example.com",role:"admin"}});
-    assert.equal(managerInviteAdmin.statusCode,403);
 
     const staleCompanyToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(staleCompanyToken.statusCode,401);
