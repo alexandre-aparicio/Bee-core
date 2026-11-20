@@ -17,7 +17,7 @@ This file records only repository changes and checks observed in GitHub. It is n
 
 - PR #9 production Docker Compose profile: CI checks succeeded (backend, Angular and Docker production profile).
 - PR #15 custom company roles: backend CI and Angular CI succeeded on commit `d50f08f`, but merge into `main` currently fails due to merge conflicts. It is **not merged**.
-- PR #16 custom-company-role integration: Angular CI succeeded on earlier commit `110d5f2`; backend integration failed at test line 308 because a manager session had been revoked after role assignment/reset, while the test still reused the old token. The test was corrected in commit `a705233` to log in again and activate the company before checking manager permissions. Backend and Angular workflows for that correction are currently running; their result is pending.
+- PR #16 custom-company-role integration: Angular CI succeeded on earlier commit `110d5f2`; backend integration failed at test line 308 because a manager session had been revoked after role assignment/reset, while the test still reused the old token. The test was corrected in commit `a705233` to log in again and activate the company before checking manager permissions. Backend CI for that correction is now green, and Angular CI is green. Docker Compose full-stack integration is still running.
 
 ## Remaining work
 
