@@ -84,6 +84,12 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     }
     assert.match(pushedText,/#334455/);
     await liveReader.cancel();
+    const publicAlphaUpdated = await app.inject({method:"GET",url:"/templates/public",headers:{host:"www.alpha.example.test"}});
+    assert.equal(publicAlphaUpdated.json().selection.public,"editorial");
+    assert.equal(publicAlphaUpdated.json().tokens["--bg"],"#334455");
+    const publicBetaIsolated = await app.inject({method:"GET",url:"/templates/public",headers:{host:"beta.example.test"}});
+    assert.equal(publicBetaIsolated.json().selection.public,"aurora");
+    assert.equal(publicBetaIsolated.json().tokens["--bg"],"#080a12");
 
     const legacyLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"legacy@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(legacyLogin.statusCode,200);
