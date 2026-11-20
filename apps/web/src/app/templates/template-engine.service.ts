@@ -38,6 +38,14 @@ export class BeeTemplateEngine {
 
   get hasAuthenticatedSession(): boolean { return this.authToken() !== null; }
 
+  get canManageTemplates(): boolean {
+    if (typeof localStorage === 'undefined') return false;
+    try {
+      const session = JSON.parse(localStorage.getItem('bee-auth') || 'null') as { user?: { roles?: string[] } } | null;
+      return Array.isArray(session?.user?.roles) && session.user.roles.includes('admin');
+    } catch { return false; }
+  }
+
   getSelection(): BeeTemplateSelection {
     return { ...this.selection };
   }
@@ -58,6 +66,7 @@ export class BeeTemplateEngine {
   }
 
   activate(target: BeeTemplateTarget, templateId: string): void {
+    if (this.hasAuthenticatedSession && !this.canManageTemplates) return;
     const manifest = this.registry.get(templateId);
     if (!manifest || manifest.target !== target) throw new Error('Template is not registered for this surface');
     this.selection = { ...this.selection, [target]: templateId };
@@ -139,7 +148,7 @@ export class BeeTemplateEngine {
 
   async saveThemeTokens(tokens: Record<string, string>): Promise<boolean> {
     const token = this.authToken();
-    if (!token || typeof fetch === 'undefined') return false;
+    if (!token || !this.canManageTemplates || typeof fetch === 'undefined') return false;
     const safeTokens: Record<string, string> = {};
     for (const key of THEME_TOKEN_KEYS) {
       const value = tokens[key];
@@ -212,7 +221,7 @@ export class BeeTemplateEngine {
 
   private async persistRemoteSelection(): Promise<void> {
     const token = this.authToken();
-    if (!token || typeof fetch === 'undefined') return;
+    if (!token || !this.canManageTemplates || typeof fetch === 'undefined') return;
     try {
       await fetch('/api/templates/preferences', {
         method: 'PUT',
