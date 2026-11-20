@@ -99,6 +99,7 @@ export class BeeTemplateEngine {
       if (payload.selection?.dashboard && this.registry.get(payload.selection.dashboard)?.target === 'dashboard') this.selection.dashboard = payload.selection.dashboard;
       this.apply();
       if (payload.tokens && payload.customized) this.applyThemeTokens(payload.tokens);
+      await this.connectPublicEvents();
     } catch { /* The built-in public template is the offline fallback. */ }
   }
 
@@ -166,30 +167,47 @@ export class BeeTemplateEngine {
     const token = this.authToken();
     if (!token || typeof fetch === 'undefined' || typeof EventSource === 'undefined' || this.stream) return;
     try {
-      const ticketResponse = await fetch('/api/templates/stream-ticket', { method: 'POST', headers: { authorization: `Bearer ${token}` } });
-      if (!ticketResponse.ok) return;
-      const ticket = await ticketResponse.json() as { ticket?: string };
-      if (!ticket.ticket) return;
-      this.stream = new EventSource(`/api/templates/events?ticket=${encodeURIComponent(ticket.ticket)}`);
-      this.stream.addEventListener('template-update', (event: MessageEvent) => {
-        try {
-          const update = JSON.parse(event.data) as { type?: string; selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string> };
-          if (update.selection) {
-            if (this.registry.get(update.selection.public || '')?.target === 'public') this.selection.public = update.selection.public!;
-            if (this.registry.get(update.selection.dashboard || '')?.target === 'dashboard') this.selection.dashboard = update.selection.dashboard!;
-            this.persist(); this.apply();
-          }
-          if (update.tokens && update.customized) this.applyThemeTokens(update.tokens);
-        } catch { /* Ignore malformed server events. */ }
-      });
-      this.stream.onerror = () => {
-        this.stream?.close();
-        this.stream = undefined;
-        if (this.reconnecting) return;
-        this.reconnecting = true;
-        setTimeout(() => { this.reconnecting = false; void this.connectRemoteEvents(); }, 3000);
-      };
+      const response = await fetch('/api/templates/stream-ticket', { method: 'POST', headers: { authorization: `Bearer ${token}` } });
+      if (!response.ok) return;
+      const payload = await response.json() as { ticket?: string };
+      if (payload.ticket) this.openEventStream(payload.ticket);
     } catch { /* SSE is an enhancement; local UI remains usable. */ }
+  }
+
+  private async connectPublicEvents(): Promise<void> {
+    if (typeof fetch === 'undefined' || typeof EventSource === 'undefined' || this.stream) return;
+    try {
+      const response = await fetch('/api/templates/public-stream-ticket', { method: 'POST' });
+      if (!response.ok) return;
+      const payload = await response.json() as { ticket?: string };
+      if (payload.ticket) this.openEventStream(payload.ticket);
+    } catch { /* Public theme updates can be loaded again on navigation. */ }
+  }
+
+  private openEventStream(ticket: string): void {
+    this.stream = new EventSource(`/api/templates/events?ticket=${encodeURIComponent(ticket)}`);
+    this.stream.addEventListener('template-update', (event: MessageEvent) => {
+      try {
+        const update = JSON.parse(event.data) as { type?: string; selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string>; customized?: boolean };
+        if (update.selection) {
+          if (this.registry.get(update.selection.public || '')?.target === 'public') this.selection.public = update.selection.public!;
+          if (this.registry.get(update.selection.dashboard || '')?.target === 'dashboard') this.selection.dashboard = update.selection.dashboard!;
+          this.persist(); this.apply();
+        }
+        if (update.tokens && update.customized) this.applyThemeTokens(update.tokens);
+      } catch { /* Ignore malformed server events. */ }
+    });
+    this.stream.onerror = () => {
+      this.stream?.close();
+      this.stream = undefined;
+      if (this.reconnecting) return;
+      this.reconnecting = true;
+      setTimeout(() => {
+        this.reconnecting = false;
+        if (this.authToken()) void this.connectRemoteEvents();
+        else void this.connectPublicEvents();
+      }, 3000);
+    };
   }
 
   private async persistRemoteSelection(): Promise<void> {
