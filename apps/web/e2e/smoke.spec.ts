@@ -45,7 +45,7 @@ test('template manager keeps public and dashboard themes independent', async ({ 
 });
 
 test('dashboard template can be selected without changing public theme', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({ user: { email: 'test@example.com' }, accessToken: 'test' })));
+  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({ user: { email: 'test@example.com', roles: ['admin'], tenantId: 'tenant-test' }, accessToken: 'test' })));
   await page.goto('/dashboard');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
