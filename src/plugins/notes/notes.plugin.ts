@@ -22,7 +22,8 @@ export const notesPlugin: BeePlugin = {
     name: "notes",
     version: "0.1.0",
     description: "Tenant-scoped team notes",
-    dependencies: ["auth", "organizations", "marketplace"]
+    dependencies: ["auth", "organizations", "marketplace"],
+    frontend: { routes: [{ path: "/dashboard/notes", component: "bee-notes" }] }
   },
   async initialize(ctx) {
     const mongoUri = String(ctx.config.mongoUri ?? "");
