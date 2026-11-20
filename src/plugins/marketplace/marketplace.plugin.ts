@@ -128,6 +128,10 @@ export const marketplacePlugin: BeePlugin = {
           reply.code(401).send({ error: "Unauthorized or active company session required" });
           return null;
         }
+        if (tenant.client !== "dashboard") {
+          reply.code(403).send({ error: "Plugin marketplace management requires a dashboard session" });
+          return null;
+        }
         if (!hasTenantPermission(tenant, "plugins.read")) {
           await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission:"plugins.read"}});
           reply.code(403).send({ error: "Plugin catalog permission required" });
