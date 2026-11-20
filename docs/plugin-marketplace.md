@@ -53,6 +53,6 @@ The `notes` plugin demonstrates the intended pattern:
 - The installer is synchronous. Durable jobs, migration checkpoints, version upgrades, rollback, crash recovery and full dependency graph resolution remain pending.
 - Plan user and storage quotas are enforced for new operations: invitations/direct membership additions reserve the company user allowance, and file uploads reserve storage atomically per company. A downgrade does not automatically suspend existing members or delete files; it blocks new additions/uploads that exceed the new allowance.
 - A company-facing dashboard catalogue with install/uninstall controls is implemented and hides management actions from non-admin roles. Checkout, subscription management and payment-provider UI remain pending.
-- Notes now includes a dashboard component and is conditionally mounted from the active company installation state. A generic frontend component/route registry driven by signed package archives remains pending.
+- Notes now includes a dashboard component mounted by a generic Angular plugin outlet from the active company installation state. The registry currently contains statically bundled trusted components; loading component code/routes from signed package archives remains pending.
 
 Do not treat the marketplace as production billing or arbitrary third-party plugin execution yet.
