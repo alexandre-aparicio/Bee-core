@@ -1,6 +1,6 @@
 # Bee-Core 0.1.0 MVP deployment guide
 
-This overlay is the first server-install profile for Bee-Core. It exposes the Angular/Nginx web container only and keeps MongoDB and the API on the Compose network.
+This overlay is the first server-install profile for Bee-Core. It exposes the Angular/Nginx web container on a dedicated host port for an existing reverse proxy (such as Nginx Proxy Manager) and keeps MongoDB and the API on the private Compose network.
 
 ## Status / scope
 
@@ -11,6 +11,7 @@ This is a **deployment candidate**, not a security-certified production release.
 - Docker Engine and Docker Compose plugin v2.24+ (required for the `!reset` merge tag used to remove inherited host port bindings)
 - Linux VPS
 - A domain and TLS termination configured at the host reverse proxy before collecting real user data
+- An unused host TCP port for Bee-Core web traffic (default: `3011`)
 
 ## Quick install
 
@@ -28,20 +29,33 @@ openssl rand -hex 48
 
 Set a unique admin email/password. Bootstrap password must be at least 12 characters. Keep `.env` private and do not commit it.
 
+Check that the default web port is not already occupied:
+
+```bash
+sudo ss -ltnp | grep ':3011 ' || true
+docker ps --format 'table {{.Names}}\\t{{.Ports}}'
+```
+
+If TCP 3011 is occupied, choose another unused host port in `.env` by setting `BEE_WEB_PORT`.
+
 Start the production overlay:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-Web UI: `http://SERVER_OR_DOMAIN/`. The web Nginx container proxies `/api/` to the internal Bee-Core service. API and MongoDB do not publish host ports in this profile.
+The web UI listens on host TCP port `3011` by default. Configure Nginx Proxy Manager with a Proxy Host for the Bee-Core domain (for example, `beecore.beeprojects.net`), forwarding to the VPS host address reachable from the NPM container and port `3011`, using HTTP between NPM and Bee-Core. Enable the required SSL certificate and Force SSL in NPM.
+
+Do **not** forward NPM to `127.0.0.1:3011` unless NPM uses host networking; inside a normal container, localhost refers to the NPM container itself. Use the Docker host gateway or the VPS address reachable from that container.
+
+The web Nginx container proxies `/api/` to the internal Bee-Core service. API and MongoDB do not publish host ports in this profile. Do not bind Bee-Core to host ports 80 or 443; those belong to the existing Nginx Proxy Manager.
 
 ## Verify deployment
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=100 bee-core
-curl -fsS http://127.0.0.1/ || curl -fsS http://SERVER_OR_DOMAIN/
+curl -fsS http://127.0.0.1:${BEE_WEB_PORT:-3011}/
 ```
 
 The API health endpoint is available internally at `http://bee-core:3000/health`; do not expose it directly in the production profile.
@@ -96,9 +110,10 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 ## Production checklist
 
-- [ ] Configure HTTPS on a host reverse proxy and redirect HTTP to HTTPS
-- [ ] Firewall only the reverse proxy ports (normally 80/443)
+- [ ] Configure HTTPS on Nginx Proxy Manager and redirect HTTP to HTTPS
+- [ ] Firewall only the reverse proxy ports (normally 80/443) and keep the Bee-Core backend port accessible only to NPM / trusted host traffic
 - [ ] Do not publish MongoDB or API host ports
+- [ ] Keep Bee-Core web on a dedicated unused host port (default 3011), not 80/443
 - [ ] Use a strong generated JWT secret and unique bootstrap credentials
 - [ ] Keep `.env` out of Git and restrict its permissions (`chmod 600 .env`)
 - [ ] Configure encrypted, off-site backups and test restores
