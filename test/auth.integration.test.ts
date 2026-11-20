@@ -241,6 +241,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(updateBetaRole.statusCode,200);
     assert.equal(updateBetaRole.json().membership.role,"manager");
+    const roleChangeAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"member.role_changed",resourceType:"membership",resourceId:"test-user-beta",metadata:{previousRole:"member",newRole:"manager"}});
+    assert.ok(roleChangeAudit,"membership role changes should be tenant-audited");
     const betaOldRoleSession=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken}});
     assert.equal(betaOldRoleSession.statusCode,401);
     const betaReLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
