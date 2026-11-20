@@ -16,7 +16,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   const db = client.db(dbName);
   const passwordHash = await bcrypt.hash("Test-password-12345", 10);
   await db.collection("tenants").insertMany([{id:"tenant-alpha",name:"Alpha",domains:["alpha.example.test"],createdAt:new Date()},{id:"tenant-beta",name:"Beta",domains:["beta.example.test"],createdAt:new Date()},{id:"tenant-legacy",name:"Legacy",createdAt:new Date()}]);
-  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() },{id:"legacy-user",email:"legacy@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-legacy",createdAt:new Date(),updatedAt:new Date()}]);
+  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() },{id:"legacy-user",email:"legacy@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-legacy",createdAt:new Date(),updatedAt:new Date()},{id:"no-tenant-user",email:"no-tenant@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],createdAt:new Date(),updatedAt:new Date()}]);
   await db.collection("template_preferences").createIndex({userId:1},{unique:true,name:"template_preferences_user_unique"});
   await db.collection("template_preferences").insertOne({userId:"legacy-user",public:"editorial",dashboard:"paper",updatedAt:new Date()});
   const app = Fastify();
@@ -129,6 +129,12 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(legacyLogin.statusCode,200);
     const legacyPreferences=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+legacyLogin.json().accessToken}});
     assert.deepEqual(legacyPreferences.json().selection,{public:"editorial",dashboard:"paper"});
+    const noTenantLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"no-tenant@example.com",password:"Test-password-12345",client:"dashboard"}});
+    assert.equal(noTenantLogin.statusCode,200);
+    assert.equal(noTenantLogin.json().tenantId,"default");
+    const migratedCompany=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+noTenantLogin.json().accessToken}});
+    assert.equal(migratedCompany.statusCode,200);
+    assert.equal(migratedCompany.json().company.id,"default");
     const betaLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(betaLogin.statusCode,200);
     const betaTokens=betaLogin.json();
