@@ -46,6 +46,9 @@ type MarketplacePlugin = {
             <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" (click)="install(plugin)" [disabled]="busyId !== ''">
               {{busyId === plugin.id ? 'Installing…' : 'Install'}}
             </button>
+            <button *ngIf="canManage && plugin.installed && !plugin.system && plugin.installedVersion && plugin.installedVersion !== plugin.version" type="button" (click)="update(plugin)" [disabled]="busyId !== ''">
+              {{busyId === plugin.id ? 'Updating…' : 'Update to v' + plugin.version}}
+            </button>
             <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" class="bee-marketplace__remove" (click)="uninstall(plugin)" [disabled]="busyId !== ''">
               {{busyId === plugin.id ? 'Removing…' : 'Uninstall'}}
             </button>
