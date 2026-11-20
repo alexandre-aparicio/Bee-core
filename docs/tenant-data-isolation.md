@@ -36,6 +36,12 @@ The facade:
 
 It intentionally does not expose aggregation, raw collection access, replacement writes, or bulk operations. Add explicit tenant-safe APIs before introducing any of those capabilities. Do not bypass the facade by retaining a second reference to the raw collection.
 
+## Resolving the active company
+
+After verifying the JWT with Fastify's `request.jwtVerify()`, use `resolveTenantContext(db, request.user)` from `src/core/tenant-context.ts`. It validates the token audience, user/client grant, persisted refresh session, active company membership and company status, then returns the server-verified `tenantId`, role and permission keys. Never build a tenant context directly from a client-provided company ID.
+
+`COMPANY_ROLE_PERMISSIONS` is the shared baseline permission matrix. Plugins should check stable permission keys such as `files.read` or `plugins.install`; do not duplicate role-name comparisons throughout business plugins.
+
 ## Required practices for every plugin
 
 1. Resolve the active tenant from the authenticated server-side session and confirm the user's active membership.
