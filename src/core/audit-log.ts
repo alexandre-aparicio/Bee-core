@@ -3,7 +3,7 @@ import { TenantCollection } from "./tenant-collection.js";
 
 export type AuditAction =
   | "auth.login" | "auth.logout"
-  | "member.invited" | "member.role_changed" | "member.removed" | "member.suspended"
+  | "member.invited" | "member.role_changed" | "member.removed" | "member.suspended" | "invitation.cancelled"
   | "role.created" | "role.updated" | "role.deleted"
   | "permission.denied"
   | "plugin.installed" | "plugin.uninstalled";
