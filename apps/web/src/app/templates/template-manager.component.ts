@@ -18,6 +18,27 @@ import type { BeeTemplateTarget } from './template.types';
         <span class="bee-template-manager__status">Preview before applying</span>
       </div>
 
+      <div class="bee-template-manager__mode-controls">
+        @if (target !== 'dashboard') {
+          <div class="bee-template-mode">
+            <span>Website · {{engine.getActive('public').name}}</span>
+            <div role="group" aria-label="Website appearance mode">
+              <button type="button" [class.active]="mode('public') === 'light'" (click)="setMode('public','light')">☀ Light</button>
+              <button type="button" [class.active]="mode('public') === 'dark'" (click)="setMode('public','dark')">☾ Dark</button>
+            </div>
+          </div>
+        }
+        @if (target !== 'public') {
+          <div class="bee-template-mode">
+            <span>Dashboard · {{engine.getActive('dashboard').name}}</span>
+            <div role="group" aria-label="Dashboard appearance mode">
+              <button type="button" [class.active]="mode('dashboard') === 'light'" (click)="setMode('dashboard','light')">☀ Light</button>
+              <button type="button" [class.active]="mode('dashboard') === 'dark'" (click)="setMode('dashboard','dark')">☾ Dark</button>
+            </div>
+          </div>
+        }
+      </div>
+
       <div class="bee-template-manager__fields">
         @if (target !== 'dashboard') {
           <label>Website template
@@ -117,6 +138,9 @@ export class BeeTemplateManagerComponent {
       this.installingId = '';
     }
   }
+
+  mode(target: BeeTemplateTarget): 'light' | 'dark' { return this.engine.getMode(target); }
+  setMode(target: BeeTemplateTarget, mode: 'light' | 'dark'): void { this.engine.setMode(target, mode); }
 
   discardPreview(): void { this.engine.cancelPreview(); }
   publishPreview(): void { this.engine.commitPreview(); }
