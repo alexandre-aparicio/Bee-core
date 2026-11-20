@@ -226,6 +226,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   );
   const installed = await installations.find({ status: { $in: ["installed", "updating", "uninstalling"] } }).toArray();
   const installedIds = new Set(installed.map(item => item.pluginId));
+  const installedVersions = new Map(installed.map(item => [item.pluginId, item.version]));
 
   const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...purchasedIds])];
   const catalog = await db.collection<PluginPackageDefinition>("plugin_catalog")
@@ -244,7 +245,8 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
       system: plugin.system,
       entitled: effectivePlan.includedPluginIds.includes(plugin.id) || purchasedIds.has(plugin.id),
       accessSource: effectivePlan.includedPluginIds.includes(plugin.id) ? "plan" : purchasedIds.has(plugin.id) ? "purchase" : null,
-      installed: installedIds.has(plugin.id)
+      installed: installedIds.has(plugin.id),
+      installedVersion: installedVersions.get(plugin.id) ?? null
     }));
 }
 
