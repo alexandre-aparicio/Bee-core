@@ -50,8 +50,8 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T bee-core node -e "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
       - name: Check data volumes
         run: |
-          docker volume inspect bee_core_mongodb_data
-          docker volume inspect bee_core_files
+          docker volume ls --filter label=com.docker.compose.volume=bee_core_mongodb_data
+          docker volume ls --filter label=com.docker.compose.volume=bee_core_files
       - name: Collect diagnostics on failure
         if: failure()
         run: docker compose -f docker-compose.yml -f docker-compose.prod.yml ps && docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color
