@@ -1,13 +1,13 @@
-# Bee-Core MVP progress
+ # Bee-Core MVP progress
 
-Updated: 2026-11-20 — `main` includes PR #23 (`67986b5`) and PR #27 (`4ad792c`). PR #27 pre-merge backend/full-stack and Angular browser checks passed; post-merge backend/full-stack and production Compose passed, while the post-merge Angular browser job is still running after its production build.
+Updated: 2026-11-20 — `main` is at `4dce576d8bcbe0a8676b6dd613647fa9486c910a`, including PRs #29, #30 and #31. Post-merge Bee-Core CI (`44774847013`) and production Compose (`44774847047`) passed on this exact main commit.
 
 ## How progress is measured
 
 The percentages below measure distinct product capabilities, not the number of passing workflows or PRs. Each capability is counted once. Re-running backend, Angular or Docker regression suites protects existing work but does not increase implementation progress.
 
-- **MVP capability implementation: 86.5% (87% rounded).** Weighted assessment of the actual code and documented acceptance scope. The previous 78% estimate was too conservative: it treated marketplace purchase/install foundations and template capabilities as broadly pending even though their basic APIs, persistence and dashboard surfaces are already implemented. It also did not publish a repeatable scoring breakdown.
-- **Release readiness: 68%.** This is deliberately lower because production hardening, full tenant-route review, backup/restore, TLS/monitoring and some release gates remain incomplete.
+- **MVP capability implementation: 88.75% (89% rounded).** Weighted assessment of the actual code and documented acceptance scope. The previous 78% estimate was too conservative: it treated marketplace purchase/install foundations and template capabilities as broadly pending even though their basic APIs, persistence and dashboard surfaces are already implemented. It also did not publish a repeatable scoring breakdown.
+- **Release readiness: 70% (provisional).** This is deliberately lower because production hardening, full tenant-route review, backup/restore, TLS/monitoring and some release gates remain incomplete.
 
 ## Capability breakdown (current `main`)
 
@@ -20,11 +20,11 @@ The percentages below measure distinct product capabilities, not the number of p
 | Angular public/dashboard/auth UI | 10% | 90% | Responsive shells, auth, company selector, members, marketplace and browser smoke tests; broader product workflows and UX polish remain. |
 | Template engine | 10% | 90% | Separate public/dashboard layouts, tenant tokens, installation/selection and SSE updates; arbitrary remote structural Angular bundles are intentionally not supported yet. |
 | Marketplace and entitlements | 10% | 85% | Catalog, Starter/Pro/Enterprise plans, trial, purchases, subscription updates, entitlement checks and dashboard install controls; checkout/provider integration and billing UX remain. |
-| Plugin lifecycle and package ecosystem | 15% | 75% | Trusted packages, manifests, dependencies, migrations, durable company-scoped install/uninstall jobs, deduplication, worker leases/recovery, bounded retries, tenant-scoped job status, Angular progress, dependency guards and data-preserving uninstall; update/rollback, immutable signed archives, dependency ordering and dynamic frontend registration remain. |
-| Tenant isolation and security | 5% | 70% | Tenant context, scoped collection helper, IDOR regression coverage and auth audit; not every route, event and background task has been audited. |
+| Plugin lifecycle and package ecosystem | 15% | 86% | Trusted packages, manifests, durable install/update/uninstall jobs, lease recovery, retries, tenant-scoped status, Angular progress, migration-aware updates and deterministic transitive dependency ordering; full rollback guarantees, immutable signed archives, distributed scheduling and dynamic frontend registration remain. |
+| Tenant isolation and security | 5% | 72% | Tenant context, scoped collection helper, IDOR regression coverage, auth audit and protection against MongoDB update operators mutating tenantId; complete route, file/media, webhook and background-task audit remains. |
 | Production operations and release packaging | 5% | 75% | Production Compose build/start/health, host-port isolation and Mongo/session persistence test; TLS, backup/restore drills, monitoring and release runbook hardening remain. |
 
-The weighted capability score is **86.5%** (87% rounded; 86.5% before rounding). The broader SaaS plugin-platform roadmap is approximately **67%** because durable third-party package distribution, billing-provider integration, plugin upgrade/rollback and universal tenant-isolation review extend beyond the Docker-installable MVP. It is an engineering estimate, not test coverage or a claim that all production requirements are complete.
+The weighted capability score is **88.75%** (89% rounded; 88.75% before rounding). The broader SaaS plugin-platform roadmap is approximately **67%** because durable third-party package distribution, billing-provider integration, plugin upgrade/rollback and universal tenant-isolation review extend beyond the Docker-installable MVP. It is an engineering estimate, not test coverage or a claim that all production requirements are complete.
 
 ## Verified on `main`
 
@@ -59,11 +59,11 @@ PR #20 selectively ported the unique audit functionality onto current `main`, ra
 
 ## Active next work
 
-1. Implement durable plugin update jobs, safe migration rollback and dependency ordering; plugin updates remain pending.
+1. Complete plugin update rollback guarantees and failure-injection coverage; durable updates and dependency ordering are now implemented.
 2. Complete tenant-isolation review across protected routes, file/media paths, webhooks and background tasks; PR #22 closes the private template SSE revocation gap but not the full audit.
 3. Implement immutable signed package archives, signature/digest verification and manifest-driven dynamic frontend registration.
 4. Add payment-provider integration, checkout/subscription management and billing reconciliation.
-5. Complete TLS, backup/restore drills, monitoring, production runbook and final clean-install release gate.
+5. Complete TLS, verified MongoDB backup/restore, monitoring, production runbook and final clean-install release gate.
 6. Build and validate the `hello-world` reference plugin against the final manifest and tenant lifecycle contract.
 7. Tag `0.1.0` only after all release gates pass.
 
@@ -74,4 +74,14 @@ PR #20 selectively ported the unique audit functionality onto current `main`, ra
 - PR #18: https://github.com/alexandre-aparicio/Bee-core/pull/18
 - PR #19: https://github.com/alexandre-aparicio/Bee-core/pull/19
 - PR #20: https://github.com/alexandre-aparicio/Bee-core/pull/20
+- PR #29: https://github.com/alexandre-aparicio/Bee-core/pull/29
+- PR #30: https://github.com/alexandre-aparicio/Bee-core/pull/30
+- PR #31: https://github.com/alexandre-aparicio/Bee-core/pull/31
+- PR #32: https://github.com/alexandre-aparicio/Bee-core/pull/32
 - Actions: https://github.com/alexandre-aparicio/Bee-core/actions
+
+
+- PR #29 — prevents tenant ownership mutation through MongoDB update operators, including operator-based and nested-path changes.
+- PR #30 — durable tenant-scoped plugin update jobs, entitlement/permission rechecks, migration-aware updates, crash recovery around version switching, audit events and Angular update progress. Backend/full-stack and Angular checks passed before merge.
+- PR #31 — deterministic transitive dependency-first ordering, rejection of missing dependencies and cycles, dependency entitlement/installation checks on install/update, and end-to-end marketplace update coverage. Pre-merge CI run `44774469128` passed; post-merge CI `44774847013` and production Compose `44774847047` passed on main SHA `4dce576`.
+
