@@ -1,4 +1,8 @@
+import type { BeeEventBus } from "./event-bus.js";
+import type { FastifyInstance } from "fastify";
+
 export type BeePluginStatus = "registered" | "initialized" | "started" | "stopped" | "failed";
+export type BeeAuthClient = "backend" | "dashboard" | "public";
 
 export interface BeeLogger {
   info(message: string, context?: unknown): void;
@@ -12,6 +16,7 @@ export interface BeeContext {
   readonly events: BeeEventBus;
   readonly logger: BeeLogger;
   readonly config: Readonly<Record<string, unknown>>;
+  readonly server: FastifyInstance;
 }
 
 export interface BeePlugin {
@@ -31,5 +36,3 @@ export interface BeePluginManifest {
 export interface BeePluginInfo extends BeePluginManifest {
   status: BeePluginStatus;
 }
-
-import type { BeeEventBus } from "./event-bus.js";
