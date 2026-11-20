@@ -107,7 +107,10 @@ const plansById = new Map(BUILT_IN_PLANS.map(item => [item.id, item]));
 export async function seedPluginCommerce(db: Db): Promise<void> {
   const plans = db.collection<PluginPlan>("plugin_plans");
   const catalog = db.collection<PluginPackageDefinition>("plugin_catalog");
+  const versions = db.collection<Document & { pluginId: string; version: string; status: string }>("plugin_versions");
   await Promise.all([
+    catalog.createIndex({ id: 1 }, { unique: true, name: "plugin_catalog_id_unique" }),
+    versions.createIndex({ pluginId: 1, version: 1 }, { unique: true, name: "plugin_versions_id_version_unique" }),
     db.collection("tenant_subscriptions").createIndex({ tenantId: 1 }, { unique: true, name: "tenant_subscription_unique" }),
     db.collection("tenant_plugin_installations").createIndex({ tenantId: 1, pluginId: 1 }, { unique: true, name: "tenant_plugin_installation_unique" }),
     db.collection("plugin_purchases").createIndex({ tenantId: 1, providerReference: 1 }, { unique: true, name: "tenant_plugin_purchase_reference_unique" })
@@ -117,7 +120,17 @@ export async function seedPluginCommerce(db: Db): Promise<void> {
   }
   for (const plugin of TRUSTED_PLUGIN_PACKAGES) {
     const { installTenant: _installTenant, uninstallTenant: _uninstallTenant, ...metadata } = plugin;
-    await catalog.updateOne({ id: plugin.id }, { $setOnInsert: metadata }, { upsert: true });
+    const now = new Date();
+    await catalog.updateOne(
+      { id: plugin.id },
+      { $set: metadata, $setOnInsert: { createdAt: now } },
+      { upsert: true }
+    );
+    await versions.updateOne(
+      { pluginId: plugin.id, version: plugin.version },
+      { $setOnInsert: { pluginId: plugin.id, version: plugin.version, status: "published", compatibility: { minRuntimeVersion: "0.3.0" }, dependencies: plugin.dependencies, publishedAt: now } },
+      { upsert: true }
+    );
   }
 }
 
