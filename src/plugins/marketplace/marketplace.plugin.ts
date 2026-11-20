@@ -1,9 +1,10 @@
 import type { BeePlugin } from "../../core/types.js";
-import { MongoClient } from "mongodb";
+import { MongoClient, type Collection } from "mongodb";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
@@ -27,6 +28,9 @@ export const marketplacePlugin: BeePlugin = {
     mongoClient = new MongoClient(String(ctx.config.mongoUri ?? ""), { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
     await mongoClient.connect();
     const db = mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
+    await ensureTenantAuditIndexes(auditEvents);
+    const auditMarketplaceEvent=async(event:Omit<TenantAuditEvent,"id"|"occurredAt">)=>{try{await appendTenantAuditEvent(auditEvents,{...event,id:randomUUID(),occurredAt:new Date()});}catch(error){ctx.logger.error("Marketplace audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
     await seedPluginCommerce(db);
     // Recover interrupted synchronous installs after a process restart; never leave the tenant stuck in installing.
     await db.collection("tenant_plugin_installations").updateMany({status:"installing"},{$set:{status:"failed",error:"Installation interrupted by platform restart; retry installation",updatedAt:new Date()}});
@@ -120,6 +124,7 @@ export const marketplacePlugin: BeePlugin = {
           return null;
         }
         if (!hasTenantPermission(tenant, "plugins.read")) {
+          await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission:"plugins.read"}});
           reply.code(403).send({ error: "Plugin catalog permission required" });
           return null;
         }
@@ -189,7 +194,10 @@ export const marketplacePlugin: BeePlugin = {
     ctx.server.post<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId/install", async (request: any, reply: any) => {
       const tenant = await authenticate(request, reply);
       if (!tenant) return;
-      if (!hasTenantPermission(tenant, "plugins.install")) return reply.code(403).send({ error: "Plugin installation permission required" });
+      if (!hasTenantPermission(tenant, "plugins.install")) {
+        await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",resourceId:request.params.pluginId,metadata:{permission:"plugins.install"}});
+        return reply.code(403).send({ error: "Plugin installation permission required" });
+      }
       const pluginId = String(request.params.pluginId ?? "");
       const catalog = await getTenantPluginCatalog(db, tenant.tenantId);
       const plugin = catalog.find(item => item.id === pluginId);
@@ -221,6 +229,7 @@ export const marketplacePlugin: BeePlugin = {
         await runTenantPluginMigrations(db, tenant.tenantId, pluginId, trusted.migrations ?? []);
         await trusted.installTenant?.(db, tenant.tenantId);
         await installations.updateOne({ tenantId: tenant.tenantId, pluginId }, { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } });
+        await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"plugin.installed",outcome:"success",resourceType:"plugin",resourceId:pluginId,metadata:{version:trusted.version}});
         return reply.code(201).send({ pluginId, status: "installed", version: trusted.version });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Plugin installation failed";
@@ -253,6 +262,7 @@ export const marketplacePlugin: BeePlugin = {
         { tenantId: tenant.tenantId, pluginId },
         { $set: { status: "uninstalled", updatedAt: new Date() } }
       );
+      await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"plugin.uninstalled",outcome:"success",resourceType:"plugin",resourceId:pluginId});
       return { pluginId, status: "uninstalled", dataPreserved: true };
     });
 
