@@ -39,6 +39,7 @@ The weighted capability score is **85%**. The broader SaaS plugin-platform roadm
 - PR #18 — tenant-scoped successful login/logout audit events.
 - PR #19 — production Compose CI, port isolation, stack health and refresh-session persistence across MongoDB/API restarts.
 - PR #20 — tenant-scoped audit events for invitations, custom roles, membership changes/suspension, plugin lifecycle and permission denials.
+- PR #22 — private template SSE session and active-membership revalidation; post-merge backend/full-stack CI run `44765696476` and production Compose run `44765696509` passed on `15faa3b`.
 
 PR #20 passed backend typecheck/build/MongoDB auth tests and Docker Compose full-stack integration. The dedicated Angular workflow was correctly skipped because no Angular files changed; Angular was built and exercised within the full-stack workflow. Post-merge checks passed on `1c96e8100d2145f518a0232d300122c866551c1b`: backend and full-stack CI run `44764328710`, plus production Compose run `44764328866`.
 
@@ -56,13 +57,13 @@ PR #20 selectively ported the unique audit functionality onto current `main`, ra
 
 ## Active next work
 
-1. Merge and validate PR #20: audit invitation lifecycle, role CRUD/changes, member suspension, plugin install/uninstall and permission denials.
-2. Close superseded PRs #6, #9, #12, #13 and #14 after PR #20 is integrated; retain their branches for history.
-3. Complete tenant-isolation review across every protected route, file/media path, SSE channel and asynchronous entrypoint.
-4. Implement durable plugin install/update jobs, immutable signed package storage, version upgrade/rollback and manifest-driven frontend registration.
-5. Add payment-provider integration, checkout/subscription management and billing reconciliation.
-6. Complete TLS, backups/restore drills, monitoring, production runbook and final clean-install release gate.
-7. Tag `0.1.0` only after the release gates pass.
+1. Finish PR #23: validate durable installation jobs, tenant-scoped job status, retry/backoff, lease recovery and Angular progress; merge only when all required workflows pass on the exact head.
+2. Complete tenant-isolation review across protected routes, file/media paths, webhooks and background tasks; PR #22 closes the private template SSE revocation gap but not the full audit.
+3. Complete durable update/uninstall jobs, dependency ordering, migration rollback and immutable signed package storage.
+4. Add payment-provider integration, checkout/subscription management and billing reconciliation.
+5. Complete TLS, backup/restore drills, monitoring, production runbook and final clean-install release gate.
+6. Build and validate the `hello-world` reference plugin against the final manifest and tenant lifecycle contract.
+7. Tag `0.1.0` only after all release gates pass.
 
 ## Links
 
