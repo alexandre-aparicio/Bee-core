@@ -65,7 +65,8 @@ test('public tenant template and design tokens hot-load from the request domain'
     body: JSON.stringify({
       tenantId: 'tenant-demo',
       selection: { public: 'editorial', dashboard: 'paper' },
-      tokens: { '--bg': '#112233', '--purple': '#abcdef' }
+      tokens: { '--bg': '#112233', '--purple': '#abcdef' },
+      customized: true
     })
   }));
   await page.goto('/');
