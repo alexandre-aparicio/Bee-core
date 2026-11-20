@@ -7,7 +7,8 @@ Bee-Core keeps the trusted plugin catalogue centrally and seeds its metadata int
 - `plugin_plans`: Starter, Pro and Enterprise plan definitions;
 - `tenant_subscriptions`: one current subscription per company;
 - `plugin_purchases`: individual company add-on purchases;
-- `tenant_plugin_installations`: installation state per company and plugin.
+- `tenant_plugin_installations`: installation state per company and plugin;
+- `plugin_install_jobs`: durable, tenant-scoped installation jobs with active-job deduplication, attempts, worker lease, status, result and error metadata.
 
 Each company receives its own filtered catalogue. Starter includes Private Files and can see Team Notes as a purchasable add-on, but cannot install or use Notes until an active purchase or an eligible plan is recorded. Pro and Enterprise include both Files and Notes. Other packages can be hidden from Starter entirely by leaving them out of its `visiblePluginIds`.
 
@@ -19,11 +20,12 @@ Companies without a subscription record receive a 14-day Starter trial on first 
 - `GET /marketplace/plugins/:pluginId`: details only when visible to that company.
 - `GET /marketplace/plugins/:pluginId/versions`: trusted package version metadata when entitled.
 - `GET /marketplace/entitlements`: current plan and effective plugin entitlements.
-- `POST /marketplace/plugins/:pluginId/install`: checks company permission, visibility, entitlement, trusted package and dependencies before installing.
+- `POST /marketplace/plugins/:pluginId/install`: checks company permission, visibility, entitlement, trusted package and dependencies, then enqueues a durable install job and returns HTTP `202` with `jobId` and `statusUrl`.
+- `GET /marketplace/install-jobs/:jobId`: returns status only when the job belongs to the active company.
 - `DELETE /marketplace/plugins/:pluginId/install`: checks management permission, prevents removal of system packages, runs the uninstall hook and preserves tenant data.
 - `GET /billing/subscription`: current subscription and effective plan.
 
-Installation state is company-scoped. The first implementation is synchronous and activates trusted code already compiled into the Bee-Core runtime. It does not download or execute arbitrary package code.
+Installation state and jobs are company-scoped. The worker activates only trusted code already compiled into the Bee-Core runtime; it does not download or execute arbitrary package code. The MongoDB job record survives API restarts, concurrent requests for the same company/plugin share one active job, worker claims use expiring leases, and failed jobs retry up to three attempts with backoff. The Angular marketplace waits for the job result and displays progress. Uninstall is still synchronous.
 
 ## Billing integration
 
@@ -50,7 +52,7 @@ The `notes` plugin demonstrates the intended pattern:
 - The business-plugin manifest validator defines a signed package contract, but signature/digest verification is not yet wired into package installation.
 - Plan definitions and trusted package definitions are code-managed; a platform administration UI/API is pending.
 - Purchase and subscription webhook events are implemented, but no payment provider or checkout integration is connected.
-- The installer is synchronous. Durable jobs, migration checkpoints, version upgrades, rollback, crash recovery and full dependency graph resolution remain pending.
+- Install jobs are durable and recover expired worker leases; uninstall remains synchronous. Version upgrades, rollback, immutable package archive verification and full dependency graph resolution remain pending.
 - Plan user and storage quotas are enforced for new operations: invitations/direct membership additions reserve the company user allowance, and file uploads reserve storage atomically per company. A downgrade does not automatically suspend existing members or delete files; it blocks new additions/uploads that exceed the new allowance.
 - A company-facing dashboard catalogue with install/uninstall controls is implemented and hides management actions from non-admin roles. Checkout, subscription management and payment-provider UI remain pending.
 - Notes now includes a dashboard component mounted by a generic Angular plugin outlet from the active company installation state. The registry currently contains statically bundled trusted components; loading component code/routes from signed package archives remains pending.
