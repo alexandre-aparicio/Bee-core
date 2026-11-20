@@ -160,3 +160,42 @@ test('dashboard company selector switches the active tenant session', async ({ p
   await expect.poll(() => companyListRequests).toBeGreaterThan(1);
   await expect(page.getByLabel('Active company')).toHaveValue('company-b');
 });
+
+
+test('dashboard marketplace shows company packages and installs an entitled plugin', async ({ page }) => {
+  let notesInstalled = false;
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
+      accessToken: 'marketplace-token',
+      tenantId: 'company-pro',
+      user: { id: 'owner-1', email: 'owner@example.test', roles: ['admin'], tenantId: 'company-pro' }
+    }));
+  });
+  await page.route('**/api/companies', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: 'company-pro', name: 'Company Pro', role: 'owner', active: true }] })
+  }));
+  await page.route('**/api/marketplace/plugins', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ tenantId: 'company-pro', plugins: [
+      { id: 'files', name: 'Private Files', version: '0.1.0', description: 'Private company file and image storage', category: 'platform', system: true, entitled: true, accessSource: 'plan', installed: true },
+      { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: true, accessSource: 'plan', installed: notesInstalled }
+    ] })
+  }));
+  await page.route('**/api/marketplace/plugins/notes/install', route => {
+    if (route.request().method() === 'POST') {
+      notesInstalled = true;
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ pluginId: 'notes', status: 'installed', version: '0.1.0' }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pluginId: 'notes', status: 'uninstalled', dataPreserved: true }) });
+  });
+  await page.goto('/dashboard');
+  await expect(page.getByRole('heading', { name: 'Company plugin marketplace' })).toBeVisible();
+  await expect(page.getByText('Private Files')).toBeVisible();
+  await expect(page.getByText('Team Notes')).toBeVisible();
+  await page.getByRole('button', { name: 'Install' }).click();
+  await expect(page.getByText('Notes installed for this company.')).toBeVisible();
+  await expect(page.getByText('Installed', { exact: true })).toBeVisible();
+});
