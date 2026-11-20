@@ -26,7 +26,8 @@ export const organizationsPlugin:BeePlugin={
    memberships.createIndex({tenantId:1,status:1},{name:"memberships_company_status"}),
    memberships.createIndex({userId:1,status:1},{name:"memberships_user_status"}),
    invitations.createIndex({tokenHash:1},{unique:true,name:"company_invitation_token_unique"}),
-   invitations.createIndex({tenantId:1,email:1,acceptedAt:1,cancelledAt:1},{name:"company_invitations_tenant_email"})
+   invitations.createIndex({tenantId:1,email:1,acceptedAt:1,cancelledAt:1},{name:"company_invitations_tenant_email"}),
+   invitations.createIndex({tenantId:1,email:1},{unique:true,partialFilterExpression:{acceptedAt:null,cancelledAt:null},name:"company_invitation_one_pending_per_email"})
   ]);
   // Backfill the current single-tenant model into explicit memberships.
   for await(const user of users.find({tenantId:{$exists:true,$ne:""}}).sort({createdAt:1,id:1})){
@@ -74,6 +75,8 @@ export const organizationsPlugin:BeePlugin={
    if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can invite administrators"});
    const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
    if(existingMembership)return reply.code(409).send({error:"User is already a company member"});
+   const invitationNow=new Date();
+   await invitations.updateMany({tenantId:req.params.companyId,email,acceptedAt:null,cancelledAt:null,expiresAt:{$lte:invitationNow}},{$set:{cancelledAt:invitationNow}});
    const pending=await invitations.findOne({tenantId:req.params.companyId,email,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()}});
    if(pending)return reply.code(409).send({error:"An active invitation already exists for this email"});
    const token=randomBytes(32).toString("base64url"),now=new Date(),invitation:Invitation={id:randomUUID(),tenantId:req.params.companyId,email,role,tokenHash:createHash("sha256").update(token).digest("hex"),createdBy:auth.user!.id,createdAt:now,expiresAt:new Date(now.getTime()+7*24*60*60*1000),acceptedAt:null,cancelledAt:null};
