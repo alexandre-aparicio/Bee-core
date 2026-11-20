@@ -29,7 +29,7 @@ import type { BeeTemplateTarget } from './template.types';
       @if (engine.hasPendingPreview) {
         <div class="bee-template-manager__preview-actions">
           <span>Preview only · changes are not published yet</span>
-          <div><button type="button" (click)="engine.cancelPreview()">Discard preview</button><button type="button" (click)="engine.commitPreview()">Apply template changes</button></div>
+          <div><button type="button" (click)="discardPreview()">Discard preview</button><button type="button" (click)="publishPreview()">Apply template changes</button></div>
         </div>
       }
       @if (engine.canManageTemplates) {
@@ -112,6 +112,16 @@ export class BeeTemplateManagerComponent {
     try { this.packageMessage = await this.engine.uninstallTemplate(id) ? 'Package removed from this tenant.' : 'Package could not be removed.'; }
     catch { this.packageMessage = 'Package could not be removed.'; }
     finally { this.installingId = ''; }
+  }
+
+  discardPreview(): void {
+    this.engine.cancelPreview();
+    this.draftTokens = {};
+  }
+
+  publishPreview(): void {
+    this.engine.commitPreview();
+    this.draftTokens = {};
   }
 
   selectTemplate(target: BeeTemplateTarget, id: string): void {
