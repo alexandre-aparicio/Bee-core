@@ -8,6 +8,7 @@ export const MIDNIGHT_MANIFEST: BeeTemplateManifest = {
   "description": "Dark workspace with high-contrast panels.",
   "builtIn": true,
   "layout": "dashboard.midnight",
+  "componentId": "BeeMidnightLayoutComponent",
   "slots": [
     "sidebar",
     "topbar",
