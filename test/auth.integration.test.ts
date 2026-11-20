@@ -88,6 +88,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
       assert.equal(chunk.done, false, "SSE stream closed before initial snapshot");
       initialText += new TextDecoder().decode(chunk.value);
     }
+    assert.match(initialText,/"installedTemplates"/);
     const liveThemeUpdate = await app.inject({method:"PUT",url:"/templates/theme",headers:{authorization:"Bearer "+tokens.accessToken},payload:{tokens:{"--bg":"#334455"}}});
     assert.equal(liveThemeUpdate.statusCode,200);
     let pushedText = "";
