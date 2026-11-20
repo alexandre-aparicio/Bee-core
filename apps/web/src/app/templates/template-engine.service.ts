@@ -34,6 +34,8 @@ export class BeeTemplateEngine {
     return [...this.registry.values()].filter(item => !target || item.target === target);
   }
 
+  get hasAuthenticatedSession(): boolean { return this.authToken() !== null; }
+
   getSelection(): BeeTemplateSelection {
     return { ...this.selection };
   }
