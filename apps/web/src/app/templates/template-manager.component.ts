@@ -16,16 +16,22 @@ import type { BeeTemplateTarget } from './template.types';
       </div>
       <div class="bee-template-manager__fields">
         <label>Public website
-          <select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates" [ngModel]="engine.getSelection().public" (ngModelChange)="activate('public', $event)">
+          <select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates" [ngModel]="engine.getSelection().public" (ngModelChange)="selectTemplate('public', $event)">
             <option *ngFor="let item of engine.list('public')" [value]="item.id">{{ item.name }}</option>
           </select>
         </label>
         <label>Dashboard
-          <select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates" [ngModel]="engine.getSelection().dashboard" (ngModelChange)="activate('dashboard', $event)">
+          <select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates" [ngModel]="engine.getSelection().dashboard" (ngModelChange)="selectTemplate('dashboard', $event)">
             <option *ngFor="let item of engine.list('dashboard')" [value]="item.id">{{ item.name }}</option>
           </select>
         </label>
       </div>
+      @if (engine.hasPendingPreview) {
+        <div class="bee-template-manager__preview-actions">
+          <span>Preview only · changes are not published yet</span>
+          <div><button type="button" (click)="engine.cancelPreview()">Discard preview</button><button type="button" (click)="engine.commitPreview()">Apply template changes</button></div>
+        </div>
+      }
       @if (engine.canManageTemplates) {
         <div class="bee-template-manager__theme">
           <strong>Live theme tokens</strong>
@@ -108,7 +114,8 @@ export class BeeTemplateManagerComponent {
     finally { this.installingId = ''; }
   }
 
-  activate(target: BeeTemplateTarget, id: string): void {
-    this.engine.activate(target, id);
+  selectTemplate(target: BeeTemplateTarget, id: string): void {
+    if (this.engine.canManageTemplates) this.engine.preview(target, id);
+    else this.engine.activate(target, id);
   }
 }
