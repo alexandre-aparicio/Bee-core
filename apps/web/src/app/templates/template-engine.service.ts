@@ -102,6 +102,7 @@ export class BeeTemplateEngine {
     this.previewThemePackage = null;
     this.selection = { ...snapshot.selection };
     this.themeTokens = { ...snapshot.tokens };
+    this.persist();
     if (typeof document !== 'undefined') {
       for (const [key, value] of Object.entries(snapshot.tokens)) document.documentElement.style.setProperty(key, value);
       if (snapshot.customized) document.body.dataset['beeCustomTheme'] = 'true';
@@ -177,7 +178,7 @@ export class BeeTemplateEngine {
     for (const target of ['public', 'dashboard'] as const) {
       if (!this.installedTemplateIds.has(this.selection[target])) this.selection[target] = target === 'public' ? 'aurora' : 'midnight';
     }
-    this.persist();
+    if (!this.previewSnapshot) this.persist();
     this.apply();
   }
 
