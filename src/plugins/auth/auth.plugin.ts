@@ -32,7 +32,7 @@ export const authPlugin:BeePlugin={
   const templateSubscribers=new Map<string,Set<import("node:http").ServerResponse>>();
   const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.destroyed){clients.delete(client);continue;}client.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
-  const tenants=db.collection<{id:string;name:string;createdAt:Date}>("tenants");
+  const tenants=db.collection<{id:string;name:string;domains?:string[];createdAt:Date}>("tenants");
   await Promise.all([
    users.createIndex({email:1},{unique:true,name:"users_email_unique"}),
    users.createIndex({id:1},{unique:true,name:"users_id_unique"}),
@@ -40,6 +40,7 @@ export const authPlugin:BeePlugin={
    sessions.createIndex({userId:1},{name:"refresh_sessions_user"}),
    sessions.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"refresh_sessions_ttl"}),
    tenants.createIndex({id:1},{unique:true,name:"tenants_id_unique"}),
+   tenants.createIndex({domains:1},{unique:true,sparse:true,name:"tenants_domains_unique"}),
    templatePreferences.createIndex({tenantId:1},{unique:true,name:"template_preferences_tenant_unique"})
   ]);
   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
@@ -89,6 +90,24 @@ export const authPlugin:BeePlugin={
     return tenantId;
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
+  ctx.server.get("/templates/public",async(req)=>{
+   const host=String(req.hostname??"").toLowerCase().replace(/:\\d+$/,"");
+   const tenant=await tenants.findOne({domains:host});
+   const tenantId=tenant?.id??defaultTenantId;
+   const saved=await templatePreferences.findOne({tenantId});
+   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})}};
+  });
+  ctx.server.put<{Body:{domains?:string[]}}>("/tenants/domains",async(req,reply)=>{
+   const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const claims=req.user as {roles?:Role[]};
+   if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
+   const domains=req.body?.domains;
+   if(!Array.isArray(domains)||domains.some(domain=>typeof domain!=="string"||!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/i.test(domain.trim())))return reply.code(400).send({error:"Provide valid domain names"});
+   const normalized=[...new Set(domains.map(domain=>domain.trim().toLowerCase()))];
+   try{await tenants.updateOne({id:tenantId},{$set:{domains:normalized}},{upsert:true});}
+   catch(error){return reply.code(409).send({error:"A domain is already assigned to another tenant"});}
+   return {tenantId,domains:normalized};
+  });
   ctx.server.get("/templates/preferences",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
    const saved=await templatePreferences.findOne({tenantId});
