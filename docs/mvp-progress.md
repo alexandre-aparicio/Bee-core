@@ -6,7 +6,7 @@ Updated: 2026-11-20 — `main` is at `4dce576d8bcbe0a8676b6dd613647fa9486c910a`,
 
 The percentages below measure distinct product capabilities, not the number of passing workflows or PRs. Each capability is counted once. Re-running backend, Angular or Docker regression suites protects existing work but does not increase implementation progress.
 
-- **MVP capability implementation: 88.75% (89% rounded).** Weighted assessment of the actual code and documented acceptance scope. The previous 78% estimate was too conservative: it treated marketplace purchase/install foundations and template capabilities as broadly pending even though their basic APIs, persistence and dashboard surfaces are already implemented. It also did not publish a repeatable scoring breakdown.
+- **MVP capability implementation: 88.25% (88% rounded).** Weighted assessment of the actual code and documented acceptance scope. The previous 78% estimate was too conservative: it treated marketplace purchase/install foundations and template capabilities as broadly pending even though their basic APIs, persistence and dashboard surfaces are already implemented. It also did not publish a repeatable scoring breakdown.
 - **Release readiness: 70% (provisional).** This is deliberately lower because production hardening, full tenant-route review, backup/restore, TLS/monitoring and some release gates remain incomplete.
 
 ## Capability breakdown (current `main`)
@@ -24,7 +24,7 @@ The percentages below measure distinct product capabilities, not the number of p
 | Tenant isolation and security | 5% | 72% | Tenant context, scoped collection helper, IDOR regression coverage, auth audit and protection against MongoDB update operators mutating tenantId; complete route, file/media, webhook and background-task audit remains. |
 | Production operations and release packaging | 5% | 75% | Production Compose build/start/health, host-port isolation and Mongo/session persistence test; TLS, backup/restore drills, monitoring and release runbook hardening remain. |
 
-The weighted capability score is **88.75%** (89% rounded; 88.75% before rounding). The broader SaaS plugin-platform roadmap is approximately **67%** because durable third-party package distribution, billing-provider integration, plugin upgrade/rollback and universal tenant-isolation review extend beyond the Docker-installable MVP. It is an engineering estimate, not test coverage or a claim that all production requirements are complete.
+The weighted capability score is **88.25%** (88% rounded; 88.25% before rounding). The broader SaaS plugin-platform roadmap is approximately **67%** because durable third-party package distribution, billing-provider integration, plugin upgrade/rollback and universal tenant-isolation review extend beyond the Docker-installable MVP. It is an engineering estimate, not test coverage or a claim that all production requirements are complete.
 
 ## Verified on `main`
 
