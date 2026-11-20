@@ -258,6 +258,25 @@ export const organizationsPlugin:BeePlugin={
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
    return {success:true,status:"suspended"};
   });
+  ctx.server.get<{Params:{companyId:string};Querystring:{page?:string;limit?:string;action?:string}}>("/companies/:companyId/audit-events",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const companyId=req.params.companyId;
+   const actor=await requireCompanyPermission(auth,companyId,"members.read",reply);if(!actor)return;
+   if(actor.role!=="owner"&&actor.role!=="admin"){
+    await auditOrganizationEvent({tenantId:companyId,actorId:auth.user!.id,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission:"audit.read"}});
+    return reply.code(403).send({error:"Only company owners and administrators can read audit events"});
+   }
+   const page=Number(req.query.page??1),limit=Number(req.query.limit??25),action=String(req.query.action??"").trim();
+   if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(limit)||limit<1||limit>100)return reply.code(400).send({error:"Page must be positive and limit must be between 1 and 100"});
+   const allowedActions=["auth.login","auth.logout","member.invited","member.role_changed","member.removed","member.suspended","invitation.cancelled","role.created","role.updated","role.deleted","permission.denied","plugin.installed","plugin.updated","plugin.uninstalled"];
+   if(action&&!allowedActions.includes(action))return reply.code(400).send({error:"Unsupported audit action filter"});
+   const filter:import("mongodb").Filter<TenantAuditEvent>={tenantId:companyId};
+   if(action)filter.action=action as TenantAuditEvent["action"];
+   const rows=await auditEvents.find(filter,{projection:{_id:0,tenantId:0}}).sort({occurredAt:-1,id:-1}).skip((page-1)*limit).limit(limit+1).toArray();
+   const hasMore=rows.length>limit;
+   const events=rows.slice(0,limit).map(({id,actorId,action:recordAction,outcome,resourceType,resourceId,metadata,occurredAt})=>({id,actorId,action:recordAction,outcome,resourceType,resourceId,metadata,occurredAt}));
+   return {events,page,limit,hasMore};
+  });
   ctx.server.get("/companies",async(req,reply)=>{
    const auth=await authenticate(req,reply,{allowSuspendedCompany:true});if(!auth)return;
    const rows=await memberships.find({userId:auth.user!.id,status:"active"}).toArray();
