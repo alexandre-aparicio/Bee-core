@@ -1,28 +1,32 @@
-# Bee-Core UI foundation
+# Bee-Core Angular UI
 
-Responsive first release of the public site, private dashboard shell and authentication screens.
+The public site, dashboard shell and auth screens use a standalone Angular application.
 
 ## Stack
-- React 19 + TypeScript + Vite
-- Tailwind CSS v4
-- Lucide React icons
-- Nginx container for static UI hosting and reverse proxying
-- Mobile-first layout overrides and touch-friendly auth form controls
+- Angular 19 + TypeScript + Angular Forms
+- Angular CLI production build
+- Playwright Chromium smoke tests
+- Mobile-first responsive CSS (ported from the former React UI)
+- Nginx static hosting and API reverse proxy
 
-## Routes
+## Views
 - `/`: public landing page
-- `/login`: dashboard sign-in (POST `/auth/login`, client `dashboard`)
-- `/register`: request-access placeholder (self-service registration API is not implemented)
-- `/forgot`: password recovery placeholder (recovery API is not implemented)
-- `/dashboard`: private starter dashboard shell (currently local auth-session presence check; registry metrics are static starter data)
+- `/login`: POST `/auth/login` using dashboard client
+- `/register`: request-access placeholder (backend registration is not implemented)
+- `/forgot`: password recovery placeholder (backend recovery is not implemented)
+- `/dashboard`: private dashboard shell; demo metrics and plugin listing are static
 
-## Auth integration
-Login stores the access/refresh token response in local storage under `bee-auth`. Logout removes the local session. Registration and recovery are visual entry points only until corresponding backend endpoints are added. The dashboard's complete token validation, refresh/retry flow and live plugin registry data are follow-up tasks.
 
 ## Local development
-```bash
+```sh
 cd apps/web
 npm install
-npm run dev
+npm start
 ```
-Set `VITE_BEE_API` to the backend API origin. When running behind the compose Nginx proxy, the default is `/api`.
+
+## Checks
+```sh
+npm run build
+npm run test:e2e
+```
+Docker builds Angular assets and serves them through Nginx. Live dashboard registry metrics and token-refresh UX are not implemented yet.

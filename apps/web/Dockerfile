@@ -3,10 +3,8 @@ WORKDIR /web
 COPY package*.json ./
 RUN npm install
 COPY . .
-ARG VITE_BEE_API=/api
-ENV VITE_BEE_API=$VITE_BEE_API
 RUN npm run build
 FROM nginx:alpine
-COPY --from=build /web/dist /usr/share/nginx/html
+COPY --from=build /web/dist/browser /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
