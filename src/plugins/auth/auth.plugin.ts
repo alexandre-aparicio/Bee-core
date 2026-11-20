@@ -2,7 +2,7 @@ import type { BeePlugin } from "../../core/types.js";
 import jwt from "@fastify/jwt";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
@@ -65,25 +65,26 @@ export const authPlugin: BeePlugin = {
       ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
     }
 
-    const issueTokens = (user: UserRecord, client: ClientType) => {
-      const accessToken = ctx.server.jwt.sign({ sub: user.id, email: user.email, roles: user.roles, client, aud: "bee-core" });
-      return accessToken;
-    };
+    const issueAccessToken = (user: Pick<UserRecord, "id" | "email" | "roles">, client: ClientType) =>
+      ctx.server.jwt.sign({ sub: user.id, email: user.email, roles: user.roles, client, aud: "bee-core" });
 
     ctx.server.post<{ Body: LoginBody }>("/auth/login", async (req, reply) => {
       const email = String(req.body?.email ?? "").trim().toLowerCase();
       const password = String(req.body?.password ?? "");
       const client = clientFrom(req.body?.client);
       if (!email || !password || !client) return reply.code(400).send({ error: "email, password and valid client required" });
-      const result = await pool.query("SELECT * FROM bee_auth_users WHERE email=$1 AND enabled=TRUE LIMIT 1", [email]);
+      const result = await pool.query(
+        'SELECT id,email,password_hash AS "passwordHash",roles,enabled,allowed_clients AS "allowedClients" FROM bee_auth_users WHERE email=$1 AND enabled=TRUE LIMIT 1',
+        [email]
+      );
       const user = result.rows[0] as UserRecord | undefined;
       if (!user || !(await bcrypt.compare(password, user.passwordHash))) return reply.code(401).send({ error: "Invalid credentials" });
       if (!user.allowedClients.includes(client)) return reply.code(403).send({ error: "Client access denied" });
-      const accessToken = issueTokens(user, client);
+      const accessToken = issueAccessToken(user, client);
       const refreshToken = makeRefreshToken();
       await pool.query(
         "INSERT INTO bee_auth_refresh_sessions (id,user_id,token_hash,client,expires_at) VALUES ($1,$2,$3,$4,NOW()+INTERVAL '30 days')",
-        [randomBytes(16).toString("hex"), user.id, hashToken(refreshToken), client]
+        [randomUUID(), user.id, hashToken(refreshToken), client]
       );
       await ctx.events.emit("auth.login", { userId: user.id, client, at: new Date().toISOString() });
       return { accessToken, refreshToken, tokenType: "Bearer", expiresIn: 1200, refreshExpiresIn: 2592000, user: publicUser(user), client };
@@ -92,30 +93,29 @@ export const authPlugin: BeePlugin = {
     ctx.server.post<{ Body: RefreshBody }>("/auth/refresh", async (req, reply) => {
       const raw = String(req.body?.refreshToken ?? "");
       if (raw.length < 40) return reply.code(400).send({ error: "refreshToken required" });
-      const client = await pool.connect();
+      const connection = await pool.connect();
       try {
-        await client.query("BEGIN");
-        const sessionResult = await client.query(
+        await connection.query("BEGIN");
+        const result = await connection.query(
           "SELECT s.id,s.user_id,s.client,s.expires_at,u.email,u.roles,u.enabled,u.allowed_clients FROM bee_auth_refresh_sessions s JOIN bee_auth_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at>NOW() FOR UPDATE",
           [hashToken(raw)]
         );
-        const session = sessionResult.rows[0];
-        if (!session || !session.enabled) {
-          await client.query("ROLLBACK");
+        const session = result.rows[0];
+        if (!session || !session.enabled || !session.allowed_clients.includes(session.client)) {
+          await connection.query("ROLLBACK");
           return reply.code(401).send({ error: "Invalid or expired refresh token" });
         }
         const nextRefresh = makeRefreshToken();
-        await client.query("UPDATE bee_auth_refresh_sessions SET token_hash=$1,expires_at=NOW()+INTERVAL '30 days' WHERE id=$2", [hashToken(nextRefresh), session.id]);
-        await client.query("COMMIT");
-        const user: UserRecord = { id: session.user_id, email: session.email, passwordHash: "", roles: session.roles, enabled: session.enabled, allowedClients: session.allowed_clients };
-        const accessToken = issueTokens(user, session.client);
+        await connection.query("UPDATE bee_auth_refresh_sessions SET token_hash=$1,expires_at=NOW()+INTERVAL '30 days' WHERE id=$2", [hashToken(nextRefresh), session.id]);
+        await connection.query("COMMIT");
+        const accessToken = issueAccessToken({ id: session.user_id, email: session.email, roles: session.roles }, session.client);
         return { accessToken, refreshToken: nextRefresh, tokenType: "Bearer", expiresIn: 1200, refreshExpiresIn: 2592000, client: session.client };
       } catch (error) {
-        await client.query("ROLLBACK");
+        await connection.query("ROLLBACK");
         ctx.logger.error("Auth refresh failed", error);
         return reply.code(500).send({ error: "Refresh failed" });
       } finally {
-        client.release();
+        connection.release();
       }
     });
 
