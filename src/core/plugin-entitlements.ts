@@ -46,7 +46,7 @@ export type TenantPluginInstallation = Document & {
   tenantId: string;
   pluginId: string;
   version: string;
-  status: "installing" | "installed" | "failed" | "uninstalled";
+  status: "installing" | "installed" | "uninstalling" | "failed" | "uninstalled";
   installedAt: Date | null;
   updatedAt: Date;
   error?: string;
