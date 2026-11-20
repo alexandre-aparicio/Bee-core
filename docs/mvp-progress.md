@@ -151,3 +151,14 @@ The product model is now specified in `docs/template-business-model.md`.
 - This is a partial implementation: the current runtime still has legacy `public`/`dashboard` scopes and custom-token persistence/API/SSE code. The platform-corporate versus tenant-public storage/authorization split, persisted dashboard appearance mode, plugin-driven public-site composition and safe legacy-token migration remain pending.
 - The business model is documented separately from business-plugin entitlements and lifecycle. Template packages are presentation packages, not plugins.
 - No tests, builds or CI workflows were run for this change, as explicitly requested. Do not interpret the UI/documentation update as validation of the remaining architecture.
+
+
+## Template appearance modes (2026-11-21)
+
+- Added Light/Dark controls to the public landing header and authenticated dashboard header.
+- Added Light/Dark controls to the template manager for public and dashboard surfaces.
+- The mode is stored per selected template and surface in browser local storage. Public website preferences are scoped by hostname; dashboard preferences are scoped by active company.
+- Aurora, Midnight and Glass default to Dark. Editorial, Paper and Studio default to Light. Users can switch either mode for every template.
+- Added a shared light palette treatment for the corporate landing and dashboard shell; template-specific colors remain controlled by the template rather than user-editable color pickers.
+- Scope limitation: appearance mode is currently a browser-local preference, not yet synchronized through the backend across devices. The public landing mode is per hostname and dashboard mode per active company in that browser.
+- No tests, builds or workflows were run for this change, per user instruction.
