@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { resolveTenantContext } from "../../core/tenant-context.js";
-import { appendTenantAuditEvent, ensureTenantAuditIndexes, type AuditEventDraft } from "../../core/audit-log.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, type AuditEventDraft, type TenantAuditEvent } from "../../core/audit-log.js";
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
