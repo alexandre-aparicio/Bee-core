@@ -50,6 +50,25 @@ Do **not** forward NPM to `127.0.0.1:3011` unless NPM uses host networking; insi
 
 The web Nginx container proxies `/api/` to the internal Bee-Core service. API and MongoDB do not publish host ports in this profile. Do not bind Bee-Core to host ports 80 or 443; those belong to the existing Nginx Proxy Manager.
 
+## DNS and tenant subdomains
+
+Set `PUBLIC_BASE_DOMAIN=beecore.beeprojects.net` in the production `.env`. Create DNS records pointing to the VPS public IP:
+
+- `beecore.beeprojects.net` — A/AAAA record for the Bee-Core corporate host.
+- `*.beecore.beeprojects.net` — wildcard A/AAAA record for tenant subdomains.
+
+In Nginx Proxy Manager, create one Proxy Host with both domain names:
+
+- `beecore.beeprojects.net`
+- `*.beecore.beeprojects.net`
+
+Forward both to the VPS host address reachable from the NPM container, port `3011`, using HTTP. Preserve the original Host header (the bundled web Nginx already forwards `Host $host` to Fastify). Request a DNS-challenge certificate containing both `beecore.beeprojects.net` and `*.beecore.beeprojects.net`; a wildcard certificate alone does not cover the base hostname. Enable Force SSL.
+
+The platform superadministrator creates each company with a unique public slug. For example, slug `dragchart` resolves to `dragchart.beecore.beeprojects.net`. If omitted, Bee-Core derives a slug from the company name. Existing companies receive a slug during the organizations plugin startup migration. Reserved names and duplicate slugs are rejected.
+
+Bee-Core resolves the request Host against the configured base domain and looks up the slug in the `tenants` collection. The base host serves the corporate landing page; an active tenant subdomain serves that tenant's public page; unknown or suspended tenants return a not-found page. No per-tenant container or separate NPM Proxy Host is required. MongoDB and the API remain private to the Compose network.
+
+
 ## Verify deployment
 
 ```bash
