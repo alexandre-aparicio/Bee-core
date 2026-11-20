@@ -14,8 +14,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   await client.connect();
   const db = client.db(dbName);
   const passwordHash = await bcrypt.hash("Test-password-12345", 10);
-  await db.collection("tenants").insertMany([{id:"tenant-alpha",name:"Alpha",domains:["alpha.example.test"],createdAt:new Date()},{id:"tenant-beta",name:"Beta",domains:["beta.example.test"],createdAt:new Date()}]);
-  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() }]);
+  await db.collection("tenants").insertMany([{id:"tenant-alpha",name:"Alpha",domains:["alpha.example.test"],createdAt:new Date()},{id:"tenant-beta",name:"Beta",domains:["beta.example.test"],createdAt:new Date()},{id:"tenant-legacy",name:"Legacy",createdAt:new Date()}]);
+  await db.collection("users").insertMany([{ id: "test-user", email: "test@example.com", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId:"tenant-alpha", createdAt: new Date(), updatedAt: new Date() },{ id:"test-user-beta",email:"beta@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-beta",createdAt:new Date(),updatedAt:new Date() },{id:"legacy-user",email:"legacy@example.com",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"tenant-legacy",createdAt:new Date(),updatedAt:new Date()}]);
+  await db.collection("template_preferences").createIndex({userId:1},{unique:true,name:"template_preferences_user_unique"});
+  await db.collection("template_preferences").insertOne({userId:"legacy-user",public:"editorial",dashboard:"paper",updatedAt:new Date()});
   const app = Fastify();
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
   const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, authAdminEmail: "", authAdminPassword: "" } };
@@ -83,6 +85,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.match(pushedText,/#334455/);
     await liveReader.cancel();
 
+    const legacyLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"legacy@example.com",password:"Test-password-12345",client:"dashboard"}});
+    assert.equal(legacyLogin.statusCode,200);
+    const legacyPreferences=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+legacyLogin.json().accessToken}});
+    assert.deepEqual(legacyPreferences.json().selection,{public:"editorial",dashboard:"paper"});
     const betaLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(betaLogin.statusCode,200);
     const betaTokens=betaLogin.json();
