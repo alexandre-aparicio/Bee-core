@@ -27,7 +27,7 @@ export const authPlugin:BeePlugin={
   const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongo.connect(); const db:Db=mongo.db(dbName);
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
-  const templatePreferences=db.collection<{tenantId:string;public:string;dashboard:string;themeTokens?:Record<string,string>;updatedAt:Date}>("template_preferences");
+  const templatePreferences=db.collection<{tenantId?:string;userId?:string;public:string;dashboard:string;themeTokens?:Record<string,string>;updatedAt:Date}>("template_preferences");
   const templateStreamTickets=new Map<string,{tenantId:string;expiresAt:number}>();
   const templateSubscribers=new Map<string,Set<import("node:http").ServerResponse>>();
   const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.destroyed){clients.delete(client);continue;}client.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
@@ -40,10 +40,19 @@ export const authPlugin:BeePlugin={
    sessions.createIndex({userId:1},{name:"refresh_sessions_user"}),
    sessions.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"refresh_sessions_ttl"}),
    tenants.createIndex({id:1},{unique:true,name:"tenants_id_unique"}),
-   tenants.createIndex({domains:1},{unique:true,sparse:true,name:"tenants_domains_unique"}),
-   templatePreferences.createIndex({tenantId:1},{unique:true,name:"template_preferences_tenant_unique"})
+   tenants.createIndex({domains:1},{unique:true,sparse:true,name:"tenants_domains_unique"})
   ]);
   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
+  const preferenceIndexes=await templatePreferences.listIndexes().toArray();
+  if(preferenceIndexes.some(index=>index.name==="template_preferences_user_unique"))await templatePreferences.dropIndex("template_preferences_user_unique");
+  for await(const legacy of templatePreferences.find({tenantId:{$exists:false},userId:{$exists:true}}).sort({updatedAt:-1})){
+   const owner=await users.findOne({id:legacy.userId});
+   const tenantId=owner?.tenantId??defaultTenantId;
+   await templatePreferences.updateOne({tenantId},{$setOnInsert:{tenantId,public:legacy.public??"aurora",dashboard:legacy.dashboard??"midnight",...(legacy.themeTokens?{themeTokens:legacy.themeTokens}:{}),updatedAt:legacy.updatedAt??new Date()}},{upsert:true});
+   await templatePreferences.deleteOne({_id:legacy._id});
+  }
+  await templatePreferences.createIndex({tenantId:1},{unique:true,name:"template_preferences_tenant_unique"});
+
   const adminEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase(),adminPassword=String(ctx.config.authAdminPassword??"");
   if(adminEmail&&adminPassword){
    if(adminPassword.length<12)throw new Error("Auth: bootstrap admin password must be at least 12 characters.");
