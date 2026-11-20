@@ -1,74 +1,65 @@
 # Bee-Core Template Engine
 
-The Angular runtime owns a typed template registry for two independent surfaces:
-- ``public`: public website layouts and the public template selection.
-- `dashboard`: authenticated workspace layouts and the dashboard template selection.
+The Angular runtime has a trusted template registry. Templates are presentation packages, not business plugins.
 
-## Manifest contract
+## Product surfaces
 
-A template manifest declares a stable id, semantic version, target surface, registered layout key and supported slots. Plugins can contribute content to agreed slots; they do not own the global shell.
+The target product separates three scopes:
+- **Platform corporate website:** selected globally by the platform superadministrator. Its existing content and page structure remain predefined.
+- **Tenant public website:** selected independently by each tenant and composed from public capabilities exposed by that tenant's installed/enabled plugins.
+- **Tenant dashboard:** selected independently by each tenant. Each dashboard template owns a fixed palette and supports light/dark appearance modes.
 
-## Runtime contract
+See [Template and Website Business Model](../../../../docs/template-business-model.md) for ownership, target preferences, plugin composition, migration and acceptance criteria.
 
-`BeeTemplateEngine` registers manifests, validates target compatibility, activates one template per surface, persists a tenant-scoped local fallback and synchronizes the tenant's public/dashboard selections to MongoDB through `/templates/preferences`, then applies stable body data attributes. The manager UI previews a template locally before publishing it. Administrators can discard the preview to restore the previous selection and palette, or apply it to persist the selection for the tenant and broadcast the update. This does not touch authentication, routes, plugin state or business data.
+## Current runtime foundations
 
-The first release ships Aurora + Editorial public themes and Midnight + Paper dashboard themes. The registry is the controlled extension point for later packaged Angular layouts. A manifest does not execute arbitrary remote JavaScript: external templates must be supplied as trusted, versioned Angular code and registered through the application build/plugin loader.
+The current registry still uses the legacy targets `public` and `dashboard`:
+- Built-in public entries: Aurora and Editorial.
+- Built-in dashboard entries: Midnight and Paper.
+- Trusted compiled package entries: Studio (public) and Glass (dashboard).
+- Public/dashboard slots: `header`, `hero`, `content`, `footer`, `sidebar`, `topbar` and `widgets`.
 
-## Extension example
+The template manager now exposes template selection and package installation only; arbitrary color-picker controls have been removed from the UI. Template-owned fixed palettes are the product direction. Dashboard light/dark mode is part of the target contract and still needs persisted implementation.
 
-```ts
-engine.register({
-  id: 'customer-workspace',
-  name: 'Customer Workspace',
-  version: '1.0.0',
-  target: 'dashboard',
-  description: 'Customer-specific workspace shell.',
-  builtIn: false,
-  layout: 'dashboard.customer-workspace',
-  slots: ['sidebar', 'topbar', 'content', 'widgets']
-});
-engine.activate('dashboard', 'customer-workspace');
-```
+## Template manifest
 
-The layout key is a contract for the Angular layout resolver; registration alone intentionally does not evaluate remote code.
+A manifest declares a stable ID, semantic version, target surface, registered layout key, supported slots and descriptive metadata. The target model also requires declared appearance modes and a default mode for dashboard templates.
 
+Plugins may contribute trusted compiled Angular components to approved slots. They do not own the global dashboard shell or corporate website content.
 
-## Tenant template package installer
+## Package installation
 
-The first tenant package catalog ships two trusted packages:
-- `studio`: public landing-page visual shell.
-- `glass`: dashboard visual shell.
+The current tenant package catalog contains:
+- `studio`: public website presentation package.
+- `glass`: dashboard presentation package.
 
-Tenant administrators can inspect the catalog with `GET /templates/catalog`, install with `POST /templates/install` (`{ "templateId": "studio" }`), and uninstall with `DELETE /templates/install/:templateId`. `GET /templates/installed` returns the tenant's installed package ids. The active package cannot be uninstalled; switch the relevant surface to another installed template first. Only catalog ids are accepted, and activation is rejected unless the package is installed for that tenant.
+Tenant administrators can use:
+- `GET /templates/catalog`
+- `POST /templates/install` with `{ "templateId": "studio" }`
+- `DELETE /templates/install/:templateId`
+- `GET /templates/installed`
 
-Installed package ids live in the tenant's MongoDB `template_preferences` document. Installation, removal and published selection changes are broadcast through the same tenant-scoped SSE channel, so connected browser sessions update their available template options and active shell without a frontend restart. The package styles are trusted CSS compiled into the Angular application; the installer does **not** download or execute JavaScript, HTML templates, or Angular component bundles. This is a safe first package lifecycle, not yet a general-purpose third-party marketplace.
+Only catalog IDs are accepted. An active package cannot be uninstalled until another package is selected for that surface. Installed package IDs are stored in the tenant's MongoDB `template_preferences` document and tenant-scoped updates are broadcast through the private template event channel.
 
-## Angular layout resolver and plugin slots
+The current installer is a trusted compiled-package foundation. It does not download or execute arbitrary JavaScript, HTML or Angular bundles. A package's registration metadata/styles do not by themselves provide a dynamically downloadable structural Angular layout.
 
-The root Angular view resolves the selected manifest's compiled layout key to a layout class and a stable `data-bee-layout` attribute. The current trusted layout keys are:
-- `public.aurora` and `public.editorial`
-- `dashboard.midnight` and `dashboard.paper`
+## Plugin contributions and tenant websites
 
-The public and dashboard wrappers are independent; changing one does not replace the other. The wrappers keep the original page content mounted, so navigation, authentication and plugin state are not lost during theme changes.
+The slot registry supports trusted compiled Angular components. The long-term tenant website renderer must compose only explicitly public contributions from plugins installed and enabled for the resolved tenant. Private dashboard routes, data, settings and components must never be rendered publicly.
 
-### UI plugin contributions
+The current public tenant landing page resolves the hostname to a tenant and displays safe tenant identity details. Full plugin-driven public-site composition, public capability manifests and the separate platform-corporate template scope are still pending.
 
-Frontend plugins can contribute compiled Angular components to named slots through `BeeTemplateSlotRegistry`:
+## Fixed palettes and legacy color tokens
 
-```ts
-const unregister = slotRegistry.register({
-  pluginId: 'sales',
-  slot: 'widgets',
-  component: SalesSummaryWidgetComponent,
-  order: 20
-});
+The product no longer offers arbitrary color selection in the template manager. Template packages own their visual identity. Dashboard users choose only a supported appearance mode (light/dark) once that mode is implemented for each template.
 
-// Call when the UI plugin is deactivated:
-unregister();
-```
+The existing engine/API still contains legacy custom-token persistence and SSE compatibility. This is not a supported product customization surface and must be removed with a versioned migration after all clients use template-owned palettes and the new appearance-mode preference. Do not reintroduce color pickers or tenant-defined hex palettes.
 
-Supported slots are `header`, `hero`, `content`, `footer`, `sidebar`, `topbar` and `widgets`. Contributions are ordered by priority and plugin id, one contribution per plugin and slot. Plugins must be trusted Angular code compiled into or loaded by the application. A JSON manifest cannot execute code or download arbitrary JavaScript.
+## Scope and safety
 
-The runtime supports live visual-token editing for the active tenant. Public and dashboard template selections are independent, while the tenant brand palette is currently shared across both surfaces. Tenant administrators can use the dashboard manager to edit six allowlisted CSS variables (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) and save them to MongoDB. The API enforces tenant-admin permissions and validates each value as a hex color; arbitrary CSS, HTML and JavaScript are not accepted. Authenticated dashboard clients and anonymous public visitors receive updates through short-lived, one-use SSE tickets (`/templates/stream-ticket` or host-scoped `/templates/public-stream-ticket`, then `/templates/events`) and apply CSS variables without rebuilding or restarting the frontend. Tenant selection and theme tokens are stored in one MongoDB preference document keyed by a unique `tenantId`; users within the same tenant share them, while different tenants are isolated. Existing per-user preference documents are migrated to the owning user's tenant at startup (the newest preference wins if a tenant had conflicting user-level values). Tenant admins can map hostnames with `PUT /tenants/domains`; anonymous public requests resolve the host through `GET /templates/public` and subscribe to live changes without exposing an access token. Domain mapping is currently an administrator-managed configuration, not a self-service verified-domain flow: DNS ownership challenges and custom-domain provisioning still need to be added before exposing tenant domain assignment to customers. Local fallback keys are also tenant-specific.
-
-This is **hot reload for template selection and visual design tokens**, not for arbitrary Angular component code or structural HTML. The four original layout shells plus the Studio and Glass package styles are compiled into the Angular app. A new structural layout requires trusted, versioned Angular code to be integrated into an application build. A remote third-party package repository, signed bundles, compatibility checks, structural Angular layout bundles, visual preview/rollback and tenant provisioning remain future milestones. Tenant admins can assign domains with `PUT /tenants/domains`; the anonymous `GET /templates/public` endpoint resolves the request hostname to that tenant and returns its public template selection and theme tokens. The current tenant boundary uses a single `tenantId` on each user; multi-workspace membership for one user, self-service tenant creation, tenant billing/quotas, and a central tenant provisioning workflow are not implemented. Other business-data plugins must also apply tenant scoping to every MongoDB query before they can be considered multi-tenant safe. SSE fan-out is in-process; a horizontally scaled API deployment will need a shared event transport or MongoDB change-stream fan-out.
+- Template selection and installed packages are scoped to the correct platform or tenant owner.
+- Platform corporate settings must be separate from tenant preferences.
+- Tenant template events must remain tenant-scoped and revalidate active membership.
+- Platform website selection is superadmin-only.
+- Templates are distinct from business plugins, plans and plugin entitlements.
+- Only trusted, reviewed, versioned Angular code may execute. No arbitrary remote JavaScript, HTML or Angular bundles.
