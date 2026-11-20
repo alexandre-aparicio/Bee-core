@@ -1,8 +1,16 @@
 # Glass template package
 
 - ID: `glass`
-- Target: `dashboard`
 - Version: `1.0.0`
-- Layout identifier: `dashboard.glass`
+- Target: `dashboard`
+- Layout component: `BeeGlassLayoutComponent`
 
-This folder is the isolated source package for this template. Its manifest and semantic theme tokens live alongside the package. The Angular shell and slot runtime are provided by the shared template core. Template-specific structural components and fully scoped visual styles are the next extraction stage; the current rendering still uses shared shell markup and legacy global CSS.
+## Package contents
+
+- `manifest.ts`: template identity and supported slots.
+- `theme-tokens.ts`: fixed semantic palette.
+- `components/layout.component.ts`: Angular layout projection component.
+- `styles.css`: package-owned layout styles.
+- `assets/`: package-owned assets and preview.
+
+The shared runtime owns navigation, data, plugin slots and lifecycle. This package owns its presentation. Angular packages are trusted and statically compiled; installation enables a package already registered by the application and does not execute arbitrary uploaded JavaScript.
