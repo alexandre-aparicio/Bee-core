@@ -31,6 +31,7 @@ export interface BeePluginManifest {
   version: string;
   description?: string;
   dependencies?: string[];
+  frontend?: { routes: Array<{ path: string; component: string }> };
 }
 
 export interface BeePluginInfo extends BeePluginManifest {
