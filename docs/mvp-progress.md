@@ -92,3 +92,15 @@ PR #20 selectively ported the unique audit functionality onto current `main`, ra
 - PR #31 — deterministic transitive dependency-first ordering, rejection of missing dependencies and cycles, dependency entitlement/installation checks on install/update, and end-to-end marketplace update coverage. Pre-merge CI run `44774469128` passed; post-merge CI `44774847013` and production Compose `44774847047` passed on main SHA `4dce576`.
 - PR #32 — automated MongoDB logical dump, isolated restore and sentinel verification in production Compose CI. PR-head run `44777108094` and post-merge main run `44777925729` passed on `b2cbc63`.
 
+
+## Platform Superadministrator (PR #43 — work in progress)
+
+A separate platform-wide role is being implemented on branch `feature/platform-superadmin`; it is not yet merged into main and is not included in the MVP completion percentages.
+
+- Persisted bootstrap `platformRole: superadmin`, with existing bootstrap credentials preserved.
+- Auth JWT/login/refresh profile carries the platform role.
+- Separate platform-admin plugin validates dashboard client, JWT session, persisted active refresh session, enabled user and persisted superadmin role.
+- Global company list/create/status endpoints and Angular panel are added.
+- Integration test added for superadmin bootstrap, company create/list/activate/suspend and tenant-user denial.
+- CI validation is pending; merge only after both backend and web/Docker workflows pass and failures are fixed.
+- Details: `docs/platform-superadmin.md` and PR https://github.com/alexandre-aparicio/Bee-core/pull/43.
