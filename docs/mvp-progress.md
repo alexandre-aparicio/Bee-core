@@ -184,9 +184,13 @@ The product model is now specified in `docs/template-business-model.md`.
 - No tests, builds, or GitHub Actions workflows were run for this change, as requested. Runtime verification remains pending after deployment.
 
 
-## Template package source separation
+## Template package source separation (2026-11-21)
 
-- Template metadata has been moved out of the central template engine into six package folders under `apps/web/src/app/templates/packages/`: Aurora, Editorial, Studio, Midnight, Paper and Glass.
-- Each package now owns its manifest, semantic theme-token definition and package README. The package barrel exports the built-in catalogue, installable package catalogue and package palette registry; the central engine consumes these exports instead of defining the manifests inline.
-- This is the first structural extraction, not yet complete visual/component isolation: the public/dashboard shells, shared slot runtime and legacy template CSS still live in shared application files. Per-template components, scoped styles and assets still need to be extracted before claiming each package is fully autonomous or independently distributable.
-- No tests, builds or GitHub Actions workflows were run, per user instruction.
+- Six first-party template packages now live under `apps/web/src/app/templates/packages/`: Aurora, Editorial, Studio, Midnight, Paper and Glass.
+- Every package has its own manifest (including its Angular component key), fixed semantic palette, standalone Angular layout wrapper, package stylesheet, asset directory with a preview SVG, and package README.
+- The package barrel exports the six manifests, all six palettes and all six layout components. The template engine imports its catalogue from that barrel.
+- The public and dashboard page trees now select the matching registered layout component. The Glass dashboard branch is explicitly supported.
+- Template-specific layout CSS has been removed from the global `apps/web/src/styles.css` and moved into the corresponding package stylesheet. Shared Light/Dark behavior is isolated in `templates/core/appearance-modes.css`; shared application foundation, navigation, page content and plugin slots remain in the core.
+- The global stylesheet no longer contains the six template-specific layout selectors; the page shells and content composition remain shared and are projected into the package layout wrappers. Therefore this is a completed folder/source/style separation, but not yet six independently authored page compositions. A future step can move each public/dashboard page tree into its package if the templates must have completely different markup.
+- Template packages remain trusted, statically compiled Angular components. Tenant installation enables a registered package; it is not arbitrary runtime code upload or dynamic execution.
+- No tests, builds, GitHub Actions workflows or deployment checks were run, per explicit instruction. The changes are committed to `main`, but compile/runtime correctness has not been verified.
