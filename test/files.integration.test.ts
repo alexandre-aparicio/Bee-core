@@ -156,6 +156,21 @@ test("private files and images are isolated by active company", { skip: !uri }, 
       payload: Buffer.from("<script>not an image</script>")
     });
     assert.equal(spoofedImage.statusCode, 400);
+    await db.collection("plugin_plans").updateOne({ id: "starter" }, { $set: { storageMb: 0 } });
+    const overCompanyQuota = await app.inject({
+      method: "POST",
+      url: "/files",
+      headers: {
+        authorization: "Bearer " + alphaToken,
+        "content-type": "application/octet-stream",
+        "x-file-content-type": "text/plain",
+        "x-file-name": "over-quota.txt"
+      },
+      payload: Buffer.from("over quota")
+    });
+    assert.equal(overCompanyQuota.statusCode, 413);
+    assert.equal(overCompanyQuota.json().error, "Company storage quota exceeded");
+
   } finally {
     await app.close();
     await filesPlugin.stop?.(ctx);
