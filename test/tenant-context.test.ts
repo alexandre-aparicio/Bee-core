@@ -52,6 +52,25 @@ test("tenant context requires a valid session, active membership and company", {
     assert.ok(hasTenantPermission(context, "files.read"));
     assert.equal(hasTenantPermission(context, "members.manage"), false);
 
+    await db.collection("company_roles").insertOne({
+      id: "role-reader",
+      tenantId: "company-one",
+      name: "Reader",
+      permissions: ["notes.read", "files.read"],
+      createdBy: "user-one",
+      updatedBy: "user-one",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { role: "custom", customRoleId: "role-reader" } });
+    const customContext = await resolveTenantContext(db, claims);
+    assert.ok(customContext);
+    assert.equal(customContext.role, "custom");
+    assert.equal(customContext.customRoleId, "role-reader");
+    assert.ok(hasTenantPermission(customContext, "notes.read"));
+    assert.equal(hasTenantPermission(customContext, "notes.write"), false);
+    await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { role: "manager" }, $unset: { customRoleId: "" } });
+
     assert.equal(await resolveTenantContext(db, { ...claims, tenantId: "company-two" }), null);
     assert.equal(await resolveTenantContext(db, { ...claims, sid: "unknown-session" }), null);
     assert.equal(await resolveTenantContext(db, { ...claims, client: "public" }), null);

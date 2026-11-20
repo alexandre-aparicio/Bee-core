@@ -1,6 +1,8 @@
 import type { Db } from "mongodb";
+import { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
 
 export type CompanyRole = "owner" | "admin" | "manager" | "member";
+export type MembershipRole = CompanyRole | "custom";
 export type TenantClaims = {
   sub?: string;
   email?: string;
@@ -23,7 +25,8 @@ export type TenantContext = {
   tenantId: string;
   sessionId: string;
   client: NonNullable<TenantClaims["client"]>;
-  role: CompanyRole;
+  role: MembershipRole;
+  customRoleId?: string;
   permissions: readonly string[];
 };
 
@@ -58,12 +61,22 @@ export async function resolveTenantContext(
   });
   if (!session) return null;
 
-  const membership = await db.collection<{ role: CompanyRole; status: string }>("memberships").findOne({
+  const membership = await db.collection<{ role: MembershipRole; customRoleId?: string; status: string }>("memberships").findOne({
     userId: user.id,
     tenantId: claims.tenantId,
     status: "active"
   });
-  if (!membership || !Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
+  if (!membership) return null;
+  let permissions: readonly string[];
+  if (membership.role === "custom") {
+    if (!membership.customRoleId) return null;
+    const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId: claims.tenantId });
+    if (!customRole) return null;
+    try { permissions = permissionsForCustomRole(customRole); } catch { return null; }
+  } else {
+    if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
+    permissions = COMPANY_ROLE_PERMISSIONS[membership.role];
+  }
 
   if (!options.allowSuspendedCompany) {
     const company = await db.collection<{ id: string; status?: string }>("tenants").findOne({ id: claims.tenantId });
@@ -77,7 +90,8 @@ export async function resolveTenantContext(
     sessionId: claims.sid,
     client: claims.client,
     role: membership.role,
-    permissions: COMPANY_ROLE_PERMISSIONS[membership.role]
+    ...(membership.customRoleId ? { customRoleId: membership.customRoleId } : {}),
+    permissions
   };
 }
 
