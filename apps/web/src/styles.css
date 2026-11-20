@@ -185,3 +185,33 @@ body[data-bee-custom-theme="true"] .hero h1 span{color:var(--purple)}
 .workspace-switcher:disabled{opacity:.6;cursor:wait}
 .company-switch-error{margin:8px 14px;padding:8px 10px;border:1px solid #e58a8a55;border-radius:8px;color:#f0aaaa;font-size:10px}
 @media(max-width:759px){.workspace-switcher{max-width:95px}}
+
+
+/* Company-scoped plugin marketplace */
+.dash-panels--marketplace{grid-template-columns:minmax(0,1fr) minmax(230px,280px);align-items:start}
+.dash-panels--marketplace>bee-marketplace{min-width:0}
+.bee-marketplace .panel-heading{align-items:flex-start;gap:16px}
+.bee-marketplace .panel-heading p{margin:6px 0 0;color:var(--muted);font-size:11px;line-height:1.5}
+.bee-marketplace__refresh{flex-shrink:0;border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:#ffffff08;color:inherit;font-size:10px;cursor:pointer}
+.bee-marketplace__refresh:disabled{opacity:.5;cursor:wait}
+.bee-marketplace__state{padding:22px 12px;text-align:center;color:var(--muted);font-size:12px}
+.bee-marketplace__error{margin:12px 0;padding:10px 12px;border:1px solid #e58a8a55;border-radius:9px;color:#f0aaaa;font-size:11px}
+.bee-marketplace__message{margin-top:12px;color:#75d9aa;font-size:11px}
+.bee-marketplace__list{display:grid;gap:9px;margin-top:14px}
+.bee-marketplace__item{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--border);border-radius:11px;background:#ffffff04;min-width:0}
+.bee-marketplace__icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:10px;background:#8c72ff1b;color:#b8a8ff;font-size:17px}
+.bee-marketplace__details{flex:1;min-width:0}
+.bee-marketplace__title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bee-marketplace__title strong{font-size:12px}
+.bee-marketplace__version{color:var(--muted);font-size:9px}
+.bee-marketplace__details p{margin:4px 0 7px;color:var(--muted);font-size:10px;line-height:1.5}
+.bee-marketplace__meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.bee-marketplace__meta span{font-size:9px;color:var(--muted);padding:3px 6px;border-radius:5px;background:#ffffff08}
+.bee-marketplace__meta .bee-marketplace__installed{color:#75d9aa;background:#75d9aa14}
+.bee-marketplace__actions{display:flex;align-items:center;justify-content:flex-end;flex:0 0 auto}
+.bee-marketplace__actions button{border:1px solid transparent;border-radius:8px;padding:8px 12px;background:var(--purple);color:#fff;font-size:10px;font-weight:600;cursor:pointer}
+.bee-marketplace__actions button:disabled{opacity:.5;cursor:wait}
+.bee-marketplace__actions .bee-marketplace__remove{border-color:var(--border);background:#ffffff08;color:inherit}
+.bee-marketplace__system,.bee-marketplace__locked{font-size:9px;color:var(--muted);white-space:nowrap}
+@media(max-width:900px){.dash-panels--marketplace{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.bee-marketplace__item{align-items:flex-start;flex-wrap:wrap}.bee-marketplace__actions{width:100%;justify-content:flex-end}.bee-marketplace .panel-heading{align-items:center}}
