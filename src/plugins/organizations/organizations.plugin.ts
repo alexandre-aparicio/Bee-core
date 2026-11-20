@@ -29,14 +29,21 @@ export const organizationsPlugin:BeePlugin={
    invitations.createIndex({tenantId:1,email:1,acceptedAt:1,cancelledAt:1},{name:"company_invitations_tenant_email"})
   ]);
   // Backfill the current single-tenant model into explicit memberships.
-  for await(const user of users.find({tenantId:{$exists:true,$ne:""}})){
+  for await(const user of users.find({tenantId:{$exists:true,$ne:""}}).sort({createdAt:1,id:1})){
    const tenantId=String(user.tenantId);
    const company=await companies.findOne({id:tenantId});
    if(!company)continue;
    const legacyRoles=user.roles??[];
-   const role:Membership["role"]=legacyRoles.includes("admin")?"owner":legacyRoles.includes("service")?"manager":"member";
+   const hasOwner=await memberships.findOne({tenantId,role:"owner",status:"active"},{projection:{_id:1}});
+   const role:Membership["role"]=legacyRoles.includes("admin")?(hasOwner?"admin":"owner"):legacyRoles.includes("service")?"manager":"member";
    await memberships.updateOne({userId:user.id,tenantId},{$setOnInsert:{id:randomUUID(),userId:user.id,tenantId,role,status:"active",createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
   }
+  // Normalize duplicate owners from early builds before enforcing one active owner per company.
+  for await(const company of companies.find({}, {projection:{id:1}})){
+   const owners=await memberships.find({tenantId:company.id,role:"owner",status:"active"}).sort({createdAt:1,id:1}).toArray();
+   for(const duplicate of owners.slice(1))await memberships.updateOne({id:duplicate.id},{$set:{role:"admin",updatedAt:new Date()}});
+  }
+  await memberships.createIndex({tenantId:1},{unique:true,partialFilterExpression:{role:"owner",status:"active"},name:"memberships_one_active_owner_per_company"});
   const authenticate=async(req:any,reply:any):Promise<{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null}|null>=>{
    try{
     await req.jwtVerify();
