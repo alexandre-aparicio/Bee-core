@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — `main` includes PR #23 (`67986b5`) and PR #27 (`4ad792c`). PR #27 pre-merge backend/full-stack and Angular checks passed; post-merge backend/full-stack, Angular and production Compose workflows are being verified.
+Updated: 2026-11-20 — `main` includes PR #23 (`67986b5`) and PR #27 (`4ad792c`). PR #27 pre-merge backend/full-stack and Angular browser checks passed; post-merge backend/full-stack and production Compose passed, while the post-merge Angular browser job is still running after its production build.
 
 ## How progress is measured
 
@@ -41,7 +41,7 @@ The weighted capability score is **86.5%** (87% rounded; 86.5% before rounding).
 - PR #20 — tenant-scoped audit events for invitations, custom roles, membership changes/suspension, plugin lifecycle and permission denials.
 - PR #22 — private template SSE session and active-membership revalidation; post-merge backend/full-stack CI run `44765696476` and production Compose run `44765696509` passed on `15faa3b`.
 - PR #23 — durable company-scoped installation jobs, active-job deduplication, lease recovery, bounded retries, tenant-scoped job status and Angular installation progress. Backend/MongoDB, Docker full-stack and Angular browser smoke checks passed before merge; post-merge backend/full-stack run `44767972917`, Angular run `44767972896` and production Compose run `44767972871` all passed on `67986b5`.
-- PR #27 — durable asynchronous uninstall, lifecycle-operation conflict prevention, `uninstalling` state recovery, tenant-scoped job status, deduplicated requests, preserved company data and Angular progress. Pre-merge backend/full-stack and Angular checks passed on `b9f8136`; post-merge checks are running on `4ad792c`.
+- PR #27 — durable asynchronous uninstall, lifecycle-operation conflict prevention, `uninstalling` state recovery, tenant-scoped job status, deduplicated requests, preserved company data and Angular progress. Pre-merge backend/full-stack and Angular browser checks passed on `b9f8136`; post-merge backend/full-stack run `44770367394` and production Compose run `44770367267` passed on `4ad792c`; post-merge Angular run `44770367382` has completed its production build and is still in the Chromium/browser-smoke step.
 
 PR #20 passed backend typecheck/build/MongoDB auth tests and Docker Compose full-stack integration. The dedicated Angular workflow was correctly skipped because no Angular files changed; Angular was built and exercised within the full-stack workflow. Post-merge checks passed on `1c96e8100d2145f518a0232d300122c866551c1b`: backend and full-stack CI run `44764328710`, plus production Compose run `44764328866`.
 
@@ -59,7 +59,7 @@ PR #20 selectively ported the unique audit functionality onto current `main`, ra
 
 ## Active next work
 
-1. Implement durable plugin update jobs, safe migration rollback and dependency ordering; install and uninstall are now durable, but updates remain synchronous/not implemented.
+1. Implement durable plugin update jobs, safe migration rollback and dependency ordering; plugin updates remain pending.
 2. Complete tenant-isolation review across protected routes, file/media paths, webhooks and background tasks; PR #22 closes the private template SSE revocation gap but not the full audit.
 3. Implement immutable signed package archives, signature/digest verification and manifest-driven dynamic frontend registration.
 4. Add payment-provider integration, checkout/subscription management and billing reconciliation.
