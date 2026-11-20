@@ -128,3 +128,56 @@ export async function runTenantPluginMigrations(
 
   return { applied, skipped };
 }
+
+
+/**
+ * Compensate migrations that completed successfully before a later lifecycle
+ * step (for example a plugin hook or version switch) failed.
+ */
+export async function rollbackTenantPluginMigrations(
+  db: Db,
+  tenantId: string,
+  pluginId: string,
+  migrations: readonly TenantPluginMigration[],
+  migrationIds: readonly string[]
+): Promise<{ rolledBack: string[]; failed: string[] }> {
+  const collection = db.collection<MigrationRecord>("tenant_plugin_migrations");
+  await collection.createIndex(
+    { tenantId: 1, pluginId: 1, migrationId: 1 },
+    { unique: true, name: "tenant_plugin_migration_unique" }
+  );
+  const records = new TenantCollection<MigrationRecord>(collection, tenantId);
+  const byId = new Map(migrations.map(migration => [migration.id, migration]));
+  const rolledBack: string[] = [];
+  const failed: string[] = [];
+
+  for (const migrationId of [...migrationIds].reverse()) {
+    const migration = byId.get(migrationId);
+    const record = await records.findOne({ pluginId, migrationId });
+    if (!migration || !record || record.status !== "applied") continue;
+    if (!migration.down) {
+      await records.updateOne(
+        { pluginId, migrationId },
+        { $set: { status: "rollback_failed", error: "No rollback handler is registered" } }
+      );
+      failed.push(migrationId);
+      continue;
+    }
+    try {
+      await migration.down(db, tenantId);
+      await records.updateOne(
+        { pluginId, migrationId },
+        { $set: { status: "rolled_back", error: "" }, $unset: { appliedAt: "" } }
+      );
+      rolledBack.push(migrationId);
+    } catch (error) {
+      await records.updateOne(
+        { pluginId, migrationId },
+        { $set: { status: "rollback_failed", error: errorText(error) } }
+      );
+      failed.push(migrationId);
+    }
+  }
+
+  return { rolledBack, failed };
+}
