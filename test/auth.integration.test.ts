@@ -253,14 +253,14 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const createInvite=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
     assert.equal(createInvite.statusCode,201);
     assert.ok(createInvite.json().acceptanceToken);
-    const invitationCreatedAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,action:"member.invited",resourceId:createInvite.json().invitation.id,metadata:{phase:"created"}});
+    const invitationCreatedAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,action:"member.invited",resourceId:createInvite.json().invitation.id,"metadata.phase":"created"});
     assert.ok(invitationCreatedAudit,"invitation creation should be audited within the company");
     const wrongAccountAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(wrongAccountAccept.statusCode,403);
     const acceptedInvite=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(acceptedInvite.statusCode,200);
     assert.equal(acceptedInvite.json().company.id,secondCompanyId);
-    const invitationAcceptedAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,action:"member.invited",resourceType:"membership",resourceId:"legacy-user",metadata:{phase:"accepted"}});
+    const invitationAcceptedAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,action:"member.invited",resourceType:"membership",resourceId:"legacy-user","metadata.phase":"accepted"});
     assert.ok(invitationAcceptedAudit,"invitation acceptance should be audited within the company");
     const duplicateAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(duplicateAccept.statusCode,404);
