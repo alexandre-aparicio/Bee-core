@@ -7,23 +7,8 @@ const THEME_MODE_KEY = 'bee-template-mode';
 const DEFAULT_THEME_TOKENS: Record<string, string> = { '--bg': '#080a12', '--panel': '#10131e', '--muted': '#8991a4', '--border': '#303447', '--purple': '#8c72ff', '--cyan': '#69e5d4' };
 const THEME_TOKEN_KEYS = Object.keys(DEFAULT_THEME_TOKENS);
 
-const BUILT_IN_TEMPLATES: BeeTemplateManifest[] = [
-  { id: 'aurora', name: 'Aurora', version: '1.0.0', target: 'public', description: 'Dark, expressive public experience.', builtIn: true, layout: 'public.aurora', slots: ['header', 'hero', 'content', 'footer'] },
-  { id: 'editorial', name: 'Editorial', version: '1.0.0', target: 'public', description: 'Light, content-first public experience.', builtIn: true, layout: 'public.editorial', slots: ['header', 'hero', 'content', 'footer'] },
-  { id: 'midnight', name: 'Midnight', version: '1.0.0', target: 'dashboard', description: 'Dark workspace with high-contrast panels.', builtIn: true, layout: 'dashboard.midnight', slots: ['sidebar', 'topbar', 'content', 'widgets'] },
-  { id: 'paper', name: 'Paper', version: '1.0.0', target: 'dashboard', description: 'Light workspace for long working sessions.', builtIn: true, layout: 'dashboard.paper', slots: ['sidebar', 'topbar', 'content', 'widgets'] }
-];
+import { BUILT_IN_TEMPLATES, PACKAGE_TEMPLATES, PACKAGE_THEME_TOKENS, BASE_TEMPLATE_IDS } from './packages';
 
-const DEFAULT_SELECTION: BeeTemplateSelection = { public: 'aurora', dashboard: 'midnight' };
-const BASE_TEMPLATE_IDS = ['aurora', 'editorial', 'midnight', 'paper'];
-const PACKAGE_TEMPLATES: BeeTemplateManifest[] = [
-  { id: 'studio', name: 'Studio', version: '1.0.0', target: 'public', description: 'Warm editorial landing page with a bright accent palette.', builtIn: false, layout: 'public.studio', slots: ['header', 'hero', 'content', 'footer'] },
-  { id: 'glass', name: 'Glass', version: '1.0.0', target: 'dashboard', description: 'Soft glass workspace with cool blue and violet accents.', builtIn: false, layout: 'dashboard.glass', slots: ['sidebar', 'topbar', 'content', 'widgets'] }
-];
-const PACKAGE_THEME_TOKENS: Record<string, Record<string, string>> = {
-  studio: { '--bg': '#f4f0e9', '--panel': '#fffaf2', '--muted': '#756e65', '--border': '#ded5c8', '--purple': '#b85d3b', '--cyan': '#397d78' },
-  glass: { '--bg': '#101827', '--panel': '#1b2940', '--muted': '#a2b1c7', '--border': '#40516b', '--purple': '#8b9dff', '--cyan': '#69d9e8' }
-};
 
 @Injectable({ providedIn: 'root' })
 export class BeeTemplateEngine {
