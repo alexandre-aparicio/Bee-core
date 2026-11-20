@@ -113,7 +113,7 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - Acceptance: plan-only, add-on purchase, expired subscription and revoked purchase scenarios are covered by integration tests; direct API calls cannot bypass entitlements.
 
 ### Phase 5 — Company-scoped plugin installer
-- Add catalog visibility, install/update/rollback/uninstall APIs and UI. (Tenant-filtered catalog, install/uninstall APIs and installed/failed/uninstalled state are implemented; UI, upgrade and rollback are pending.)
+- Add catalog visibility, install/update/rollback/uninstall APIs and UI. (Tenant-filtered catalog, install/uninstall APIs, per-company lifecycle state and a basic dashboard marketplace UI are implemented; upgrade and rollback are pending.)
 - Add durable jobs, dependency ordering, migration locks and recovery. (Current install hooks run synchronously; durable jobs, dependency graph resolution and crash recovery remain pending.)
 - Separate installed, enabled, suspended and failed states. (Initial installed/installing/failed/uninstalled states exist; entitlement suspension/reactivation handling remains pending.)
 - Acceptance: install, upgrade, failed migration recovery, dependency conflict, suspension, reactivation and uninstall are tested with two isolated companies.
