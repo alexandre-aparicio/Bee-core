@@ -204,8 +204,6 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(updateBetaRole.statusCode,200);
     assert.equal(updateBetaRole.json().membership.role,"manager");
-    const managerInviteAdmin=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken},payload:{email:"admin-invite@example.com",role:"admin"}});
-    assert.equal(managerInviteAdmin.statusCode,403);
     const createInvite=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
     assert.equal(createInvite.statusCode,201);
     assert.ok(createInvite.json().acceptanceToken);
@@ -230,6 +228,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const betaReLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     const betaManagerContext=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaReLogin.json().accessToken}});
     assert.equal(betaManagerContext.statusCode,200);
+    const managerInviteAdmin=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken},payload:{email:"admin-invite@example.com",role:"admin"}});
+    assert.equal(managerInviteAdmin.statusCode,403);
 
     const staleCompanyToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(staleCompanyToken.statusCode,401);
