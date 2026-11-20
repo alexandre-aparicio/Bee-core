@@ -102,7 +102,7 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 
 ### Phase 3 — Plugin registry and runtime contract
 - Define and validate immutable plugin manifests and package metadata. (Initial manifest contract and validator implemented.)
-- Extend the plugin manager with dependency resolution, lifecycle states, scoped registration and failure isolation. (Trusted compiled packages and company installation state are implemented; arbitrary package loading and durable lifecycle jobs remain pending.)
+- Extend the plugin manager with dependency resolution, lifecycle states, scoped registration and failure isolation. (Trusted compiled packages, company installation state and durable install/uninstall jobs are implemented; arbitrary package loading, durable upgrades and rollback remain pending.)
 - Define backend API, permissions, frontend Angular registration, settings, migrations and health checks. (The Notes reference plugin validates tenant-scoped API routes and role permissions.)
 - Acceptance: a trusted sample plugin can register backend and Angular surfaces without modifying core code; invalid/incompatible packages are rejected.
 
@@ -113,10 +113,10 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - Acceptance: plan-only, add-on purchase, expired subscription and revoked purchase scenarios are covered by integration tests; direct API calls cannot bypass entitlements.
 
 ### Phase 5 — Company-scoped plugin installer
-- Add catalog visibility, install/update/rollback/uninstall APIs and UI. (Tenant-filtered catalog, install/uninstall APIs, per-company lifecycle state and a basic dashboard marketplace UI are implemented; upgrade and rollback are pending.)
-- Add durable jobs, dependency ordering, migration locks and recovery. (Installation now uses a MongoDB-backed durable job queue with tenant/plugin deduplication, atomic worker leases, bounded retries, expired-lease recovery and tenant-scoped job status. Install hooks and migrations run asynchronously; shutdown drains the active worker. Uninstall remains synchronous; upgrade/rollback, distributed worker operations beyond lease-based single-job claiming, and dependency graph resolution remain pending.)
-- Separate installed, enabled, suspended and failed states. (Initial installed/installing/failed/uninstalled states exist; entitlement suspension/reactivation handling remains pending.)
-- Acceptance: install, upgrade, failed migration recovery, dependency conflict, suspension, reactivation and uninstall are tested with two isolated companies. Install-job deduplication, tenant-scoped status and expired-worker-lease recovery are now covered; full upgrade/rollback and multi-worker stress coverage remain.
+- Add catalog visibility, install/update/rollback/uninstall APIs and UI. (Tenant-filtered catalog, install/uninstall APIs, per-company lifecycle state and a basic dashboard marketplace UI are implemented; durable upgrade and rollback are pending.)
+- Add durable jobs, dependency ordering, migration locks and recovery. (Install and uninstall now use a shared MongoDB-backed durable lifecycle queue with tenant/plugin deduplication, atomic worker leases, bounded retries, expired-lease recovery and tenant-scoped job status. Both actions run asynchronously; shutdown drains the active worker. Durable upgrades, rollback, lease renewal/heartbeats, multi-worker stress validation and complete dependency graph resolution remain pending.)
+- Separate installed, enabled, suspended and failed states. (Installed/installing/failed/uninstalling/uninstalled states exist; uninstall failures restore the installed state and preserve tenant data. Entitlement suspension/reactivation handling remains pending.)
+- Acceptance: install, upgrade, failed migration recovery, dependency conflict, suspension, reactivation and uninstall are tested with two isolated companies. Install/uninstall job deduplication, tenant-scoped status and expired-worker-lease recovery are covered; full upgrade/rollback, lease renewal and multi-worker stress coverage remain.
 
 ### Phase 6 — First reference plugin and release readiness
 - Build `hello-world` as a real reference plugin using the final contract.
@@ -128,6 +128,7 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 
 - PR #22 — private template SSE now revalidates persisted session and tenant membership every five seconds, fails closed on revocation, and has a MongoDB integration regression test. Post-merge backend/full-stack CI and production Compose workflows passed on `15faa3b85cae75fc1812017f5467752a3ccddf33`.
 - PR #23 — MongoDB-backed durable company-scoped install jobs, worker lease recovery, retries, tenant-scoped status and Angular progress. Pre-merge backend/MongoDB, Docker full-stack and Angular browser tests passed; post-merge backend/full-stack, Angular and production Compose workflows passed on `67986b586c95974b5a540efa2ee9ee1f41102996`.
+- PR #27 — durable asynchronous uninstall using the same lifecycle queue, dependency re-checks at execution, failure restoration to installed state, data preservation and tenant audit. PR-head backend/MongoDB and Angular browser checks passed; post-merge backend/full-stack and production Compose passed on `4ad792c87305ab1fefce62f15050840dd3c4145c`.
 
 - Implemented foundation: Node.js/TypeScript, Fastify, MongoDB, Angular, Docker Compose, persistent authentication, refresh-token rotation/replay rejection, template selection/installation and tenant-scoped template preferences/SSE.
 - Company membership foundation is implemented: legacy `users.tenantId` values are backfilled into `memberships`; users can list/create companies, activate a company in the current refresh-token session, and list/add/update/suspend company members.
