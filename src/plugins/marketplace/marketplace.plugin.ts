@@ -3,7 +3,7 @@ import { MongoClient, type Collection } from "mongodb";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { runTenantPluginMigrations } from "../../core/plugin-migrations.js";
-import { claimPluginInstallJob, completePluginInstallJob, enqueuePluginInstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
+import { claimPluginInstallJob, completePluginInstallJob, enqueuePluginInstallJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import {
@@ -242,28 +242,34 @@ export const marketplacePlugin: BeePlugin = {
     ctx.server.delete<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId/install", async (request: any, reply: any) => {
       const tenant = await authenticate(request, reply);
       if (!tenant) return;
-      if (!hasTenantPermission(tenant, "plugins.manage")) return reply.code(403).send({ error: "Plugin management permission required" });
+      if (!hasTenantPermission(tenant, "plugins.manage")) {
+        await auditMarketplaceEvent({ tenantId: tenant.tenantId, actorId: tenant.userId, action: "permission.denied", outcome: "denied", resourceType: "permission", resourceId: request.params.pluginId, metadata: { permission: "plugins.manage" } });
+        return reply.code(403).send({ error: "Plugin management permission required" });
+      }
       const pluginId = String(request.params.pluginId ?? "");
       const trusted = getTrustedPluginPackage(pluginId);
       if (!trusted) return reply.code(404).send({ error: "Plugin package not found" });
       if (trusted.system) return reply.code(409).send({ error: "System plugins cannot be uninstalled" });
+      const activeKey = tenant.tenantId + ":" + pluginId;
+      const activeJob = await installJobs.findOne({ activeKey });
+      if (activeJob) {
+        if (activeJob.action !== "uninstall") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
+        return reply.code(202).send({ jobId: activeJob.id, pluginId, action: "uninstall", status: activeJob.status, accepted: true, duplicate: true, statusUrl: "/marketplace/install-jobs/" + activeJob.id });
+      }
       if (!await isPluginInstalled(db, tenant.tenantId, pluginId)) return reply.code(404).send({ error: "Plugin is not installed" });
       const otherInstalled = await db.collection("tenant_plugin_installations")
         .find({ tenantId: tenant.tenantId, status: "installed", pluginId: { $ne: pluginId } })
         .toArray();
       for (const installed of otherInstalled) {
         const dependent = getTrustedPluginPackage(String(installed.pluginId));
-        if (dependent?.dependencies.includes(pluginId)) {
-          return reply.code(409).send({ error: "Plugin is required by installed plugin: " + installed.pluginId });
-        }
+        if (dependent?.dependencies.includes(pluginId)) return reply.code(409).send({ error: "Plugin is required by installed plugin: " + installed.pluginId });
       }
-      await trusted.uninstallTenant?.(db, tenant.tenantId);
-      await db.collection("tenant_plugin_installations").updateOne(
-        { tenantId: tenant.tenantId, pluginId },
-        { $set: { status: "uninstalled", updatedAt: new Date() } }
-      );
-      await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"plugin.uninstalled",outcome:"success",resourceType:"plugin",resourceId:pluginId});
-      return { pluginId, status: "uninstalled", dataPreserved: true };
+      const queued = await enqueuePluginUninstallJob(installJobs, { tenantId: tenant.tenantId, pluginId, actorId: tenant.userId });
+      if (queued.job.action !== "uninstall") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
+      return reply.code(202).send({
+        jobId: queued.job.id, pluginId, action: "uninstall", status: queued.job.status,
+        accepted: true, duplicate: !queued.created, statusUrl: "/marketplace/install-jobs/" + queued.job.id
+      });
     });
 
     let workerBusy = false;
@@ -277,33 +283,65 @@ export const marketplacePlugin: BeePlugin = {
         try {
           const tenantRecord = await db.collection("tenants").findOne({ id: job.tenantId, status: "active" });
           if (!tenantRecord) throw new Error("Company is not active");
-          if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
           const trusted = getTrustedPluginPackage(job.pluginId);
           if (!trusted) throw new Error("Trusted plugin package is unavailable");
-          for (const dependency of trusted.dependencies) {
-            if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency)) {
-              throw new Error("Required plugin dependency is not installed: " + dependency);
+
+          if (job.action === "uninstall") {
+            if (trusted.system) throw new Error("System plugins cannot be uninstalled");
+            const installation = await db.collection("tenant_plugin_installations").findOne({ tenantId: job.tenantId, pluginId: job.pluginId });
+            if (!installation || !["installed", "uninstalling"].includes(String(installation.status))) throw new Error("Plugin is not installed");
+            const otherInstalled = await db.collection("tenant_plugin_installations")
+              .find({ tenantId: job.tenantId, status: "installed", pluginId: { $ne: job.pluginId } })
+              .toArray();
+            for (const installed of otherInstalled) {
+              const dependent = getTrustedPluginPackage(String(installed.pluginId));
+              if (dependent?.dependencies.includes(job.pluginId)) throw new Error("Plugin is required by installed plugin: " + installed.pluginId);
             }
+            await db.collection("tenant_plugin_installations").updateOne(
+              { tenantId: job.tenantId, pluginId: job.pluginId, status: { $in: ["installed", "uninstalling"] } },
+              { $set: { status: "uninstalling", updatedAt: new Date() } }
+            );
+            await trusted.uninstallTenant?.(db, job.tenantId);
+            await db.collection("tenant_plugin_installations").updateOne(
+              { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
+              { $set: { status: "uninstalled", updatedAt: new Date() }, $unset: { error: "" } }
+            );
+            const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
+            if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
+          } else {
+            if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
+            for (const dependency of trusted.dependencies) {
+              if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency)) {
+                throw new Error("Required plugin dependency is not installed: " + dependency);
+              }
+            }
+            const installations = db.collection("tenant_plugin_installations");
+            await installations.updateOne(
+              { tenantId: job.tenantId, pluginId: job.pluginId },
+              { $set: { status: "installing", version: trusted.version, updatedAt: new Date(), error: null }, $setOnInsert: { id: randomUUID(), tenantId: job.tenantId, pluginId: job.pluginId, installedAt: null } },
+              { upsert: true }
+            );
+            await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
+            await trusted.installTenant?.(db, job.tenantId);
+            await installations.updateOne(
+              { tenantId: job.tenantId, pluginId: job.pluginId },
+              { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } }
+            );
+            const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
+            if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.installed", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           }
-          const installations = db.collection("tenant_plugin_installations");
-          await installations.updateOne(
-            { tenantId: job.tenantId, pluginId: job.pluginId },
-            { $set: { status: "installing", version: trusted.version, updatedAt: new Date(), error: null }, $setOnInsert: { id: randomUUID(), tenantId: job.tenantId, pluginId: job.pluginId, installedAt: null } },
-            { upsert: true }
-          );
-          await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
-          await trusted.installTenant?.(db, job.tenantId);
-          await installations.updateOne(
-            { tenantId: job.tenantId, pluginId: job.pluginId },
-            { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } }
-          );
-          const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
-          if (completed) await auditMarketplaceEvent({tenantId:job.tenantId,actorId:job.actorId,action:"plugin.installed",outcome:"success",resourceType:"plugin",resourceId:job.pluginId,metadata:{version:trusted.version,jobId:job.id}});
         } catch (error) {
-          await db.collection("tenant_plugin_installations").updateOne(
-            { tenantId: job.tenantId, pluginId: job.pluginId, status: "installing" },
-            { $set: { status: "failed", error: error instanceof Error ? error.message.slice(0, 500) : "Plugin installation failed", updatedAt: new Date() } }
-          );
+          if (job.action === "install") {
+            await db.collection("tenant_plugin_installations").updateOne(
+              { tenantId: job.tenantId, pluginId: job.pluginId, status: "installing" },
+              { $set: { status: "failed", error: error instanceof Error ? error.message.slice(0, 500) : "Plugin installation failed", updatedAt: new Date() } }
+            );
+          } else {
+            await db.collection("tenant_plugin_installations").updateOne(
+              { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
+              { $set: { status: "installed", error: error instanceof Error ? error.message.slice(0, 500) : "Plugin uninstallation failed", updatedAt: new Date() } }
+            );
+          }
           await failPluginInstallJob(installJobs, job, workerId, error);
           ctx.logger.error("Tenant plugin installation job failed", { tenantId: job.tenantId, pluginId: job.pluginId, jobId: job.id, error });
         }
