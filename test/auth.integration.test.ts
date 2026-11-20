@@ -238,9 +238,12 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(betaSecondCompanyPreferences.json().tenantId,secondCompanyId);
     const betaCannotManageMembers=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
     assert.equal(betaCannotManageMembers.statusCode,403);
+    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user-beta",action:"permission.denied",outcome:"denied","metadata.permission":"members.manage"}),"denied company permission should be audited");
     const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(updateBetaRole.statusCode,200);
     assert.equal(updateBetaRole.json().membership.role,"manager");
+    const roleChangeAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"member.role_changed",resourceType:"membership",resourceId:"test-user-beta","metadata.previousRole":"member","metadata.newRole":"manager"});
+    assert.ok(roleChangeAudit,"membership role changes should be tenant-audited");
     const betaOldRoleSession=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken}});
     assert.equal(betaOldRoleSession.statusCode,401);
     const betaReLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
@@ -254,12 +257,14 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const createCustomRole=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Notes reader",description:"Read-only notes access",permissions:["notes.read"]}});
     assert.equal(createCustomRole.statusCode,201);
     const customRoleId=createCustomRole.json().role.id as string;
+    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"role.created",resourceId:customRoleId}),"custom role creation should be audited");
     const companyRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(companyRoles.json().roles.some((role:{id:string;name:string})=>role.id===customRoleId&&role.name==="Notes reader"));
     const crossTenantCustomRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+betaTokens.accessToken}});
     assert.equal(crossTenantCustomRoles.statusCode,401);
     const customRoleUpdate=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Notes reader updated",description:"Updated",permissions:["notes.read","files.read"]}});
     assert.equal(customRoleUpdate.statusCode,200);
+    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"role.updated",resourceId:customRoleId}),"custom role update should be audited");
     const assignCustomRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{customRoleId}});
     assert.equal(assignCustomRole.statusCode,200);
     assert.equal(assignCustomRole.json().membership.role,"custom");
@@ -281,6 +286,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(resetCustomMemberRole.statusCode,200);
     const deleteCustomRole=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(deleteCustomRole.statusCode,200);
+    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"role.deleted",resourceId:customRoleId}),"custom role deletion should be audited");
     const deletedRoleLookup=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(!deletedRoleLookup.json().roles.some((role:{id:string})=>role.id===customRoleId));
     const rejectEscalationRole=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Escalation attempt",permissions:["members.manage"]}});
@@ -288,6 +294,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const createInvite=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
     assert.equal(createInvite.statusCode,201);
     assert.ok(createInvite.json().acceptanceToken);
+    const invitationCreatedAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,action:"member.invited",resourceId:createInvite.json().invitation.id,"metadata.phase":"created"});
+    assert.ok(invitationCreatedAudit,"invitation creation should be tenant-audited");
     const wrongAccountLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     const wrongAccountAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+wrongAccountLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(wrongAccountAccept.statusCode,403);
@@ -295,6 +303,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const acceptedInvite=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyAcceptLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(acceptedInvite.statusCode,200);
     assert.equal(acceptedInvite.json().company.id,secondCompanyId);
+    const invitationAcceptedAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,action:"member.invited",resourceType:"membership",resourceId:"legacy-user","metadata.phase":"accepted"});
+    assert.ok(invitationAcceptedAudit,"invitation acceptance should be tenant-audited");
     const duplicateAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(duplicateAccept.statusCode,404);
     const invitedMemberList=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
@@ -303,6 +313,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(createCancelledInvite.statusCode,201);
     const cancelInvite=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/invitations/"+createCancelledInvite.json().invitation.id,headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(cancelInvite.statusCode,200);
+    const invitationCancelledAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,action:"invitation.cancelled",resourceType:"invitation",resourceId:createCancelledInvite.json().invitation.id});
+    assert.ok(invitationCancelledAudit,"invitation cancellation should be tenant-audited");
     const legacyCancelledLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"legacy@example.com",password:"Test-password-12345",client:"dashboard"}});
     const cancelledAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyCancelledLogin.json().accessToken},payload:{token:createCancelledInvite.json().acceptanceToken}});
     assert.equal(cancelledAccept.statusCode,404);
@@ -328,6 +340,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const refreshed = refresh.json(); assert.notEqual(refreshed.refreshToken, tokens.refreshToken);
     const replay = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: tokens.refreshToken } });
     assert.equal(replay.statusCode, 401);
+    const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+    assert.equal(removeBetaMember.statusCode,200);
+    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
     const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken }, payload: { refreshToken: refreshed.refreshToken } });
     assert.equal(logout.statusCode, 200);
     const logoutAudit = await db.collection("tenant_audit_events").find({actorId:"test-user",action:"auth.logout"}).toArray();

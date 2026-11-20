@@ -8,8 +8,7 @@ on:
       - ".env.production.example"
       - ".github/workflows/docker-prod-profile.yml"
       - "Dockerfile"
-      - "apps/web/**"
-      - "src/**"
+      - "apps/web/Dockerfile"
   push:
     branches: [main]
     paths:

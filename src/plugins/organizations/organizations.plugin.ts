@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 
 type Company = { id:string; name:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
@@ -19,6 +20,9 @@ export const organizationsPlugin:BeePlugin={
   mongoClient=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongoClient.connect();
   const db:Db=mongoClient.db(dbName);
+  const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
+  await ensureTenantAuditIndexes(auditEvents);
+  const auditOrganizationEvent=async(event:{tenantId:string;actorId:string;action:TenantAuditEvent["action"];outcome:TenantAuditEvent["outcome"];resourceType?:string;resourceId?:string;metadata?:TenantAuditEvent["metadata"]})=>{try{const record:import("../../core/audit-log.js").AuditEventInput={id:randomUUID(),occurredAt:new Date(),tenantId:event.tenantId,actorId:event.actorId,action:event.action,outcome:event.outcome,resourceType:event.resourceType,resourceId:event.resourceId,metadata:event.metadata};await appendTenantAuditEvent(auditEvents,record);}catch(error){ctx.logger.error("Organization audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
   const users=db.collection<{id:string;email:string;enabled:boolean;tenantId?:string;roles?:string[]}>("users");
   const companies:Collection<Company>=db.collection("tenants");
   const memberships:Collection<Membership>=db.collection("memberships");
@@ -70,7 +74,10 @@ export const organizationsPlugin:BeePlugin={
    let effectivePermissions:readonly string[]=[];
    if(actor?.role==="custom"&&actor.customRoleId){const custom=await customRoles.findOne({id:actor.customRoleId,tenantId:companyId});if(custom){try{effectivePermissions=permissionsForCustomRole(custom);}catch{}}}
    else if(actor&&actor.role!=="custom")effectivePermissions=rolePermissions[actor.role];
-   if(!actor||!effectivePermissions.includes(permission)){reply.code(403).send({error:"Company permission required: "+permission});return null;}
+   if(!actor||!effectivePermissions.includes(permission)){
+    if(auth.user&&activeTenantId&&companyId===activeTenantId)await auditOrganizationEvent({tenantId:activeTenantId,actorId:auth.user.id,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission}});
+    reply.code(403).send({error:"Company permission required: "+permission});return null;
+   }
    return actor;
   };
   const requireCompanyAdmin=(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>requireCompanyPermission(auth,companyId,"members.manage",reply);
@@ -95,6 +102,7 @@ export const organizationsPlugin:BeePlugin={
    const description=String(req.body?.description??"").trim().slice(0,240);
    const now=new Date(),role:CustomRolePolicy={id:randomUUID(),tenantId:req.params.companyId,name,description,permissions,createdBy:auth.user!.id,updatedBy:auth.user!.id,createdAt:now,updatedAt:now};
    try{await customRoles.insertOne(role);}catch{return reply.code(409).send({error:"A custom role with this name already exists"});}
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.created",outcome:"success",resourceType:"role",resourceId:role.id,metadata:{name}});
    return reply.code(201).send({role:{id:role.id,name,description,permissions}});
   });
   ctx.server.put<{Params:{companyId:string;roleId:string};Body:{name?:string;description?:string;permissions?:unknown}}>("/companies/:companyId/roles/:roleId",async(req,reply)=>{
@@ -105,6 +113,7 @@ export const organizationsPlugin:BeePlugin={
    const description=String(req.body?.description??"").trim().slice(0,240);
    const result=await customRoles.updateOne({id:req.params.roleId,tenantId:req.params.companyId},{$set:{name,description,permissions,updatedBy:auth.user!.id,updatedAt:new Date()}});
    if(!result.matchedCount)return reply.code(404).send({error:"Custom role not found"});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.updated",outcome:"success",resourceType:"role",resourceId:req.params.roleId,metadata:{name}});
    return {role:{id:req.params.roleId,name,description,permissions}};
   });
   ctx.server.delete<{Params:{companyId:string;roleId:string}}>("/companies/:companyId/roles/:roleId",async(req,reply)=>{
@@ -114,6 +123,7 @@ export const organizationsPlugin:BeePlugin={
    if(assigned)return reply.code(409).send({error:"Custom role is assigned to active members"});
    const result=await customRoles.deleteOne({id:req.params.roleId,tenantId:req.params.companyId});
    if(!result.deletedCount)return reply.code(404).send({error:"Custom role not found"});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.deleted",outcome:"success",resourceType:"role",resourceId:req.params.roleId});
    return {success:true};
   });
   ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/invitations",async(req,reply)=>{
@@ -138,6 +148,7 @@ export const organizationsPlugin:BeePlugin={
    }
    const token=randomBytes(32).toString("base64url"),now=new Date(),invitation:Invitation={id:randomUUID(),tenantId:req.params.companyId,email,role,tokenHash:createHash("sha256").update(token).digest("hex"),createdBy:auth.user!.id,createdAt:now,expiresAt:new Date(now.getTime()+7*24*60*60*1000),acceptedAt:null,cancelledAt:null};
    await invitations.insertOne(invitation);
+   await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"invitation",resourceId:invitation.id,metadata:{role:invitation.role,phase:"created"}});
    return reply.code(201).send({invitation:{id:invitation.id,email,role,expiresAt:invitation.expiresAt},acceptanceToken:token});
   });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/invitations",async(req,reply)=>{
@@ -151,6 +162,7 @@ export const organizationsPlugin:BeePlugin={
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const result=await invitations.updateOne({id:req.params.invitationId,tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null},{$set:{cancelledAt:new Date()}});
    if(!result.matchedCount)return reply.code(404).send({error:"Pending invitation not found"});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"invitation.cancelled",outcome:"success",resourceType:"invitation",resourceId:req.params.invitationId});
    return {success:true,status:"cancelled"};
   });
   ctx.server.post<{Body:{token?:string}}>("/invitations/accept",async(req,reply)=>{
@@ -173,6 +185,7 @@ export const organizationsPlugin:BeePlugin={
    if(!consumed.modifiedCount)return reply.code(409).send({error:"Invitation has already been used"});
    if(existing)await memberships.updateOne({id:existing.id},{$set:{role:invitation.role,status:"active",updatedAt:now}});
    else await memberships.insertOne({id:randomUUID(),userId:auth.user!.id,tenantId:invitation.tenantId,role:invitation.role,status:"active",createdAt:now,updatedAt:now});
+   await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"membership",resourceId:auth.user!.id,metadata:{role:invitation.role,phase:"accepted"}});
    return {success:true,company:{id:company.id,name:company.name},membership:{role:invitation.role,status:"active"}};
   });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/memberships",async(req,reply)=>{
@@ -228,6 +241,7 @@ export const organizationsPlugin:BeePlugin={
     update={$set:{role,updatedAt:new Date()},$unset:{customRoleId:""}};
    }
    await memberships.updateOne({id:target.id},update);
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.role_changed",outcome:"success",resourceType:"membership",resourceId:target.userId,metadata:{previousRole:target.role,newRole:update.$set.role}});
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
    return {membership:{userId:target.userId,role:update.$set.role,customRoleId:update.$set.customRoleId??null,status:"active"},sessionsRevoked:true};
   });
@@ -239,6 +253,7 @@ export const organizationsPlugin:BeePlugin={
    if(target.role==="owner")return reply.code(409).send({error:"The company owner cannot be removed"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot remove other administrators"});
    await memberships.updateOne({id:target.id},{$set:{status:"suspended",updatedAt:new Date()}});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.suspended",outcome:"success",resourceType:"membership",resourceId:target.userId});
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
    return {success:true,status:"suspended"};
   });

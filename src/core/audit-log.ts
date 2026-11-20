@@ -3,10 +3,23 @@ import { TenantCollection } from "./tenant-collection.js";
 
 export type AuditAction =
   | "auth.login" | "auth.logout"
-  | "member.invited" | "member.role_changed" | "member.removed"
+  | "member.invited" | "member.role_changed" | "member.removed" | "member.suspended" | "invitation.cancelled"
   | "role.created" | "role.updated" | "role.deleted"
   | "permission.denied"
   | "plugin.installed" | "plugin.uninstalled";
+
+export type AuditEventInput = {
+  id: string;
+  tenantId: string;
+  actorId: string;
+  action: AuditAction;
+  resourceType?: string;
+  resourceId?: string;
+  outcome: "success" | "denied";
+  metadata?: Record<string, string | number | boolean | null>;
+  occurredAt: Date;
+};
+export type AuditEventDraft = Omit<AuditEventInput, "id" | "occurredAt">;
 
 export type TenantAuditEvent = Document & {
   id: string;
@@ -26,7 +39,7 @@ const MAX_METADATA_ENTRIES = 20;
 /** Append-only service surface; event documents are written tenant-scoped. */
 export async function appendTenantAuditEvent(
   collection: Collection<TenantAuditEvent>,
-  event: Omit<TenantAuditEvent, "tenantId"> & { tenantId: string }
+  event: AuditEventInput
 ): Promise<void> {
   const metadata = event.metadata ?? {};
   if (Object.keys(metadata).length > MAX_METADATA_ENTRIES) throw new Error("Audit metadata entry limit exceeded");
