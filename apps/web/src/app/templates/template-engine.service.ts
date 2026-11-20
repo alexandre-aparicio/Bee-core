@@ -92,7 +92,7 @@ export class BeeTemplateEngine {
     this.selectionRevision++;
     this.persist();
     void this.persistRemoteSelection();
-    if (packageId && PACKAGE_THEME_TOKENS[packageId]) void this.saveThemeTokens(PACKAGE_THEME_TOKENS[packageId]);
+    if (packageId) void this.saveThemeTokens(this.themeTokens);
   }
 
   cancelPreview(): void {
