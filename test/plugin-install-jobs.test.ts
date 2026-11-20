@@ -9,6 +9,7 @@ import {
   enqueuePluginUninstallJob,
   ensurePluginInstallJobIndexes,
   failPluginInstallJob,
+  renewPluginInstallJobLease,
   type PluginInstallJob
 } from "../src/core/plugin-install-jobs.js";
 
@@ -91,6 +92,55 @@ test("durable plugin install jobs deduplicate, recover expired leases and reject
     const anotherTenantUninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-b", pluginId: "notes", actorId: "owner-b" });
     assert.equal(anotherTenantUninstall.created, true, "another company has an independent lifecycle queue key");
     assert.notEqual(anotherTenantUninstall.job.id, uninstall.job.id);
+  } finally {
+    await client.db(dbName).dropDatabase();
+    await client.close();
+  }
+});
+
+
+test("expired plugin lifecycle leases cannot be renewed or completed by stale workers", { skip: !uri }, async () => {
+  const client = new MongoClient(uri!);
+  await client.connect();
+  const dbName = "bee_install_job_lease_test_" + Date.now();
+  const collection: Collection<PluginInstallJob> = client.db(dbName).collection("plugin_install_jobs");
+  try {
+    await ensurePluginInstallJobIndexes(collection);
+    const queued = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    const oldWorkerJob = await claimPluginInstallJob(collection, "worker-old", new Date(), 1_000);
+    assert.ok(oldWorkerJob);
+    const expiredAt = new Date(Date.now() + 1_100);
+    await new Promise(resolve => setTimeout(resolve, 1_150));
+    assert.equal(await renewPluginInstallJobLease(collection, oldWorkerJob, "worker-old"), false);
+    assert.equal(await completePluginInstallJob(collection, oldWorkerJob, "worker-old", "0.1.0"), false);
+    const current = await collection.findOne({ id: queued.job.id });
+    assert.equal(current?.status, "running", "an expired worker must not finalize the durable job");
+    assert.ok(current?.leaseUntil && current.leaseUntil <= new Date());
+  } finally {
+    await client.db(dbName).dropDatabase();
+    await client.close();
+  }
+});
+
+test("active lifecycle workers can extend their lease but cannot extend after another worker reclaims it", { skip: !uri }, async () => {
+  const client = new MongoClient(uri!);
+  await client.connect();
+  const dbName = "bee_install_job_renew_test_" + Date.now();
+  const collection: Collection<PluginInstallJob> = client.db(dbName).collection("plugin_install_jobs");
+  try {
+    await ensurePluginInstallJobIndexes(collection);
+    await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    const claimed = await claimPluginInstallJob(collection, "worker-a", new Date(), 5_000);
+    assert.ok(claimed);
+    assert.equal(await renewPluginInstallJobLease(collection, claimed, "worker-a", new Date(), 10_000), true);
+    const renewed = await collection.findOne({ id: claimed.id });
+    assert.ok(renewed?.leaseUntil && renewed.leaseUntil.getTime() > claimed.leaseUntil!.getTime());
+    await collection.updateOne({ id: claimed.id }, { $set: { leaseUntil: new Date(Date.now() - 1) } });
+    const reclaimed = await claimPluginInstallJob(collection, "worker-b");
+    assert.ok(reclaimed);
+    assert.equal(await renewPluginInstallJobLease(collection, claimed, "worker-a"), false);
+    assert.equal(await completePluginInstallJob(collection, claimed, "worker-a", "0.1.0"), false);
+    assert.equal(await completePluginInstallJob(collection, reclaimed, "worker-b", "0.1.0"), true);
   } finally {
     await client.db(dbName).dropDatabase();
     await client.close();
