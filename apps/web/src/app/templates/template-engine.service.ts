@@ -20,6 +20,7 @@ export class BeeTemplateEngine {
   private selection: BeeTemplateSelection = this.readSelection();
   private selectionRevision = 0;
   private stream?: EventSource;
+  private reconnecting = false;
   themeTokens: Record<string, string> = { ...DEFAULT_THEME_TOKENS };
 
   constructor() {
@@ -167,7 +168,13 @@ export class BeeTemplateEngine {
           if (update.tokens) this.applyThemeTokens(update.tokens);
         } catch { /* Ignore malformed server events. */ }
       });
-      this.stream.onerror = () => { this.stream?.close(); this.stream = undefined; };
+      this.stream.onerror = () => {
+        this.stream?.close();
+        this.stream = undefined;
+        if (this.reconnecting) return;
+        this.reconnecting = true;
+        setTimeout(() => { this.reconnecting = false; void this.connectRemoteEvents(); }, 3000);
+      };
     } catch { /* SSE is an enhancement; local UI remains usable. */ }
   }
 
