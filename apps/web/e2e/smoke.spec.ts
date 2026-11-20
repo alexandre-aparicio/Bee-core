@@ -191,7 +191,7 @@ test('dashboard marketplace shows company packages and installs an entitled plug
     }
     const body = route.request().postDataJSON();
     const now = new Date().toISOString();
-    const note = { id: 'note-1', title: body.title, content: body.content, createdBy: 'owner-1', createdAt: now, updatedAt: now };
+    const note = { id: 'note-' + (notes.length + 1), title: body.title, content: body.content, createdBy: 'owner-1', createdAt: now, updatedAt: now };
     notes.push(note);
     return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ note }) });
   });
