@@ -2,6 +2,7 @@ import type { BeePlugin } from "../../core/types.js";
 import { MongoClient } from "mongodb";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
+import { runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import {
   getBuiltInPlan,
@@ -217,6 +218,7 @@ export const marketplacePlugin: BeePlugin = {
         throw error;
       }
       try {
+        await runTenantPluginMigrations(db, tenant.tenantId, pluginId, trusted.migrations ?? []);
         await trusted.installTenant?.(db, tenant.tenantId);
         await installations.updateOne({ tenantId: tenant.tenantId, pluginId }, { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } });
         return reply.code(201).send({ pluginId, status: "installed", version: trusted.version });
