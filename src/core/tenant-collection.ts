@@ -40,12 +40,14 @@ export class TenantCollection<T extends Document = Document> {
     if (Object.keys(operations).some(key => !key.startsWith("$"))) {
       throw new Error("Replacement updates are not supported by TenantCollection");
     }
-    for (const operator of ["$set", "$setOnInsert", "$unset", "$rename"] as const) {
-      const values = operations[operator] as Document | undefined;
-      if (!values) continue;
-      if (Object.prototype.hasOwnProperty.call(values, "tenantId") ||
-          (operator === "$rename" && Object.values(values).includes("tenantId"))) {
-        throw new Error("tenantId is immutable through TenantCollection updates");
+
+    const isTenantPath = (path: string) => path === "tenantId" || path.startsWith("tenantId.");
+    for (const [operator, values] of Object.entries(operations)) {
+      if (!values || typeof values !== "object" || Array.isArray(values)) continue;
+      for (const [field, value] of Object.entries(values as Document)) {
+        if (isTenantPath(field) || (operator === "$rename" && typeof value === "string" && isTenantPath(value))) {
+          throw new Error("tenantId is immutable through TenantCollection updates");
+        }
       }
     }
   }
