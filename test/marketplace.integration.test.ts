@@ -35,7 +35,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     { id: "market-beta", name: "Market Beta", status: "active", createdAt: now }
   ]);
   await db.collection("users").insertMany([
-    { id: "market-owner-alpha", email: "owner@market-alpha.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "market-alpha", createdAt: now, updatedAt: now },
+    { id: "market-owner-alpha", email: "owner@market-alpha.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard","public"], tenantId: "market-alpha", createdAt: now, updatedAt: now },
     { id: "market-owner-beta", email: "owner@market-beta.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "market-beta", createdAt: now, updatedAt: now }
   ]);
 
@@ -74,6 +74,10 @@ test("company plans and purchases control plugin visibility, installation and ac
       return response.json().accessToken as string;
     };
     const alphaToken = await login("owner@market-alpha.test");
+    const publicLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"owner@market-alpha.test",password:"Test-password-12345",client:"public"}});
+    assert.equal(publicLogin.statusCode,200);
+    const publicMarketplace=await app.inject({method:"GET",url:"/marketplace/plugins",headers:{authorization:"Bearer "+publicLogin.json().accessToken}});
+    assert.equal(publicMarketplace.statusCode,403,"public-client tokens must not access the private plugin marketplace");
     const betaToken = await login("owner@market-beta.test");
     const webhook = (payload: unknown, secret = "test-billing-secret") => app.inject({
       method: "POST",

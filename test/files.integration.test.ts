@@ -26,7 +26,7 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     { id: "files-beta", name: "Files Beta", createdAt: new Date(), status: "active" }
   ]);
   await db.collection("users").insertMany([
-    { id: "files-owner-alpha", email: "files-alpha@example.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], tenantId: "files-alpha", createdAt: new Date(), updatedAt: new Date() },
+    { id: "files-owner-alpha", email: "files-alpha@example.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard","public"], tenantId: "files-alpha", createdAt: new Date(), updatedAt: new Date() },
     { id: "files-manager-beta", email: "files-beta@example.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], tenantId: "files-beta", createdAt: new Date(), updatedAt: new Date() },
     { id: "files-member-beta", email: "files-member@example.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], tenantId: "files-beta", createdAt: new Date(), updatedAt: new Date() }
   ]);
@@ -70,6 +70,10 @@ test("private files and images are isolated by active company", { skip: !uri }, 
       return response.json().accessToken as string;
     };
     const alphaToken = await login("files-alpha@example.test");
+    const publicLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"files-alpha@example.test",password:"Test-password-12345",client:"public"}});
+    assert.equal(publicLogin.statusCode,200);
+    const publicFileList=await app.inject({method:"GET",url:"/files",headers:{authorization:"Bearer "+publicLogin.json().accessToken}});
+    assert.equal(publicFileList.statusCode,403,"public-client tokens must not access private file management");
     const betaManagerToken = await login("files-beta@example.test");
     const betaMemberToken = await login("files-member@example.test");
     const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82]);
