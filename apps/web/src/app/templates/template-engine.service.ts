@@ -28,7 +28,8 @@ export class BeeTemplateEngine {
     if (!this.registry.has(this.selection.public) || this.registry.get(this.selection.public)?.target !== 'public') this.selection.public = DEFAULT_SELECTION.public;
     if (!this.registry.has(this.selection.dashboard) || this.registry.get(this.selection.dashboard)?.target !== 'dashboard') this.selection.dashboard = DEFAULT_SELECTION.dashboard;
     this.apply();
-    void this.restoreRemoteSelection();
+    if (this.authToken()) void this.restoreRemoteSelection();
+    else void this.restorePublicTenant();
   }
 
   list(target?: BeeTemplateTarget): BeeTemplateManifest[] {
@@ -86,6 +87,19 @@ export class BeeTemplateEngine {
       const session = JSON.parse(localStorage.getItem('bee-auth') || 'null') as { accessToken?: string } | null;
       return typeof session?.accessToken === 'string' ? session.accessToken : null;
     } catch { return null; }
+  }
+
+  private async restorePublicTenant(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+    try {
+      const response = await fetch('/api/templates/public');
+      if (!response.ok) return;
+      const payload = await response.json() as { selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string> };
+      if (payload.selection?.public && this.registry.get(payload.selection.public)?.target === 'public') this.selection.public = payload.selection.public;
+      if (payload.selection?.dashboard && this.registry.get(payload.selection.dashboard)?.target === 'dashboard') this.selection.dashboard = payload.selection.dashboard;
+      this.apply();
+      if (payload.tokens) this.applyThemeTokens(payload.tokens);
+    } catch { /* The built-in public template is the offline fallback. */ }
   }
 
   private async restoreRemoteSelection(): Promise<void> {
