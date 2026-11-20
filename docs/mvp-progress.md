@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — `main` includes PR #20 at `1c96e8100d2145f518a0232d300122c866551c1b`; post-merge CI is running.
+Updated: 2026-11-20 — `main` includes PR #20 at `1c96e8100d2145f518a0232d300122c866551c1b` and PR #21 at `7fe8569ebb7761dc99c6c2aeb308985fd10f6a86`; post-merge backend, full-stack and production Compose workflows all passed.
 
 ## How progress is measured
 
@@ -40,7 +40,7 @@ The weighted capability score is **85%**. The broader SaaS plugin-platform roadm
 - PR #19 — production Compose CI, port isolation, stack health and refresh-session persistence across MongoDB/API restarts.
 - PR #20 — tenant-scoped audit events for invitations, custom roles, membership changes/suspension, plugin lifecycle and permission denials.
 
-The PR #20 head passed backend typecheck/build/MongoDB auth tests and Docker Compose full-stack integration. The dedicated Angular workflow was correctly skipped because no Angular files changed; Angular was built and exercised within the full-stack workflow. Post-merge checks on `1c96e8100d2145f518a0232d300122c866551c1b` are still running; do not mark the new `main` as fully validated until they complete.
+PR #20 passed backend typecheck/build/MongoDB auth tests and Docker Compose full-stack integration. The dedicated Angular workflow was correctly skipped because no Angular files changed; Angular was built and exercised within the full-stack workflow. Post-merge checks passed on `1c96e8100d2145f518a0232d300122c866551c1b`: backend and full-stack CI run `44764328710`, plus production Compose run `44764328866`.
 
 PR #19's production Compose workflow also passed on its reviewed PR head, including the production overlay validation.
 
