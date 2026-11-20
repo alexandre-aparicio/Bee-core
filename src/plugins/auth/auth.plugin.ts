@@ -231,6 +231,8 @@ export const authPlugin:BeePlugin={
   });
   ctx.server.post("/templates/stream-ticket",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
+   const claims=req.user as import("../../core/tenant-context.js").TenantClaims;
+   if(claims.client!=="dashboard")return reply.code(403).send({error:"Dashboard client required"});
    const now=Date.now();
    for(const [key,value] of templateStreamTickets){if(value.expiresAt<now)templateStreamTickets.delete(key);}
    const ticket=randomBytes(24).toString("base64url");
