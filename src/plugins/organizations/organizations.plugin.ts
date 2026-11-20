@@ -60,16 +60,23 @@ export const organizationsPlugin:BeePlugin={
     return {claims,user};
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
-  const requireCompanyAdmin=async(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>{
+  const rolePermissions:Record<Membership["role"],string[]>={
+   owner:["members.read","members.invite","members.manage","plugins.read","plugins.install","plugins.manage","billing.manage","files.read","files.write"],
+   admin:["members.read","members.invite","members.manage","plugins.read","plugins.install","plugins.manage","files.read","files.write"],
+   manager:["members.read","plugins.read","files.read","files.write"],
+   member:["plugins.read","files.read"]
+  };
+  const requireCompanyPermission=async(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,permission:string,reply:any)=>{
    const activeTenantId=String(auth.claims.tenantId??auth.user!.tenantId??"");
-   if(companyId!==activeTenantId){reply.code(403).send({error:"Switch to this company before managing its members"});return null;}
+   if(companyId!==activeTenantId){reply.code(403).send({error:"Switch to this company before accessing its resources"});return null;}
    const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
-   if(!actor||!(actor.role==="owner"||actor.role==="admin")){reply.code(403).send({error:"Company administrator role required"});return null;}
+   if(!actor||!rolePermissions[actor.role].includes(permission)){reply.code(403).send({error:"Company permission required: "+permission});return null;}
    return actor;
   };
+  const requireCompanyAdmin=(auth:{claims:Claims;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>requireCompanyPermission(auth,companyId,"members.manage",reply);
   ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/invitations",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
-   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
    if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can invite administrators"});
@@ -116,8 +123,7 @@ export const organizationsPlugin:BeePlugin={
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/memberships",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const companyId=req.params.companyId;
-   const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
-   if(!actor)return reply.code(403).send({error:"Company membership required"});
+   const actor=await requireCompanyPermission(auth,companyId,"members.read",reply);if(!actor)return;
    const rows=await memberships.find({tenantId:companyId}).toArray();
    const memberUsers=await users.find({id:{$in:rows.map(row=>row.userId)}}).project({id:1,email:1}).toArray();
    const emails=new Map(memberUsers.map(user=>[user.id,user.email]));
@@ -199,6 +205,13 @@ export const organizationsPlugin:BeePlugin={
    const roles=role==="owner"||role==="admin"?["admin"]:["user"];
    const accessToken=ctx.server.jwt.sign({sub:user!.id,email:user!.email,roles,tenantId:company.id,client:claims.client,aud:"bee-core",sid:claims.sid});
    return {accessToken,tokenType:"Bearer",expiresIn:1200,tenantId:company.id,company:{id:company.id,name:company.name},membership:{role:membership.role}};
+  });
+  ctx.server.get("/companies/active/permissions",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const tenantId=String(auth.claims.tenantId??auth.user!.tenantId??"");
+   const membership=await memberships.findOne({userId:auth.user!.id,tenantId,status:"active"});
+   if(!membership)return reply.code(403).send({error:"Active company membership required"});
+   return {tenantId,role:membership.role,permissions:rolePermissions[membership.role]};
   });
   ctx.server.get("/companies/active",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
