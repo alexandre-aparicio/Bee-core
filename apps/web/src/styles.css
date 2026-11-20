@@ -288,3 +288,25 @@ body[data-bee-custom-theme="true"] .hero h1 span{color:var(--purple)}
 .bee-company-members__accept button{border:1px solid transparent;border-radius:8px;padding:8px 12px;background:var(--purple);color:#fff;font-size:10px;font-weight:600;cursor:pointer}
 .bee-company-members__accept button:disabled{opacity:.5;cursor:wait}
 @media(max-width:600px){.bee-company-members__accept form{grid-template-columns:minmax(0,1fr)}}
+
+/* Tenant-scoped audit activity panel */
+.bee-audit-log{margin-top:16px;scroll-margin-top:24px}
+.bee-audit-log__controls{display:flex;align-items:center;gap:8px}
+.bee-audit-log__controls select,.bee-audit-log__controls button,.bee-audit-log__pagination button{border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#ffffff08;color:inherit;font:inherit;font-size:10px}
+.bee-audit-log__controls button,.bee-audit-log__pagination button{cursor:pointer}
+.bee-audit-log__controls button:disabled,.bee-audit-log__pagination button:disabled{opacity:.45;cursor:wait}
+.bee-audit-log__table-wrap{width:100%;overflow-x:auto;margin-top:12px}
+.bee-audit-log__table{width:100%;border-collapse:collapse;text-align:left;font-size:11px}
+.bee-audit-log__table th{padding:10px 8px;color:var(--muted);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)}
+.bee-audit-log__table td{padding:11px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.bee-audit-log__table td strong,.bee-audit-log__table td small{display:block}
+.bee-audit-log__table td small{margin-top:3px;color:var(--muted);font-size:9px;overflow-wrap:anywhere}
+.bee-audit-log__table code{font-size:9px;overflow-wrap:anywhere}
+.bee-audit-log__outcome{display:inline-block;padding:3px 7px;border-radius:999px;background:#3b9c6c18;color:#8ddbb2;font-size:9px}
+.bee-audit-log__outcome.is-denied{background:#b94a4a18;color:#f0aaaa}
+.bee-audit-log__state,.bee-audit-log__error{margin:12px 0;padding:10px 12px;border-radius:8px;font-size:11px}
+.bee-audit-log__state{color:var(--muted);background:#ffffff05}
+.bee-audit-log__error{color:#f0aaaa;background:#b94a4a18}
+.bee-audit-log__pagination{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px}
+.bee-audit-log__pagination span{color:var(--muted);font-size:10px}
+@media(max-width:700px){.bee-audit-log .panel-heading{align-items:flex-start;flex-direction:column}.bee-audit-log__controls{width:100%}.bee-audit-log__controls select{flex:1;min-width:0}.bee-audit-log__table{min-width:620px}}
