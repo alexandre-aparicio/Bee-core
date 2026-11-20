@@ -105,7 +105,7 @@ export const authPlugin:BeePlugin={
    const tenant=await tenants.findOne({domains:host});
    const tenantId=tenant?.id??defaultTenantId;
    const saved=await templatePreferences.findOne({tenantId});
-   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})}};
+   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens)};
   });
   ctx.server.put<{Body:{domains?:string[]}}>("/tenants/domains",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
@@ -140,7 +140,7 @@ export const authPlugin:BeePlugin={
   ctx.server.get("/templates/theme",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
    const saved=await templatePreferences.findOne({tenantId});
-   return {tenantId,tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})}};
+   return {tenantId,tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens)};
   });
   ctx.server.put<{Body:{tokens?:Record<string,string>}}>("/templates/theme",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
@@ -154,8 +154,8 @@ export const authPlugin:BeePlugin={
    const current=await templatePreferences.findOne({tenantId});
    const tokens={...defaultThemeTokens,...(current?.themeTokens??{}),...input};
    await templatePreferences.updateOne({tenantId},{$set:{themeTokens:tokens,updatedAt:new Date()}},{upsert:true});
-   broadcastTemplateUpdate(tenantId,{type:"theme",tokens});
-   return {tenantId,tokens};
+   broadcastTemplateUpdate(tenantId,{type:"theme",tokens,customized:true});
+   return {tenantId,tokens,customized:true};
   });
   ctx.server.post("/templates/stream-ticket",async(req,reply)=>{
    const tenantId=await readTemplateTenant(req,reply);if(!tenantId)return;
