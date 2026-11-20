@@ -116,3 +116,16 @@ body[data-bee-public-template="editorial"] .bee-template-manager__fields select{
 .bee-template-slot:empty{display:none}
 .bee-template-slot:not(:empty){display:contents}
 .bee-template-slot [data-plugin-ui]{min-width:0}
+
+/* Tenant-scoped runtime theme tokens (updated over SSE without a rebuild). */
+:root{--bee-runtime-bg:var(--bg);--bee-runtime-panel:var(--panel);--bee-runtime-muted:var(--muted);--bee-runtime-border:var(--border);--bee-runtime-accent:var(--purple);--bee-runtime-secondary:var(--cyan)}
+body{background:var(--bg)}
+.bee-template-manager__theme{display:flex;flex-direction:column;gap:10px;padding-top:10px;border-top:1px solid var(--border)}
+.bee-template-manager__theme>strong{font-size:11px;color:inherit}
+.bee-template-manager__colors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.bee-template-manager__colors label{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:10px;color:var(--muted)}
+.bee-template-manager__colors input{width:30px;height:25px;padding:0;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer}
+.bee-template-manager__save{align-self:flex-start;border:1px solid var(--border);border-radius:8px;padding:8px 12px;background:var(--purple);color:#fff;font-size:11px;font-weight:600;cursor:pointer}
+.bee-template-manager__save:disabled{opacity:.55;cursor:wait}
+.bee-template-manager__message{font-size:10px;color:var(--muted)}
+@media(max-width:759px){.bee-template-manager__colors{grid-template-columns:repeat(2,minmax(0,1fr))}}
