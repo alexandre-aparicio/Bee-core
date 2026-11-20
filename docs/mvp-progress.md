@@ -105,3 +105,13 @@ Platform-wide superadministrator foundation is merged into `main` at `53a427c`. 
 - Validation at merge: backend TypeScript check and build passed; Angular CI passed; Docker Compose full-stack integration passed (API/plugin registry, Nginx proxy, auth and refresh rotation). Backend auth integration test job was still running at merge time and is pending follow-up verification.
 - Details: `docs/platform-superadmin.md` and PR https://github.com/alexandre-aparicio/Bee-core/pull/43.
 - Main merge commit: `53a427cfd4419d0fd658f7715553ed60e96684d5`.
+
+
+## Dashboard navigation and Settings reorganization (in progress)
+
+- Dashboard content is split into sections: Dashboard, Plugins, Organization, Activity, Settings, and Platform Administration.
+- Platform Superadmin menu omits tenant Organization management and exposes platform/global company controls plus additional platform sections. Owners, admins, managers and members see reduced menu sets; members retain Organization to accept invitations.
+- Menu visibility is a frontend convenience only; backend permission checks remain authoritative.
+- Theme controls moved from the public footer to authenticated Settings routes: Dashboard Theme, Public Theme, and Branding. The theme manager accepts a target and filters the trusted package catalog.
+- The color-token palette remains shared between public and dashboard surfaces in this first pass; independent palettes are a follow-up. Domain, integrations, security, and system pages are navigation placeholders only.
+- Pending verification: Angular compile, browser smoke, and role-based navigation tests. This PR is not merged.
