@@ -27,3 +27,26 @@ test('dashboard displays unauthenticated guard', async ({ page }) => {
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { name: /session required/i })).toBeVisible();
 });
+
+
+test('template manager keeps public and dashboard themes independent', async ({ page }) => {
+  await page.goto('/');
+  const manager = page.getByRole('region', { name: 'Template manager' });
+  await expect(manager).toBeVisible();
+  await manager.getByLabel('Public website').selectOption('editorial');
+  await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
+  await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
+  await page.reload();
+  await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
+  await expect(manager.getByLabel('Public website')).toHaveValue('editorial');
+});
+
+test('dashboard template can be selected without changing public theme', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({ user: { email: 'test@example.com' }, accessToken: 'test' })));
+  await page.goto('/dashboard');
+  const manager = page.getByRole('region', { name: 'Template manager' });
+  await expect(manager).toBeVisible();
+  await manager.getByLabel('Dashboard').selectOption('paper');
+  await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'paper');
+  await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'aurora');
+});
