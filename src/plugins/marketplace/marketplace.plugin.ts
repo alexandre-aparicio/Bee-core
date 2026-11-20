@@ -3,7 +3,7 @@ import { MongoClient, type Collection } from "mongodb";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { runTenantPluginMigrations } from "../../core/plugin-migrations.js";
-import { claimPluginInstallJob, completePluginInstallJob, enqueuePluginInstallJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
+import { claimPluginInstallJob, completePluginInstallJob, enqueuePluginInstallJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, renewPluginInstallJobLease, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import {
@@ -287,6 +287,21 @@ export const marketplacePlugin: BeePlugin = {
       try {
         const job = await claimPluginInstallJob(installJobs, workerId);
         if (!job) return;
+        const leaseMs = 60_000;
+        let leaseLost = false;
+        let heartbeatTask: Promise<void> = Promise.resolve();
+        const heartbeatTimer = setInterval(() => {
+          heartbeatTask = heartbeatTask.then(async () => {
+            if (!leaseLost && !await renewPluginInstallJobLease(installJobs, job, workerId, new Date(), leaseMs)) leaseLost = true;
+          }).catch(() => { leaseLost = true; });
+        }, 15_000);
+        const assertLease = async () => {
+          await heartbeatTask;
+          if (leaseLost || !await renewPluginInstallJobLease(installJobs, job, workerId, new Date(), leaseMs)) {
+            leaseLost = true;
+            throw new Error("Plugin lifecycle worker lease was lost");
+          }
+        };
         try {
           const tenantRecord = await db.collection("tenants").findOne({ id: job.tenantId, status: "active" });
           if (!tenantRecord) throw new Error("Company is not active");
@@ -309,6 +324,7 @@ export const marketplacePlugin: BeePlugin = {
               { $set: { status: "uninstalling", updatedAt: new Date() } }
             );
             await trusted.uninstallTenant?.(db, job.tenantId);
+            await assertLease();
             await db.collection("tenant_plugin_installations").updateOne(
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
               { $set: { status: "uninstalled", updatedAt: new Date() }, $unset: { error: "" } }
@@ -330,6 +346,7 @@ export const marketplacePlugin: BeePlugin = {
             );
             await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
             await trusted.installTenant?.(db, job.tenantId);
+            await assertLease();
             await installations.updateOne(
               { tenantId: job.tenantId, pluginId: job.pluginId },
               { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } }
@@ -338,19 +355,22 @@ export const marketplacePlugin: BeePlugin = {
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.installed", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           }
         } catch (error) {
-          if (job.action === "install") {
+          if (!leaseLost && job.action === "install") {
             await db.collection("tenant_plugin_installations").updateOne(
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "installing" },
               { $set: { status: "failed", error: error instanceof Error ? error.message.slice(0, 500) : "Plugin installation failed", updatedAt: new Date() } }
             );
-          } else {
+          } else if (!leaseLost) {
             await db.collection("tenant_plugin_installations").updateOne(
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
               { $set: { status: "installed", error: error instanceof Error ? error.message.slice(0, 500) : "Plugin uninstallation failed", updatedAt: new Date() } }
             );
           }
-          await failPluginInstallJob(installJobs, job, workerId, error);
-          ctx.logger.error("Tenant plugin lifecycle job failed", { tenantId: job.tenantId, pluginId: job.pluginId, jobId: job.id, error });
+          if (!leaseLost) await failPluginInstallJob(installJobs, job, workerId, error);
+          ctx.logger.error("Tenant plugin lifecycle job failed", { tenantId: job.tenantId, pluginId: job.pluginId, jobId: job.id, leaseLost, error });
+        } finally {
+          clearInterval(heartbeatTimer);
+          await heartbeatTask;
         }
       } catch (error) {
         ctx.logger.error("Plugin lifecycle worker failed to claim a job", { error });
