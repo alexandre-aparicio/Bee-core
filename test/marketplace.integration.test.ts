@@ -11,7 +11,7 @@ import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
 const uri = process.env.MONGODB_TEST_URI;
 
-test("marketplace only exposes plugins entitled to the active company", { skip: !uri }, async () => {
+test("marketplace filters plugins by company plan and individual purchases", { skip: !uri }, async () => {
   const dbName = "bee_marketplace_test_" + Date.now();
   const client = new MongoClient(uri!);
   await client.connect();
@@ -20,26 +20,23 @@ test("marketplace only exposes plugins entitled to the active company", { skip: 
   const now = new Date();
   await db.collection("tenants").insertMany([
     { id: "market-alpha", name: "Market Alpha", status: "active", createdAt: now },
-    { id: "market-beta", name: "Market Beta", status: "active", createdAt: now }
+    { id: "market-beta", name: "Market Beta", status: "active", createdAt: now },
+    { id: "market-gamma", name: "Market Gamma", status: "active", createdAt: now }
   ]);
   await db.collection("users").insertMany([
-    { id: "market-owner", email: "owner@market-alpha.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "market-alpha", createdAt: now, updatedAt: now },
-    { id: "market-member", email: "member@market-beta.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], tenantId: "market-beta", createdAt: now, updatedAt: now }
+    { id: "market-owner-alpha", email: "owner@market-alpha.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "market-alpha", createdAt: now, updatedAt: now },
+    { id: "market-owner-beta", email: "owner@market-beta.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], tenantId: "market-beta", createdAt: now, updatedAt: now },
+    { id: "market-member-gamma", email: "member@market-gamma.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], tenantId: "market-gamma", createdAt: now, updatedAt: now }
   ]);
-  await db.collection("plugin_catalog").insertMany([
-    { id: "crm.contacts", name: "CRM Contacts", description: "Manage contacts", category: "crm", publisher: "Bee", visibility: "public", status: "published", latestVersion: "1.2.0", createdAt: now, updatedAt: now },
-    { id: "inventory.stock", name: "Inventory", description: "Manage stock", category: "operations", publisher: "Bee", visibility: "private", status: "published", latestVersion: "2.0.0", createdAt: now, updatedAt: now },
-    { id: "draft.analytics", name: "Analytics Preview", description: "Not published", category: "analytics", publisher: "Bee", visibility: "public", status: "draft", latestVersion: "0.1.0", createdAt: now, updatedAt: now }
+  await db.collection("memberships").insertMany([
+    { id: "market-alpha-owner", userId: "market-owner-alpha", tenantId: "market-alpha", role: "owner", status: "active", createdAt: now, updatedAt: now },
+    { id: "market-beta-owner", userId: "market-owner-beta", tenantId: "market-beta", role: "owner", status: "active", createdAt: now, updatedAt: now },
+    { id: "market-gamma-member", userId: "market-member-gamma", tenantId: "market-gamma", role: "member", status: "active", createdAt: now, updatedAt: now }
   ]);
-  await db.collection("plugin_versions").insertMany([
-    { pluginId: "crm.contacts", version: "1.2.0", status: "published", compatibility: { minRuntimeVersion: "0.3.0" }, dependencies: [], packageStorageKey: "central/packages/crm-contacts-1.2.0.tgz", publishedAt: now },
-    { pluginId: "crm.contacts", version: "1.1.0", status: "published", compatibility: { minRuntimeVersion: "0.3.0" }, dependencies: [], packageStorageKey: "central/packages/crm-contacts-1.1.0.tgz", publishedAt: new Date(now.getTime() - 1000) },
-    { pluginId: "draft.analytics", version: "0.1.0", status: "draft", publishedAt: now }
-  ]);
-  await db.collection("tenant_entitlements").insertMany([
-    { tenantId: "market-alpha", pluginId: "crm.contacts", source: "plan", status: "active", validFrom: new Date(now.getTime() - 1000), validUntil: null },
-    { tenantId: "market-alpha", pluginId: "old.reporting", source: "purchase", status: "active", validFrom: new Date(now.getTime() - 10_000), validUntil: new Date(now.getTime() - 1000) },
-    { tenantId: "market-beta", pluginId: "inventory.stock", source: "purchase", status: "active", validFrom: new Date(now.getTime() - 1000), validUntil: null }
+  await db.collection("tenant_subscriptions").insertMany([
+    { id: "subscription-alpha", tenantId: "market-alpha", planId: "pro", status: "active", startedAt: now, currentPeriodEnd: new Date(now.getTime() + 30 * 86400000), updatedAt: now },
+    { id: "subscription-beta", tenantId: "market-beta", planId: "starter", status: "active", startedAt: now, currentPeriodEnd: new Date(now.getTime() + 30 * 86400000), updatedAt: now },
+    { id: "subscription-gamma", tenantId: "market-gamma", planId: "starter", status: "active", startedAt: now, currentPeriodEnd: new Date(now.getTime() + 30 * 86400000), updatedAt: now }
   ]);
 
   const app = Fastify();
@@ -65,31 +62,58 @@ test("marketplace only exposes plugins entitled to the active company", { skip: 
       return response.json().accessToken as string;
     };
     const alphaToken = await login("owner@market-alpha.test");
-    const betaToken = await login("member@market-beta.test");
+    const betaToken = await login("owner@market-beta.test");
+    const gammaToken = await login("member@market-gamma.test");
 
     const alphaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCatalog.statusCode, 200);
-    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { id: string }) => plugin.id), ["crm.contacts"]);
+    const alphaPlugins = alphaCatalog.json().plugins as Array<{ id: string; entitled: boolean }>;
+    assert.deepEqual(alphaPlugins.map(plugin => plugin.id), ["files", "notes"]);
+    assert.ok(alphaPlugins.every(plugin => plugin.entitled));
 
     const betaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaCatalog.statusCode, 200);
-    assert.deepEqual(betaCatalog.json().plugins.map((plugin: { id: string }) => plugin.id), ["inventory.stock"]);
+    const betaPlugins = betaCatalog.json().plugins as Array<{ id: string; entitled: boolean; installed: boolean }>;
+    assert.deepEqual(betaPlugins.map(plugin => plugin.id), ["files", "notes"]);
+    assert.equal(betaPlugins.find(plugin => plugin.id === "notes")?.entitled, false);
+    assert.equal(betaPlugins.find(plugin => plugin.id === "files")?.installed, true);
 
-    const betaCannotReadCrm = await app.inject({ method: "GET", url: "/marketplace/plugins/crm.contacts", headers: { authorization: "Bearer " + betaToken } });
-    assert.equal(betaCannotReadCrm.statusCode, 404);
-    const alphaCannotReadInventory = await app.inject({ method: "GET", url: "/marketplace/plugins/inventory.stock", headers: { authorization: "Bearer " + alphaToken } });
-    assert.equal(alphaCannotReadInventory.statusCode, 404);
-    const unpublished = await app.inject({ method: "GET", url: "/marketplace/plugins/draft.analytics", headers: { authorization: "Bearer " + alphaToken } });
-    assert.equal(unpublished.statusCode, 404);
+    const gammaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + gammaToken } });
+    assert.equal(gammaCatalog.statusCode, 200);
+    assert.equal(gammaCatalog.json().plugins.find((plugin: { id: string }) => plugin.id === "notes").entitled, false);
 
-    const alphaVersions = await app.inject({ method: "GET", url: "/marketplace/plugins/crm.contacts/versions", headers: { authorization: "Bearer " + alphaToken } });
+    const unentitledInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(unentitledInstall.statusCode, 402);
+
+    await db.collection("plugin_purchases").insertOne({
+      id: "purchase-beta-notes",
+      tenantId: "market-beta",
+      pluginId: "notes",
+      providerReference: "test-provider-purchase-001",
+      status: "active",
+      purchasedAt: now,
+      expiresAt: null
+    });
+    const betaAfterPurchase = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaAfterPurchase.json().plugins.find((plugin: { id: string }) => plugin.id === "notes").entitled, true);
+
+    const betaInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaInstall.statusCode, 200);
+    assert.equal(betaInstall.json().status, "installed");
+    assert.equal(await db.collection("tenant_notes").indexExists("tenant_notes_company_id_unique"), true);
+
+    const alphaVersions = await app.inject({ method: "GET", url: "/marketplace/plugins/notes/versions", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaVersions.statusCode, 200);
-    assert.deepEqual(alphaVersions.json().versions.map((version: { version: string }) => version.version), ["1.2.0", "1.1.0"]);
-    assert.equal(JSON.stringify(alphaVersions.json()).includes("packageStorageKey"), false);
+    assert.equal(alphaVersions.json().versions[0].version, "0.1.0");
 
-    const alphaEntitlements = await app.inject({ method: "GET", url: "/marketplace/entitlements", headers: { authorization: "Bearer " + alphaToken } });
-    assert.equal(alphaEntitlements.statusCode, 200);
-    assert.deepEqual(alphaEntitlements.json().entitlements.map((item: { pluginId: string }) => item.pluginId), ["crm.contacts"]);
+    const unknownPlugin = await app.inject({ method: "GET", url: "/marketplace/plugins/secret.hr", headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(unknownPlugin.statusCode, 404);
+    const gammaCannotInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + gammaToken } });
+    assert.equal(gammaCannotInstall.statusCode, 403);
+
+    const uninstall = await app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(uninstall.statusCode, 200);
+    assert.equal(uninstall.json().dataPreserved, true);
   } finally {
     await app.close();
     await marketplacePlugin.stop?.(ctx);
