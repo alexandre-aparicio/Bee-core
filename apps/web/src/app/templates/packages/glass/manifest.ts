@@ -8,6 +8,7 @@ export const GLASS_MANIFEST: BeeTemplateManifest = {
   "description": "Soft glass workspace with cool blue and violet accents.",
   "builtIn": false,
   "layout": "dashboard.glass",
+  "componentId": "BeeGlassLayoutComponent",
   "slots": [
     "sidebar",
     "topbar",
