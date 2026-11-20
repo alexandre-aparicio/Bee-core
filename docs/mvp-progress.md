@@ -162,3 +162,14 @@ The product model is now specified in `docs/template-business-model.md`.
 - Added a shared light palette treatment for the corporate landing and dashboard shell; template-specific colors remain controlled by the template rather than user-editable color pickers.
 - Scope limitation: appearance mode is currently a browser-local preference, not yet synchronized through the backend across devices. The public landing mode is per hostname and dashboard mode per active company in that browser.
 - No tests, builds or workflows were run for this change, per user instruction.
+
+
+## Hola Mundo tenant plugin (2026-11-21)
+
+- Added the trusted `hello-world` package to the tenant plugin catalog and included it in Starter, Pro and Enterprise plans.
+- Added the statically bundled Angular component to the trusted frontend registry.
+- Tenant owners/admins can activate/deactivate it through the existing marketplace lifecycle controls.
+- Added platform-superadmin endpoints and company-list controls to manage the plugin independently for each tenant through durable install/uninstall jobs.
+- Added a host-resolved public endpoint that returns only enabled plugin IDs; tenant landing navigation shows `Hola Mundo` and `/hello-world` renders its public page only while enabled.
+- Added `docs/hello-world-plugin.md`.
+- No tests, builds or GitHub workflows were run, per user instruction. The code has not been runtime-validated on the VPS.
