@@ -3,7 +3,7 @@ import { MongoClient, type Collection } from "mongodb";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { runTenantPluginMigrations } from "../../core/plugin-migrations.js";
-import { claimPluginInstallJob, completePluginInstallJob, enqueuePluginInstallJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
+import { claimPluginInstallJob, completePluginInstallJob, enqueuePluginInstallJob, enqueuePluginUpdateJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import {
@@ -235,6 +235,31 @@ export const marketplacePlugin: BeePlugin = {
       });
     });
 
+    ctx.server.post<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId/update", async (request: any, reply: any) => {
+      const tenant = await authenticate(request, reply);
+      if (!tenant) return;
+      const pluginId = String(request.params.pluginId ?? "");
+      if (!hasTenantPermission(tenant, "plugins.manage")) {
+        await auditMarketplaceEvent({ tenantId: tenant.tenantId, actorId: tenant.userId, action: "permission.denied", outcome: "denied", resourceType: "permission", resourceId: pluginId, metadata: { permission: "plugins.manage" } });
+        return reply.code(403).send({ error: "Plugin management permission required" });
+      }
+      if (!await hasPluginEntitlement(db, tenant.tenantId, pluginId)) return reply.code(402).send({ error: "An active plan entitlement or plugin purchase is required" });
+      const trusted = getTrustedPluginPackage(pluginId);
+      if (!trusted) return reply.code(404).send({ error: "Trusted plugin package is unavailable" });
+      const installation = await db.collection("tenant_plugin_installations").findOne({ tenantId: tenant.tenantId, pluginId });
+      if (!installation || installation.status !== "installed") return reply.code(409).send({ error: "Only an installed plugin can be updated" });
+      const previousVersion = String(installation.version ?? "");
+      if (!previousVersion || previousVersion === trusted.version) return reply.code(409).send({ error: "Plugin is already at the latest trusted version" });
+      const activeJob = await installJobs.findOne({ activeKey: tenant.tenantId + ":" + pluginId });
+      if (activeJob) {
+        if (activeJob.action !== "update") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
+        return reply.code(202).send({ jobId: activeJob.id, pluginId, action: "update", status: activeJob.status, accepted: true, duplicate: true, statusUrl: "/marketplace/install-jobs/" + activeJob.id });
+      }
+      const queued = await enqueuePluginUpdateJob(installJobs, { tenantId: tenant.tenantId, pluginId, actorId: tenant.userId, previousVersion });
+      if (queued.job.action !== "update") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
+      return reply.code(202).send({ jobId: queued.job.id, pluginId, action: "update", status: queued.job.status, accepted: true, duplicate: !queued.created, statusUrl: "/marketplace/install-jobs/" + queued.job.id });
+    });
+
     ctx.server.get<{ Params: { jobId: string } }>("/marketplace/install-jobs/:jobId", async (request: any, reply: any) => {
       const tenant = await authenticate(request, reply);
       if (!tenant) return;
@@ -315,7 +340,7 @@ export const marketplacePlugin: BeePlugin = {
             );
             const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
-          } else {
+          } else if (job.action === "install") {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
             for (const dependency of trusted.dependencies) {
               if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency)) {
@@ -336,6 +361,25 @@ export const marketplacePlugin: BeePlugin = {
             );
             const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.installed", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
+          } else {
+            if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
+            const installations = db.collection("tenant_plugin_installations");
+            const installation = await installations.findOne({ tenantId: job.tenantId, pluginId: job.pluginId });
+            if (!installation || !["installed", "updating"].includes(String(installation.status))) throw new Error("Plugin is not installed");
+            const previousVersion = String(installation.version ?? job.previousVersion ?? "");
+            if (!previousVersion || previousVersion === trusted.version) throw new Error("Plugin is already at the target version");
+            await installations.updateOne(
+              { tenantId: job.tenantId, pluginId: job.pluginId, status: { $in: ["installed", "updating"] } },
+              { $set: { status: "updating", updatedAt: new Date(), error: null } }
+            );
+            await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
+            await trusted.updateTenant?.(db, job.tenantId, previousVersion);
+            await installations.updateOne(
+              { tenantId: job.tenantId, pluginId: job.pluginId, status: "updating" },
+              { $set: { status: "installed", version: trusted.version, updatedAt: new Date() }, $unset: { error: "" } }
+            );
+            const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
+            if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.updated", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { fromVersion: previousVersion, version: trusted.version, jobId: job.id } });
           }
         } catch (error) {
           if (job.action === "install") {
@@ -343,10 +387,15 @@ export const marketplacePlugin: BeePlugin = {
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "installing" },
               { $set: { status: "failed", error: error instanceof Error ? error.message.slice(0, 500) : "Plugin installation failed", updatedAt: new Date() } }
             );
-          } else {
+          } else if (job.action === "uninstall") {
             await db.collection("tenant_plugin_installations").updateOne(
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
               { $set: { status: "installed", error: error instanceof Error ? error.message.slice(0, 500) : "Plugin uninstallation failed", updatedAt: new Date() } }
+            );
+          } else {
+            await db.collection("tenant_plugin_installations").updateOne(
+              { tenantId: job.tenantId, pluginId: job.pluginId, status: "updating" },
+              { $set: { status: "installed", version: job.previousVersion ?? "", error: error instanceof Error ? error.message.slice(0, 500) : "Plugin update failed", updatedAt: new Date() } }
             );
           }
           await failPluginInstallJob(installJobs, job, workerId, error);
