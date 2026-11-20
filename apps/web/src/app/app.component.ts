@@ -2,8 +2,9 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateManagerComponent } from './templates/template-manager.component';
+import { BeeTemplateOutletComponent } from './templates/template-outlet.component';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateOutletComponent], templateUrl: './app.component.html' })
 export class AppComponent {
   path = window.location.pathname;
   menuOpen = false;
