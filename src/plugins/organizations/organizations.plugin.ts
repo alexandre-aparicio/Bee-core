@@ -145,7 +145,13 @@ export const organizationsPlugin:BeePlugin={
    const existing=await memberships.findOne({userId:target.id,tenantId:req.params.companyId});
    if(existing?.status==="active")return reply.code(409).send({error:"User is already a company member"});
    const userLimit=await getTenantUserLimit(db,req.params.companyId);
-   if(userLimit!==null&&await memberships.countDocuments({tenantId:req.params.companyId,status:"active"})>=userLimit)return reply.code(409).send({error:"Company user limit reached for the current plan"});
+   if(userLimit!==null){
+    const [activeMembers,pendingInvitations]=await Promise.all([
+     memberships.countDocuments({tenantId:req.params.companyId,status:"active"}),
+     invitations.countDocuments({tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()}})
+    ]);
+    if(activeMembers+pendingInvitations>=userLimit)return reply.code(409).send({error:"Company user limit reached for the current plan"});
+   }
    const now=new Date();
    if(existing)await memberships.updateOne({id:existing.id},{$set:{role,status:"active",updatedAt:now}});
    else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
