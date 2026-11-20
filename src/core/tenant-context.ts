@@ -90,7 +90,8 @@ export async function resolveTenantContext(
     sessionId: claims.sid,
     client: claims.client,
     role: membership.role,
-    permissions: COMPANY_ROLE_PERMISSIONS[membership.role]
+    ...(membership.customRoleId ? { customRoleId: membership.customRoleId } : {}),
+    permissions
   };
 }
 
