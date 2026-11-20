@@ -197,7 +197,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const staleCompanyToken=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(staleCompanyToken.statusCode,401);
 
-    const me = await app.inject({ method: "GET", url: "/auth/me", headers: { authorization: "Bearer " + tokens.accessToken } });
+    const me = await app.inject({ method: "GET", url: "/auth/me", headers: { authorization: "Bearer " + activateCompany.json().accessToken } });
     assert.equal(me.statusCode, 200); assert.equal(me.json().authenticated, true);
     const refresh = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: tokens.refreshToken } });
     assert.equal(refresh.statusCode, 200);
@@ -209,6 +209,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const afterLogout = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: refreshed.refreshToken } });
     assert.equal(afterLogout.statusCode, 401);
   } finally {
+    await organizationsPlugin.stop?.(ctx);
     await app.close();
     await client.db(dbName).dropDatabase();
     await client.close();
