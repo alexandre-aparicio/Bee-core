@@ -282,6 +282,8 @@ body[data-bee-public-mode="light"] .tenant-public-page .auth-card>p,body[data-be
 body[data-bee-public-mode="light"] .tenant-public-page .auth-footer{color:#657187}
 @media(max-width:520px){.tenant-public-actions{gap:8px}.tenant-public-actions>a{font-size:10px}}
 
+.bee-layout{min-height:100vh;width:100%;isolation:isolate}
+
 /* Tenant public websites use the selected public layout as a full-page shell. */
 .tenant-public-layout{min-height:100vh;display:flex;flex-direction:column}
 .tenant-site-header{width:100%;max-width:none;padding:0 clamp(20px,5vw,72px);gap:28px}
