@@ -214,10 +214,17 @@ export const marketplacePlugin: BeePlugin = {
           return reply.code(409).send({ error: "Required plugin dependency is not installed: " + dependency });
         }
       }
+      const activeKey = tenant.tenantId + ":" + pluginId;
+      const activeJob = await installJobs.findOne({ activeKey });
+      if (activeJob) {
+        if (activeJob.action !== "install") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
+        return reply.code(202).send({ jobId: activeJob.id, pluginId, action: "install", status: activeJob.status, accepted: true, duplicate: true, statusUrl: "/marketplace/install-jobs/" + activeJob.id });
+      }
       if (await isPluginInstalled(db, tenant.tenantId, pluginId)) {
         return { pluginId, status: "installed", alreadyInstalled: true };
       }
       const queued = await enqueuePluginInstallJob(installJobs, { tenantId: tenant.tenantId, pluginId, actorId: tenant.userId });
+      if (queued.job.action !== "install") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
       return reply.code(202).send({
         jobId: queued.job.id,
         pluginId,
