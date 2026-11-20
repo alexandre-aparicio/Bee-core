@@ -119,6 +119,7 @@ export const authPlugin:BeePlugin={
     await req.jwtVerify();
     const tenantContext=await resolveTenantContext(db,req.user as {sub?:string;email?:string;tenantId?:string;sid?:string;client?:"backend"|"dashboard"|"public";aud?:string});
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
+    if(tenantContext.client!=="dashboard"){reply.code(403).send({error:"Private template management requires a dashboard session"});return null;}
     return tenantContext;
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
