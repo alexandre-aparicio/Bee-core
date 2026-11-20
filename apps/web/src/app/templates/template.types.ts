@@ -1,3 +1,5 @@
+import type { BeeTemplateSlotName } from './template-slot-registry.service';
+
 export type BeeTemplateTarget = 'public' | 'dashboard';
 
 export interface BeeTemplateManifest {
@@ -8,7 +10,7 @@ export interface BeeTemplateManifest {
   description: string;
   builtIn: boolean;
   layout: string;
-  slots: string[];
+  slots: BeeTemplateSlotName[];
 }
 
 export interface BeeTemplateSelection {
