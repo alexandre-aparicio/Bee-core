@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { TenantCollection } from "./tenant-collection.js";
 import { hasTenantPermission, type TenantContext } from "./tenant-context.js";
 
-export type PluginPlan = {
+export type PluginPlan = Document & {
   id: string;
   name: string;
   includedPluginIds: string[];
@@ -12,7 +12,7 @@ export type PluginPlan = {
   storageMb: number;
 };
 
-export type PluginPackageDefinition = {
+export type PluginPackageDefinition = Document & {
   id: string;
   name: string;
   version: string;
@@ -104,6 +104,11 @@ const plansById = new Map(BUILT_IN_PLANS.map(item => [item.id, item]));
 export async function seedPluginCommerce(db: Db): Promise<void> {
   const plans = db.collection<PluginPlan>("plugin_plans");
   const catalog = db.collection<PluginPackageDefinition>("plugin_catalog");
+  await Promise.all([
+    db.collection("tenant_subscriptions").createIndex({ tenantId: 1 }, { unique: true, name: "tenant_subscription_unique" }),
+    db.collection("tenant_plugin_installations").createIndex({ tenantId: 1, pluginId: 1 }, { unique: true, name: "tenant_plugin_installation_unique" }),
+    db.collection("plugin_purchases").createIndex({ tenantId: 1, providerReference: 1 }, { unique: true, name: "tenant_plugin_purchase_reference_unique" })
+  ]);
   for (const plan of BUILT_IN_PLANS) {
     await plans.updateOne({ id: plan.id }, { $set: plan }, { upsert: true });
   }
@@ -151,7 +156,8 @@ export async function getTenantSubscription(db: Db, tenantId: string): Promise<T
 
 export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const subscription = await getTenantSubscription(db, tenantId);
-  const plan = plansById.get(subscription.planId) ?? BUILT_IN_PLANS[0]!;
+  const subscriptionActive = (subscription.status === "active" || subscription.status === "trial") && (!subscription.currentPeriodEnd || subscription.currentPeriodEnd > new Date());
+  const plan = (subscriptionActive ? plansById.get(subscription.planId) : undefined) ?? BUILT_IN_PLANS[0]!;
   const purchases = new TenantCollection<TenantPluginPurchase>(db.collection<TenantPluginPurchase>("plugin_purchases"), tenantId);
   const activePurchases = await purchases.find({
     status: "active",
