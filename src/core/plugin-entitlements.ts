@@ -64,9 +64,9 @@ type TenantPluginPurchase = Document & {
 };
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files"], visiblePluginIds: ["files", "notes"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "notes"], visiblePluginIds: ["files", "notes"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "notes"], visiblePluginIds: ["files", "notes"], maxUsers: null, storageMb: 10240 }
+  { id: "starter", name: "Starter", includedPluginIds: ["files", "hello-world"], visiblePluginIds: ["files", "notes", "hello-world"], maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files", "notes", "hello-world"], visiblePluginIds: ["files", "notes", "hello-world"], maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "notes", "hello-world"], visiblePluginIds: ["files", "notes", "hello-world"], maxUsers: null, storageMb: 10240 }
 ];
 
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
@@ -111,6 +111,20 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
         }
       }
     }]
+  },
+  {
+    id: "hello-world",
+    name: "Hola Mundo",
+    version: "0.1.0",
+    description: "Añade una página pública Hola Mundo al sitio del tenant",
+    category: "website",
+    visibleInPlans: ["starter", "pro", "enterprise"],
+    includedInPlans: ["starter", "pro", "enterprise"],
+    purchasable: false,
+    system: false,
+    dependencies: [],
+    codeAvailable: true,
+    status: "published"
   }
 ];
 
