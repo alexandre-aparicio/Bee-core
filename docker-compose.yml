@@ -3,9 +3,14 @@ services:
     build: .
     container_name: bee-core
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       PORT: 3000
       HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      AUTH_ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL:-}
+      AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-}
     ports:
       - "${BEE_CORE_PORT:-3000}:3000"
     healthcheck:
