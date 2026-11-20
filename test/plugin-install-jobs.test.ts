@@ -109,7 +109,6 @@ test("expired plugin lifecycle leases cannot be renewed or completed by stale wo
     const queued = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
     const oldWorkerJob = await claimPluginInstallJob(collection, "worker-old", new Date(), 1_000);
     assert.ok(oldWorkerJob);
-    const expiredAt = new Date(Date.now() + 1_100);
     await new Promise(resolve => setTimeout(resolve, 1_150));
     assert.equal(await renewPluginInstallJobLease(collection, oldWorkerJob, "worker-old"), false);
     assert.equal(await completePluginInstallJob(collection, oldWorkerJob, "worker-old", "0.1.0"), false);
