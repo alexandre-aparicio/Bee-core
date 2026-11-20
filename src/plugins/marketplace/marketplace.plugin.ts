@@ -202,11 +202,18 @@ export const marketplacePlugin: BeePlugin = {
       if (await isPluginInstalled(db, tenant.tenantId, pluginId)) return { pluginId, status: "installed", alreadyInstalled: true };
       const installations = db.collection("tenant_plugin_installations");
       const now = new Date();
-      await installations.updateOne(
-        { tenantId: tenant.tenantId, pluginId },
-        { $set: { status: "installing", updatedAt: now, error: null }, $setOnInsert: { id: randomUUID(), tenantId: tenant.tenantId, pluginId, version: trusted.version, installedAt: null } },
-        { upsert: true }
-      );
+      try {
+        await installations.updateOne(
+          { tenantId: tenant.tenantId, pluginId, status: { $ne: "installing" } },
+          { $set: { status: "installing", version: trusted.version, updatedAt: now, error: null }, $setOnInsert: { id: randomUUID(), tenantId: tenant.tenantId, pluginId, installedAt: null } },
+          { upsert: true }
+        );
+      } catch (error) {
+        if ((error as { code?: number }).code === 11000) {
+          return reply.code(409).send({ error: "Plugin installation is already in progress" });
+        }
+        throw error;
+      }
       try {
         await trusted.installTenant?.(db, tenant.tenantId);
         await installations.updateOne({ tenantId: tenant.tenantId, pluginId }, { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } });
@@ -228,6 +235,15 @@ export const marketplacePlugin: BeePlugin = {
       if (!trusted) return reply.code(404).send({ error: "Plugin package not found" });
       if (trusted.system) return reply.code(409).send({ error: "System plugins cannot be uninstalled" });
       if (!await isPluginInstalled(db, tenant.tenantId, pluginId)) return reply.code(404).send({ error: "Plugin is not installed" });
+      const otherInstalled = await db.collection("tenant_plugin_installations")
+        .find({ tenantId: tenant.tenantId, status: "installed", pluginId: { $ne: pluginId } })
+        .toArray();
+      for (const installed of otherInstalled) {
+        const dependent = getTrustedPluginPackage(String(installed.pluginId));
+        if (dependent?.dependencies.includes(pluginId)) {
+          return reply.code(409).send({ error: "Plugin is required by installed plugin: " + installed.pluginId });
+        }
+      }
       await trusted.uninstallTenant?.(db, tenant.tenantId);
       await db.collection("tenant_plugin_installations").updateOne(
         { tenantId: tenant.tenantId, pluginId },
