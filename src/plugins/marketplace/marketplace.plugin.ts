@@ -312,14 +312,18 @@ export const marketplacePlugin: BeePlugin = {
         workerBusy = false;
       }
     };
+    installWorkerTask = processInstallJob();
     installWorkerTimer = setInterval(() => {
-      installWorkerTask = processInstallJob().finally(() => { installWorkerTask = undefined; });
+      if (!workerBusy) installWorkerTask = processInstallJob();
     }, 500);
-    void processInstallJob();
 
     ctx.logger.info("Marketplace plugin initialized: company catalog is filtered by plan and purchase entitlements.");
   },
   async stop() {
+    if (installWorkerTimer) clearInterval(installWorkerTimer);
+    installWorkerTimer = undefined;
+    await installWorkerTask;
+    installWorkerTask = undefined;
     await mongoClient?.close();
     mongoClient = undefined;
   }
