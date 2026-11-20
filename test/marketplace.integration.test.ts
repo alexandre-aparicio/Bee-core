@@ -102,6 +102,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     ]);
     assert.ok(betaNotesInstallAttempts.some(response => response.statusCode === 201));
     assert.ok(betaNotesInstallAttempts.every(response => [200, 201, 409].includes(response.statusCode)));
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.installed",resourceType:"plugin",resourceId:"notes"}),1,"successful plugin installation should be audited once");
     assert.equal(await db.collection("tenant_plugin_installations").countDocuments({ tenantId: "market-beta", pluginId: "notes", status: "installed" }), 1);
     const betaNotesList = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaNotesList.statusCode, 200);
@@ -117,11 +118,13 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const betaUninstall = await app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaUninstall.statusCode, 200);
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.uninstalled",resourceType:"plugin",resourceId:"notes"}),1,"plugin uninstall should be tenant-audited");
     const betaAfterUninstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterUninstall.statusCode, 403);
     assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-beta" }), 1);
     const betaReinstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaReinstall.statusCode, 201);
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.installed",resourceType:"plugin",resourceId:"notes"}),2,"reinstall should add another installation event");
     const betaAfterReinstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterReinstall.statusCode, 200);
     assert.equal(betaAfterReinstall.json().notes.length, 1);
