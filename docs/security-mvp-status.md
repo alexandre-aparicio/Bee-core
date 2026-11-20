@@ -11,8 +11,9 @@ This document records implemented security controls and the remaining gaps befor
 - Custom company roles are persisted per tenant, owner-managed, permission-validated and resolved from active membership; role changes revoke affected refresh sessions (PR #17).
 - Tenant-scoped append-only audit writer validates metadata size/keys and creates tenant/time, actor/time and action/time indexes.
 - Successful login/logout audit events are integrated (PR #18).
+- Invitation creation/acceptance/cancellation, custom role create/update/delete, membership role changes/suspension, plugin install/uninstall and company/marketplace permission denials are integrated (PR #20), with MongoDB integration assertions.
 
-## Audit coverage proposed in PR #20
+## Audit coverage integrated in PR #20
 
 - Invitation create/accept/cancel.
 - Custom role create/update/delete.
@@ -21,7 +22,7 @@ This document records implemented security controls and the remaining gaps befor
 - Permission denials for company permissions and marketplace read/install operations.
 - MongoDB integration assertions for the recorded events.
 
-These changes are not considered integrated until PR #20 merges and its backend/MongoDB, Docker and Angular checks pass.
+PR #20 is merged as `1c96e8100d2145f518a0232d300122c866551c1b`. Its PR-head backend/MongoDB and Docker full-stack checks passed. The dedicated Angular workflow was not triggered because no Angular source changed; Angular was still built and exercised by the full-stack workflow. Post-merge `main` checks are the final validation gate.
 
 ## Not complete
 
