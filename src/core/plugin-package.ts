@@ -62,7 +62,7 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   if (typeof item.category !== "string" || !item.category.trim()) throw new Error("Plugin category is required");
   if (!record(item.compatibility) || typeof item.compatibility.minRuntimeVersion !== "string" || !semver.test(item.compatibility.minRuntimeVersion)) throw new Error("Invalid runtime compatibility");
   if (item.compatibility.maxRuntimeVersion !== undefined && (typeof item.compatibility.maxRuntimeVersion !== "string" || !semver.test(item.compatibility.maxRuntimeVersion))) throw new Error("Invalid maximum runtime version");
-  const versionRange = /^(?:\\*|(?:\\^|~|>=|<=|>|<)?\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)(?:\\s+\\|\\|\\s+(?:\\^|~|>=|<=|>|<)?\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)*$/;
+  const versionRange = /^(?:\*|(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s+\|\|\s+(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)*$/;
   if (!Array.isArray(item.dependencies) || item.dependencies.some((dependency: any) => !record(dependency) || typeof dependency.pluginId !== "string" || !pluginId.test(dependency.pluginId) || typeof dependency.versionRange !== "string" || !versionRange.test(dependency.versionRange.trim()))) throw new Error("Invalid plugin dependencies");
   if (new Set(item.dependencies.map((dependency: any) => dependency.pluginId)).size !== item.dependencies.length) throw new Error("Plugin dependencies must be unique");
   if (!Array.isArray(item.permissions) || item.permissions.some((permission: any) => !record(permission) || typeof permission.key !== "string" || !permissionKey.test(permission.key) || typeof permission.description !== "string" || !permission.description.trim())) throw new Error("Invalid plugin permissions");
