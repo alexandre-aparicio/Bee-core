@@ -6,8 +6,9 @@ import { BeeTemplateEngine } from './templates/template-engine.service';
 import { BeeTemplateSlotComponent } from './templates/template-slot.component';
 import { BeeMarketplaceComponent } from './marketplace/marketplace.component';
 import { CompanyMembersComponent } from './company-members/company-members.component';
+import { BeeNotesComponent } from './notes/notes.component';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateSlotComponent, BeeMarketplaceComponent, CompanyMembersComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateSlotComponent, BeeMarketplaceComponent, CompanyMembersComponent, BeeNotesComponent], templateUrl: './app.component.html' })
 export class AppComponent implements OnInit {
   constructor(private readonly templates: BeeTemplateEngine) {}
 
@@ -27,6 +28,8 @@ export class AppComponent implements OnInit {
   activeCompanyRole = 'Workspace';
   companyError = '';
   companyBusy = false;
+  activePlugins: string[] = [];
+  setActivePlugins(pluginIds: string[]): void { this.activePlugins = pluginIds; }
   get mode(): 'login'|'register'|'forgot' { return this.path === '/register' ? 'register' : this.path === '/forgot' ? 'forgot' : 'login'; }
   get dashboard(): boolean { return this.path === '/dashboard'; }
   get signedEmail(): string { return this.auth?.user?.email || 'Workspace user'; }
