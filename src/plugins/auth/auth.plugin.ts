@@ -173,10 +173,11 @@ export const authPlugin:BeePlugin={
    const claims=req.user as {roles?:Role[]};
    if(!claims.roles?.includes("admin"))return reply.code(403).send({error:"Tenant administrator required"});
    const body=req.body??{};
-   if(body.public!==undefined&&!(allowedTemplates.public as readonly string[]).includes(body.public))return reply.code(400).send({error:"Invalid public template"});
-   if(body.dashboard!==undefined&&!(allowedTemplates.dashboard as readonly string[]).includes(body.dashboard))return reply.code(400).send({error:"Invalid dashboard template"});
-   if(body.public===undefined&&body.dashboard===undefined)return reply.code(400).send({error:"At least one template selection is required"});
    const current=await templatePreferences.findOne({tenantId});
+   const installed=new Set(getInstalledTemplates(current));
+   if(body.public!==undefined&&(!(allowedTemplates.public as readonly string[]).includes(body.public)||!installed.has(body.public)))return reply.code(400).send({error:"Public template is not installed for this tenant"});
+   if(body.dashboard!==undefined&&(!(allowedTemplates.dashboard as readonly string[]).includes(body.dashboard)||!installed.has(body.dashboard)))return reply.code(400).send({error:"Dashboard template is not installed for this tenant"});
+   if(body.public===undefined&&body.dashboard===undefined)return reply.code(400).send({error:"At least one template selection is required"});
    const selection={public:body.public??current?.public??templateDefaults.public,dashboard:body.dashboard??current?.dashboard??templateDefaults.dashboard};
    await templatePreferences.updateOne({tenantId},{$set:{...selection,updatedAt:new Date()}},{upsert:true});
    broadcastTemplateUpdate(tenantId,{type:"preferences",selection});
