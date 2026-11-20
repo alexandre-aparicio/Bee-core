@@ -38,7 +38,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
                 <span *ngIf="!canManage || member.role === 'owner'">{{member.role}}</span>
               </td>
               <td><span class="bee-company-members__status" [class.is-suspended]="member.status !== 'active'">{{member.status}}</span></td>
-              <td *ngIf="canManage"><button *ngIf="member.role !== 'owner' && member.status === 'active'" class="bee-company-members__danger" type="button" (click)="suspend(member)" [disabled]="busyId === member.userId">Suspend</button></td>
+              <td *ngIf="canManage"><button *ngIf="member.role !== 'owner' && member.status === 'active' && (role === 'owner' || member.role !== 'admin')" class="bee-company-members__danger" type="button" (click)="suspend(member)" [disabled]="busyId === member.userId">Suspend</button></td>
             </tr>
           </tbody>
         </table>
