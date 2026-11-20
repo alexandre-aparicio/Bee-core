@@ -11,6 +11,8 @@ import type {
  * It never exposes the underlying collection, so reads and mutations always
  * include the active tenant predicate.
  */
+type TenantInsert<T extends Document> = OptionalUnlessRequiredId<Omit<T, "tenantId"> & { tenantId?: string }>;
+
 export class TenantCollection<T extends Document = Document> {
   constructor(
     private readonly collection: Collection<T>,
@@ -25,7 +27,7 @@ export class TenantCollection<T extends Document = Document> {
     return { $and: [filter, { tenantId: this.tenantId }] } as Filter<T>;
   }
 
-  private stamp(document: OptionalUnlessRequiredId<T>): OptionalUnlessRequiredId<T> & { tenantId: string } {
+  private stamp(document: TenantInsert<T>): OptionalUnlessRequiredId<T> & { tenantId: string } {
     const suppliedTenantId = (document as Document).tenantId;
     if (suppliedTenantId !== undefined && suppliedTenantId !== this.tenantId) {
       throw new Error("Document tenantId does not match the active tenant context");
@@ -56,11 +58,11 @@ export class TenantCollection<T extends Document = Document> {
     return this.collection.findOne(this.scoped(filter));
   }
 
-  insertOne(document: OptionalUnlessRequiredId<T>) {
+  insertOne(document: TenantInsert<T>) {
     return this.collection.insertOne(this.stamp(document) as OptionalUnlessRequiredId<T>);
   }
 
-  insertMany(documents: readonly OptionalUnlessRequiredId<T>[]) {
+  insertMany(documents: readonly TenantInsert<T>[]) {
     return this.collection.insertMany(documents.map(document => this.stamp(document) as OptionalUnlessRequiredId<T>));
   }
 
