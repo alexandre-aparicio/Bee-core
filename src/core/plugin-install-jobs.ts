@@ -106,6 +106,20 @@ export async function claimPluginInstallJob(
   );
 }
 
+export async function renewPluginInstallJobLease(
+  collection: Collection<PluginInstallJob>,
+  job: PluginInstallJob,
+  workerId: string,
+  now = new Date(),
+  leaseMs = 60_000
+): Promise<boolean> {
+  const result = await collection.updateOne(
+    { id: job.id, status: "running", workerId, leaseUntil: { $gt: now } },
+    { $set: { leaseUntil: new Date(now.getTime() + leaseMs), updatedAt: now } }
+  );
+  return result.modifiedCount === 1;
+}
+
 export async function completePluginInstallJob(
   collection: Collection<PluginInstallJob>,
   job: PluginInstallJob,
