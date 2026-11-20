@@ -236,7 +236,7 @@ export const marketplacePlugin: BeePlugin = {
         { projection: { _id: 0, id: 1, pluginId: 1, action: 1, status: 1, attempts: 1, maxAttempts: 1, createdAt: 1, updatedAt: 1, startedAt: 1, finishedAt: 1, result: 1,  } }
       );
       if (!job) return reply.code(404).send({ error: "Installation job not found" });
-      return { job: { ...job, ...(job.status === "failed" ? { error: "Plugin installation failed. Contact an administrator." } : {}) } };
+      return { job: { ...job, ...(job.status === "failed" ? { error: "Plugin " + job.action + " failed. Contact an administrator." } : {}) } };
     });
 
     ctx.server.delete<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId/install", async (request: any, reply: any) => {
