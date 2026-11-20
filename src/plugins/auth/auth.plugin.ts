@@ -44,7 +44,10 @@ export const authPlugin:BeePlugin={
   ]);
   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
   const preferencesCollectionExists=await db.listCollections({name:"template_preferences"},{nameOnly:true}).hasNext();
-  if(!preferencesCollectionExists)await db.createCollection("template_preferences");
+  if(!preferencesCollectionExists){
+   try{await db.createCollection("template_preferences");}
+   catch(error){if((error as {codeName?:string}).codeName!=="NamespaceExists")throw error;}
+  }
   const preferenceIndexes=await templatePreferences.listIndexes().toArray();
   if(preferenceIndexes.some(index=>index.name==="template_preferences_user_unique"))await templatePreferences.dropIndex("template_preferences_user_unique");
   for await(const legacy of templatePreferences.find({tenantId:{$exists:false},userId:{$exists:true}}).sort({updatedAt:-1})){
