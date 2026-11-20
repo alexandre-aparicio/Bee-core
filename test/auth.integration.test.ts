@@ -288,7 +288,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const wrongAccountLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     const wrongAccountAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+wrongAccountLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(wrongAccountAccept.statusCode,403);
-    const acceptedInvite=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
+    const legacyAcceptLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"legacy@example.com",password:"Test-password-12345",client:"dashboard"}});
+    const acceptedInvite=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyAcceptLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(acceptedInvite.statusCode,200);
     assert.equal(acceptedInvite.json().company.id,secondCompanyId);
     const duplicateAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
@@ -299,7 +300,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(createCancelledInvite.statusCode,201);
     const cancelInvite=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/invitations/"+createCancelledInvite.json().invitation.id,headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(cancelInvite.statusCode,200);
-    const cancelledAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createCancelledInvite.json().acceptanceToken}});
+    const legacyCancelledLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"legacy@example.com",password:"Test-password-12345",client:"dashboard"}});
+    const cancelledAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyCancelledLogin.json().accessToken},payload:{token:createCancelledInvite.json().acceptanceToken}});
     assert.equal(cancelledAccept.statusCode,404);
 
     const managerPermissions=await app.inject({method:"GET",url:"/companies/active/permissions",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
