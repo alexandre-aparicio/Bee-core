@@ -8,7 +8,7 @@ Bee-Core keeps the trusted plugin catalogue centrally and seeds its metadata int
 - `tenant_subscriptions`: one current subscription per company;
 - `plugin_purchases`: individual company add-on purchases;
 - `tenant_plugin_installations`: installation state per company and plugin;
-- `plugin_install_jobs`: durable, tenant-scoped installation jobs with active-job deduplication, attempts, worker lease, status, result and error metadata.
+- `plugin_install_jobs`: durable, tenant-scoped plugin lifecycle jobs with active-job deduplication, attempts, worker lease, status, result and error metadata.
 
 Each company receives its own filtered catalogue. Starter includes Private Files and can see Team Notes as a purchasable add-on, but cannot install or use Notes until an active purchase or an eligible plan is recorded. Pro and Enterprise include both Files and Notes. Other packages can be hidden from Starter entirely by leaving them out of its `visiblePluginIds`.
 
@@ -25,7 +25,7 @@ Companies without a subscription record receive a 14-day Starter trial on first 
 - `DELETE /marketplace/plugins/:pluginId/install`: checks management permission, prevents removal of system packages and dependencies in use, then enqueues a durable uninstall job and returns HTTP `202` with `jobId` and `statusUrl`.
 - `GET /billing/subscription`: current subscription and effective plan.
 
-Installation state and lifecycle jobs are company-scoped. The worker activates or uninstalls only trusted code already compiled into the Bee-Core runtime; it does not download or execute arbitrary package code. MongoDB job records survive API restarts, concurrent requests for the same company/plugin and action share one active job, worker claims use expiring leases, and failed jobs retry up to three attempts with backoff. The Angular marketplace waits for install and uninstall job results and displays progress. Uninstall transitions through `uninstalling` and returns to `installed` if the hook fails; successful uninstall preserves tenant business data.
+Installation state and lifecycle jobs are company-scoped. The worker activates or uninstalls only trusted code already compiled into the Bee-Core runtime; it does not download or execute arbitrary package code. MongoDB job records survive API restarts, concurrent requests for the same company/plugin and action share one active job, worker claims use expiring leases, and failed jobs retry up to three attempts with backoff. The Angular marketplace waits for install and uninstall job results and displays progress. Uninstall transitions through `uninstalling` and returns to `installed` if the hook fails; successful uninstall preserves tenant business data. The worker rechecks dependencies at execution time and emits tenant-scoped audit events only after successful completion.
 
 ## Billing integration
 
@@ -52,7 +52,7 @@ The `notes` plugin demonstrates the intended pattern:
 - The business-plugin manifest validator defines a signed package contract, but signature/digest verification is not yet wired into package installation.
 - Plan definitions and trusted package definitions are code-managed; a platform administration UI/API is pending.
 - Purchase and subscription webhook events are implemented, but no payment provider or checkout integration is connected.
-- Install and uninstall jobs are durable and recover expired worker leases. Version upgrades, rollback, immutable package archive verification and full dependency graph resolution remain pending.
+- Install and uninstall jobs are durable and recover expired worker leases. Lease heartbeats for long-running hooks, durable version upgrades, rollback, immutable package archive verification and full dependency graph resolution remain pending.
 - Plan user and storage quotas are enforced for new operations: invitations/direct membership additions reserve the company user allowance, and file uploads reserve storage atomically per company. A downgrade does not automatically suspend existing members or delete files; it blocks new additions/uploads that exceed the new allowance.
 - A company-facing dashboard catalogue with install/uninstall controls is implemented and hides management actions from non-admin roles. Checkout, subscription management and payment-provider UI remain pending.
 - Notes now includes a dashboard component mounted by a generic Angular plugin outlet from the active company installation state. The registry currently contains statically bundled trusted components; loading component code/routes from signed package archives remains pending.
