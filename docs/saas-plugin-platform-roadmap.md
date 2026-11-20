@@ -114,7 +114,7 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 
 ### Phase 5 — Company-scoped plugin installer
 - Add catalog visibility, install/update/rollback/uninstall APIs and UI. (Tenant-filtered catalog, install/uninstall APIs, per-company lifecycle state and a basic dashboard marketplace UI are implemented; upgrade and rollback are pending.)
-- Add durable jobs, dependency ordering, migration locks and recovery. (Current install hooks run synchronously; durable jobs, dependency graph resolution and crash recovery remain pending.)
+- Add durable jobs, dependency ordering, migration locks and recovery. (Current install hooks run synchronously and a durable job queue is still pending. Startup recovery now converts interrupted `installing` states into retryable `failed` states with an error marker, avoiding permanently stuck installations. Dependency graph resolution and durable crash recovery remain pending.)
 - Separate installed, enabled, suspended and failed states. (Initial installed/installing/failed/uninstalled states exist; entitlement suspension/reactivation handling remains pending.)
 - Acceptance: install, upgrade, failed migration recovery, dependency conflict, suspension, reactivation and uninstall are tested with two isolated companies.
 
@@ -140,8 +140,8 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 - An internal shared-secret bearer webhook accepts subscription updates, plugin purchases and revocations. It is not a provider-signed webhook and is not connected to Stripe or another payment processor. Checkout, customer portal, reconciliation, renewals and billing UI remain pending.
 - The plugin manifest validator is present, but package artifacts are still trusted code compiled into the runtime. Immutable archive storage, signature verification, durable installation jobs, versioned migrations/rollback, full dependency graph, frontend component registration and Notes business UI remain pending.
 - Remaining lifecycle work: central immutable package archive storage, signature/digest verification during install, durable install jobs/locks, versioned migration execution and rollback, full dependency resolution, frontend component registration and Notes business UI.
-- The initial roadmap commit was `9627d652aeca321825f99ff66e033535d3d9653f`. The latest marketplace/entitlement implementation commit when this status was updated is `ec5bc3cbc19f8579b9ea740c293f7bfcf0fba0ab`.
-- The company-membership, file-storage and initial marketplace implementation passed backend integration and Angular/Playwright CI at `d8388034d8f3921c1bec3a863a88ec87bbd7afe0`. The persisted catalog/plan lookup refactor at `ec5bc3cbc19f8579b9ea740c293f7bfcf0fba0ab` has fresh backend, Docker and Angular/Playwright workflows in progress; do not treat that latest refactor as fully green until all finish successfully.
+- The initial roadmap commit was `9627d652aeca321825f99ff66e033535d3d9653f`. The latest marketplace/entitlement implementation commit when this status was updated is `e7c7bcaaab31599d4f9a4898f3a873ae21c5d90`.
+- The company-membership, file-storage and initial marketplace implementation passed backend integration and Angular/Playwright CI at `d8388034d8f3921c1bec3a863a88ec87bbd7afe0`. The marketplace invalid-webhook and interrupted-install recovery changes have fresh backend and Angular workflows queued; do not treat the latest changes as green until all finish successfully.
 - Production VPS deployment is intentionally deferred.
 
 - Plan storage quotas are enforced by the Files plugin using atomic per-company reservations; usage is tracked independently by tenant.
