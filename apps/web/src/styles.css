@@ -281,3 +281,10 @@ body[data-bee-custom-theme="true"] .hero h1 span{color:var(--purple)}
 .bee-notes__state{color:var(--muted);background:#ffffff05}
 .bee-notes__message{color:#8ddbb2;background:#3b9c6c18}
 .bee-notes__error{color:#f0aaaa;background:#b94a4a18}
+
+.bee-company-members__accept{margin:12px 0 16px;padding:12px;border:1px solid var(--border);border-radius:9px;background:#ffffff04}
+.bee-company-members__accept form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.bee-company-members__accept input{min-width:0;border:1px solid var(--border);border-radius:8px;padding:9px 10px;background:#ffffff08;color:inherit;font-size:10px}
+.bee-company-members__accept button{border:1px solid transparent;border-radius:8px;padding:8px 12px;background:var(--purple);color:#fff;font-size:10px;font-weight:600;cursor:pointer}
+.bee-company-members__accept button:disabled{opacity:.5;cursor:wait}
+@media(max-width:600px){.bee-company-members__accept form{grid-template-columns:minmax(0,1fr)}}
