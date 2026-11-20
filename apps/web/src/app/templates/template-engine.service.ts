@@ -13,18 +13,28 @@ const BUILT_IN_TEMPLATES: BeeTemplateManifest[] = [
 ];
 
 const DEFAULT_SELECTION: BeeTemplateSelection = { public: 'aurora', dashboard: 'midnight' };
+const BASE_TEMPLATE_IDS = ['aurora', 'editorial', 'midnight', 'paper'];
+const PACKAGE_TEMPLATES: BeeTemplateManifest[] = [
+  { id: 'studio', name: 'Studio', version: '1.0.0', target: 'public', description: 'Warm editorial landing page with a bright accent palette.', builtIn: false, layout: 'public.studio', slots: ['header', 'hero', 'content', 'footer'] },
+  { id: 'glass', name: 'Glass', version: '1.0.0', target: 'dashboard', description: 'Soft glass workspace with cool blue and violet accents.', builtIn: false, layout: 'dashboard.glass', slots: ['sidebar', 'topbar', 'content', 'widgets'] }
+];
+const PACKAGE_THEME_TOKENS: Record<string, Record<string, string>> = {
+  studio: { '--bg': '#f4f0e9', '--panel': '#fffaf2', '--muted': '#756e65', '--border': '#ded5c8', '--purple': '#b85d3b', '--cyan': '#397d78' },
+  glass: { '--bg': '#101827', '--panel': '#1b2940', '--muted': '#a2b1c7', '--border': '#40516b', '--purple': '#8b9dff', '--cyan': '#69d9e8' }
+};
 
 @Injectable({ providedIn: 'root' })
 export class BeeTemplateEngine {
   private readonly registry = new Map<string, BeeTemplateManifest>();
   private selection: BeeTemplateSelection = this.readSelection();
+  private installedTemplateIds = new Set<string>(BASE_TEMPLATE_IDS);
   private selectionRevision = 0;
   private stream?: EventSource;
   private reconnecting = false;
   themeTokens: Record<string, string> = { ...DEFAULT_THEME_TOKENS };
 
   constructor() {
-    for (const manifest of BUILT_IN_TEMPLATES) this.register(manifest);
+    for (const manifest of [...BUILT_IN_TEMPLATES, ...PACKAGE_TEMPLATES]) this.register(manifest);
     if (!this.registry.has(this.selection.public) || this.registry.get(this.selection.public)?.target !== 'public') this.selection.public = DEFAULT_SELECTION.public;
     if (!this.registry.has(this.selection.dashboard) || this.registry.get(this.selection.dashboard)?.target !== 'dashboard') this.selection.dashboard = DEFAULT_SELECTION.dashboard;
     this.apply();
@@ -33,7 +43,7 @@ export class BeeTemplateEngine {
   }
 
   list(target?: BeeTemplateTarget): BeeTemplateManifest[] {
-    return [...this.registry.values()].filter(item => !target || item.target === target);
+    return [...this.registry.values()].filter(item => this.installedTemplateIds.has(item.id) && (!target || item.target === target));
   }
 
   get hasAuthenticatedSession(): boolean { return this.authToken() !== null; }
@@ -45,6 +55,12 @@ export class BeeTemplateEngine {
       return Array.isArray(session?.user?.roles) && session.user.roles.includes('admin');
     } catch { return false; }
   }
+
+  catalog(target?: BeeTemplateTarget): BeeTemplateManifest[] {
+    return PACKAGE_TEMPLATES.filter(item => !target || item.target === target);
+  }
+
+  isInstalled(templateId: string): boolean { return this.installedTemplateIds.has(templateId); }
 
   getSelection(): BeeTemplateSelection {
     return { ...this.selection };
@@ -68,12 +84,43 @@ export class BeeTemplateEngine {
   activate(target: BeeTemplateTarget, templateId: string): void {
     if (this.hasAuthenticatedSession && !this.canManageTemplates) return;
     const manifest = this.registry.get(templateId);
-    if (!manifest || manifest.target !== target) throw new Error('Template is not registered for this surface');
+    if (!manifest || manifest.target !== target || !this.installedTemplateIds.has(templateId)) throw new Error('Template is not installed for this surface');
     this.selection = { ...this.selection, [target]: templateId };
     this.selectionRevision++;
     this.persist();
     this.apply();
+    if (PACKAGE_THEME_TOKENS[templateId]) void this.saveThemeTokens(PACKAGE_THEME_TOKENS[templateId]);
     void this.persistRemoteSelection();
+  }
+
+  async installTemplate(templateId: string): Promise<boolean> {
+    const token = this.authToken();
+    if (!token || !this.canManageTemplates || typeof fetch === 'undefined' || !PACKAGE_TEMPLATES.some(item => item.id === templateId)) return false;
+    const response = await fetch('/api/templates/install', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ templateId }) });
+    if (!response.ok) return false;
+    const payload = await response.json() as { installedTemplates?: string[] };
+    this.setInstalledTemplates(payload.installedTemplates);
+    return true;
+  }
+
+  async uninstallTemplate(templateId: string): Promise<boolean> {
+    const token = this.authToken();
+    if (!token || !this.canManageTemplates || typeof fetch === 'undefined' || !PACKAGE_TEMPLATES.some(item => item.id === templateId)) return false;
+    const response = await fetch(`/api/templates/install/${encodeURIComponent(templateId)}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
+    if (!response.ok) return false;
+    const payload = await response.json() as { installedTemplates?: string[] };
+    this.setInstalledTemplates(payload.installedTemplates);
+    return true;
+  }
+
+  private setInstalledTemplates(ids?: string[]): void {
+    if (!Array.isArray(ids)) return;
+    this.installedTemplateIds = new Set([...BASE_TEMPLATE_IDS, ...ids.filter(id => this.registry.has(id))]);
+    for (const target of ['public', 'dashboard'] as const) {
+      if (!this.installedTemplateIds.has(this.selection[target])) this.selection[target] = target === 'public' ? 'aurora' : 'midnight';
+    }
+    this.persist();
+    this.apply();
   }
 
   uninstall(templateId: string): void {
@@ -82,6 +129,7 @@ export class BeeTemplateEngine {
     if (manifest.builtIn) throw new Error('Built-in templates cannot be removed');
     if (this.selection.public === templateId || this.selection.dashboard === templateId) throw new Error('Deactivate a template before removing it');
     this.registry.delete(templateId);
+    this.installedTemplateIds.delete(templateId);
   }
 
 
@@ -103,9 +151,10 @@ export class BeeTemplateEngine {
     try {
       const response = await fetch('/api/templates/public');
       if (!response.ok) return;
-      const payload = await response.json() as { selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string>; customized?: boolean };
-      if (payload.selection?.public && this.registry.get(payload.selection.public)?.target === 'public') this.selection.public = payload.selection.public;
-      if (payload.selection?.dashboard && this.registry.get(payload.selection.dashboard)?.target === 'dashboard') this.selection.dashboard = payload.selection.dashboard;
+      const payload = await response.json() as { selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string>; customized?: boolean; installedTemplates?: string[] };
+      this.setInstalledTemplates(payload.installedTemplates);
+      if (payload.selection?.public && this.registry.get(payload.selection.public)?.target === 'public' && this.installedTemplateIds.has(payload.selection.public)) this.selection.public = payload.selection.public;
+      if (payload.selection?.dashboard && this.registry.get(payload.selection.dashboard)?.target === 'dashboard' && this.installedTemplateIds.has(payload.selection.dashboard)) this.selection.dashboard = payload.selection.dashboard;
       this.apply();
       if (payload.tokens && payload.customized) this.applyThemeTokens(payload.tokens);
       await this.connectPublicEvents();
@@ -119,13 +168,14 @@ export class BeeTemplateEngine {
     try {
       const response = await fetch('/api/templates/preferences', { headers: { authorization: `Bearer ${token}` } });
       if (!response.ok || revision !== this.selectionRevision) return;
-      const payload = await response.json() as { selection?: Partial<BeeTemplateSelection> };
+      const payload = await response.json() as { selection?: Partial<BeeTemplateSelection>; installedTemplates?: string[] };
+      this.setInstalledTemplates(payload.installedTemplates);
       const remote = payload.selection;
       if (!remote) return;
       const publicId = remote.public;
       const dashboardId = remote.dashboard;
-      if (publicId && this.registry.get(publicId)?.target === 'public') this.selection.public = publicId;
-      if (dashboardId && this.registry.get(dashboardId)?.target === 'dashboard') this.selection.dashboard = dashboardId;
+      if (publicId && this.registry.get(publicId)?.target === 'public' && this.installedTemplateIds.has(publicId)) this.selection.public = publicId;
+      if (dashboardId && this.registry.get(dashboardId)?.target === 'dashboard' && this.installedTemplateIds.has(dashboardId)) this.selection.dashboard = dashboardId;
       this.persist();
       this.apply();
       await this.restoreRemoteTheme();
@@ -197,10 +247,11 @@ export class BeeTemplateEngine {
     this.stream = new EventSource(`/api/templates/events?ticket=${encodeURIComponent(ticket)}`);
     this.stream.addEventListener('template-update', (event: MessageEvent) => {
       try {
-        const update = JSON.parse(event.data) as { type?: string; selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string>; customized?: boolean };
+        const update = JSON.parse(event.data) as { type?: string; selection?: Partial<BeeTemplateSelection>; tokens?: Record<string, string>; customized?: boolean; installedTemplates?: string[] };
+        if (update.installedTemplates) this.setInstalledTemplates(update.installedTemplates);
         if (update.selection) {
-          if (this.registry.get(update.selection.public || '')?.target === 'public') this.selection.public = update.selection.public!;
-          if (this.registry.get(update.selection.dashboard || '')?.target === 'dashboard') this.selection.dashboard = update.selection.dashboard!;
+          if (this.registry.get(update.selection.public || '')?.target === 'public' && this.installedTemplateIds.has(update.selection.public!)) this.selection.public = update.selection.public!;
+          if (this.registry.get(update.selection.dashboard || '')?.target === 'dashboard' && this.installedTemplateIds.has(update.selection.dashboard!)) this.selection.dashboard = update.selection.dashboard!;
           this.persist(); this.apply();
         }
         if (update.tokens && update.customized) this.applyThemeTokens(update.tokens);
