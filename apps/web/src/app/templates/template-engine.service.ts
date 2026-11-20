@@ -16,12 +16,14 @@ const DEFAULT_SELECTION: BeeTemplateSelection = { public: 'aurora', dashboard: '
 export class BeeTemplateEngine {
   private readonly registry = new Map<string, BeeTemplateManifest>();
   private selection: BeeTemplateSelection = this.readSelection();
+  private selectionRevision = 0;
 
   constructor() {
     for (const manifest of BUILT_IN_TEMPLATES) this.register(manifest);
     if (!this.registry.has(this.selection.public) || this.registry.get(this.selection.public)?.target !== 'public') this.selection.public = DEFAULT_SELECTION.public;
     if (!this.registry.has(this.selection.dashboard) || this.registry.get(this.selection.dashboard)?.target !== 'dashboard') this.selection.dashboard = DEFAULT_SELECTION.dashboard;
     this.apply();
+    void this.restoreRemoteSelection();
   }
 
   list(target?: BeeTemplateTarget): BeeTemplateManifest[] {
@@ -51,8 +53,10 @@ export class BeeTemplateEngine {
     const manifest = this.registry.get(templateId);
     if (!manifest || manifest.target !== target) throw new Error('Template is not registered for this surface');
     this.selection = { ...this.selection, [target]: templateId };
+    this.selectionRevision++;
     this.persist();
     this.apply();
+    void this.persistRemoteSelection();
   }
 
   uninstall(templateId: string): void {
@@ -61,6 +65,50 @@ export class BeeTemplateEngine {
     if (manifest.builtIn) throw new Error('Built-in templates cannot be removed');
     if (this.selection.public === templateId || this.selection.dashboard === templateId) throw new Error('Deactivate a template before removing it');
     this.registry.delete(templateId);
+  }
+
+
+  private authToken(): string | null {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+      const session = JSON.parse(localStorage.getItem('bee-auth') || 'null') as { accessToken?: string } | null;
+      return typeof session?.accessToken === 'string' ? session.accessToken : null;
+    } catch { return null; }
+  }
+
+  private async restoreRemoteSelection(): Promise<void> {
+    const token = this.authToken();
+    if (!token || typeof fetch === 'undefined') return;
+    const revision = this.selectionRevision;
+    try {
+      const response = await fetch('/api/templates/preferences', { headers: { authorization: `Bearer ${token}` } });
+      if (!response.ok || revision !== this.selectionRevision) return;
+      const payload = await response.json() as { selection?: Partial<BeeTemplateSelection> };
+      const remote = payload.selection;
+      if (!remote) return;
+      const publicId = remote.public;
+      const dashboardId = remote.dashboard;
+      if (publicId && this.registry.get(publicId)?.target === 'public') this.selection.public = publicId;
+      if (dashboardId && this.registry.get(dashboardId)?.target === 'dashboard') this.selection.dashboard = dashboardId;
+      this.persist();
+      this.apply();
+    } catch {
+      // Local selection remains the offline fallback.
+    }
+  }
+
+  private async persistRemoteSelection(): Promise<void> {
+    const token = this.authToken();
+    if (!token || typeof fetch === 'undefined') return;
+    try {
+      await fetch('/api/templates/preferences', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify(this.selection)
+      });
+    } catch {
+      // Keep the local selection; the next successful activation can sync it.
+    }
   }
 
   private apply(): void {
