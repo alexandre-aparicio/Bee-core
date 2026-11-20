@@ -32,7 +32,7 @@ export class TenantCollection<T extends Document = Document> {
     if (suppliedTenantId !== undefined && suppliedTenantId !== this.tenantId) {
       throw new Error("Document tenantId does not match the active tenant context");
     }
-    return { ...document, tenantId: this.tenantId } as OptionalUnlessRequiredId<T> & { tenantId: string };
+    return { ...document, tenantId: this.tenantId } as unknown as OptionalUnlessRequiredId<T> & { tenantId: string };
   }
 
   private assertTenantImmutable(update: UpdateFilter<T>): void {
