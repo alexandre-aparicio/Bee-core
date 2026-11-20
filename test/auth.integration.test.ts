@@ -39,6 +39,22 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.deepEqual(saveTemplates.json().selection, { public: "editorial", dashboard: "paper" });
     const readTemplates = await app.inject({ method: "GET", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken } });
     assert.deepEqual(readTemplates.json().selection, { public: "editorial", dashboard: "paper" });
+    const defaultTheme = await app.inject({method:"GET",url:"/templates/theme",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(defaultTheme.statusCode,200);
+    assert.equal(defaultTheme.json().tokens["--bg"],"#080a12");
+    const saveTheme = await app.inject({method:"PUT",url:"/templates/theme",headers:{authorization:"Bearer "+tokens.accessToken},payload:{tokens:{"--bg":"#112233","--purple":"#abcdef"}}});
+    assert.equal(saveTheme.statusCode,200);
+    assert.equal(saveTheme.json().tokens["--bg"],"#112233");
+    const readTheme = await app.inject({method:"GET",url:"/templates/theme",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(readTheme.json().tokens["--purple"],"#abcdef");
+    const unsafeTheme = await app.inject({method:"PUT",url:"/templates/theme",headers:{authorization:"Bearer "+tokens.accessToken},payload:{tokens:{"--bg":"red;body{display:none}"}}});
+    assert.equal(unsafeTheme.statusCode,400);
+    const streamTicket = await app.inject({method:"POST",url:"/templates/stream-ticket",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(streamTicket.statusCode,200);
+    assert.ok(streamTicket.json().ticket);
+    const invalidStream = await app.inject({method:"GET",url:"/templates/events?ticket=invalid-ticket"});
+    assert.equal(invalidStream.statusCode,401);
+
     const betaLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(betaLogin.statusCode,200);
     const betaTokens=betaLogin.json();
@@ -46,6 +62,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(betaRead.statusCode,200);
     assert.equal(betaRead.json().tenantId,"tenant-beta");
     assert.deepEqual(betaRead.json().selection,{public:"aurora",dashboard:"midnight"});
+    const betaTheme = await app.inject({method:"GET",url:"/templates/theme",headers:{authorization:"Bearer "+betaTokens.accessToken}});
+    assert.equal(betaTheme.statusCode,200);
+    assert.equal(betaTheme.json().tokens["--bg"],"#080a12");
     const betaWrite=await app.inject({method:"PUT",url:"/templates/preferences",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{public:"editorial"}});
     assert.equal(betaWrite.statusCode,200);
     const alphaRecheck=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+tokens.accessToken}});
