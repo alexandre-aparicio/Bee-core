@@ -47,7 +47,7 @@ export async function resolveTenantContext(
   const now = new Date();
   const users = db.collection<{ id: string; email: string; enabled: boolean; allowedClients?: string[] }>("users");
   const user = await users.findOne({ id: claims.sub, enabled: true });
-  if (!user || (user.allowedClients && !user.allowedClients.includes(claims.client))) return null;
+  if (!user || !Array.isArray(user.allowedClients) || !user.allowedClients.includes(claims.client)) return null;
 
   const session = await db.collection("refresh_sessions").findOne({
     id: claims.sid,
@@ -63,7 +63,7 @@ export async function resolveTenantContext(
     tenantId: claims.tenantId,
     status: "active"
   });
-  if (!membership || !(membership.role in COMPANY_ROLE_PERMISSIONS)) return null;
+  if (!membership || !Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
 
   if (!options.allowSuspendedCompany) {
     const company = await db.collection<{ id: string; status?: string }>("tenants").findOne({ id: claims.tenantId });
