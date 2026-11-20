@@ -10,8 +10,9 @@ import { CompanyMembersComponent } from './company-members/company-members.compo
 import { BeePluginOutletComponent } from './plugins/plugin-outlet.component';
 import { AuditLogComponent } from './audit-log/audit-log.component';
 import { PlatformAdminComponent } from './platform-admin/platform-admin.component';
+import { BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent } from './templates/packages';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateSlotComponent, BeeMarketplaceComponent, CompanyMembersComponent, BeePluginOutletComponent, AuditLogComponent, PlatformAdminComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateSlotComponent, BeeMarketplaceComponent, CompanyMembersComponent, BeePluginOutletComponent, AuditLogComponent, PlatformAdminComponent, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent], templateUrl: './app.component.html' })
 export class AppComponent implements OnInit {
   constructor(private readonly templates: BeeTemplateEngine) {}
 
