@@ -3,6 +3,7 @@ import jwt from "@fastify/jwt";
 import bcrypt from "bcryptjs";
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { resolveTenantContext } from "../../core/tenant-context.js";
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
@@ -95,7 +96,7 @@ export const authPlugin:BeePlugin={
    const role=String(membership.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
    return {accessToken:issue({...u,roles},session.client,activeTenantId,session.id),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,client:session.client,tenantId:activeTenantId};
   });
-  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string;tenantId?:string;sid?:string};if(c.aud!=="bee-core"||!c.sub||!c.client)return reply.code(401).send({error:"Unauthorized"});const user=await users.findOne({id:c.sub,enabled:true});const tenantId=String(c.tenantId??user?.tenantId??defaultTenantId);if(!user||!await db.collection("memberships").findOne({userId:c.sub,tenantId,status:"active"}))return reply.code(401).send({error:"Active company membership required"});if(c.sid&&!await sessions.findOne({id:c.sid,userId:c.sub,tenantId,revokedAt:null,expiresAt:{$gt:new Date()}}))return reply.code(401).send({error:"Session expired, revoked or company context changed"});return {authenticated:true,user:{id:c.sub,email:c.email,roles:c.roles},client:c.client,tenantId};}catch{return reply.code(401).send({error:"Unauthorized"});}});
+  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string;tenantId?:string;sid?:string};const tenantContext=await resolveTenantContext(db,c);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});return {authenticated:true,user:{id:tenantContext.userId,email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:tenantContext.tenantId};}catch{return reply.code(401).send({error:"Unauthorized"});}});
   ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const claims=req.user as {sub?:string;aud?:string};if(claims.aud!=="bee-core"||!claims.sub)return reply.code(401).send({error:"Unauthorized"});const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({tokenHash:hashToken(raw),userId:claims.sub,revokedAt:null},{$set:{revokedAt:new Date()}});return {success:true,message:"Refresh session revoked. Current access token expires within 20 minutes."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
@@ -111,18 +112,9 @@ export const authPlugin:BeePlugin={
   const readTemplateTenant=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
    try{
     await req.jwtVerify();
-    const claims=req.user as {sub?:string;tenantId?:string;aud?:string;sid?:string};
-    if(claims.aud!=="bee-core"||!claims.sub){reply.code(401).send({error:"Unauthorized"});return null;}
-    const user=await users.findOne({id:claims.sub,enabled:true});
-    if(!user){reply.code(401).send({error:"Unauthorized"});return null;}
-    const tenantId=String(claims.tenantId??user.tenantId??defaultTenantId);
-    const membership=await db.collection("memberships").findOne({userId:user.id,tenantId,status:"active"});
-    if(!membership){reply.code(403).send({error:"Active company membership required"});return null;}
-    if(claims.sid){
-     const session=await sessions.findOne({id:claims.sid,userId:user.id,tenantId,revokedAt:null,expiresAt:{$gt:new Date()}});
-     if(!session){reply.code(401).send({error:"Session company context changed or session revoked"});return null;}
-    }
-    return tenantId;
+    const tenantContext=await resolveTenantContext(db,req.user as {sub?:string;email?:string;tenantId?:string;sid?:string;client?:"backend"|"dashboard"|"public";aud?:string});
+    if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
+    return tenantContext.tenantId;
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
   ctx.server.get("/templates/public",async(req)=>{
