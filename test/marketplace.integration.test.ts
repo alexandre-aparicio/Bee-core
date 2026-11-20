@@ -92,8 +92,13 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaCatalog.statusCode, 200);
     assert.deepEqual(betaCatalog.json().plugins.map((plugin: { id: string }) => plugin.id), ["files", "notes"]);
-    const betaNotesInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
-    assert.equal(betaNotesInstall.statusCode, 201);
+    const betaNotesInstallAttempts = await Promise.all([
+      app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } }),
+      app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } })
+    ]);
+    assert.ok(betaNotesInstallAttempts.some(response => response.statusCode === 201));
+    assert.ok(betaNotesInstallAttempts.every(response => [200, 201, 409].includes(response.statusCode)));
+    assert.equal(await db.collection("tenant_plugin_installations").countDocuments({ tenantId: "market-beta", pluginId: "notes", status: "installed" }), 1);
     const betaNotesList = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaNotesList.statusCode, 200);
     assert.deepEqual(betaNotesList.json().notes, []);
