@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — `main` includes PR #20 at `1c96e8100d2145f518a0232d300122c866551c1b` and PR #21 at `7fe8569ebb7761dc99c6c2aeb308985fd10f6a86`; post-merge backend, full-stack and production Compose workflows all passed.
+Updated: 2026-11-20 — `main` includes PR #20, PR #21 and PR #22 at `15faa3b85cae75fc1812017f5467752a3ccddf33`; post-merge backend, full-stack and production Compose workflows passed. Durable plugin installation is in progress on PR #23 and is not counted in the current main percentages.
 
 ## How progress is measured
 
