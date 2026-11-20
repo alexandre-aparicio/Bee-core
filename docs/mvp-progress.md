@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — code validation baseline is main commit `d69b09e757741c0246bc3e74d3b39b7c7573a279` (PRs #29–#35); this progress reconciliation is integrated by PR #36 at `84bd3eb9dc074f46e6325358eb33efd6fba71261`. PR #34 post-merge backend/full-stack CI (`44779902641`) and production Compose (`44779902679`) passed on `a87db5d`; PR #35 backend/auth and Docker full-stack checks passed on exact head `09237c13` before merge; post-merge backend/full-stack CI (`44780741763`) and production Compose (`44780741842`) passed on exact main SHA `d69b09e`.
+Updated: 2026-11-20 — repository main now includes tenant subdomain routing through `fd19a01021d3a04433f650af491bcfb439a8a5db`. Template business-model clarification and removal of the color-picker UI are being recorded in subsequent commits. No tests or CI were run for the latest template changes, per user instruction.
 
 ## How progress is measured
 
@@ -18,7 +18,7 @@ The percentages below measure distinct product capabilities, not the number of p
 | Authentication and sessions | 10% | 93% | Login, JWT, refresh rotation/replay rejection, persisted sessions, logout, live membership/role revalidation and stale-role regression coverage; MFA, account recovery, verification and advanced rate limiting remain post-MVP hardening. |
 | Companies, memberships and roles | 15% | 94% | Multi-company membership, active company switching, built-in/custom roles, owner-only role administration, invitations, permissions, quotas, audit and session revocation; owner transfer and exhaustive route audit remain. |
 | Angular public/dashboard/auth UI | 10% | 92% | Mobile-first public/dashboard/auth shells, company switching, member management, marketplace, plugin outlet and lifecycle progress are implemented and exercised in browser/full-stack CI; broader business-plugin UX remains. |
-| Template engine | 10% | 93% | Tenant-scoped public/dashboard templates, domains, installation/selection, preferences, themes and private SSE revocation are implemented; arbitrary remote structural Angular bundles remain intentionally outside the trusted MVP model. |
+| Template engine | 10% | 93% (legacy scope) | Existing tenant-scoped public/dashboard registry, package installation, preferences and SSE remain. The newly defined product model adds separate platform-corporate, tenant-public and dashboard scopes plus dashboard light/dark mode; these are not yet fully implemented. Arbitrary remote structural Angular bundles remain outside the trusted MVP model. |
 | Marketplace and entitlements | 10% | 90% | Company-filtered catalog, Starter/Pro/Enterprise plans, trial, purchases, subscription webhooks, entitlement/dependency checks, quotas and dashboard controls are implemented; provider checkout, invoices and customer billing portal remain commercial SaaS work. |
 | Plugin lifecycle and package ecosystem | 15% | 93% | Trusted manifests, strict dependency/path/duplicate validation, deterministic dependency ordering, durable install/update/uninstall jobs, lease renewal, stale-worker rejection, bounded retries, tenant-scoped status, Angular progress and migration compensation after lifecycle-hook failures; immutable third-party archives, signature verification and remote frontend registration remain. |
 | Tenant isolation and security | 5% | 84% | Live server-resolved tenant context across auth, template and organization administration, TenantCollection, cross-company IDOR tests, private tenant files, scoped lifecycle jobs and ownership-mutation protection; exhaustive route, webhook and asynchronous-path audit remains. |
@@ -137,3 +137,17 @@ Platform-wide superadministrator foundation is merged into `main` at `53a427c`. 
 - Configured `PUBLIC_BASE_DOMAIN=beecore.beeprojects.net` in the production example and documented wildcard DNS, NPM proxying and wildcard TLS.
 - Main commits for this implementation: `8fc084f`, `3251b23`, `a3a07e5`, `6d456f2`, `3f61dcc`, `7cd9028`, `87c053d`, `e3e9c7e`, `5eb1ed3`, `a7b70d3`.
 - Validation status: source changes are integrated, but CI has not yet been confirmed for this exact set of commits and the live VPS/NPM/DNS path has not been exercised. Do not treat the tenant subdomain flow as deployment-verified until those checks pass.
+
+
+## Template business model revision (2026-11-20)
+
+The product model is now specified in `docs/template-business-model.md`.
+
+- Three independent presentation surfaces are defined: global Bee-Core corporate website, each tenant's public website, and each tenant's authenticated dashboard.
+- Only the platform superadministrator may select the corporate website template. Corporate content/navigation/page structure remain predefined and unchanged by template selection.
+- Tenant public templates are independently installable/selectable. Their content is intended to be composed from explicitly public capabilities of that tenant's installed/enabled business plugins.
+- Dashboard templates own fixed palettes; arbitrary color pickers and tenant-defined colors are not part of the product. Each dashboard template must support light and dark appearance modes.
+- The template manager's color-picker/token-editing controls have been removed. Template selection, preview and trusted package install/uninstall remain.
+- This is a partial implementation: the current runtime still has legacy `public`/`dashboard` scopes and custom-token persistence/API/SSE code. The platform-corporate versus tenant-public storage/authorization split, persisted dashboard appearance mode, plugin-driven public-site composition and safe legacy-token migration remain pending.
+- The business model is documented separately from business-plugin entitlements and lifecycle. Template packages are presentation packages, not plugins.
+- No tests, builds or CI workflows were run for this change, as explicitly requested. Do not interpret the UI/documentation update as validation of the remaining architecture.
