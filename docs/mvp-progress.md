@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 (UTC)
+Updated: 2026-11-20 (UTC) — verified main backend and Angular CI green after progress commit `8b1a36a`.
 
 This file records only repository changes and checks observed in GitHub. It is not a claim that unmerged work is part of `main`.
 
@@ -17,8 +17,8 @@ This file records only repository changes and checks observed in GitHub. It is n
 
 ## Verified CI, not yet merged
 
-- PR #9 production Docker Compose profile: earlier backend, Angular and production-profile checks succeeded; it has now been retargeted to `main` after PR #7. Its current mergeability is not yet confirmed and the CI for the retargeted state must be rechecked.
-- PR #11 authentication audit-event integration: backend and Angular CI succeeded, but merge conflicts against `main` currently block integration. **Not merged**.
+- PR #9 production Docker Compose profile: backend, Angular and Docker production-profile CI are all green on its current head. Merge is blocked by conflicts with PR #7, which already integrated overlapping files..
+- PR #11 authentication audit-event integration: backend and Angular CI succeeded on its head, but merge conflicts against `main` currently block integration. **Not merged**.
 - PR #15 custom company roles: backend CI and Angular CI succeeded on commit `d50f08f`, but merge into `main` currently fails due to merge conflicts. It is **not merged**.
 - PR #16 custom-company-role integration: Angular CI succeeded on earlier commit `110d5f2`; backend integration failed at test line 308 because a manager session had been revoked after role assignment/reset, while the test still reused the old token. The test was corrected in commit `a705233` to log in again and activate the company before checking manager permissions. Backend CI for that correction is now green, and Angular CI is green. Docker Compose full-stack integration is green. Corrected PR #16 commit `a705233` now has backend CI, Docker Compose full-stack integration, and Angular CI all green.
 
