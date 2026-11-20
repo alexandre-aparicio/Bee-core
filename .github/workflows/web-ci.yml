@@ -1,13 +1,11 @@
 name: Bee-Core Angular CI
-
 on:
   pull_request:
   push:
     branches: [main]
   workflow_dispatch:
-
 jobs:
-  angular-build:
+  angular:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -19,7 +17,11 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/web/package.json
-      - name: Install Angular dependencies
+      - name: Install dependencies
         run: npm install
-      - name: Build Angular production bundle
+      - name: Angular production build
         run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run browser smoke tests
+        run: npm run test:e2e
