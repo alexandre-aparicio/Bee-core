@@ -67,7 +67,7 @@ test("tenant context requires a valid session, active membership and company", {
       updatedAt: new Date()
     });
     await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { role: "custom", customRoleId: "role-reader" } });
-    const customContext = await resolveTenantContext(db, claims);
+    const customContext = await resolveTenantContext(db, claims, {}, secret);
     assert.ok(customContext);
     assert.equal(customContext.role, "custom");
     assert.equal(customContext.customRoleId, "role-reader");
