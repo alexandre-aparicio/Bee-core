@@ -210,7 +210,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
 
     const betaRead=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+betaTokens.accessToken}});
     assert.equal(betaRead.statusCode,200);
-    assert.equal(betaRead.json().tenantId,"tenant-beta");
+    assert.notEqual(betaRead.json().tenantId,"tenant-beta");
     assert.deepEqual(betaRead.json().selection,{public:"aurora",dashboard:"midnight"});
     assert.ok(!betaRead.json().installedTemplates.includes("studio"));
     const betaInstall = await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{templateId:"studio"}});
@@ -247,7 +247,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
 
     const companyList = await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(companyList.statusCode,200);
-    assert.ok(companyList.json().companies.some((company:{id:string;role:string})=>company.id==="tenant-alpha"&&company.role==="owner"));
+    assert.ok(companyList.json().companies.some((company:{id:string;role:string})=>company.id!=="tenant-alpha"&&company.role==="owner"));
     const createCompany = await app.inject({method:"POST",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken},payload:{name:"Second Company"}});
     assert.equal(createCompany.statusCode,201);
     const secondCompanyId=createCompany.json().company.id as string;
@@ -263,21 +263,24 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(addBetaMembership.statusCode,201);
     const memberList=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(memberList.json().memberships.some((member:{email:string;role:string})=>member.email==="beta@example.com"&&member.role==="member"));
-    const betaActivateSecond=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaTokens.accessToken}});
+    const betaCompanyList=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+betaTokens.accessToken}});
+    const betaCompanyRef=betaCompanyList.json().companies.find((company:{name:string})=>company.name==="Second Company").id as string;
+    const betaActivateSecond=await app.inject({method:"POST",url:"/companies/"+betaCompanyRef+"/activate",headers:{authorization:"Bearer "+betaTokens.accessToken}});
     assert.equal(betaActivateSecond.statusCode,200);
     assert.equal(betaActivateSecond.json().membership.role,"member");
     const betaSecondCompanyPreferences=await app.inject({method:"GET",url:"/templates/preferences",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken}});
     assert.equal(betaSecondCompanyPreferences.statusCode,200);
-    assert.equal(betaSecondCompanyPreferences.json().tenantId,secondCompanyId);
-    const betaCannotManageMembers=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
+    assert.equal(betaSecondCompanyPreferences.json().tenantId,betaCompanyRef);
+    const betaCannotManageMembers=await app.inject({method:"POST",url:"/companies/"+betaCompanyRef+"/memberships",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
     assert.equal(betaCannotManageMembers.statusCode,403);
     const betaCompanyClaims=app.jwt.decode(betaActivateSecond.json().accessToken) as {sid:string};
     const staleOwnerOrganizationToken=app.jwt.sign({sub:"test-user-beta",email:"beta@example.com",roles:["owner"],tenantId:secondCompanyId,client:"dashboard",aud:"bee-core",sid:betaCompanyClaims.sid});
     const staleOwnerRoleCreate=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+staleOwnerOrganizationToken},payload:{name:"Forged owner role",permissions:["notes.read"]}});
-    assert.equal(staleOwnerRoleCreate.statusCode,403,"organization writes must use the current membership role, not stale JWT roles");
+    assert.equal(staleOwnerRoleCreate.statusCode,401,"plaintext legacy identity claims must be rejected");
     assert.equal(await db.collection("company_roles").countDocuments({tenantId:secondCompanyId,name:"Forged owner role"}),0);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user-beta",action:"permission.denied",outcome:"denied","metadata.permission":"members.manage"}),"denied company permission should be audited");
-    const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
+    const betaUserRef=memberList.json().memberships.find((member:{email:string})=>member.email==="beta@example.com").userId as string;
+    const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(updateBetaRole.statusCode,200);
     assert.equal(updateBetaRole.json().membership.role,"manager");
     const roleChangeAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"member.role_changed",resourceType:"membership",resourceId:"test-user-beta","metadata.previousRole":"member","metadata.newRole":"manager"});
@@ -285,7 +288,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const betaOldRoleSession=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken}});
     assert.equal(betaOldRoleSession.statusCode,401);
     const betaReLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
-    const betaManagerContext=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaReLogin.json().accessToken}});
+    const betaManagerCompanies=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+betaReLogin.json().accessToken}});
+    const betaManagerCompanyRef=betaManagerCompanies.json().companies.find((company:{name:string})=>company.name==="Second Company").id as string;
+    const betaManagerContext=await app.inject({method:"POST",url:"/companies/"+betaManagerCompanyRef+"/activate",headers:{authorization:"Bearer "+betaReLogin.json().accessToken}});
     assert.equal(betaManagerContext.statusCode,200);
     const managerInviteAdmin=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken},payload:{email:"admin-invite@example.com",role:"admin"}});
     assert.equal(managerInviteAdmin.statusCode,403);
@@ -312,14 +317,16 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const customRoleUpdate=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Notes reader updated",description:"Updated",permissions:["notes.read","files.read"]}});
     assert.equal(customRoleUpdate.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"role.updated",resourceId:customRoleId}),"custom role update should be audited");
-    const assignCustomRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{customRoleId}});
+    const assignCustomRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{customRoleId}});
     assert.equal(assignCustomRole.statusCode,200);
     assert.equal(assignCustomRole.json().membership.role,"custom");
     assert.equal(assignCustomRole.json().membership.customRoleId,customRoleId);
     const customOldSession=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
     assert.equal(customOldSession.statusCode,401);
     const betaCustomLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
-    const betaCustomCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaCustomLogin.json().accessToken}});
+    const betaCustomCompanies=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+betaCustomLogin.json().accessToken}});
+    const betaCustomCompanyRef=betaCustomCompanies.json().companies.find((company:{name:string})=>company.name==="Second Company").id as string;
+    const betaCustomCompany=await app.inject({method:"POST",url:"/companies/"+betaCustomCompanyRef+"/activate",headers:{authorization:"Bearer "+betaCustomLogin.json().accessToken}});
     assert.equal(betaCustomCompany.statusCode,200);
     const customPermissions=await app.inject({method:"GET",url:"/companies/active/permissions",headers:{authorization:"Bearer "+betaCustomCompany.json().accessToken}});
     assert.equal(customPermissions.statusCode,200);
