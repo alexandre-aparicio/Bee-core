@@ -270,52 +270,23 @@ The product model is now specified in `docs/template-business-model.md`.
 
 ## Session-bound resource ID migration (2026-11-21 — foundation only)
 
-- Created the shared AES-256-GCM resource-reference codec in `src/core/session-id.ts`. References use a keyed HMAC-derived 96-bit GCM nonce, carry a resource type, the issuing session ID and its expiry, and are cryptographically bound to a key derived from the server secret and session ID. Identical resource/type/expiry inputs are stable within a session; references differ across sessions.
+- Created the shared AES-256-GCM resource-reference codec in `src/core/session-id.ts`. References use a fresh nonce, carry a resource type, the issuing session ID and its expiry, and are cryptographically bound to a key derived from the server secret and session ID.
 - Added convenience functions for tenant, plugin and user IDs, plus generic support for memberships, roles, invitations, files, notes and jobs.
-- Added unit tests for cross-session rejection, same-session stability, type substitution, tampering and expiry.
+- Added unit tests for cross-session rejection, per-call uniqueness, type substitution, tampering and expiry.
 - Added `docs/session-resource-ids.md` with the contract and mandatory integration requirements.
 - This is deliberately **not marked complete**: API route inputs/outputs, JWT claims, public endpoints, Angular state/routes and plugin interfaces have not yet been migrated. The codec must not be treated as active protection until those integrations and cross-tenant tests are complete.
 - Changes are on branch `feature/session-bound-resource-ids`; no build, test run, CI result or deployment verification is claimed.
 
+## Platform Settings navigation — Agent 2 (2026-11-21)
 
-## Session-bound resource IDs — auth integration attempt (2026-11-21)
-
-- Added an initial authentication-path integration on `feature/session-bound-ids-end-to-end`: newly issued JWTs carry an AES-GCM `tenantRef` rather than a plaintext `tenantId`; the reference is bound to the persisted refresh-session ID and expiry.
-- Login responses now return session-bound user and tenant references. Refresh rotates the token and issues a new reference using the persisted session expiry. The tenant context resolver decrypts and compares the reference with the session's tenant before loading membership and company status.
-- This is **not an end-to-end migration** and is not merged to main. Other organization, Platform Administration, marketplace/plugin, public tenant, API request/response, SSE, and Angular contracts still require migration. Some existing clients expect stable raw IDs, so deploying this branch before those contracts are migrated may break navigation and API calls.
-- No build, unit tests, integration tests, CI, or VPS validation were run. Do not deploy this branch as a complete security release.
-## Session-bound resource IDs — end-to-end audit (2026-11-21)
-
-The session-bound AES-256-GCM reference codec from PR #52 is a foundation, not yet an application-wide migration. PR #54's authentication slice was audited against the organization, platform administration, marketplace, file, note and Angular surfaces. It is intentionally not merge-ready.
-
-Confirmed remaining exposure and compatibility work:
-
-- organizations.plugin.ts: public tenant discovery returns the real tenant ID; company, role, invitation and membership routes still accept and return real tenant/user/resource IDs. These routes must resolve typed references against the caller's persisted session before querying, and serialize every returned identifier.
-- platform-admin.plugin.ts: global company listing/creation, owner responses and tenant/plugin lifecycle routes still expose or accept real company, user, plugin and job IDs. Platform-admin references need the same session binding while preserving explicit cross-tenant authorization.
-- marketplace.plugin.ts: plugin routes and responses expose plugin IDs, tenant IDs and lifecycle job IDs; public tenant plugin discovery also returns real IDs. Webhook/provider identifiers are a separate trusted server-to-server contract and must not be blindly masked as browser references.
-- files.plugin.ts and notes.plugin.ts: file/note identifiers in route parameters and response payloads have not been migrated.
-- auth.plugin.ts: public tenant/template discovery and template SSE/ticket flows require separate review; the current auth slice is not a complete output-boundary sanitizer.
-- Angular: company/member, platform-admin and marketplace components currently display and send IDs as route identifiers. They must treat opaque references as opaque strings, and the matching backend endpoints must be migrated atomically. The present auth-only response change is not compatible with the existing route handlers.
-- tenant-context.ts still accepts the legacy plaintext tenantId JWT claim and reads the secret from process environment. Final migration must remove the legacy claim and inject the same configured key through a single dependency path only after all token issuers/consumers have migrated.
-
-Security invariants for completion:
-
-1. Every browser-visible resource reference is authenticated-encrypted, typed, session-bound and expires no later than the persisted session.
-2. All incoming references are decoded only after JWT verification and persisted-session lookup; type, session, expiry and tenant scope are checked before database access.
-3. All outgoing JSON, errors, URLs, pagination cursors, SSE payloads/tickets and Angular navigation state are audited for raw database IDs.
-4. Platform superadministrator cross-tenant operations remain explicitly authorized; masking is not authorization and must not weaken tenant scoping.
-5. Server-to-server webhooks and internal events retain their documented internal contract unless a browser boundary is crossed.
-6. Tests cover two sessions for one user, expiry/revocation, tampering, wrong resource type, cross-tenant IDOR, login/refresh/me, platform administration, organization CRUD, marketplace jobs, files, notes and SSE.
-
-Validation status: no build, automated test suite, CI workflow or VPS deployment was run for this audit. Do not merge PR #54 or describe the migration as complete until the API and Angular contract migration above is implemented and validated.
-### Additional resource-boundary slice — files and notes (2026-11-21)
-
-- TenantContext now carries the persisted session expiry so resource codecs can enforce the same session lifetime at API boundaries.
-- Files API now returns session-bound opaque file references and decodes them before tenant-scoped download/delete lookups. Invalid, expired, wrong-session and wrong-type references resolve as not found.
-- Notes API now returns allowlisted note fields, masks note IDs and creator user IDs, and decodes note route references before tenant-scoped reads/updates/deletes. Internal tenantId is no longer serialized in note payloads.
-- Files integration coverage now asserts opaque file IDs and rejects use of a file reference from a second session belonging to the same user.
-
-Still outstanding: organizations and Platform Administration routes, marketplace plugin/job references, public discovery contracts, auth template/SSE boundaries, remaining Angular contract migration, notes integration coverage, complete test/build/CI validation. This is a partial vertical slice, not an end-to-end completion.
+- Added a single expandable Settings group to the Midnight, Glass and Paper dashboard sidebars, with the eight requested destinations: General, Tenants, Plugins, Integrations, Plans & Licensing, Security, Infrastructure and Localization.
+- Enforced one expanded navigation group at a time through a shared `expandedMenuId` state.
+- Applied role-based visibility: platform Super Admin sees all eight sections; tenant owners/admins see tenant-appropriate General, Plugins, Integrations, Security and Localization; tenant managers and standard members see Localization only.
+- Added role-aware settings route handling, section titles/descriptions and consistent configuration-workspace presentation.
+- Documented scope and role matrix in `docs/platform-settings-navigation.md`.
+- Presentation/navigation only: no new backend settings endpoints or permissions are implied.
+- No tests, Angular build, GitHub Actions workflows or deployment checks were run, per request. Compilation and visual behavior remain unverified.
+- All changes are isolated on `agent-2/platform-settings-navigation`; no changes were made to `main`. Agent 2 will request explicit approval before any integration into `main`.
 
 ## Session-bound resource IDs — continued integration (2026-11-21)
 
