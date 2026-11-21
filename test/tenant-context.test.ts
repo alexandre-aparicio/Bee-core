@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MongoClient } from "mongodb";
 import { hasTenantPermission, resolveTenantContext, type TenantClaims } from "../src/core/tenant-context.js";
+import { maskTenantId, maskUserId } from "../src/core/session-id.js";
 
 const uri = process.env.MONGODB_TEST_URI;
 
@@ -10,10 +11,13 @@ test("tenant context requires a valid session, active membership and company", {
   const client = new MongoClient(uri!);
   await client.connect();
   const db = client.db(dbName);
+  const secret = "tenant-context-test-secret-with-at-least-32-characters";
+  const expiresAt = new Date(Date.now() + 60_000);
+  const sessionContext = { sessionId: "session-one", expiresAt };
   const claims: TenantClaims = {
-    sub: "user-one",
+    sub: maskUserId("user-one", sessionContext, secret),
     email: "forged@example.test",
-    tenantId: "company-one",
+    tenantId: maskTenantId("company-one", sessionContext, secret),
     sid: "session-one",
     client: "dashboard",
     aud: "bee-core"
@@ -39,11 +43,11 @@ test("tenant context requires a valid session, active membership and company", {
       tenantId: "company-one",
       client: "dashboard",
       tokenHash: "hashed-refresh-token",
-      expiresAt: new Date(Date.now() + 60_000),
+      expiresAt,
       revokedAt: null
     });
 
-    const context = await resolveTenantContext(db, claims);
+    const context = await resolveTenantContext(db, claims, {}, secret);
     assert.ok(context);
     assert.equal(context.userId, "user-one");
     assert.equal(context.email, "real@example.test");
@@ -71,9 +75,9 @@ test("tenant context requires a valid session, active membership and company", {
     assert.equal(hasTenantPermission(customContext, "notes.write"), false);
     await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { role: "manager" }, $unset: { customRoleId: "" } });
 
-    assert.equal(await resolveTenantContext(db, { ...claims, tenantId: "company-two" }), null);
-    assert.equal(await resolveTenantContext(db, { ...claims, sid: "unknown-session" }), null);
-    assert.equal(await resolveTenantContext(db, { ...claims, client: "public" }), null);
+    assert.equal(await resolveTenantContext(db, { ...claims, tenantId: "company-two" }, {}, secret), null);
+    assert.equal(await resolveTenantContext(db, { ...claims, sid: "unknown-session" }, {}, secret), null);
+    assert.equal(await resolveTenantContext(db, { ...claims, client: "public" }, {}, secret), null);
 
     await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { status: "suspended" } });
     assert.equal(await resolveTenantContext(db, claims), null);
@@ -81,7 +85,7 @@ test("tenant context requires a valid session, active membership and company", {
 
     await db.collection("tenants").updateOne({ id: "company-one" }, { $set: { status: "suspended" } });
     assert.equal(await resolveTenantContext(db, claims), null);
-    const allowSuspended = await resolveTenantContext(db, claims, { allowSuspendedCompany: true });
+    const allowSuspended = await resolveTenantContext(db, claims, { allowSuspendedCompany: true }, secret);
     assert.ok(allowSuspended);
   } finally {
     await client.db(dbName).dropDatabase();
