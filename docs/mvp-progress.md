@@ -343,3 +343,11 @@ Current status: meaningful backend and frontend slices are now integrated in the
 - Final test review found one assertion comparing a company reference issued to the invitation creator's session with the reference returned to the invited user's separate session. Session-bound references must differ across sessions even when they represent the same tenant.
 - Updated the integration test to decode the accepting user's returned company reference with that user's persisted session and compare the resulting internal tenant ID to the tenant created by the original session.
 - This fixes the test's cross-session assumption and strengthens the intended isolation check. The MongoDB-backed test remains unexecuted; CI/build validation is still required.
+
+### Dedicated session-reference secret isolation (2026-11-21)
+
+- The final plugin-manager review found that the new ID codec is used by auth, organizations, marketplace, Platform Admin, files and notes, but the isolated plugin contexts did not receive a shared codec key. That would make those plugins fail initialization when mounted by the real plugin manager.
+- Corrected the boundary by deriving a dedicated 256-bit `sessionIdSecret` from the root `JWT_SECRET` with HMAC-SHA256 and passing only that derived key to the six plugins that need to encode/decode resource references.
+- The JWT signing secret is no longer included in any of those plugin-scoped configs. The plugins use the derived key; direct plugin tests retain a compatibility fallback to their explicitly supplied test secret.
+- Updated plugin-manager regression assertions to verify that auth and files receive the same derived key and neither receives `jwtSecret`.
+- This fixes a source-level initialization blocker. TypeScript, plugin-manager tests, MongoDB integration tests and GitHub Actions remain unexecuted; do not treat the change as validated until CI passes.
