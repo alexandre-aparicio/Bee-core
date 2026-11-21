@@ -11,3 +11,14 @@
 .bee-template-package-host--glass .gd-content .quick-action{background:#ffffff75;border:1px solid #ffffffb5;color:#28344d;border-radius:14px}
 
 .bee-template-package-host--glass .gd-content .bee-dashboard-card{background:#ffffff90;border:1px solid #ffffffb5;color:#28344d;box-shadow:0 14px 36px #5a77a215}
+
+.bee-template-package-host--glass{--bg:#eaf1fc;--panel:#ffffff90;--muted:#68748d;--border:#ffffffa8;--purple:#657ee8;--cyan:#69d9e8;color:#20283c}
+.bee-template-package-host--glass .bee-company-members__table select option,
+.bee-template-package-host--glass .bee-company-members__invite select option{background:#fff;color:#28344d}
+.bee-template-package-host--glass .platform-admin-form input{background:#fff;color:#28344d;border-color:#d8e3f4}
+.bee-template-package-host--glass .platform-admin-form label,
+.bee-template-package-host--glass .platform-admin-companies h3,
+.bee-template-package-host--glass .platform-admin-form h3{color:#28344d}
+.bee-template-package-host--glass .platform-admin-form button,
+.bee-template-package-host--glass .platform-company button,
+.bee-template-package-host--glass .platform-admin .panel-heading button{background:#657ee8;color:#fff;border-color:#657ee8}
