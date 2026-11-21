@@ -77,7 +77,7 @@ export const marketplacePlugin: BeePlugin = {
           tenantId
         );
         const current = await getTenantSubscription(db, tenantId);
-        const currentPeriodEnd = current.currentPeriodEnd ? new Date(current.currentPeriodEnd).getTime() : null;
+        const currentPeriodEnd = current.currentPeriodEnd?.getTime() ?? null;
         const nextPeriodEnd = periodEnd?.getTime() ?? null;
         const changed = current.planId !== plan.id || current.status !== status || currentPeriodEnd !== nextPeriodEnd;
         if (changed) {
@@ -121,7 +121,7 @@ export const marketplacePlugin: BeePlugin = {
         if (body.event === "plugin.purchase") {
           const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
           if (expiresAt && Number.isNaN(expiresAt.getTime())) return reply.code(400).send({ error: "Invalid purchase expiry date" });
-          const sameExpiry = (current?.expiresAt ? new Date(current.expiresAt).getTime() : null) === (expiresAt?.getTime() ?? null);
+          const sameExpiry = (current?.expiresAt?.getTime() ?? null) === (expiresAt?.getTime() ?? null);
           if (!current) {
             try {
               await purchases.insertOne({
@@ -135,7 +135,7 @@ export const marketplacePlugin: BeePlugin = {
               if (!raced || raced.pluginId !== pluginId) {
                 return reply.code(409).send({ error: "Provider reference is already bound to a different plugin" });
               }
-              const racedExpiry = raced.expiresAt ? new Date(raced.expiresAt).getTime() : null;
+              const racedExpiry = raced.expiresAt?.getTime() ?? null;
               if (raced.status !== "active" || racedExpiry !== (expiresAt?.getTime() ?? null)) {
                 const update = await purchases.updateOne({ providerReference, pluginId }, { $set: { status: "active", expiresAt } });
                 if (!update.matchedCount) return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
