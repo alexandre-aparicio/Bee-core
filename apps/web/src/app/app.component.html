@@ -11,7 +11,8 @@
       <div class="auth-options"><strong>Configure authenticator MFA</strong></div>
       <p>Save this secret in an authenticator app, then enter the six-digit code it generates.</p>
       <code>{{mfaSetupSecret}}</code>
-      <small>{{mfaSetupUri}}</small>
+      <div class="mfa-qr" style="display:flex;justify-content:center;margin:18px 0;padding:16px;background:#fff;border-radius:12px;"><img *ngIf="mfaQrDataUrl" [src]="mfaQrDataUrl" width="240" height="240" alt="MFA setup QR code"></div>
+      <small>Scan this QR code with your authenticator app. The QR is generated locally in your browser.</small>
       <label>Authenticator code</label><input inputmode="numeric" autocomplete="one-time-code" name="mfaCode" [(ngModel)]="mfaCode" maxlength="6" pattern="[0-9]{6}" required>
     } @else if (mfaRequired) {
       <label>Authenticator or recovery code</label><input inputmode="text" autocomplete="one-time-code" name="mfaCode" [(ngModel)]="mfaCode" maxlength="12" placeholder="6-digit code or recovery code" required>
