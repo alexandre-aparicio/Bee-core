@@ -18,8 +18,10 @@ export class AppComponent implements OnInit {
   ngOnInit(): void {
     this.syncActiveSectionFromPath();
     window.addEventListener('popstate', this.handlePublicPopState);
-    if (this.dashboard && this.auth?.accessToken) void this.loadCompanies();
-    else if (!['/login', '/register', '/forgot'].includes(this.path)) void this.loadPublicTenant();
+    if (this.dashboard) {
+      if (this.auth?.accessToken) void this.validateDashboardSession();
+      else window.location.replace('/login');
+    } else if (!['/login', '/register', '/forgot'].includes(this.path)) void this.loadPublicTenant();
   }
 
   private readonly handlePublicPopState = (): void => {
@@ -94,6 +96,21 @@ export class AppComponent implements OnInit {
     }
   }
 
+  async validateDashboardSession(): Promise<void> {
+    try {
+      const response = await fetch(this.api + '/auth/me', { headers: { authorization: 'Bearer ' + this.auth.accessToken } });
+      const result = await response.json();
+      if (!response.ok || !result.authenticated) throw new Error(result.error || 'Session expired');
+      this.auth = { ...this.auth, tenantId: result.tenantId || this.auth.tenantId, platformRole: result.platformRole ?? this.auth.platformRole };
+      localStorage.setItem('bee-auth', JSON.stringify(this.auth));
+      await this.loadCompanies();
+    } catch {
+      localStorage.removeItem('bee-auth');
+      this.auth = null;
+      window.location.replace('/login');
+    }
+  }
+
   async loadCompanies(): Promise<void> {
     try {
       const response = await fetch(this.api + '/companies', { headers: { authorization: 'Bearer ' + this.auth.accessToken } });
@@ -144,9 +161,25 @@ export class AppComponent implements OnInit {
     security: '/dashboard/security', system: '/dashboard/system'
   };
   private syncActiveSectionFromPath(): void {
+    if (/^\\/dashboard\\/platform\\/[^/]+\\/manage\\/?$/.test(this.path)) {
+      this.activeSection = 'platform';
+      return;
+    }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
     this.activeSection = entry?.[0] || 'dashboard';
   }
+  get platformTenantId(): string {
+    const match = this.path.match(/^\\/dashboard\\/platform\\/([^/]+)\\/manage\\/?$/);
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+  navigatePlatformManage(tenantId: string): void {
+    const route = '/dashboard/platform/' + encodeURIComponent(tenantId) + '/manage';
+    window.history.pushState({}, '', route);
+    this.path = route;
+    this.activeSection = 'platform';
+    this.menuOpen = false;
+  }
+  navigatePlatformList(): void { this.navigateSection('platform'); }
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get sectionTitle(): string { return this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
