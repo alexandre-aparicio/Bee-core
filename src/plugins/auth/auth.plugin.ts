@@ -38,7 +38,7 @@ export const authPlugin:BeePlugin={
   const templateSubscribers=new Map<string,Set<{response:import("node:http").ServerResponse;claims?:import("../../core/tenant-context.js").TenantClaims}>>();
   const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.response.destroyed){clients.delete(client);continue;}client.response.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
-  const tenants=db.collection<{id:string;name:string;domains?:string[];createdAt:Date}>("tenants");
+  const tenants=db.collection<{id:string;name:string;slug?:string;domains?:string[];createdAt:Date}>("tenants");
   await Promise.all([
    users.createIndex({email:1},{unique:true,name:"users_email_unique"}),
    users.createIndex({id:1},{unique:true,name:"users_id_unique"}),
