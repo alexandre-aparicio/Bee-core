@@ -22,7 +22,7 @@ export const organizationsPlugin:BeePlugin={
   mongoClient=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongoClient.connect();
   const db:Db=mongoClient.db(dbName);
-  const sessionIdSecret=String(ctx.config.jwtSecret??"");
+  const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Organizations: JWT_SECRET must contain at least 32 characters.");
   const sessionOf=(auth:{tenantContext:TenantContext})=>({sessionId:auth.tenantContext.sessionId,expiresAt:auth.tenantContext.sessionExpiresAt});
   const mask=(auth:{tenantContext:TenantContext},id:string,type:import("../../core/session-id.js").SessionResourceType)=>maskResourceId(id,type,sessionOf(auth),sessionIdSecret);
