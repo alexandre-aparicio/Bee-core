@@ -8,7 +8,7 @@ export const PAPER_MANIFEST: BeeTemplateManifest = {
   "description": "Light workspace for long working sessions.",
   "builtIn": true,
   "layout": "dashboard.paper",
-  "componentId": "BeePaperLayoutComponent",
+  "componentId": "BeePaperPageComponent",
   "slots": [
     "sidebar",
     "topbar",
