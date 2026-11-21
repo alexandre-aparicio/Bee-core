@@ -138,3 +138,40 @@ test("scoped logger prefixes warn and error and scoped config cannot be mutated"
   assert.equal(mutationRejected, true);
   await server.close();
 });
+
+
+test("plugin event buses are isolated while system startup events remain visible", async () => {
+  const server = Fastify(), manager = new BeePluginManager(), received: string[] = [];
+  manager.register({ manifest: { name: "alpha", version: "1" }, initialize(ctx) {
+    ctx.events.on("private.ready", () => received.push("alpha"));
+    ctx.events.on("bee.started", () => received.push("system"));
+    void ctx.events.emit("private.ready", {});
+  } });
+  manager.register({ manifest: { name: "beta", version: "1" }, initialize(ctx) {
+    ctx.events.on("private.ready", () => received.push("beta"));
+  } });
+  await manager.mountAll(makeContext(server));
+  await makeContext(server).events.emit("private.ready", {});
+  await makeContext(server).events.emit("bee.started", {});
+  assert.deepEqual(received, ["alpha", "system"]);
+  await server.close();
+});
+
+test("plugins stop in reverse dependency startup order, not registration order", async () => {
+  const server = Fastify(), manager = new BeePluginManager(), order: string[] = [];
+  manager.register({ manifest: { name: "dependent", version: "1", dependencies: ["base"] }, stop() { order.push("dependent"); } });
+  manager.register({ manifest: { name: "base", version: "1" }, stop() { order.push("base"); } });
+  await manager.mountAll(makeContext(server));
+  await manager.stopAll(makeContext(server));
+  assert.deepEqual(order, ["dependent", "base"]);
+  await server.close();
+});
+
+test("plugin config allowlists are matched case-insensitively", async () => {
+  const server = Fastify(), manager = new BeePluginManager();
+  let config: Readonly<Record<string, unknown>> | undefined;
+  manager.register({ manifest: { name: "FILES", version: "1" }, initialize(ctx) { config = ctx.config; } });
+  await manager.mountAll(makeContext(server));
+  assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName", "mongoUri"]);
+  await server.close();
+});
