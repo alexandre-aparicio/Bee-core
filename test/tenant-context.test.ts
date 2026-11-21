@@ -84,7 +84,7 @@ test("tenant context requires a valid session, active membership and company", {
     await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { status: "active" } });
 
     await db.collection("tenants").updateOne({ id: "company-one" }, { $set: { status: "suspended" } });
-    assert.equal(await resolveTenantContext(db, claims), null);
+    assert.equal(await resolveTenantContext(db, claims, {}, secret), null);
     const allowSuspended = await resolveTenantContext(db, claims, { allowSuspendedCompany: true }, secret);
     assert.ok(allowSuspended);
   } finally {
