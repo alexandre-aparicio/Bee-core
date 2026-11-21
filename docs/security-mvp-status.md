@@ -35,10 +35,12 @@ PR #20 is merged as `1c96e8100d2145f518a0232d300122c866551c1b`. Its PR-head back
 
 - Audit query/export UI/API and retention controls.
 - Full route-by-route tenant isolation review, including files/media, SSE and background/async entrypoints.
-- MFA implementation is present on the current security branch but still needs automated execution and staging verification before merge.
+- MFA implementation is present on the current security branch but still needs backend type-checking, automated test execution and staging verification before merge.
+- The current lockfile still pins `@fastify/jwt@9.1.0` and `fast-jwt@5.0.6`; dependency advisory remediation and a regenerated lockfile remain pending. Do not treat the dependency audit as resolved.
+- Existing MongoDB volumes must have the root and application users created manually before the authenticated Compose configuration is applied; follow `docs/mongodb-authentication.md` and take a verified backup first.
 - Password recovery, email verification and immediate access-token revocation.
 - Provider-signed billing webhooks and payment reconciliation.
-- Actual certificate provisioning, reverse-proxy configuration, firewall policy, encrypted off-site backups, restore drills and monitoring. TLS configuration at the hosting reverse proxy still needs to be applied and verified.
+- Actual certificate provisioning and reverse-proxy configuration, firewall policy, encrypted off-site backups, restore drills and monitoring. TLS configuration at the hosting reverse proxy still needs to be applied and verified.
 
 ## Test expectation
 
