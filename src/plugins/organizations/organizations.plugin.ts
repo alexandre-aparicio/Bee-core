@@ -27,6 +27,18 @@ export const organizationsPlugin:BeePlugin={
   const sessionOf=(auth:{tenantContext:TenantContext})=>({sessionId:auth.tenantContext.sessionId,expiresAt:auth.tenantContext.sessionExpiresAt});
   const mask=(auth:{tenantContext:TenantContext},id:string,type:import("../../core/session-id.js").SessionResourceType)=>maskResourceId(id,type,sessionOf(auth),sessionIdSecret);
   const unmask=(auth:{tenantContext:TenantContext},id:string,type:import("../../core/session-id.js").SessionResourceType)=>unmaskResourceId(id,type,sessionOf(auth),sessionIdSecret);
+  const maskAuditMetadata=(auth:{tenantContext:TenantContext},value:unknown,depth=0):unknown=>{
+   if(depth>6||value===null||typeof value!=="object")return value;
+   if(Array.isArray(value))return value.map(item=>maskAuditMetadata(auth,item,depth+1));
+   const identifierTypes:Record<string,import("../../core/session-id.js").SessionResourceType>={tenantId:"tenant",companyId:"tenant",pluginId:"plugin",userId:"user",actorId:"user",jobId:"job",invitationId:"invitation",roleId:"role",membershipId:"membership",fileId:"file",noteId:"note"};
+   const result:Record<string,unknown>={};
+   for(const [key,item] of Object.entries(value as Record<string,unknown>)){
+    const type=identifierTypes[key];
+    if(type&&typeof item==="string"){try{result[key]=mask(auth,item,type);}catch{result[key]="[redacted]";}}
+    else result[key]=maskAuditMetadata(auth,item,depth+1);
+   }
+   return result;
+  };
   const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
   await ensureTenantAuditIndexes(auditEvents);
   const auditOrganizationEvent=async(event:{tenantId:string;actorId:string;action:TenantAuditEvent["action"];outcome:TenantAuditEvent["outcome"];resourceType?:string;resourceId?:string;metadata?:TenantAuditEvent["metadata"]})=>{try{const record:import("../../core/audit-log.js").AuditEventInput={id:randomUUID(),occurredAt:new Date(),tenantId:event.tenantId,actorId:event.actorId,action:event.action,outcome:event.outcome,resourceType:event.resourceType,resourceId:event.resourceId,metadata:event.metadata};await appendTenantAuditEvent(auditEvents,record);}catch(error){ctx.logger.error("Organization audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
@@ -312,7 +324,7 @@ export const organizationsPlugin:BeePlugin={
    if(action)filter.action=action as TenantAuditEvent["action"];
    const rows=await auditEvents.find(filter,{projection:{_id:0,tenantId:0}}).sort({occurredAt:-1,id:-1}).skip((page-1)*limit).limit(limit+1).toArray();
    const hasMore=rows.length>limit;
-   const events=rows.slice(0,limit).map(({id,actorId,action:recordAction,outcome,resourceType,resourceId,metadata,occurredAt})=>({id:mask(auth,id,"audit-event"),actorId:mask(auth,actorId,"user"),action:recordAction,outcome,resourceType,resourceId:resourceId?mask(auth,resourceId,resourceType==="plugin"?"plugin":resourceType==="role"?"role":resourceType==="invitation"?"invitation":resourceType==="membership"?"membership":resourceType==="user"?"user":resourceType==="tenant"?"tenant":"job"):undefined,metadata,occurredAt}));
+   const events=rows.slice(0,limit).map(({id,actorId,action:recordAction,outcome,resourceType,resourceId,metadata,occurredAt})=>({id:mask(auth,id,"audit-event"),actorId:mask(auth,actorId,"user"),action:recordAction,outcome,resourceType,resourceId:resourceId?mask(auth,resourceId,resourceType==="plugin"?"plugin":resourceType==="role"?"role":resourceType==="invitation"?"invitation":resourceType==="membership"?"membership":resourceType==="user"?"user":resourceType==="tenant"?"tenant":"job"):undefined,metadata:maskAuditMetadata(auth,metadata),occurredAt}));
    return {events,page,limit,hasMore};
   });
   ctx.server.get("/companies",async(req,reply)=>{
