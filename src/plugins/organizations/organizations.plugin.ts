@@ -312,7 +312,7 @@ export const organizationsPlugin:BeePlugin={
    if(action)filter.action=action as TenantAuditEvent["action"];
    const rows=await auditEvents.find(filter,{projection:{_id:0,tenantId:0}}).sort({occurredAt:-1,id:-1}).skip((page-1)*limit).limit(limit+1).toArray();
    const hasMore=rows.length>limit;
-   const events=rows.slice(0,limit).map(({id,actorId,action:recordAction,outcome,resourceType,resourceId,metadata,occurredAt})=>({id,actorId,action:recordAction,outcome,resourceType,resourceId,metadata,occurredAt}));
+   const events=rows.slice(0,limit).map(({id,actorId,action:recordAction,outcome,resourceType,resourceId,metadata,occurredAt})=>({id:mask(auth,id,"audit-event"),actorId:mask(auth,actorId,"user"),action:recordAction,outcome,resourceType,resourceId:resourceId?mask(auth,resourceId,resourceType==="plugin"?"plugin":resourceType==="role"?"role":resourceType==="invitation"?"invitation":resourceType==="membership"?"membership":resourceType==="user"?"user":resourceType==="tenant"?"tenant":"job"):undefined,metadata,occurredAt}));
    return {events,page,limit,hasMore};
   });
   ctx.server.get("/companies",async(req,reply)=>{
