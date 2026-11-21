@@ -1,3 +1,5 @@
+declare const QRCode: any;
+
 import { BeeAuroraPageComponent } from './templates/packages/aurora/pages/public.component';
 import { BeeEditorialPageComponent } from './templates/packages/editorial/pages/public.component';
 import { BeeStudioPageComponent } from './templates/packages/studio/pages/public.component';
@@ -54,6 +56,7 @@ export class AppComponent implements OnInit {
   mfaSetupMode = false;
   mfaSetupSecret = '';
   mfaSetupUri = '';
+  mfaQrDataUrl = '';
   mfaRecoveryCodes: string[] = [];
   api = '/api';
   publicTenant: { id: string; name: string; slug: string | null } | null = null;
@@ -89,12 +92,20 @@ export class AppComponent implements OnInit {
         const setup = await fetch(this.api + '/auth/mfa/setup', { method: 'POST', credentials: 'same-origin', headers: { authorization: 'Bearer ' + result.accessToken } });
         const setupResult = await setup.json();
         if (!setup.ok) throw new Error(setupResult.error || 'Could not start MFA setup');
-        this.mfaSetupSecret = setupResult.secret; this.mfaSetupUri = setupResult.provisioningUri; this.mfaSetupMode = true; this.mfaRequired = false; this.error = ''; return;
+        this.mfaSetupSecret = setupResult.secret; this.mfaSetupUri = setupResult.provisioningUri; this.mfaSetupMode = true; this.mfaRequired = false; this.error = ''; this.renderMfaQr(); return;
       }
       window.location.assign('/dashboard');
     } catch (err) { this.error = err instanceof Error ? err.message : 'Sign in failed'; }
     finally { this.busy = false; }
   }
+  private renderMfaQr(): void {
+    if (!this.mfaSetupUri) { this.mfaQrDataUrl = ''; return; }
+    const container = document.createElement('div');
+    new QRCode(container, { text: this.mfaSetupUri, width: 240, height: 240, colorDark: '#111827', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    const canvas = container.querySelector('canvas') as HTMLCanvasElement | null;
+    this.mfaQrDataUrl = canvas?.toDataURL('image/png') ?? '';
+  }
+
   async confirmMfaSetup(e: Event): Promise<void> {
     e.preventDefault(); this.error = ''; this.busy = true;
     try {
@@ -103,11 +114,11 @@ export class AppComponent implements OnInit {
       if (!response.ok) throw new Error(result.error || 'MFA verification failed');
       this.auth = { ...this.auth, accessToken: result.accessToken, platformRole: result.platformRole };
       this.templates.setAuthSession(this.auth);
-      this.mfaSetupMode = false; this.mfaCode = ''; this.mfaRecoveryCodes = result.recoveryCodes || [];
+      this.mfaSetupMode = false; this.mfaCode = ''; this.mfaQrDataUrl = ''; this.mfaRecoveryCodes = result.recoveryCodes || [];
     } catch (err) { this.error = err instanceof Error ? err.message : 'MFA setup failed'; }
     finally { this.busy = false; }
   }
-  finishMfaSetup(): void { this.mfaRecoveryCodes = []; window.location.assign('/dashboard'); }
+  finishMfaSetup(): void { this.mfaRecoveryCodes = []; this.mfaQrDataUrl = ''; window.location.assign('/dashboard'); }
   async loadPublicTenant(): Promise<void> {
     this.publicTenantLoading = true;
     this.publicTenantNotFound = false;
