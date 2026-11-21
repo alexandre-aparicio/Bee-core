@@ -121,3 +121,20 @@ test("plugin start failure marks plugin failed and cleans it up without blocking
   assert.equal(healthyStarted, true);
   await server.close();
 });
+
+
+test("scoped logger prefixes warn and error and scoped config cannot be mutated", async () => {
+  logs.length = 0;
+  const server = Fastify(), manager = new BeePluginManager();
+  let mutationRejected = false;
+  manager.register({ manifest: { name: "files", version: "1" }, initialize(ctx) {
+    ctx.logger.warn("warning");
+    ctx.logger.error("error");
+    try { (ctx.config as Record<string, unknown>).mongoUri = "changed"; } catch { mutationRejected = true; }
+  } });
+  await manager.mountAll(makeContext(server));
+  assert.ok(logs.some(entry => entry.level === "warn" && entry.message === "[files] warning"));
+  assert.ok(logs.some(entry => entry.level === "error" && entry.message === "[files] error"));
+  assert.equal(mutationRejected, true);
+  await server.close();
+});
