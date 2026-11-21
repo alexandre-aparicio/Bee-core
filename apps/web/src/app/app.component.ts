@@ -314,7 +314,7 @@ export class AppComponent implements OnInit {
     const role = (this.activeCompanyRole || '').toLowerCase();
     if (role === 'manager') return base;
     if (role === 'owner' || role === 'admin') return base;
-    return base.filter(item => ['dashboard','organization','settings'].includes(item.id));
+    return base.filter(item => ['dashboard','organization','notifications','settings'].includes(item.id));
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void {
