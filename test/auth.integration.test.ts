@@ -54,6 +54,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const login = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "Test-password-12345", client: "dashboard" } });
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
+    const initialRefreshCookie=String(login.headers["set-cookie"]??"").split(";")[0];
+    assert.ok(initialRefreshCookie.startsWith("bee_refresh="),"dashboard refresh token must be delivered as an HttpOnly cookie");
     assert.notEqual(tokens.tenantId,"tenant-alpha","login must not expose the internal tenant ID");
     assert.notEqual(tokens.user.id,"test-user","login must not expose the internal user ID");
     const initialClaims=JSON.parse(Buffer.from(tokens.accessToken.split(".")[1],"base64url").toString("utf8")) as {sub:string;tenantRef?:string;tenantId?:string};
@@ -93,7 +95,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const ownerGuard=await app.inject({method:"GET",url:"/test/company-admin",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(ownerGuard.statusCode,200);
     assert.equal(ownerGuard.json().role,"owner");
-    assert.ok(tokens.accessToken); assert.ok(tokens.refreshToken);
+    assert.ok(tokens.accessToken); assert.equal(tokens.refreshToken,undefined,"dashboard refresh tokens must not be exposed in JSON");
     const publicTicket = await app.inject({method:"POST",url:"/templates/public-stream-ticket",headers:{host:"alpha.example.test"}});
     assert.equal(publicTicket.statusCode,200);
     assert.ok(publicTicket.json().ticket);
@@ -413,15 +415,18 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const me = await app.inject({ method: "GET", url: "/auth/me", headers: { authorization: "Bearer " + activateCompany.json().accessToken } });
     assert.equal(me.statusCode, 200); assert.equal(me.json().authenticated, true);
     assert.notEqual(me.json().user.id,"test-user","/auth/me must not expose internal user IDs");
-    const refresh = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: tokens.refreshToken } });
+    const refresh = await app.inject({ method: "POST", url: "/auth/refresh", headers:{cookie:initialRefreshCookie}, payload: {} });
     assert.equal(refresh.statusCode, 200);
-    const refreshed = refresh.json(); assert.notEqual(refreshed.refreshToken, tokens.refreshToken);
-    const replay = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: tokens.refreshToken } });
+    const refreshed = refresh.json();
+    const rotatedRefreshCookie=String(refresh.headers["set-cookie"]??"").split(";")[0];
+    assert.ok(rotatedRefreshCookie.startsWith("bee_refresh="),"refresh must rotate the HttpOnly cookie");
+    assert.equal(refreshed.refreshToken,undefined);
+    const replay = await app.inject({ method: "POST", url: "/auth/refresh", headers:{cookie:initialRefreshCookie}, payload: {} });
     assert.equal(replay.statusCode, 401);
     const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(removeBetaMember.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
-    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken }, payload: { refreshToken: refreshed.refreshToken } });
+    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken, cookie:rotatedRefreshCookie }, payload: {} });
     assert.equal(logout.statusCode, 200);
     const revokedSessionReference=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+refreshed.accessToken}});
     assert.equal(revokedSessionReference.statusCode,401,"session-bound resource references must stop resolving as soon as logout revokes their issuing session");
@@ -429,7 +434,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(logoutAudit.length,1,"logout should be audited for the authenticated user");
     assert.equal(logoutAudit[0].tenantId,secondCompanyInternalId,"logout audit should retain the active company context");
     assert.equal(logoutAudit[0].metadata.refreshTokenProvided,true);
-    const afterLogout = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: refreshed.refreshToken } });
+    const afterLogout = await app.inject({ method: "POST", url: "/auth/refresh", headers:{cookie:rotatedRefreshCookie}, payload: {} });
     assert.equal(afterLogout.statusCode, 401);
 
     const sseLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
