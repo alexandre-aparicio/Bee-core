@@ -33,12 +33,57 @@ export class BeePluginManager {
     });
   }
 
+  private getDependency(name: string): ManagedPlugin | undefined {
+    return this.plugins.get(name) ?? [...this.plugins.entries()].find(([registered]) => registered.toLowerCase() === name.toLowerCase())?.[1];
+  }
+
+  private orderedPlugins(): ManagedPlugin[] {
+    const ordered: ManagedPlugin[] = [];
+    const visiting = new Set<ManagedPlugin>();
+    const visited = new Set<ManagedPlugin>();
+    const visit = (managed: ManagedPlugin): void => {
+      if (visited.has(managed) || managed.status !== "registered") return;
+      if (visiting.has(managed)) {
+        managed.status = "failed";
+        managed.error = new Error("Circular plugin dependency detected");
+        return;
+      }
+      visiting.add(managed);
+      for (const dependencyName of managed.plugin.manifest.dependencies ?? []) {
+        const dependency = this.getDependency(dependencyName);
+        if (!dependency) {
+          managed.status = "failed";
+          managed.error = new Error(`Missing plugin dependency: ${dependencyName}`);
+          break;
+        }
+        if (visiting.has(dependency)) {
+          managed.status = "failed";
+          managed.error = new Error(`Circular plugin dependency: ${dependencyName}`);
+          dependency.status = "failed";
+          dependency.error = new Error(`Circular plugin dependency involving ${managed.plugin.manifest.name}`);
+          continue;
+        }
+        visit(dependency);
+        if (dependency.status === "failed") {
+          managed.status = "failed";
+          managed.error = new Error(`Dependency '${dependencyName}' failed`);
+          break;
+        }
+      }
+      visiting.delete(managed);
+      visited.add(managed);
+      if (managed.status === "registered") ordered.push(managed);
+    };
+    for (const managed of this.plugins.values()) visit(managed);
+    return ordered;
+  }
+
   private dependenciesReady(managed: ManagedPlugin): void {
-    for (const dependency of managed.plugin.manifest.dependencies ?? []) {
-      const dep = this.plugins.get(dependency);
-      if (!dep) throw new Error(`Missing plugin dependency: ${dependency}`);
+    for (const dependencyName of managed.plugin.manifest.dependencies ?? []) {
+      const dep = this.getDependency(dependencyName);
+      if (!dep) throw new Error(`Missing plugin dependency: ${dependencyName}`);
       if (dep.status !== "initialized" && dep.status !== "started") {
-        throw new Error(`Dependency '${dependency}' is not initialized (status: ${dep.status})`);
+        throw new Error(`Dependency '${dependencyName}' is not initialized (status: ${dep.status})`);
       }
     }
   }
@@ -49,7 +94,7 @@ export class BeePluginManager {
    * owned by a plugin cannot leak into sibling plugins.
    */
   async mountAll(ctx: BeeContext): Promise<void> {
-    for (const managed of this.plugins.values()) {
+    for (const managed of this.orderedPlugins()) {
       if (managed.status !== "registered") continue;
       const pluginName = managed.plugin.manifest.name;
       ctx.server.register(async scopedServer => {
