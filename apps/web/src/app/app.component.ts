@@ -162,14 +162,14 @@ export class AppComponent implements OnInit {
     'settings-tenants': '/dashboard/settings/tenants', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans',
     'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
-    'settings-localization': '/dashboard/settings/localization', platform: '/dashboard/platform',
+    'settings-localization': '/dashboard/settings/localization',
     'themes-dashboard': '/dashboard/themes', 'themes-public': '/dashboard/public-theme',
     branding: '/dashboard/branding', domains: '/dashboard/domains', integrations: '/dashboard/integrations',
     security: '/dashboard/security', system: '/dashboard/system'
   };
   private readonly allSettingsSections = [
     {id:'settings-general',label:'General',icon:'◉',description:'Platform name, domain, identity and global configuration.'},
-    {id:'settings-tenants',label:'Tenants',icon:'▤',description:'Company management, statuses, limits and tenant isolation.'},
+    {id:'settings-tenants',label:'Tenants',icon:'▤',description:'Tenant directory, company status, subdomains and platform-level controls.'},
     {id:'settings-plugins',label:'Plugins',icon:'▣',description:'Catalogue, authorization, versions and dependencies.'},
     {id:'settings-integrations',label:'Integrations',icon:'⌘',description:'Available connectors, global credentials and policies.'},
     {id:'settings-plans',label:'Plans & Licensing',icon:'◇',description:'Plans, subscriptions, pricing and licenses.'},
