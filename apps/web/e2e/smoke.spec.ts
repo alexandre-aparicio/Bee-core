@@ -523,7 +523,8 @@ test('Settings plugins supports cards/list and only enables plugin details', asy
   }));
   await page.goto('/dashboard');
   await page.getByRole('button', { name: /settings/i }).click();
-  await page.getByRole('button', { name: 'Plugins', exact: true }).last().click();
+  await expect(page.getByRole('button', { name: 'Plugins', exact: true })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Plugins', exact: true }).click();
   const catalogue = page.locator('bee-plugin-settings');
   await expect(catalogue.getByRole('heading', { name: 'Plugins' })).toBeVisible();
   await expect(catalogue.getByRole('button', { name: /upload/i })).toBeDisabled();
