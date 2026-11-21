@@ -12,3 +12,14 @@
 .bee-template-package-host--paper .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
 
 .bee-template-package-host--paper .pd-content .bee-dashboard-card{background:#fffdf9;border:1px solid #e3dfd7;color:#292825;box-shadow:0 6px 22px #30251b08}
+
+.bee-template-package-host--paper{--bg:#f3f1ed;--panel:#fffdf9;--muted:#777166;--border:#e3dfd7;--purple:#6654c8;--cyan:#287f79;color:#292825}
+.bee-template-package-host--paper .bee-company-members__table select option,
+.bee-template-package-host--paper .bee-company-members__invite select option{background:#fff;color:#292825}
+.bee-template-package-host--paper .platform-admin-form input{background:#fff;color:#292825;border-color:#dedbd4}
+.bee-template-package-host--paper .platform-admin-form label,
+.bee-template-package-host--paper .platform-admin-companies h3,
+.bee-template-package-host--paper .platform-admin-form h3{color:#292825}
+.bee-template-package-host--paper .platform-admin-form button,
+.bee-template-package-host--paper .platform-company button,
+.bee-template-package-host--paper .platform-admin .panel-heading button{background:#6654c8;color:#fff;border-color:#6654c8}
