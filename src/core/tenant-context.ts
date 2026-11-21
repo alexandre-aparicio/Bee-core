@@ -45,7 +45,8 @@ export type TenantContextOptions = {
 export async function resolveTenantContext(
   db: Db,
   claims: TenantClaims,
-  options: TenantContextOptions = {}
+  options: TenantContextOptions = {},
+  sessionIdSecret: string = String(process.env.JWT_SECRET ?? "")
 ): Promise<TenantContext | null> {
   if (claims.aud !== "bee-core" || !claims.sub || (!claims.tenantRef && !claims.tenantId) || !claims.sid || !claims.client) {
     return null;
@@ -66,7 +67,7 @@ export async function resolveTenantContext(
   let tenantId: string;
   try {
     tenantId = claims.tenantRef
-      ? unmaskTenantId(claims.tenantRef, { sessionId: session.id, expiresAt: session.expiresAt }, String(process.env.JWT_SECRET ?? ""))
+      ? unmaskTenantId(claims.tenantRef, { sessionId: session.id, expiresAt: session.expiresAt }, sessionIdSecret)
       : String(claims.tenantId ?? "");
   } catch { return null; }
   if (!tenantId || tenantId !== session.tenantId) return null;
