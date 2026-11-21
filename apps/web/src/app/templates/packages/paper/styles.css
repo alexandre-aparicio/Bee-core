@@ -1,20 +1,12 @@
-/* Paper package-owned layout styles. */
+/* Paper package-owned dashboard layout styles. */
 .bee-template-package-host--paper{display:block;min-height:100vh}
-.bee-template-package-host--paper .dashboard{background:#f3f5fa;color:#20283a}
-.bee-template-package-host--paper .dash-sidebar{background:#fff;border-color:#e2e6ef}
-.bee-template-package-host--paper .dash-header{border-color:#e2e6ef}
-.bee-template-package-host--paper .dash-stat,.bee-template-package-host--paper .panel,.bee-template-package-host--paper .bee-template-manager{background:#fff;border-color:#e2e6ef;color:#20283a}
-.bee-template-package-host--paper .workspace{background:#f7f8fc;border-color:#e2e6ef}
-.bee-template-package-host--paper .workspace b,.bee-template-package-host--paper .dash-welcome h1,.bee-template-package-host--paper .panel-heading h2,.bee-template-package-host--paper .runtime-plugin b,.bee-template-package-host--paper .quick-action b{color:#20283a}
-.bee-template-package-host--paper .dash-nav{color:#68738a}
-.bee-template-package-host--paper .dash-nav.active{background:#eeeaff;color:#6550c8;border-color:#e1dcff}
-.bee-template-package-host--paper .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
-.bee-template-package-host--paper .dashboard{background:#f3f5fa;color:#20283a}
-.bee-template-package-host--paper .dash-sidebar{background:#fff;border-color:#e2e6ef}
-.bee-template-package-host--paper .dash-header{background:#fff;border-color:#e2e6ef}
-.bee-template-package-host--paper .dash-stat,.bee-template-package-host--paper .panel,.bee-template-package-host--paper .bee-template-manager{background:#fff;border-color:#e2e6ef;color:#20283a}
-.bee-template-package-host--paper .workspace{background:#f7f8fc;border-color:#e2e6ef}
-.bee-template-package-host--paper .workspace b,.bee-template-package-host--paper .dash-welcome h1,.bee-template-package-host--paper .panel-heading h2,.bee-template-package-host--paper .runtime-plugin b,.bee-template-package-host--paper .quick-action b{color:#20283a}
-.bee-template-package-host--paper .dash-nav{color:#68738a}
-.bee-template-package-host--paper .dash-nav.active{background:#eeeaff;color:#6550c8;border-color:#e1dcff}
+.bee-template-package-host--paper .pd-dashboard{background:#f3f5fa;color:#20283a}
+.bee-template-package-host--paper .pd-sidebar{background:#fffdf9;border-color:#e2e6ef}
+.bee-template-package-host--paper .pd-main>header{background:#fff;border-color:#e2e6ef;color:#68738a}
+.bee-template-package-host--paper .pd-workspace{background:#f7f8fc;border-color:#e2e6ef}
+.bee-template-package-host--paper .pd-sidebar button{color:#68738a}
+.bee-template-package-host--paper .pd-sidebar button.active{background:#eeeaff;color:#6550c8}
+.bee-template-package-host--paper .pd-content .panel,.bee-template-package-host--paper .pd-content .dash-stat,.bee-template-package-host--paper .pd-content .bee-template-manager{background:#fffdf9;border:1px solid #e3dfd7;color:#292825;box-shadow:0 6px 22px #30251b08}
+.bee-template-package-host--paper .pd-content .quick-action{background:#fff;border:1px solid #e4dfd6;color:#51483f;border-radius:6px}
+.bee-template-package-host--paper .pd-content .quick-action b,.bee-template-package-host--paper .pd-content .panel-heading h2{color:#292825}
 .bee-template-package-host--paper .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
