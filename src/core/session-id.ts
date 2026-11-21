@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
+import { createHmac, createCipheriv, createDecipheriv } from "node:crypto";
 
 export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job" | "audit-event";
 export type SessionIdContext = { sessionId: string; expiresAt: Date };
@@ -15,9 +15,15 @@ export function maskResourceId(id: string, type: SessionResourceType, session: S
     throw new Error("Cannot mask an ID without an active session");
   }
   const payload: Payload = { v: 1, t: type, id, sid: session.sessionId, exp: session.expiresAt.getTime() };
-  const nonce = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", keyFor(secret, session.sessionId), nonce);
-  const encrypted = Buffer.concat([cipher.update(JSON.stringify(payload), "utf8"), cipher.final()]);
+  const serialized = JSON.stringify(payload);
+  const key = keyFor(secret, session.sessionId);
+  // Deterministic per (session, type, resource, expiry) so clients can compare
+  // references across responses without exposing the underlying identifier.
+  // The keyed PRF gives distinct nonces for distinct plaintexts; identical
+  // plaintexts intentionally reuse the same nonce and ciphertext.
+  const nonce = createHmac("sha256", key).update("bee-core:session-resource-nonce:v1:").update(serialized).digest().subarray(0, 12);
+  const cipher = createCipheriv("aes-256-gcm", key, nonce);
+  const encrypted = Buffer.concat([cipher.update(serialized, "utf8"), cipher.final()]);
   return Buffer.concat([Buffer.from([1]), nonce, cipher.getAuthTag(), encrypted]).toString("base64url");
 }
 
