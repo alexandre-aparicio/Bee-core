@@ -450,7 +450,7 @@ test('company member data cannot leak across a rapid active-company switch', asy
 });
 
 
-test('platform administration supports card/list views, disabled actions, company management and create modal', async ({ page }) => {
+test('Settings > Tenants supports card/list views, tenant management and create modal', async ({ page }) => {
   let companies = [
     { id: 'company-1', name: 'Acme Studio', slug: 'acme', status: 'active', createdAt: '2026-11-20T00:00:00.000Z', membersCount: 4 }
   ];
@@ -479,8 +479,8 @@ test('platform administration supports card/list views, disabled actions, compan
     status: 200, contentType: 'application/json', body: JSON.stringify({ success: true })
   }));
 
-  await page.goto('/dashboard/platform');
-  await expect(page.getByRole('heading', { name: 'Platform Administration' })).toBeVisible();
+  await page.goto('/dashboard/settings/tenants');
+  await expect(page.getByRole('heading', { name: 'Tenants', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Acme Studio' })).toBeVisible();
   await page.getByTitle('List view').click();
   await expect(page.locator('.platform-admin__table')).toBeVisible();
@@ -490,15 +490,15 @@ test('platform administration supports card/list views, disabled actions, compan
   await expect(page.getByRole('button', { name: 'Disable' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Message' })).toBeDisabled();
   await page.getByRole('button', { name: 'Manage', exact: true }).click();
-  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard/platform/company-1/manage');
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard/settings/tenants/company-1/manage');
   await expect(page.getByRole('heading', { name: 'Acme Studio' })).toBeVisible();
-  await page.getByRole('button', { name: /companies/i }).click();
-  await page.getByRole('button', { name: /new company/i }).click();
+  await page.getByRole('button', { name: /tenants/i }).click();
+  await page.getByRole('button', { name: /new tenant/i }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('heading', { name: 'Create a company' })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Create a tenant' })).toBeVisible();
   await dialog.getByPlaceholder('Dragchart').fill('New Tenant');
   await dialog.locator('input[name="companySlug"]').fill('new-tenant');
   await dialog.getByPlaceholder('owner@company.com').fill('owner@new-tenant.test');
-  await dialog.getByRole('button', { name: 'Create company' }).click();
+  await dialog.getByRole('button', { name: 'Create tenant' }).click();
   await expect(page.getByRole('heading', { name: 'New Tenant' })).toBeVisible();
 });
