@@ -37,11 +37,13 @@ test("plugin scopes isolate routes and filter config keys", async () => {
   manager.register(files);
   await manager.mountAll(context(server));
 
-  assert.deepEqual(Object.keys(authConfig ?? {}).sort(), ["authAdminEmail", "authAdminPassword", "jwtSecret", "mongoDbName", "mongoUri", "publicBaseDomain"]);
-  assert.deepEqual(Object.keys(filesConfig ?? {}).sort(), ["fileStoragePath", "mongoDbName", "mongoUri"]);
+  assert.deepEqual(Object.keys(authConfig ?? {}).sort(), ["authAdminEmail", "authAdminPassword", "mongoDbName", "mongoUri", "publicBaseDomain", "sessionIdSecret"]);
+  assert.deepEqual(Object.keys(filesConfig ?? {}).sort(), ["fileStoragePath", "mongoDbName", "mongoUri", "sessionIdSecret"]);
   assert.equal("authAdminPassword" in (filesConfig ?? {}), false);
-  assert.equal(authConfig?.jwtSecret, "secret", "auth must receive the same JWT secret used by the application verifier");
-  assert.equal("jwtSecret" in (filesConfig ?? {}), false, "JWT secret must remain isolated from non-auth plugins");
+  assert.ok(typeof authConfig?.sessionIdSecret === "string" && String(authConfig.sessionIdSecret).length === 64, "auth must receive a dedicated derived session-reference secret");
+  assert.equal(authConfig?.sessionIdSecret, filesConfig?.sessionIdSecret, "plugins must share the same derived key to resolve session-bound references");
+  assert.equal("jwtSecret" in (authConfig ?? {}), false, "plugins must not receive the JWT signing secret");
+  assert.equal("jwtSecret" in (filesConfig ?? {}), false, "plugins must not receive the JWT signing secret");
 
   const authResponse = await server.inject({ method: "GET", url: "/auth-scope-test" });
   const filesResponse = await server.inject({ method: "GET", url: "/files-scope-test" });
