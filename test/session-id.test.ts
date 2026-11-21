@@ -13,10 +13,11 @@ test("references are opaque and resolve only in the originating session", () => 
   assert.throws(() => unmaskTenantId(masked, sessionB, secret));
 });
 
-test("each mask operation produces a fresh reference", () => {
+test("references are stable within one session and differ across sessions", () => {
   const first = maskPluginId("hello-world", sessionA, secret);
   const second = maskPluginId("hello-world", sessionA, secret);
-  assert.notEqual(first, second);
+  assert.equal(first, second);
+  assert.notEqual(first, maskPluginId("hello-world", sessionB, secret));
   assert.equal(unmaskPluginId(first, sessionA, secret), "hello-world");
   assert.equal(unmaskPluginId(second, sessionA, secret), "hello-world");
 });
