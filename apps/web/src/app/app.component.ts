@@ -1,3 +1,9 @@
+import { BeeAuroraPageComponent } from './templates/packages/aurora/pages/public.component';
+import { BeeEditorialPageComponent } from './templates/packages/editorial/pages/public.component';
+import { BeeStudioPageComponent } from './templates/packages/studio/pages/public.component';
+import { BeeMidnightPageComponent } from './templates/packages/midnight/pages/dashboard.component';
+import { BeePaperPageComponent } from './templates/packages/paper/pages/dashboard.component';
+import { BeeGlassPageComponent } from './templates/packages/glass/pages/dashboard.component';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +18,7 @@ import { AuditLogComponent } from './audit-log/audit-log.component';
 import { PlatformAdminComponent } from './platform-admin/platform-admin.component';
 import { BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent } from './templates/packages';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateSlotComponent, BeeMarketplaceComponent, CompanyMembersComponent, BeePluginOutletComponent, AuditLogComponent, PlatformAdminComponent, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, BeeTemplateSlotComponent, BeeMarketplaceComponent, CompanyMembersComponent, BeePluginOutletComponent, AuditLogComponent, PlatformAdminComponent, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], templateUrl: './app.component.html' })
 export class AppComponent implements OnInit {
   constructor(private readonly templates: BeeTemplateEngine) {}
 
