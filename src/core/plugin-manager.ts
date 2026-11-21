@@ -19,12 +19,24 @@ export class BeePluginManager {
     this.plugins.set(name, { plugin, status: "registered" });
   }
 
+  private readonly configAccess: Record<string, readonly string[]> = {
+    auth: ["mongoUri", "mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "publicBaseDomain"],
+    organizations: ["mongoUri", "mongoDbName", "publicBaseDomain"],
+    files: ["mongoUri", "mongoDbName", "fileStoragePath"],
+    marketplace: ["mongoUri", "mongoDbName", "billingWebhookSecret", "publicBaseDomain"],
+    notes: ["mongoUri", "mongoDbName"],
+    "platform-admin": ["mongoUri", "mongoDbName"],
+    hello: []
+  };
+
   private createPluginContext(pluginName: string, ctx: BeeContext): BeeContext {
     const prefix = `[${pluginName}]`;
+    const allowedConfig = this.configAccess[pluginName] ?? [];
+    const scopedConfig = Object.fromEntries(allowedConfig.filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
     return Object.freeze({
       ...ctx,
       pluginName,
-      config: Object.freeze({ ...ctx.config }),
+      config: Object.freeze(scopedConfig),
       logger: Object.freeze({
         info: (message: string, context?: unknown) => ctx.logger.info(`${prefix} ${message}`, context),
         warn: (message: string, context?: unknown) => ctx.logger.warn(`${prefix} ${message}`, context),
