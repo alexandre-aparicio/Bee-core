@@ -246,3 +246,12 @@ The product model is now specified in `docs/template-business-model.md`.
 - Replaced stale header selectors (`gd-top` / `md-top` / `pd-top`) with selectors matching the actual `<header>` elements inside each main region.
 - Added explicit header button and sidebar group-heading/logout styles to each package so they do not depend on the global dashboard class system.
 - Source edits committed directly to `main`; source was fetched back to confirm selectors. No build, tests, workflows or VPS validation performed.
+
+
+## Tenant public template CSS/markup alignment (2026-11-21)
+- Reviewed Aurora, Editorial and Studio tenant-public page components after the report that changing the public template did not visibly change the page.
+- Found the three tenant-public components had nearly identical page markup while their package styles targeted different, absent child structures (for example Editorial expected article/lead elements and Studio expected a card layout that were not rendered).
+- Rebuilt tenant-public page composition and matching component-scoped styles for Aurora (dark atmospheric hero and accent orb), Editorial (typographic long-form layout), and Studio (split hero, graphic panel and feature cards). These are intentionally distinct page compositions rather than palette-only variations.
+- Preserved tenant name, Home navigation, conditional Hello World link/page, theme toggle, and header/footer template slots. Corporate fallback remains in each component.
+- Direct commits to main: Aurora `16dc9c6`, Editorial `3ad7b55`, Studio `ee44a06`.
+- Source edits only. No build, tests, workflows, or VPS visual validation performed; verify the Angular compile and actual browser appearance after deployment.
