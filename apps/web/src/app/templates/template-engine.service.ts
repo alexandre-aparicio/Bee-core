@@ -21,6 +21,9 @@ export class BeeTemplateEngine {
   private stream?: EventSource;
   private reconnecting = false;
   themeTokens: Record<string, string> = { ...DEFAULT_THEME_TOKENS };
+  private accessToken: string | null = null;
+  private userRoles: string[] = [];
+  private tenantScope: string | null = null;
 
   constructor() {
     for (const manifest of [...BUILT_IN_TEMPLATES, ...PACKAGE_TEMPLATES]) this.register(manifest);
@@ -37,12 +40,18 @@ export class BeeTemplateEngine {
 
   get hasAuthenticatedSession(): boolean { return this.authToken() !== null; }
 
-  get canManageTemplates(): boolean {
-    if (typeof localStorage === 'undefined') return false;
-    try {
-      const session = JSON.parse(localStorage.getItem('bee-auth') || 'null') as { user?: { roles?: string[] } } | null;
-      return Array.isArray(session?.user?.roles) && session.user.roles.includes('admin');
-    } catch { return false; }
+  get canManageTemplates(): boolean { return this.userRoles.includes('admin'); }
+
+  setAuthSession(session: { accessToken?: string; tenantId?: string; user?: { roles?: string[]; tenantId?: string } } | null): void {
+    this.accessToken = typeof session?.accessToken === 'string' ? session.accessToken : null;
+    this.userRoles = Array.isArray(session?.user?.roles) ? session.user.roles : [];
+    this.tenantScope = session?.user?.tenantId || session?.tenantId || null;
+    if (this.accessToken) void this.restoreRemoteSelection();
+    else {
+      this.stream?.close();
+      this.stream = undefined;
+      void this.restorePublicTenant();
+    }
   }
 
   catalog(target?: BeeTemplateTarget): BeeTemplateManifest[] {
@@ -195,17 +204,11 @@ export class BeeTemplateEngine {
 
 
   private storageKey(): string {
-    if (typeof localStorage === 'undefined') return STORAGE_KEY;
-    try { const session = JSON.parse(localStorage.getItem('bee-auth') || 'null') as { user?: { tenantId?: string } } | null; const scope = session?.user?.tenantId || (typeof window !== 'undefined' ? `host-${window.location.hostname}` : 'anonymous'); return `${STORAGE_KEY}:${scope}`; } catch { return `${STORAGE_KEY}:${typeof window !== 'undefined' ? `host-${window.location.hostname}` : 'anonymous'}`; }
+    const scope = this.tenantScope || (typeof window !== 'undefined' ? `host-${window.location.hostname}` : 'anonymous');
+    return `${STORAGE_KEY}:${scope}`;
   }
 
-  private authToken(): string | null {
-    if (typeof localStorage === 'undefined') return null;
-    try {
-      const session = JSON.parse(localStorage.getItem('bee-auth') || 'null') as { accessToken?: string } | null;
-      return typeof session?.accessToken === 'string' ? session.accessToken : null;
-    } catch { return null; }
-  }
+  private authToken(): string | null { return this.accessToken; }
 
   private async restorePublicTenant(): Promise<void> {
     if (typeof fetch === 'undefined') return;
