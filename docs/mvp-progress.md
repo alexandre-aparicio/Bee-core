@@ -411,6 +411,7 @@ Current status at PR merge: the implementation is integrated in main for manual 
 
 ## Plugin catalogue moved into Settings (2026-11-21)
 
+- Removed the duplicate Plugins entry from the main workspace navigation for every role; plugin management is now accessed only through Settings → Plugins.
 - Added a dedicated plugin management surface under Settings → Plugins in the Midnight, Glass and Paper dashboard templates; the existing workspace Plugins marketplace remains available separately.
 - The Settings catalogue reuses the authenticated tenant-scoped marketplace API and displays plugin cards or a compact list.
 - Added a disabled Upload control (future capability) and a vertical three-dot action menu per plugin. Install/Uninstall and Delete are visible but disabled; Details is the only enabled action.
