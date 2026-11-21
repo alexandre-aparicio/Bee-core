@@ -326,7 +326,7 @@ export const organizationsPlugin:BeePlugin={
    await db.collection("tenants").insertOne(company);
    try{await memberships.insertOne(membership);}
    catch(error){await companies.deleteOne({id});throw error;}
-   return reply.code(201).send({company:{id,name,slug,status:"active"},membership:{role:"owner",status:"active"},next:"POST /companies/"+id+"/activate to switch the current session"});
+   return reply.code(201).send({company:{id,name,slug,status:"active"},membership:{role:"owner",status:"active"}});
   });
   ctx.server.post<{Params:{companyId:string}}>("/companies/:companyId/activate",async(req,reply)=>{
    const auth=await authenticate(req,reply,{allowSuspendedCompany:true});if(!auth)return;
