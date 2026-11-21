@@ -40,3 +40,15 @@ test("a reference cannot outlive its issuing session expiry", () => {
   const masked = maskTenantId("tenant-1", shortSession, secret);
   assert.throws(() => unmaskTenantId(masked, { ...shortSession, expiresAt: new Date(Date.now() - 1000) }, secret));
 });
+
+
+test("malformed and oversized references are rejected before decryption", () => {
+  assert.throws(() => unmaskResourceId("not a reference!", "tenant", sessionA, secret));
+  assert.throws(() => unmaskResourceId("A".repeat(2049), "tenant", sessionA, secret));
+  assert.throws(() => unmaskResourceId("====", "tenant", sessionA, secret));
+});
+
+test("resource IDs must be non-empty and bounded", () => {
+  assert.throws(() => maskResourceId("", "tenant", sessionA, secret));
+  assert.throws(() => maskResourceId("x".repeat(1025), "tenant", sessionA, secret));
+});
