@@ -37,10 +37,11 @@ test("plugin scopes isolate routes and filter config keys", async () => {
   manager.register(files);
   await manager.mountAll(context(server));
 
-  assert.deepEqual(Object.keys(authConfig ?? {}).sort(), ["authAdminEmail", "authAdminPassword", "mongoDbName", "mongoUri", "publicBaseDomain"]);
+  assert.deepEqual(Object.keys(authConfig ?? {}).sort(), ["authAdminEmail", "authAdminPassword", "jwtSecret", "mongoDbName", "mongoUri", "publicBaseDomain"]);
   assert.deepEqual(Object.keys(filesConfig ?? {}).sort(), ["fileStoragePath", "mongoDbName", "mongoUri"]);
   assert.equal("authAdminPassword" in (filesConfig ?? {}), false);
-  assert.equal("jwtSecret" in (authConfig ?? {}), false);
+  assert.equal(authConfig?.jwtSecret, "secret", "auth must receive the same JWT secret used by the application verifier");
+  assert.equal("jwtSecret" in (filesConfig ?? {}), false, "JWT secret must remain isolated from non-auth plugins");
 
   const authResponse = await server.inject({ method: "GET", url: "/auth-scope-test" });
   const filesResponse = await server.inject({ method: "GET", url: "/files-scope-test" });
