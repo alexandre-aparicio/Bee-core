@@ -60,7 +60,8 @@ export const authPlugin:BeePlugin={
    tenants.createIndex({id:1},{unique:true,name:"tenants_id_unique"}),
    tenants.createIndex({domains:1},{unique:true,sparse:true,name:"tenants_domains_unique"})
   ]);
-  await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
+  await sessions.updateMany({absoluteExpiresAt:{$exists:false}},{$set:{absoluteExpiresAt:absoluteSessionExpiry()}});
+   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
   await users.updateMany({$or:[{tenantId:{$exists:false}},{tenantId:""}]},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});
   const preferencesCollectionExists=await db.listCollections({name:"template_preferences"},{nameOnly:true}).hasNext();
   if(!preferencesCollectionExists){
@@ -164,7 +165,7 @@ export const authPlugin:BeePlugin={
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
    if(!isSameOrigin(req))return reply.code(403).send({error:"Cross-origin refresh request rejected"});
    const raw=String(req.body?.refreshToken??(readCookie(req,"bee_refresh")||""));if(raw.length<40)return reply.code(401).send({error:"Refresh session required"});
-   const now=new Date(),next=makeRefreshToken(),session=await sessions.findOneAndUpdate({tokenHash:hashToken(raw),revokedAt:null,expiresAt:{$gt:now},$or:[{absoluteExpiresAt:{$gt:now}},{absoluteExpiresAt:{$exists:false}}]},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()}},{returnDocument:"after"});
+   const now=new Date(),next=makeRefreshToken(),session=await sessions.findOneAndUpdate({tokenHash:hashToken(raw),revokedAt:null,expiresAt:{$gt:now},absoluteExpiresAt:{$gt:now}},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()}},{returnDocument:"after"});
    if(!session)return reply.code(401).send({error:"Invalid or expired refresh token"});
    const u=await users.findOne({id:session.userId,enabled:true});
    if(!u||!u.allowedClients.includes(session.client)){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Invalid or expired refresh token"});}
