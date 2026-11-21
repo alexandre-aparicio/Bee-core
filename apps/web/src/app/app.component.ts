@@ -54,6 +54,7 @@ export class AppComponent implements OnInit {
   mfaSetupMode = false;
   mfaSetupSecret = '';
   mfaSetupUri = '';
+  mfaRecoveryCodes: string[] = [];
   api = '/api';
   publicTenant: { id: string; name: string; slug: string | null } | null = null;
   publicTenantPlugins: string[] = [];
@@ -100,10 +101,11 @@ export class AppComponent implements OnInit {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'MFA verification failed');
       this.auth = { ...this.auth, accessToken: result.accessToken, platformRole: result.platformRole };
-      this.mfaSetupMode = false; this.mfaCode = ''; window.location.assign('/dashboard');
+      this.mfaSetupMode = false; this.mfaCode = ''; this.mfaRecoveryCodes = result.recoveryCodes || [];
     } catch (err) { this.error = err instanceof Error ? err.message : 'MFA setup failed'; }
     finally { this.busy = false; }
   }
+  finishMfaSetup(): void { this.mfaRecoveryCodes = []; window.location.assign('/dashboard'); }
   async loadPublicTenant(): Promise<void> {
     this.publicTenantLoading = true;
     this.publicTenantNotFound = false;
