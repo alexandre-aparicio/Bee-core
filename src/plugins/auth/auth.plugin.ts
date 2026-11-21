@@ -5,6 +5,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { resolveTenantContext } from "../../core/tenant-context.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
+import { maskTenantId, maskUserId } from "../../core/session-id.js";
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
@@ -69,7 +70,11 @@ export const authPlugin:BeePlugin={
    await users.updateOne({email:adminEmail},{$set:{platformRole:"superadmin"},$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,tenantId:defaultTenantId,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
    ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
   }
-  const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId"|"platformRole">,client:ClientType,tenantId=u.tenantId??defaultTenantId,sessionId?:string)=>ctx.server.jwt.sign({sub:u.id,email:u.email,roles:u.roles,...(u.platformRole?{platformRole:u.platformRole}:{}),tenantId,client,aud:"bee-core",...(sessionId?{sid:sessionId}:{})});
+  const resourceIdSecret=String(ctx.config.jwtSecret??"");
+  const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId"|"platformRole">,client:ClientType,tenantId:string,sessionId:string,expiresAt:Date)=>{
+   const sessionContext={sessionId,expiresAt};
+   return ctx.server.jwt.sign({sub:maskUserId(u.id,sessionContext,resourceIdSecret),email:u.email,roles:u.roles,...(u.platformRole?{platformRole:u.platformRole}:{}),tenantId:maskTenantId(tenantId,sessionContext,resourceIdSecret),client,aud:"bee-core",sid:sessionId});
+  };
   ctx.server.post<{Body:LoginBody}>("/auth/login",async(req,reply)=>{
    const email=String(req.body?.email??"").trim().toLowerCase(),password=String(req.body?.password??""),client=clientFrom(req.body?.client);
    if(!email||!password||!client)return reply.code(400).send({error:"email, password and valid client required"});
@@ -81,15 +86,17 @@ export const authPlugin:BeePlugin={
    const membership=await db.collection("memberships").findOne({userId:u.id,tenantId,status:"active"});
    if(!membership)return reply.code(403).send({error:"No active company membership"});
    const membershipRole=String(membership.role??"member"),effectiveRoles:Role[]=membershipRole==="owner"||membershipRole==="admin"?["admin"]:["user"];
-   const sessionId=randomUUID(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId),refreshToken=makeRefreshToken();
-   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt:refreshExpiry(),revokedAt:null,createdAt:new Date()});
+   const sessionId=randomUUID(),expiresAt=refreshExpiry(),refreshToken=makeRefreshToken();
+   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt,revokedAt:null,createdAt:new Date()});
+   (req as any).__beeSessionIdContext={sessionId,expiresAt};
+   const accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId,expiresAt);
    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
    await auditAuthEvent({tenantId,actorId:u.id,action:"auth.login",outcome:"success",metadata:{client}});
    return {accessToken,refreshToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,user:publicUser({...u,roles:effectiveRoles}),client,tenantId, ...(u.platformRole?{platformRole:u.platformRole}:{})};
   });
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
    const raw=String(req.body?.refreshToken??"");if(raw.length<40)return reply.code(400).send({error:"refreshToken required"});
-   const next=makeRefreshToken(),session=await sessions.findOneAndUpdate({tokenHash:hashToken(raw),revokedAt:null,expiresAt:{$gt:new Date()}},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()}},{returnDocument:"after"});
+   const next=makeRefreshToken(),session=await sessions.findOneAndUpdate({tokenHash:hashToken(raw),revokedAt:null,expiresAt:{$gt:new Date()}},{$set:{tokenHash:hashToken(next)}},{returnDocument:"after"});
    if(!session)return reply.code(401).send({error:"Invalid or expired refresh token"});
    const u=await users.findOne({id:session.userId,enabled:true});
    if(!u||!u.allowedClients.includes(session.client)){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Invalid or expired refresh token"});}
@@ -97,10 +104,11 @@ export const authPlugin:BeePlugin={
    const membership=await db.collection("memberships").findOne({userId:u.id,tenantId:activeTenantId,status:"active"});
    if(!membership){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Company membership is no longer active"});}
    const role=String(membership.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
-   return {accessToken:issue({...u,roles},session.client,activeTenantId,session.id),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,client:session.client,tenantId:activeTenantId,...(u.platformRole?{platformRole:u.platformRole}:{})};
+   (req as any).__beeSessionIdContext={sessionId:session.id,expiresAt:session.expiresAt};
+   return {accessToken:issue({...u,roles},session.client,activeTenantId,session.id,session.expiresAt),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:Math.max(0,Math.floor((session.expiresAt.getTime()-Date.now())/1000)),client:session.client,tenantId:activeTenantId,...(u.platformRole?{platformRole:u.platformRole}:{})};
   });
   ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string;tenantId?:string;sid?:string};const tenantContext=await resolveTenantContext(db,c);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});return {authenticated:true,user:{id:tenantContext.userId,email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:tenantContext.tenantId,platformRole:(await users.findOne({id:tenantContext.userId}))?.platformRole??null};}catch{return reply.code(401).send({error:"Unauthorized"});}});
-  ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const claims=req.user as {sub?:string;aud?:string};if(claims.aud!=="bee-core"||!claims.sub)return reply.code(401).send({error:"Unauthorized"});const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({tokenHash:hashToken(raw),userId:claims.sub,revokedAt:null},{$set:{revokedAt:new Date()}});const tenantId=String((claims as {tenantId?:string}).tenantId??"");if(tenantId)await auditAuthEvent({tenantId,actorId:claims.sub,action:"auth.logout",outcome:"success",metadata:{refreshTokenProvided:Boolean(raw)}});return {success:true,message:"Refresh session revoked. Current access token expires within 20 minutes."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
+  ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const claims=req.user as {sid?:string;aud?:string};if(claims.aud!=="bee-core"||!claims.sid)return reply.code(401).send({error:"Unauthorized"});const session=await sessions.findOne({id:claims.sid,revokedAt:null});if(!session)return reply.code(401).send({error:"Session is no longer active"});await sessions.updateOne({id:session.id,revokedAt:null},{$set:{revokedAt:new Date()}});await auditAuthEvent({tenantId:session.tenantId??defaultTenantId,actorId:session.userId,action:"auth.logout",outcome:"success",metadata:{refreshTokenProvided:Boolean(req.body?.refreshToken)}});return {success:true,message:"Session revoked."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
   const allowedThemeTokens=["--bg","--panel","--muted","--border","--purple","--cyan"] as const;
