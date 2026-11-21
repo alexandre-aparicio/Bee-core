@@ -78,7 +78,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
   }
 
   trackPlugin(_index: number, plugin: MarketplacePlugin): string { return plugin.id; }
-  isHelloWorld(plugin: MarketplacePlugin): boolean { return /hello[\\s-]*world|hola mundo/i.test(plugin.name); }
+  isHelloWorld(plugin: MarketplacePlugin): boolean { return /hello[\s-]*world|hola mundo/i.test(plugin.name); }
 
   private get token(): string {
     try { return JSON.parse(localStorage.getItem("bee-auth") || "null")?.accessToken || ""; }
