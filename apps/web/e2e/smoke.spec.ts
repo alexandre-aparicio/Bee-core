@@ -502,3 +502,41 @@ test('Settings > Tenants supports card/list views, tenant management and create 
   await dialog.getByRole('button', { name: 'Create tenant' }).click();
   await expect(page.getByRole('heading', { name: 'New Tenant' })).toBeVisible();
 });
+
+
+test('Settings plugins supports cards/list and only enables plugin details', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
+    accessToken: 'platform-admin-token',
+    user: { email: 'root@example.test', roles: ['admin'], tenantId: 'tenant-ref' }
+  })));
+  await page.route('**/api/companies', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: 'tenant-ref', name: 'Bee Tenant', role: 'owner', active: true }] })
+  }));
+  await page.route('**/api/marketplace/plugins', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ plugins: [{ id: 'masked-plugin-ref', name: 'Team Notes', version: '1.2.0', description: 'Shared team notes', category: 'productivity', system: false, entitled: true, installed: true, installedVersion: '1.2.0' }] })
+  }));
+  await page.route('**/api/marketplace/plugins/masked-plugin-ref', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ plugin: { id: 'masked-plugin-ref', name: 'Team Notes', version: '1.2.0', description: 'Shared team notes', category: 'productivity', system: false, entitled: true, installed: true, installedVersion: '1.2.0', accessSource: 'plan' } })
+  }));
+  await page.goto('/dashboard');
+  await page.getByRole('button', { name: /settings/i }).click();
+  await page.getByRole('button', { name: 'Plugins', exact: true }).last().click();
+  const catalogue = page.locator('bee-plugin-settings');
+  await expect(catalogue.getByRole('heading', { name: 'Plugins' })).toBeVisible();
+  await expect(catalogue.getByRole('button', { name: /upload/i })).toBeDisabled();
+  await catalogue.getByRole('button', { name: /list/i }).click();
+  await expect(catalogue.locator('.plugin-settings__grid')).toHaveClass(/is-list/);
+  await catalogue.getByRole('button', { name: /cards/i }).click();
+  const plugin = catalogue.locator('.plugin-settings__card').filter({ hasText: 'Team Notes' });
+  await plugin.getByRole('button', { name: 'Actions for Team Notes' }).click();
+  await expect(plugin.getByRole('menuitem', { name: 'Uninstall' })).toBeDisabled();
+  await expect(plugin.getByRole('menuitem', { name: 'Delete' })).toBeDisabled();
+  await plugin.getByRole('menuitem', { name: 'Details' }).click();
+  await expect(page).toHaveURL(/\/dashboard\/plugins\/masked-plugin-ref\/details$/);
+  await expect(catalogue.getByRole('heading', { name: 'Team Notes' })).toBeVisible();
+  await catalogue.getByRole('button', { name: /back to plugins/i }).click();
+  await expect(page).toHaveURL(/\/dashboard\/settings\/plugins$/);
+});
