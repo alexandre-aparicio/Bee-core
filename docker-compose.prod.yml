@@ -1,12 +1,17 @@
 services:
   mongodb:
     ports: !reset []
+    networks:
+      - backend
     restart: unless-stopped
 
   bee-core:
     ports: !reset []
     expose:
       - "3000"
+    networks:
+      - backend
+      - frontend
     environment:
       NODE_ENV: production
     restart: unless-stopped
@@ -15,4 +20,14 @@ services:
     # Dedicated host port for Nginx Proxy Manager; never bind public 80/443 here.
     ports:
       - "${BEE_WEB_PORT:-3011}:80"
+    networks:
+      - frontend
     restart: unless-stopped
+
+networks:
+  # Only the API and MongoDB share this isolated, non-egress network.
+  backend:
+    internal: true
+  # The web proxy reaches the API here; MongoDB is not attached.
+  frontend:
+    driver: bridge
