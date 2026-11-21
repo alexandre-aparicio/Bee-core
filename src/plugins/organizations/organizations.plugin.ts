@@ -354,7 +354,7 @@ export const organizationsPlugin:BeePlugin={
    const role: string=membership.role;
    const roles=role==="owner"||role==="admin"?["admin"]:["user"];
    const tenantRef=maskTenantId(company.id,{sessionId:auth.tenantContext.sessionId,expiresAt:auth.tenantContext.sessionExpiresAt},sessionIdSecret);
-    const accessToken=ctx.server.jwt.sign({sub:user!.id,email:user!.email,roles,tenantRef,client:claims.client,aud:"bee-core",sid:claims.sid});
+    const accessToken=ctx.server.jwt.sign({sub:maskResourceId(user!.id,"user",{sessionId:auth.tenantContext.sessionId,expiresAt:auth.tenantContext.sessionExpiresAt},sessionIdSecret),email:user!.email,roles,tenantRef,client:claims.client,aud:"bee-core",sid:claims.sid});
    return {accessToken,tokenType:"Bearer",expiresIn:1200,tenantId:tenantRef,company:{id:tenantRef,name:company.name},membership:{role:membership.role}};
   });
   ctx.server.get("/companies/active/permissions",async(req,reply)=>{
