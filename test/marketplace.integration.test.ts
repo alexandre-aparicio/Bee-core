@@ -7,6 +7,7 @@ import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { marketplacePlugin } from "../src/plugins/marketplace/marketplace.plugin.js";
 import { notesPlugin } from "../src/plugins/notes/notes.plugin.js";
+import { unmaskResourceId } from "../src/core/session-id.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
@@ -18,6 +19,12 @@ test("company plans and purchases control plugin visibility, installation and ac
   await client.connect();
   const db = client.db(dbName);
 
+  const resolveJobId = async (token:string, reference:string) => {
+    const claims=JSON.parse(Buffer.from(token.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const session=await db.collection("refresh_sessions").findOne({id:claims.sid});
+    assert.ok(session);
+    return unmaskResourceId(reference,"job",{sessionId:session.id,expiresAt:session.expiresAt}, "01234567890123456789012345678901");
+  };
   const waitForInstallJob = async (jobId: string) => {
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
@@ -97,28 +104,32 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const alphaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCatalog.statusCode, 200);
-    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { id: string }) => plugin.id), ["files", "notes"]);
-    const alphaNotesOffer = alphaCatalog.json().plugins.find((plugin: { id: string }) => plugin.id === "notes");
+    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["files", "notes"]);
+    const alphaNotesOffer = alphaCatalog.json().plugins.find((plugin: { name: string }) => plugin.name.toLowerCase() === "notes");
+    const alphaNotesPluginRef = alphaNotesOffer.id as string;
     assert.equal(alphaNotesOffer.entitled, false);
     assert.equal(alphaNotesOffer.purchasable, true);
-    const alphaCannotInstallNotes = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + alphaToken } });
+    const alphaCannotInstallNotes = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(alphaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCannotInstallNotes.statusCode, 402);
 
     const betaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaCatalog.statusCode, 200);
-    assert.deepEqual(betaCatalog.json().plugins.map((plugin: { id: string }) => plugin.id), ["files", "notes"]);
+    assert.deepEqual(betaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["files", "notes"]);
+    const betaNotesPluginRef = betaCatalog.json().plugins.find((plugin: { name: string }) => plugin.name.toLowerCase() === "notes").id as string;
     const betaNotesInstallAttempts = await Promise.all([
-      app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } }),
-      app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } })
+      app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } }),
+      app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } })
     ]);
     assert.ok(betaNotesInstallAttempts.every(response => [200, 202].includes(response.statusCode)));
     const acceptedBetaInstall = betaNotesInstallAttempts.find(response => response.statusCode === 202);
     assert.ok(acceptedBetaInstall, "one request must enqueue the installation");
-    const betaInstallJobId = acceptedBetaInstall.json().jobId as string;
+    const betaInstallJobRef = acceptedBetaInstall.json().jobId as string;
+    assert.ok(!/^[0-9a-f-]{36}$/i.test(betaInstallJobRef));
+    const betaInstallJobId = await resolveJobId(betaToken,betaInstallJobRef);
     for (const response of betaNotesInstallAttempts.filter(item => item.statusCode === 202)) {
-      assert.equal(response.json().jobId, betaInstallJobId, "concurrent install requests must share one durable job");
+      assert.equal(response.json().jobId, betaInstallJobRef, "concurrent install requests must share one durable job");
     }
-    const foreignJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaInstallJobId, headers: { authorization: "Bearer " + alphaToken } });
+    const foreignJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaInstallJobRef, headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(foreignJobRead.statusCode, 404, "install jobs must be tenant-scoped");
     const betaInstallJob = await waitForInstallJob(betaInstallJobId);
     assert.equal(betaInstallJob.attempts, 1);
@@ -137,16 +148,17 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaNoteId = betaNoteCreate.json().note.id as string;
 
     const betaUninstallAttempts = await Promise.all([
-      app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } }),
+      app.inject({ method: "DELETE", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } }),
       app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } })
     ]);
     assert.ok(betaUninstallAttempts.every(response => response.statusCode === 202));
-    const betaUninstallJobId = betaUninstallAttempts[0].json().jobId as string;
-    assert.equal(betaUninstallAttempts[1].json().jobId, betaUninstallJobId, "concurrent uninstall requests must share one durable job");
+    const betaUninstallJobRef = betaUninstallAttempts[0].json().jobId as string;
+    const betaUninstallJobId = await resolveJobId(betaToken,betaUninstallJobRef);
+    assert.equal(betaUninstallAttempts[1].json().jobId, betaUninstallJobRef, "concurrent uninstall requests must share one durable job");
     assert.equal(betaUninstallAttempts[0].json().action, "uninstall");
     const conflictingInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(conflictingInstall.statusCode, 409, "install must not race an active uninstall for the same company/plugin");
-    const foreignUninstallJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaUninstallJobId, headers: { authorization: "Bearer " + alphaToken } });
+    const foreignUninstallJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaUninstallJobRef, headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(foreignUninstallJobRead.statusCode, 404, "uninstall jobs must be tenant-scoped");
     const betaUninstallJob = await waitForInstallJob(betaUninstallJobId);
     assert.equal(betaUninstallJob.action, "uninstall");
@@ -168,12 +180,12 @@ test("company plans and purchases control plugin visibility, installation and ac
     );
     const betaUpdate = await app.inject({
       method: "POST",
-      url: "/marketplace/plugins/notes/update",
+      url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/update",
       headers: { authorization: "Bearer " + betaToken }
     });
     assert.equal(betaUpdate.statusCode, 202);
     assert.equal(betaUpdate.json().action, "update");
-    const betaUpdateJob = await waitForInstallJob(betaUpdate.json().jobId as string);
+    const betaUpdateJob = await waitForInstallJob(await resolveJobId(betaToken,betaUpdate.json().jobId as string));
     assert.equal(betaUpdateJob.status, "succeeded");
     const betaUpdatedInstallation = await db.collection("tenant_plugin_installations").findOne({ tenantId: "market-beta", pluginId: "notes" });
     assert.equal(betaUpdatedInstallation?.version, "0.1.0");
@@ -212,10 +224,10 @@ test("company plans and purchases control plugin visibility, installation and ac
     });
     assert.equal(alphaPurchase.statusCode, 200);
     const alphaPurchasedCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
-    assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; entitled: boolean; accessSource: string }) => plugin.id === "notes" && plugin.entitled && plugin.accessSource === "purchase"));
-    const alphaNotesInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + alphaToken } });
+    assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; entitled: boolean; accessSource: string }) => plugin.name.toLowerCase() === "notes" && plugin.entitled && plugin.accessSource === "purchase"));
+    const alphaNotesInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(alphaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaNotesInstall.statusCode, 202);
-    const alphaInstallJob = await waitForInstallJob(alphaNotesInstall.json().jobId as string);
+    const alphaInstallJob = await waitForInstallJob(await resolveJobId(alphaToken,alphaNotesInstall.json().jobId as string));
     assert.equal(alphaInstallJob.status, "succeeded");
     const alphaNoteCreate = await app.inject({
       method: "POST",
