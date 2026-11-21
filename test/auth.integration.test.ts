@@ -29,6 +29,12 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   const app = Fastify();
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
   const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, fileStoragePath, authAdminEmail: "", authAdminPassword: "" } };
+  const resolveReference = async (token:string, reference:string, type:SessionResourceType):Promise<string> => {
+    const claims=JSON.parse(Buffer.from(token.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const session=await db.collection("refresh_sessions").findOne({id:claims.sid});
+    assert.ok(session,"reference must belong to a persisted session");
+    return unmaskResourceId(reference,type,{sessionId:session.id,expiresAt:session.expiresAt},String(ctx.config.jwtSecret));
+  };
   try {
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
@@ -256,7 +262,6 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const createCompany = await app.inject({method:"POST",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken},payload:{name:"Second Company"}});
     assert.equal(createCompany.statusCode,201);
     const secondCompanyId=createCompany.json().company.id as string;
-    const activateCompanyTokenPlaceholder=tokens.accessToken;
     const activateCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(activateCompany.statusCode,200);
     const secondCompanyInternalId=await resolveReference(tokens.accessToken,secondCompanyId,"tenant");
