@@ -337,3 +337,9 @@ Current status: meaningful backend and frontend slices are now integrated in the
 - This is a source-level correction; the regression test has not yet been executed. The latest PR head still has no associated GitHub Actions run, so this remains unverified until CI runs.
 
 - Added an auth integration assertion that a previously issued company reference is rejected immediately after logout revokes its persisted session. This regression assertion is committed but remains unexecuted until CI runs.
+
+### Invitation response reference test correction (2026-11-21)
+
+- Final test review found one assertion comparing a company reference issued to the invitation creator's session with the reference returned to the invited user's separate session. Session-bound references must differ across sessions even when they represent the same tenant.
+- Updated the integration test to decode the accepting user's returned company reference with that user's persisted session and compare the resulting internal tenant ID to the tenant created by the original session.
+- This fixes the test's cross-session assumption and strengthens the intended isolation check. The MongoDB-backed test remains unexecuted; CI/build validation is still required.
