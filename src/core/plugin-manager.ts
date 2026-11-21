@@ -3,6 +3,7 @@ import type { BeeContext, BeePlugin, BeePluginInfo, BeePluginStatus } from "./ty
 interface ManagedPlugin {
   plugin: BeePlugin;
   status: BeePluginStatus;
+  context?: BeeContext;
   error?: unknown;
 }
 
@@ -12,11 +13,27 @@ export class BeePluginManager {
   register(plugin: BeePlugin): void {
     const name = plugin.manifest?.name;
     if (!name || !plugin.manifest.version) throw new Error("Plugin requires manifest name and version");
-    if (this.plugins.has(name)) throw new Error(`Plugin '${name}' already registered`);
+    if (this.plugins.has(name) || [...this.plugins.keys()].some(existing => existing.toLowerCase() === name.toLowerCase())) {
+      throw new Error(`Plugin '${name}' already registered (names are case-insensitive)`);
+    }
     this.plugins.set(name, { plugin, status: "registered" });
   }
 
-  private dependenciesReady(managed: ManagedPlugin): boolean {
+  private createPluginContext(pluginName: string, ctx: BeeContext): BeeContext {
+    const prefix = `[${pluginName}]`;
+    return Object.freeze({
+      ...ctx,
+      pluginName,
+      config: Object.freeze({ ...ctx.config }),
+      logger: Object.freeze({
+        info: (message: string, context?: unknown) => ctx.logger.info(`${prefix} ${message}`, context),
+        warn: (message: string, context?: unknown) => ctx.logger.warn(`${prefix} ${message}`, context),
+        error: (message: string, context?: unknown) => ctx.logger.error(`${prefix} ${message}`, context)
+      })
+    });
+  }
+
+  private dependenciesReady(managed: ManagedPlugin): void {
     for (const dependency of managed.plugin.manifest.dependencies ?? []) {
       const dep = this.plugins.get(dependency);
       if (!dep) throw new Error(`Missing plugin dependency: ${dependency}`);
@@ -24,21 +41,23 @@ export class BeePluginManager {
         throw new Error(`Dependency '${dependency}' is not initialized (status: ${dep.status})`);
       }
     }
-    return true;
   }
 
   async initializeAll(ctx: BeeContext): Promise<void> {
     for (const managed of this.plugins.values()) {
       if (managed.status !== "registered") continue;
+      const pluginName = managed.plugin.manifest.name;
+      const pluginContext = this.createPluginContext(pluginName, ctx);
+      managed.context = pluginContext;
       try {
         this.dependenciesReady(managed);
-        await managed.plugin.initialize?.(ctx);
+        await managed.plugin.initialize?.(pluginContext);
         managed.status = "initialized";
         managed.error = undefined;
       } catch (error) {
         managed.status = "failed";
         managed.error = error;
-        ctx.logger.error(`Plugin '${managed.plugin.manifest.name}' initialization failed; other plugins will continue`, error);
+        ctx.logger.error(`Plugin '${pluginName}' initialization failed; other plugins will continue`, error);
       }
     }
   }
@@ -46,9 +65,10 @@ export class BeePluginManager {
   async startAll(ctx: BeeContext): Promise<void> {
     for (const managed of this.plugins.values()) {
       if (managed.status !== "initialized") continue;
+      const pluginContext = managed.context ?? this.createPluginContext(managed.plugin.manifest.name, ctx);
       try {
         this.dependenciesReady(managed);
-        await managed.plugin.start?.(ctx);
+        await managed.plugin.start?.(pluginContext);
         managed.status = "started";
         managed.error = undefined;
       } catch (error) {
@@ -62,8 +82,9 @@ export class BeePluginManager {
   async stopAll(ctx: BeeContext): Promise<void> {
     for (const managed of [...this.plugins.values()].reverse()) {
       if (managed.status !== "started") continue;
+      const pluginContext = managed.context ?? this.createPluginContext(managed.plugin.manifest.name, ctx);
       try {
-        await managed.plugin.stop?.(ctx);
+        await managed.plugin.stop?.(pluginContext);
         managed.status = "stopped";
         managed.error = undefined;
       } catch (error) {
