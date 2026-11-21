@@ -276,3 +276,17 @@ The product model is now specified in `docs/template-business-model.md`.
 - Added `docs/session-resource-ids.md` with the contract and mandatory integration requirements.
 - This is deliberately **not marked complete**: API route inputs/outputs, JWT claims, public endpoints, Angular state/routes and plugin interfaces have not yet been migrated. The codec must not be treated as active protection until those integrations and cross-tenant tests are complete.
 - Changes are on branch `feature/session-bound-resource-ids`; no build, test run, CI result or deployment verification is claimed.
+
+## Session-bound resource ID runtime migration (2026-11-21 — implementation on feature branch)
+
+This section supersedes the earlier "foundation only" status above for the current feature branch. The original codec remains the cryptographic primitive; the following runtime integration has now been added:
+
+- Authenticated API requests and JSON responses are translated centrally by hooks registered with the auth plugin. Route params, query params and typed request-body IDs are decrypted before route handlers; typed response IDs are encrypted before serialization.
+- JWT `sub` and `tenantId` claims now contain AES-256-GCM session-bound references. The persisted session ID is used to resolve the actual user and tenant, and both encrypted claims are checked against the session record.
+- Company switching reissues encrypted claims bound to the same session.
+- Refresh-token rotation no longer slides the session expiry. The session has a 30-day absolute expiry, so references issued during that session expire together; logout/revocation invalidates all references immediately.
+- Platform Administration, organizations, files, marketplace and notes use the shared translation layer. Public tenant/template endpoints no longer return database tenant IDs; the public tenant route uses its public slug.
+- The auth integration test harness now exercises the same middleware while preserving its existing raw-fixture assertions. Unit coverage includes recursive translation, session separation, type binding, tampering and expiry.
+- The billing entitlement webhook remains intentionally outside session translation because it uses a separate machine-to-machine secret; its tenant ID is validated against the tenant collection.
+
+**Verification status:** source implementation and tests are committed to the feature branch, but no local build/test execution is available here. GitHub Actions must pass (backend typecheck/build/Mongo integration tests, Angular CI and Docker Compose stack checks) before merging and claiming completion. VPS deployment and browser verification remain separate post-merge steps.
