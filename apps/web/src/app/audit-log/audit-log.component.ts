@@ -48,6 +48,7 @@ type AuditEvent = { id:string; actorId:string; action:string; outcome:"success"|
 export class AuditLogComponent implements OnChanges {
   @Input() tenantId = "";
   @Input() role = "member";
+  @Input() accessToken = "";
   events: AuditEvent[] = [];
   action = "";
   page = 1;
@@ -75,10 +76,7 @@ export class AuditLogComponent implements OnChanges {
     }
   }
 
-  private get token(): string {
-    try { return JSON.parse(localStorage.getItem("bee-auth") || "null")?.accessToken || ""; }
-    catch { return ""; }
-  }
+  private get token(): string { return this.accessToken; }
 
   trackEvent(_index:number,event:AuditEvent):string { return event.id; }
   label(action:string):string { return action.replaceAll(".", " ").replaceAll("_", " "); }
