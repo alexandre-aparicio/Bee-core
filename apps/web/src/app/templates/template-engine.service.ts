@@ -67,10 +67,14 @@ export class BeeTemplateEngine {
     this.selection = { ...this.selection, [target]: templateId };
     this.selectionRevision++;
     this.previewThemePackage = target === 'public' && PACKAGE_THEME_TOKENS[templateId] ? templateId : null;
-    if (this.previewThemePackage) this.applyThemeTokens(PACKAGE_THEME_TOKENS[this.previewThemePackage], 'public');
+    const previewTokens = this.previewThemePackage ? PACKAGE_THEME_TOKENS[this.previewThemePackage] : null;
+    if (previewTokens) this.applyThemeTokens(previewTokens, 'public');
     else this.restorePreviewTokens();
     this.apply();
-    if (target === 'public' && this.previewThemePackage) setTimeout(() => this.applyThemeTokens(PACKAGE_THEME_TOKENS[this.previewThemePackage!], 'public'), 0);
+    setTimeout(() => {
+      this.apply();
+      if (previewTokens) this.applyThemeTokens(previewTokens, 'public');
+    }, 0);
   }
 
   commitPreview(): void {
@@ -97,6 +101,11 @@ export class BeeTemplateEngine {
       else this.clearThemeTokens('public');
     }
     this.apply();
+    setTimeout(() => {
+      this.apply();
+      if (snapshot.customized) this.applyThemeTokens(snapshot.tokens, 'public');
+      else this.clearThemeTokens('public');
+    }, 0);
   }
 
   private restorePreviewTokens(): void {
@@ -137,6 +146,7 @@ export class BeeTemplateEngine {
     this.selectionRevision++;
     this.persist();
     this.apply();
+    setTimeout(() => this.apply(), 0);
     if (target === 'public' && PACKAGE_THEME_TOKENS[templateId]) {
       setTimeout(() => this.applyThemeTokens(PACKAGE_THEME_TOKENS[templateId], 'public'), 0);
       void this.saveThemeTokens(PACKAGE_THEME_TOKENS[templateId], 'public');
@@ -207,7 +217,10 @@ export class BeeTemplateEngine {
       if (payload.selection?.public && this.registry.get(payload.selection.public)?.target === 'public' && this.installedTemplateIds.has(payload.selection.public)) this.selection.public = payload.selection.public;
       if (payload.selection?.dashboard && this.registry.get(payload.selection.dashboard)?.target === 'dashboard' && this.installedTemplateIds.has(payload.selection.dashboard)) this.selection.dashboard = payload.selection.dashboard;
       this.apply();
-      if (payload.tokens && payload.customized) this.applyThemeTokens(payload.tokens, 'public');
+      setTimeout(() => {
+        this.apply();
+        if (payload.tokens && payload.customized) this.applyThemeTokens(payload.tokens, 'public');
+      }, 0);
       await this.connectPublicEvents();
     } catch { /* The built-in public template is the offline fallback. */ }
   }
@@ -236,21 +249,11 @@ export class BeeTemplateEngine {
       if (dashboardId && this.registry.get(dashboardId)?.target === 'dashboard' && this.installedTemplateIds.has(dashboardId)) this.selection.dashboard = dashboardId;
       this.persist();
       this.apply();
+      setTimeout(() => this.apply(), 0);
       await this.connectRemoteEvents();
     } catch {
       // Local selection remains the offline fallback.
     }
-  }
-
-  private async restoreRemoteTheme(): Promise<void> {
-    const token = this.authToken();
-    if (!token || typeof fetch === 'undefined') return;
-    try {
-      const response = await fetch('/api/templates/theme', { headers: { authorization: `Bearer ${token}` } });
-      if (!response.ok) return;
-      const payload = await response.json() as { tokens?: Record<string, string>; customized?: boolean };
-      if (payload.tokens && payload.customized) this.applyThemeTokens(payload.tokens);
-    } catch { /* Keep the last known theme when offline. */ }
   }
 
   async saveThemeTokens(tokens: Record<string, string>, target: BeeTemplateTarget = 'public'): Promise<boolean> {
