@@ -23,10 +23,13 @@ export const platformAdminPlugin:BeePlugin={
   const guard=async(req:any,reply:any):Promise<User|null>=>{
    try{await req.jwtVerify();const claims=req.user as Claims;
     if(claims.aud!=="bee-core"||claims.client!=="dashboard"||!claims.sub||!claims.sid)return reply.code(401).send({error:"Platform admin session required"}),null;
-    const session=await sessions.findOne({id:claims.sid,userId:claims.sub,client:"dashboard",revokedAt:null,expiresAt:{$gt:new Date()}});
-    const user=await users.findOne({id:claims.sub,enabled:true,platformRole:"superadmin"});
-    if(!session||!user)return reply.code(403).send({error:"Platform superadministrator required"}),null;
+    const session=await sessions.findOne({id:claims.sid,client:"dashboard",revokedAt:null,expiresAt:{$gt:new Date()}});
+    if(!session)return reply.code(403).send({error:"Platform superadministrator required"}),null;
     const sessionContext={sessionId:session.id,expiresAt:session.expiresAt};
+    let userId="";try{userId=unmaskResourceId(String(claims.sub),"user",sessionContext,sessionIdSecret);}catch{return reply.code(401).send({error:"Invalid session subject"}),null;}
+    if(userId!==session.userId)return reply.code(401).send({error:"Invalid session subject"}),null;
+    const user=await users.findOne({id:userId,enabled:true,platformRole:"superadmin"});
+    if(!user)return reply.code(403).send({error:"Platform superadministrator required"}),null;
     try {
      if(req.params?.companyId)req.params.companyId=unmaskResourceId(String(req.params.companyId),"tenant",sessionContext,sessionIdSecret);
      if(req.params?.pluginId)req.params.pluginId=unmaskResourceId(String(req.params.pluginId),"plugin",sessionContext,sessionIdSecret);
