@@ -17,7 +17,7 @@
       <label>Authenticator or recovery code</label><input inputmode="text" autocomplete="one-time-code" name="mfaCode" [(ngModel)]="mfaCode" maxlength="12" placeholder="6-digit code or recovery code" required>
     }
     @if (error) { <div class="auth-error">{{error}}</div> }
-    <button class="auth-submit" type="submit" [disabled]="busy">{{busy ? 'Please wait…' : mfaSetupMode ? 'Confirm MFA' : mfaRequired ? 'Verify and sign in' : mode === 'forgot' ? 'Continue' : mode === 'register' ? 'Request access' : 'Sign in'}} ↗</button></form><div class="auth-divider"><span>Protected workspace</span></div><div class="secure-note">✓ Secure authentication with Bee-Core</div></div><div class="auth-footer">© Bee-Core · All is a plugin</div></div></div>
+    @if (!mfaRecoveryCodes.length) { <button class="auth-submit" type="submit" [disabled]="busy">{{busy ? 'Please wait…' : mfaSetupMode ? 'Confirm MFA' : mfaRequired ? 'Verify and sign in' : mode === 'forgot' ? 'Continue' : mode === 'register' ? 'Request access' : 'Sign in'}} ↗</button> }</form><div class="auth-divider"><span>Protected workspace</span></div><div class="secure-note">✓ Secure authentication with Bee-Core</div></div><div class="auth-footer">© Bee-Core · All is a plugin</div></div></div>
 } @else if (dashboard) {@if (auth) {
     @if (layoutId('dashboard') === 'dashboard.midnight') {
       <bee-template-midnight-layout><bee-template-midnight-page [vm]="this"></bee-template-midnight-page></bee-template-midnight-layout>
