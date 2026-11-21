@@ -388,3 +388,11 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Added a regression assertion that a UUID tenant reference is under 128 characters.
 - Commits: `36d8a91` (compact codec) and `353618b` (size regression test).
 - Still pending: pull/rebuild on VPS, confirm the 414 is gone, and run the session isolation/expiry flows. This addresses reference size; it does not replace a full audit of every endpoint and response field.
+
+
+### VPS third build feedback — restore compact codec declarations (2026-11-21)
+
+- The next VPS Docker build exposed that the compact-codec edit had replaced the prior session-id.ts implementation without preserving its shared constants, key derivation helper and exported tenant/plugin/user convenience functions. TypeScript therefore reported missing symbols and missing exports in tenant context, auth and organizations.
+- Restored the resource-type code map, supported-type set, 1 KiB ID / 2 KiB reference bounds, session-scoped HMAC key derivation and all six public convenience exports while retaining the compact version-2 AES-256-GCM reference format.
+- Fix committed directly to main: b6768f6 (fix(security): restore session ID codec helpers).
+- Not yet validated: no subsequent Docker build, TypeScript build, unit tests or VPS runtime check has been reported. The next build must be run against this commit; after a successful deploy, users must refresh/re-authenticate to obtain version-2 references.
