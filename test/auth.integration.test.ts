@@ -32,8 +32,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
     await filesPlugin.initialize?.(ctx);
-    app.get("/test/company-admin", { preHandler: [requireAuth(db), requireRoles("owner", "admin")] }, async request => ({ role: (request as AuthenticatedRequest).tenantContext.role }));
-    app.get("/test/files-write", { preHandler: [requireAuth(db), requireTenantPermissions("files.write")] }, async request => ({ tenantId: (request as AuthenticatedRequest).tenantContext.tenantId }));
+    app.get("/test/company-admin", { preHandler: [requireAuth(db, "dashboard", ctx.config.jwtSecret), requireRoles("owner", "admin")] }, async request => ({ role: (request as AuthenticatedRequest).tenantContext.role }));
+    app.get("/test/files-write", { preHandler: [requireAuth(db, "dashboard", ctx.config.jwtSecret), requireTenantPermissions("files.write")] }, async request => ({ tenantId: (request as AuthenticatedRequest).tenantContext.tenantId }));
 
     const alphaOwners=await db.collection("memberships").find({tenantId:"tenant-alpha",role:"owner",status:"active"}).toArray();
     assert.equal(alphaOwners.length,1,"each company must have exactly one active owner");
@@ -47,6 +47,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const login = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "Test-password-12345", client: "dashboard" } });
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
+    const companyListResponse=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(companyListResponse.statusCode,200);
+    const companyRef=companyListResponse.json().companies[0].id as string;
+    assert.notEqual(companyRef,"tenant-alpha","company IDs returned to the browser must be opaque references");
     const publicClientLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"public"}});
     assert.equal(publicClientLogin.statusCode,200,"the fixture account may authenticate to the public client");
     const publicClientHeaders={authorization:"Bearer "+publicClientLogin.json().accessToken};
@@ -54,17 +58,17 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(publicTemplatePreferences.statusCode,403,"public-client tokens must not access private template management");
     const publicCompanyList=await app.inject({method:"GET",url:"/companies",headers:publicClientHeaders});
     assert.equal(publicCompanyList.statusCode,403,"public-client tokens must not access company administration");
-    const tenantAuditPage=await app.inject({method:"GET",url:"/companies/tenant-alpha/audit-events?action=auth.login&limit=1",headers:{authorization:"Bearer "+tokens.accessToken}});
+    const tenantAuditPage=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(companyRef)+"/audit-events?action=auth.login&limit=1",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(tenantAuditPage.statusCode,200);
     assert.equal(tenantAuditPage.json().events.length,1);
     assert.equal(tenantAuditPage.json().hasMore,true,"audit API must provide bounded pagination");
     assert.equal(tenantAuditPage.json().events[0].action,"auth.login");
-    const invalidAuditFilter=await app.inject({method:"GET",url:"/companies/tenant-alpha/audit-events?action=unknown",headers:{authorization:"Bearer "+tokens.accessToken}});
+    const invalidAuditFilter=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(companyRef)+"/audit-events?action=unknown",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(invalidAuditFilter.statusCode,400);
-    const invalidAuditPage=await app.inject({method:"GET",url:"/companies/tenant-alpha/audit-events?page=10001",headers:{authorization:"Bearer "+tokens.accessToken}});
+    const invalidAuditPage=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(companyRef)+"/audit-events?page=10001",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(invalidAuditPage.statusCode,400,"audit pagination must reject excessive offsets");
     const crossTenantAudit=await app.inject({method:"GET",url:"/companies/tenant-beta/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
-    assert.equal(crossTenantAudit.statusCode,403,"audit queries must remain bound to the active company");
+    assert.equal(crossTenantAudit.statusCode,404,"raw internal tenant IDs must not be accepted as browser references");
     const loginAudit = await db.collection("tenant_audit_events").find({tenantId:"tenant-alpha",actorId:"test-user",action:"auth.login"}).toArray();
     assert.equal(loginAudit.length,2,"successful dashboard and public logins should both be audited for the active tenant");
     assert.ok(loginAudit.some(event=>event.metadata.client==="dashboard"));
