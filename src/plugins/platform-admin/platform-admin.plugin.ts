@@ -25,6 +25,15 @@ export const platformAdminPlugin:BeePlugin={
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
   const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Platform admin: JWT_SECRET must contain at least 32 characters.");
+  const platformAudit=db.collection("platform_audit_events");
+  await Promise.all([
+   platformAudit.createIndex({occurredAt:-1},{name:"platform_audit_occurred"}),
+   platformAudit.createIndex({actorId:1,occurredAt:-1},{name:"platform_audit_actor_occurred"})
+  ]);
+  const recordPlatformAudit=async(event:{actorId:string;action:string;tenantId?:string;resourceType:string;resourceId?:string;metadata?:Record<string,unknown>})=>{
+   try{await platformAudit.insertOne({id:randomUUID(),...event,occurredAt:new Date()});}
+   catch(error){ctx.logger.error("Platform audit event write failed",{action:event.action,error});}
+  };
   const mask=(session:{sessionId:string;expiresAt:Date},id:string,type:import("../../core/session-id.js").SessionResourceType)=>maskResourceId(id,type,session,sessionIdSecret);
   const guard=async(req:any,reply:any):Promise<User|null>=>{
    try{await req.jwtVerify();const claims=req.user as Claims;
@@ -44,6 +53,14 @@ export const platformAdminPlugin:BeePlugin={
     return user;
    }catch{return reply.code(401).send({error:"Unauthorized"}),null;}
   };
+  ctx.server.get("/platform/audit-events",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const page=Number((req.query as any)?.page??1),limit=Number((req.query as any)?.limit??25);
+   if(!Number.isSafeInteger(page)||page<1||page>10000||!Number.isSafeInteger(limit)||limit<1||limit>100)return reply.code(400).send({error:"Page must be between 1 and 10000 and limit must be between 1 and 100"});
+   const rows=await platformAudit.find({},{projection:{_id:0}}).sort({occurredAt:-1,id:-1}).skip((page-1)*limit).limit(limit+1).toArray();
+   const hasMore=rows.length>limit;
+   return {events:rows.slice(0,limit).map(event=>({id:mask(req.platformSession!,String(event.id),"audit-event"),actorId:mask(req.platformSession!,String(event.actorId),"user"),action:event.action,tenantId:event.tenantId?mask(req.platformSession!,String(event.tenantId),"tenant"):null,resourceType:event.resourceType,resourceId:event.resourceId?mask(req.platformSession!,String(event.resourceId),event.resourceType==="plugin"?"plugin":event.resourceType==="tenant"?"tenant":"audit-event"):null,metadata:event.metadata??{},occurredAt:event.occurredAt})),page,limit,hasMore};
+  });
   ctx.server.get("/platform/me",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;return {platformAdmin:true,role:user.platformRole,email:user.email};});
   ctx.server.get("/platform/companies",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;const list=await companies.find({}).sort({createdAt:-1}).toArray();return {companies:await Promise.all(list.map(async c=>({id:mask(req.platformSession!,c.id,"tenant"),name:c.name,slug:c.slug??null,status:c.status??"active",createdAt:c.createdAt,membersCount:await memberships.countDocuments({tenantId:c.id,status:"active"})}))) };});
   ctx.server.post<{Body:{name?:string;slug?:string;ownerEmail?:string;ownerPassword?:string}}>("/platform/companies",async(req,reply)=>{
@@ -63,6 +80,7 @@ export const platformAdminPlugin:BeePlugin={
    if(!owner.enabled)return reply.code(409).send({error:"Owner account is disabled"});
    await companies.insertOne(company);
    await memberships.updateOne({userId:owner.id,tenantId},{$setOnInsert:{id:randomUUID(),userId:owner.id,tenantId,role:"owner",status:"active",createdAt:now,updatedAt:now}},{upsert:true});
+   await recordPlatformAudit({actorId:actor.id,action:"company.created",tenantId,resourceType:"tenant",resourceId:tenantId,metadata:{slug}});
    return reply.code(201).send({company:{id:mask(req.platformSession!,company.id,"tenant"),name:company.name,slug:company.slug,status:company.status,createdAt:company.createdAt},owner:{id:mask(req.platformSession!,owner.id,"user"),email:owner.email}});
   });
   ctx.server.patch<{Params:{companyId:string};Body:{status?:"active"|"suspended"}}>("/platform/companies/:companyId",async(req,reply)=>{
@@ -70,6 +88,7 @@ export const platformAdminPlugin:BeePlugin={
    if(status!=="active"&&status!=="suspended")return reply.code(400).send({error:"status must be active or suspended"});
    const result=await companies.updateOne({id:req.params.companyId},{$set:{status}});
    if(!result.matchedCount)return reply.code(404).send({error:"Company not found"});
+   await recordPlatformAudit({actorId:actor.id,action:"company.status_changed",tenantId:req.params.companyId,resourceType:"tenant",resourceId:req.params.companyId,metadata:{status}});
    return {success:true,companyId:mask(req.platformSession!,req.params.companyId,"tenant"),status};
   });
   ctx.server.get<{Params:{companyId:string}}>("/platform/companies/:companyId/plugins",async(req,reply)=>{
@@ -93,10 +112,12 @@ export const platformAdminPlugin:BeePlugin={
    if(req.body.enabled){
     const queued=await enqueuePluginInstallJob(db.collection("plugin_install_jobs") as any,{tenantId:company.id,pluginId:plugin.id,actorId:actor.id});
     if(queued.job.action!=="install")return reply.code(409).send({error:"A plugin lifecycle operation is already in progress"});
+    await recordPlatformAudit({actorId:actor.id,action:"plugin.install.requested",tenantId:company.id,resourceType:"plugin",resourceId:plugin.id,metadata:{jobId:queued.job.id}});
     return reply.code(202).send({success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:true,jobId:mask(req.platformSession!,queued.job.id,"job"),status:queued.job.status});
    }
    const queued=await enqueuePluginUninstallJob(db.collection("plugin_install_jobs") as any,{tenantId:company.id,pluginId:plugin.id,actorId:actor.id});
    if(queued.job.action!=="uninstall")return reply.code(409).send({error:"A plugin lifecycle operation is already in progress"});
+   await recordPlatformAudit({actorId:actor.id,action:"plugin.uninstall.requested",tenantId:company.id,resourceType:"plugin",resourceId:plugin.id,metadata:{jobId:queued.job.id}});
    return reply.code(202).send({success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:false,jobId:mask(req.platformSession!,queued.job.id,"job"),status:queued.job.status});
   });
   ctx.server.addHook("onClose",async()=>mongo.close());
