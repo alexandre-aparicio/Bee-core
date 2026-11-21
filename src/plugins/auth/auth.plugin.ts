@@ -10,7 +10,7 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
-type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; platformRole?: "superadmin"; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; mfaSecretEnc?:string; mfaPendingSecretEnc?:string; mfaPendingExpiresAt?:Date; mfaLastStep?:number; createdAt:Date; updatedAt:Date };
+type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; platformRole?: "superadmin"; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; mfaSecretEnc?:string; mfaPendingSecretEnc?:string; mfaPendingExpiresAt?:Date; mfaLastStep?:number; mfaRecoveryHashes?:string[]; createdAt:Date; updatedAt:Date };
 type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; tenantId?:string; expiresAt:Date; absoluteExpiresAt?:Date; revokedAt:Date|null; mfaVerifiedAt?:Date; createdAt:Date };
 type LoginBody = { email?:string; password?:string; client?:ClientType; mfaCode?:string };
 type RefreshBody = { refreshToken?:string };
@@ -100,9 +100,15 @@ export const authPlugin:BeePlugin={
     if(!mfaEncryptionKey)return reply.code(503).send({error:"Superadministrator MFA encryption is not configured"});
     let secret:string;try{secret=decryptMfaSecret(u.mfaSecretEnc,mfaEncryptionKey);}catch(error){ctx.logger.error("Could not decrypt superadministrator MFA secret",{userId:u.id,error});return reply.code(503).send({error:"MFA configuration unavailable"});}
     const step=verifyTotp(secret,code);
-    if(step===null)return reply.code(401).send({error:"A valid authenticator code is required",mfaRequired:true});
-    const consumed=await users.updateOne({id:u.id,mfaSecretEnc:u.mfaSecretEnc,$or:[{mfaLastStep:{$lt:step}},{mfaLastStep:{$exists:false}}]},{$set:{mfaLastStep:step}});
-    if(!consumed.modifiedCount)return reply.code(401).send({error:"Authenticator code has already been used",mfaRequired:true});
+    if(step!==null){
+     const consumed=await users.updateOne({id:u.id,mfaSecretEnc:u.mfaSecretEnc,$or:[{mfaLastStep:{$lt:step}},{mfaLastStep:{$exists:false}}]},{$set:{mfaLastStep:step}});
+     if(!consumed.modifiedCount)return reply.code(401).send({error:"Authenticator code has already been used",mfaRequired:true});
+    }else{
+     const recoveryHash=hashToken(code.trim().toUpperCase());
+     const consumed=await users.updateOne({id:u.id,mfaRecoveryHashes:recoveryHash},{$pull:{mfaRecoveryHashes:recoveryHash}});
+     if(!consumed.modifiedCount)return reply.code(401).send({error:"A valid authenticator or unused recovery code is required",mfaRequired:true});
+     ctx.logger.info("Superadministrator used a one-time MFA recovery code",{userId:u.id});
+    }
     mfaVerifiedAt=new Date();
    }
    if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
@@ -144,7 +150,8 @@ export const authPlugin:BeePlugin={
    let secret:string;try{secret=decryptMfaSecret(current.user.mfaPendingSecretEnc,mfaEncryptionKey);}catch{return reply.code(503).send({error:"MFA configuration unavailable"});}
    const step=verifyTotp(secret,String(req.body?.code??""));
    if(step===null)return reply.code(401).send({error:"Invalid authenticator code"});
-   const saved=await users.updateOne({id:current.user.id,mfaPendingSecretEnc:current.user.mfaPendingSecretEnc,mfaPendingExpiresAt:{$gt:new Date()}},{$set:{mfaSecretEnc:current.user.mfaPendingSecretEnc,mfaLastStep:step},$unset:{mfaPendingSecretEnc:"",mfaPendingExpiresAt:""}});
+   const recoveryCodes=Array.from({length:10},()=>randomBytes(9).toString("base64url").toUpperCase());
+   const saved=await users.updateOne({id:current.user.id,mfaPendingSecretEnc:current.user.mfaPendingSecretEnc,mfaPendingExpiresAt:{$gt:new Date()}},{$set:{mfaSecretEnc:current.user.mfaPendingSecretEnc,mfaLastStep:step,mfaRecoveryHashes:recoveryCodes.map(code=>hashToken(code))},$unset:{mfaPendingSecretEnc:"",mfaPendingExpiresAt:""}});
    if(!saved.modifiedCount)return reply.code(409).send({error:"MFA setup expired; start again"});
    const verifiedAt=new Date();
    await sessions.updateOne({id:current.session.id,userId:current.user.id,revokedAt:null},{$set:{mfaVerifiedAt:verifiedAt}});
@@ -152,7 +159,7 @@ export const authPlugin:BeePlugin={
    const membership=await db.collection("memberships").findOne({userId:current.user.id,tenantId,status:"active"});
    const role=String(membership?.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
    await auditAuthEvent({tenantId,actorId:current.user.id,action:"auth.login",outcome:"success",metadata:{client:"dashboard",mfa:"enrolled"}});
-   return {success:true,accessToken:issue({...current.user,roles}, "dashboard",tenantId,current.session.id,current.session.expiresAt),expiresIn:1200,platformRole:"superadmin"};
+   return {success:true,accessToken:issue({...current.user,roles}, "dashboard",tenantId,current.session.id,current.session.expiresAt),expiresIn:1200,platformRole:"superadmin",recoveryCodes};
   });
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
    if(!isSameOrigin(req))return reply.code(403).send({error:"Cross-origin refresh request rejected"});
