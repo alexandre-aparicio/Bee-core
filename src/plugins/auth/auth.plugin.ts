@@ -1,4 +1,5 @@
 import type { BeePlugin } from "../../core/types.js";
+import jwt from "@fastify/jwt";
 import bcrypt from "bcryptjs";
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -71,7 +72,9 @@ export const authPlugin:BeePlugin={
    ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
   }
   const resourceIdSecret=String(ctx.config.jwtSecret??"");
+  if(resourceIdSecret.length<32)throw new Error("Auth: JWT secret must contain at least 32 characters.");
   if(!process.env.JWT_SECRET)process.env.JWT_SECRET=resourceIdSecret;
+  ctx.server.register(jwt,{secret:resourceIdSecret,sign:{expiresIn:"20m"}});
   ctx.server.addHook("preValidation",async(request,reply)=>{
    if(!request.headers.authorization||request.url.split("?")[0]==="/billing/webhooks/entitlement")return;
    try{await request.jwtVerify();}catch{return reply.code(401).send({error:"Unauthorized"});}
