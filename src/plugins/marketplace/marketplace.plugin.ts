@@ -104,7 +104,7 @@ export const marketplacePlugin: BeePlugin = {
         const pluginId = String(body.pluginId ?? "").trim();
         const providerReference = String(body.providerReference ?? "").trim();
         const definition = getTrustedPluginPackage(pluginId);
-        if (!definition || !definition.purchasable || !providerReference || providerReference.length > 200 || /[\\u0000-\\u001f\\u007f]/.test(providerReference)) {
+        if (!definition || !definition.purchasable || !providerReference || providerReference.length > 200 || /[\u0000-\u001f\u007f]/.test(providerReference)) {
           return reply.code(400).send({ error: "A purchasable plugin and a valid providerReference (1-200 characters) are required" });
         }
         type Purchase = import("mongodb").Document & {
