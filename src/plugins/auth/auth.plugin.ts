@@ -5,7 +5,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { resolveTenantContext } from "../../core/tenant-context.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
-import { maskTenantId, maskUserId } from "../../core/session-id.js";
+import { maskTenantId, maskUserId, transformSessionResourceIds } from "../../core/session-id.js";
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
@@ -71,6 +71,27 @@ export const authPlugin:BeePlugin={
    ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
   }
   const resourceIdSecret=String(ctx.config.jwtSecret??"");
+  if(!process.env.JWT_SECRET)process.env.JWT_SECRET=resourceIdSecret;
+  ctx.server.addHook("preValidation",async(request,reply)=>{
+   if(!request.headers.authorization||request.url.split("?")[0]==="/billing/webhooks/entitlement")return;
+   try{await request.jwtVerify();}catch{return reply.code(401).send({error:"Unauthorized"});}
+   const claims=request.user as {sid?:string;aud?:string};
+   if(claims.aud!=="bee-core"||!claims.sid)return reply.code(401).send({error:"Active session required"});
+   const activeSession=await sessions.findOne({id:claims.sid,revokedAt:null,expiresAt:{$gt:new Date()}});
+   if(!activeSession)return reply.code(401).send({error:"Session expired or revoked"});
+   const sessionContext={sessionId:activeSession.id,expiresAt:activeSession.expiresAt};
+   (request as any).__beeSessionIdContext=sessionContext;
+   try{
+    if(request.params&&typeof request.params==="object")(request as any).params=transformSessionResourceIds(request.params,"unmask",sessionContext,resourceIdSecret);
+    if(request.query&&typeof request.query==="object")(request as any).query=transformSessionResourceIds(request.query,"unmask",sessionContext,resourceIdSecret);
+    if(request.body&&typeof request.body==="object"&&!Buffer.isBuffer(request.body))(request as any).body=transformSessionResourceIds(request.body,"unmask",sessionContext,resourceIdSecret);
+   }catch{return reply.code(400).send({error:"Invalid, expired, or session-mismatched resource reference"});}
+  });
+  ctx.server.addHook("preSerialization",async(request,_reply,payload)=>{
+   const sessionContext=(request as any).__beeSessionIdContext as {sessionId:string;expiresAt:Date}|undefined;
+   if(!sessionContext||!payload||typeof payload!=="object"||Buffer.isBuffer(payload))return payload;
+   return transformSessionResourceIds(payload,"mask",sessionContext,resourceIdSecret);
+  });
   const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId"|"platformRole">,client:ClientType,tenantId:string,sessionId:string,expiresAt:Date)=>{
    const sessionContext={sessionId,expiresAt};
    return ctx.server.jwt.sign({sub:maskUserId(u.id,sessionContext,resourceIdSecret),email:u.email,roles:u.roles,...(u.platformRole?{platformRole:u.platformRole}:{}),tenantId:maskTenantId(tenantId,sessionContext,resourceIdSecret),client,aud:"bee-core",sid:sessionId});
