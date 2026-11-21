@@ -1,38 +1,60 @@
-# Platform Settings navigation — Agent 2
+# Bee-Core Settings sections
 
-**Branch:** `agent-2/platform-settings-navigation`  
-**Scope:** Angular dashboard navigation and presentation only.
+**Branch:** `feature/settings-sections`  
+**Base:** `main` at `86d30a83b3f2e5b669465b01649d9589ef7d2ed7`
 
-## Summary
+## Navigation and routes
 
-- Replaced the flat Settings destination with one expandable Settings group in all three dashboard shells: Midnight, Glass and Paper.
-- Added the eight requested destinations: General, Tenants, Plugins, Integrations, Plans & Licensing, Security, Infrastructure and Localization.
-- The Settings group uses one shared expanded-menu state (`expandedMenuId`). Opening it closes any other expandable navigation group; selecting a destination closes the submenu only when navigating away from Settings. Clicking Settings again collapses it.
-- Added a section heading, explanatory text, configuration-scope indicator and a consistent placeholder workspace for each destination. These are presentation surfaces; they do not claim to implement the underlying platform APIs or controls.
+Settings remains one expandable destination in the primary dashboard navigation. It contains exactly eight role-filtered sections:
 
-## Role visibility
+- General — `/dashboard/settings/general`
+- Tenants — `/dashboard/settings/tenants`
+- Plugins — `/dashboard/settings/plugins`
+- Integrations — `/dashboard/settings/integrations`
+- Plans & Licensing — `/dashboard/settings/plans-licensing`
+- Security — `/dashboard/settings/security`
+- Infrastructure — `/dashboard/settings/infrastructure`
+- Localization — `/dashboard/settings/localization`
 
-| Role | Settings destinations |
-|---|---|
-| Platform Super Admin (`platformRole === 'superadmin'`) | All eight |
-| Tenant owner / admin | General (tenant-scoped description), Plugins, Integrations, Security, Localization |
-| Tenant manager | Localization only |
-| Standard tenant member | Localization only |
+The legacy base URL `/dashboard/settings` resolves to General. Plugins remains exclusively inside Settings; its existing detail route is retained for deep links.
 
-The existing role and active-company context are reused. This change does not grant backend permissions. Direct navigation to a settings route that is not in the current role's visible settings list is rejected back to the dashboard during route synchronization; `navigateSection` also refuses hidden settings IDs.
+## General
 
-## Files changed
+General contains exactly three cards:
 
-- `apps/web/src/app/app.component.ts` — settings route registry, role-aware visibility, active submenu state, navigation and section metadata.
-- `apps/web/src/app/templates/packages/midnight/pages/dashboard.component.ts`
-- `apps/web/src/app/templates/packages/glass/pages/dashboard.component.ts`
-- `apps/web/src/app/templates/packages/paper/pages/dashboard.component.ts`
-- `docs/platform-settings-navigation.md` — this Agent 2 implementation note.
-- `docs/mvp-progress.md` — progress entry.
+1. **Platform Identity** — platform or active-tenant name, current host and corporate assets.
+2. **Appearance** — reuses the existing template manager for dashboard/public themes and appearance modes.
+3. **Platform Defaults** — default workspace landing, onboarding and workspace experience.
+
+Appearance reuses the existing template manager only in tenant scope. The current template engine persists preferences per active tenant, so it is deliberately not exposed as a global platform control. Global appearance, identity and defaults remain informational/unavailable until a platform settings persistence API exists; the UI does not claim to save them.
+
+## Section ownership
+
+- **Tenants:** existing platform tenant directory and management component; Super Administrator only.
+- **Plugins:** existing authenticated marketplace-backed catalogue and details view.
+- **Integrations:** connector registry, global credentials, SMTP and notification channels.
+- **Plans & Licensing:** plan catalogue, pricing, subscriptions and license entitlements.
+- **Security:** authentication/session policies, governance, privacy and retention. Existing Activity audit log remains in Activity and is not duplicated.
+- **Infrastructure:** runtime/services, storage, queues, logs and backup operations.
+- **Localization:** languages, regions, currencies, timezone and regional formats.
+
+For the last five operational areas, the current backend does not expose persisted settings APIs. Their fields are therefore shown as unavailable, with explicit backend dependency notes; no local-only form or fake save behavior is presented.
+
+## Role visibility and scope
+
+- Super Administrator: all eight sections, platform scope.
+- Tenant owner/admin: General, Plugins, Integrations, Security and Localization, tenant scope.
+- Tenant manager/member: Localization only.
+- The existing server-side authorization remains authoritative; hiding a navigation entry does not grant backend access.
+- Tenant directory remains separate from tenant-scoped General. Platform identity/default settings are not silently written to a tenant, or vice versa.
+
+## Files
+
+- `apps/web/src/app/app.component.ts` — canonical routes, base-route handling, role visibility and removal of duplicate main-navigation entries.
+- `apps/web/src/app/settings/settings-workspace.component.ts` — shared Settings workspace and General cards.
+- `apps/web/src/app/templates/packages/{midnight,glass,paper}/pages/dashboard.component.ts` — shared Settings component mounted in all dashboard themes.
+- `docs/platform-settings-navigation.md` and `docs/mvp-progress.md` — scope, implementation and limitations.
 
 ## Validation
 
-- Source-level review only: checked the three dashboard templates for matching Settings submenu bindings and checked the app navigation methods for role filtering and route handling.
-- No unit tests, E2E tests, Angular build, GitHub Actions workflows or deployment checks were run, as requested.
-- Visual rendering, Angular compilation and browser behavior remain to be confirmed locally before integration.
-- No changes were made to `main`; this work remains isolated on the Agent 2 branch.
+Source-level review only. No build, browser tests, GitHub Actions or VPS validation were run, as requested. Angular compilation, template rendering, route refresh behavior and role-specific access must be verified in the VPS environment.
