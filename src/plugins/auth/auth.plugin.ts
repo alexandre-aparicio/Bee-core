@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { resolveTenantContext } from "../../core/tenant-context.js";
+import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 
 type ClientType = "backend" | "dashboard" | "public";
@@ -124,8 +125,10 @@ export const authPlugin:BeePlugin={
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
   ctx.server.get("/templates/public",async(req)=>{
-   const host=String(req.hostname??"").toLowerCase().replace(/:\d+$/,"");
-   const tenant=await tenants.findOne({domains:host});
+   const host=String(req.hostname??"").trim().toLowerCase().replace(/:\d+$/,"").replace(/\.$/,"");
+   const publicBaseDomain=String(ctx.config.publicBaseDomain??"beecore.beeprojects.net").trim().toLowerCase().replace(/^\.+|\.+$/g,"");
+   const slug=tenantSlugFromHost(host,publicBaseDomain);
+   const tenant=slug?await tenants.findOne({slug}):host!==publicBaseDomain?await tenants.findOne({domains:host}):null;
    const tenantId=tenant?.id??defaultTenantId;
    const saved=await templatePreferences.findOne({tenantId});
    return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)};
