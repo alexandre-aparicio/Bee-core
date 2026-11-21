@@ -91,6 +91,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
 export class CompanyMembersComponent implements OnInit, OnChanges {
   @Input() tenantId = "";
   @Input() role = "member";
+  @Input() accessToken = "";
   @Output() membershipChanged = new EventEmitter<void>();
   members: CompanyMember[] = [];
   invitations: CompanyInvitation[] = [];
@@ -143,10 +144,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   trackCustomRole(_index:number, role:CustomRole):string { return role.id; }
   customRoleName(roleId?:string|null):string { return this.customRoles.find(item=>item.id===roleId)?.name || "Custom role"; }
 
-  private get token(): string {
-    try { return JSON.parse(localStorage.getItem("bee-auth") || "null")?.accessToken || ""; }
-    catch { return ""; }
-  }
+  private get token(): string { return this.accessToken; }
 
   private async request(path: string, method = "GET", body?: unknown): Promise<any> {
     const response = await fetch("/api" + path, {
