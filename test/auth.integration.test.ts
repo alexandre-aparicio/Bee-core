@@ -47,10 +47,17 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const login = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "Test-password-12345", client: "dashboard" } });
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
+    assert.notEqual(tokens.tenantId,"tenant-alpha","login must not expose the internal tenant ID");
+    assert.notEqual(tokens.user.id,"test-user","login must not expose the internal user ID");
     const companyListResponse=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(companyListResponse.statusCode,200);
     const companyRef=companyListResponse.json().companies[0].id as string;
     assert.notEqual(companyRef,"tenant-alpha","company IDs returned to the browser must be opaque references");
+    const rawCompanyRef=await app.inject({method:"GET",url:"/companies/tenant-alpha/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(rawCompanyRef.statusCode,404,"raw internal tenant IDs must not resolve in organization routes");
+    const secondSessionLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
+    const secondSessionAudit=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(companyRef)+"/audit-events",headers:{authorization:"Bearer "+secondSessionLogin.json().accessToken}});
+    assert.equal(secondSessionAudit.statusCode,404,"organization references must be bound to the issuing session");
     const publicClientLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"public"}});
     assert.equal(publicClientLogin.statusCode,200,"the fixture account may authenticate to the public client");
     const publicClientHeaders={authorization:"Bearer "+publicClientLogin.json().accessToken};
