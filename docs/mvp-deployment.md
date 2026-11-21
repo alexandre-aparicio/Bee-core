@@ -6,6 +6,10 @@ This overlay is the first server-install profile for Bee-Core. It exposes the An
 
 This is a **deployment candidate**, not a security-certified production release. Tenant isolation, authentication hardening, monitoring and operational recovery still have open work. Do not expose this stack directly to the public internet without HTTPS, firewalling, encrypted off-site backups and a security review.
 
+## Container process handling
+
+The Compose definition enables Docker's lightweight init process for MongoDB, the API and the web container. It forwards termination signals and reaps orphaned child processes, improving clean shutdown and restart behavior. It does not replace health checks, graceful application shutdown, or monitoring.
+
 ## Prerequisites
 
 - Docker Engine and Docker Compose plugin v2.24+ (required for the `!reset` merge tag used to remove inherited host port bindings)
@@ -48,7 +52,7 @@ The web UI listens on host TCP port `3011` by default. Configure Nginx Proxy Man
 
 Do **not** forward NPM to `127.0.0.1:3011` unless NPM uses host networking; inside a normal container, localhost refers to the NPM container itself. Use the Docker host gateway or the VPS address reachable from that container.
 
-The web Nginx container proxies `/api/` to the internal Bee-Core service. API and MongoDB do not publish host ports in this profile. Do not bind Bee-Core to host ports 80 or 443; those belong to the existing Nginx Proxy Manager.
+The web Nginx container proxies `/api/` to the internal Bee-Core service. API and MongoDB do not publish host ports in this profile. The production overlay places MongoDB and the API on an internal backend network; only the API and web proxy share the frontend network, so the web container cannot connect directly to MongoDB. Do not bind Bee-Core to host ports 80 or 443; those belong to the existing Nginx Proxy Manager.
 
 ## DNS and tenant subdomains
 
@@ -92,34 +96,67 @@ docker volume ls | grep bee_core
 
 ## Backup
 
-Create a compressed logical backup using the official MongoDB Database Tools image. Run it on the private Compose network so MongoDB remains unpublished on the host:
+Back up both persistent data stores: MongoDB and the private file volume. These commands use the active Compose network/container and honor `MONGODB_DB` from the shell environment or `.env`. Keep the backup directory outside the Git checkout:
 
 ```bash
-mkdir -p backups
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
-docker run --rm --network "$network" -v "$PWD/backups:/backup" \
+set -euo pipefail
+backup_dir="$HOME/bee-core-backups"
+mkdir -p "$backup_dir"
+chmod 700 "$backup_dir"
+backup_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+db_name="${MONGODB_DB:-$(sed -n 's/^MONGODB_DB=//p' .env | tail -n1)}"
+db_name="${db_name:-bee_core}"
+mongodb_id="$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)"
+network="$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')"
+files_volume="$(docker volume ls --filter label=com.docker.compose.volume=bee_core_files --format '{{.Name}}' | head -n1)"
+test -n "$network"
+test -n "$files_volume"
+
+docker run --rm --network "$network" -v "$backup_dir:/backup" \
   mongodb/mongodb-database-tools:100.12.2 \
-  mongodump --uri="mongodb://mongodb:27017/bee_core" \
-  --archive="/backup/bee_core-$(date +%F).archive" --gzip
+  mongodump --uri="mongodb://mongodb:27017/${db_name}" \
+  --archive="/backup/bee-core-${db_name}-${backup_stamp}.archive" --gzip
+
+docker run --rm -v "$files_volume:/data:ro" -v "$backup_dir:/backup" alpine:3.20 \
+  sh -c "tar -czf /backup/bee-core-files-${backup_stamp}.tar.gz -C /data ."
 ```
 
-Copy backups off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery.
+Copy both archives off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery. The file-volume archive may contain customer uploads and must be protected like the database backup.
 
 ## Restore drill
 
-Restore into a separate database first; never overwrite the live database during a drill:
+Restore into a separate database and volume first; never overwrite live data during a drill. Set `BACKUP_STAMP` to the timestamp used by the two backup files:
 
 ```bash
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
-docker run --rm --network "$network" -v "$PWD/backups:/backup" \
+set -euo pipefail
+backup_dir="$HOME/bee-core-backups"
+backup_stamp="${BACKUP_STAMP:?Set BACKUP_STAMP to the backup timestamp}"
+db_name="${MONGODB_DB:-$(sed -n 's/^MONGODB_DB=//p' .env | tail -n1)}"
+db_name="${db_name:-bee_core}"
+restore_db="${db_name}_restore"
+archive="bee-core-${db_name}-${backup_stamp}.archive"
+files_archive="bee-core-files-${backup_stamp}.tar.gz"
+mongodb_id="$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)"
+network="$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')"
+test -f "$backup_dir/$archive"
+test -f "$backup_dir/$files_archive"
+
+docker run --rm --network "$network" -v "$backup_dir:/backup:ro" \
   mongodb/mongodb-database-tools:100.12.2 \
-  mongorestore --uri="mongodb://mongodb:27017/bee_core_restore" \
-  --archive="/backup/bee_core-YYYY-MM-DD.archive" --gzip \
-  --nsInclude='bee_core.*' --nsFrom='bee_core.*' --nsTo='bee_core_restore.*'
+  mongorestore --uri="mongodb://mongodb:27017/${restore_db}" \
+  --archive="/backup/${archive}" --gzip \
+  --nsInclude="${db_name}.*" --nsFrom="${db_name}.*" --nsTo="${restore_db}.*"
+
+restore_volume="bee-core-files-restore-drill"
+docker volume rm "$restore_volume" >/dev/null 2>&1 || true
+docker volume create "$restore_volume"
+docker run --rm -v "$restore_volume:/restore" -v "$backup_dir:/backup:ro" alpine:3.20 \
+  sh -c "tar -xzf /backup/${files_archive} -C /restore"
+docker run --rm -v "$restore_volume:/restore:ro" alpine:3.20 \
+  sh -c "find /restore -type f -print | sed -n '1,20p'"
 ```
 
-Verify application-critical collections and records in the restored database before considering the drill successful. The CI workflow exercises a sentinel-record round-trip; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
-
+Verify application-critical MongoDB collections and records, and inspect restored files in the separate volume before considering the drill successful. Remove the temporary restore volume and database after validation. The CI workflow exercises MongoDB and file-volume round-trips; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
 ## Update
 
 ```bash
