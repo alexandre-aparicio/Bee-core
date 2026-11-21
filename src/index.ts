@@ -20,7 +20,7 @@ plugins.register(helloPlugin);plugins.register(authPlugin);plugins.register(orga
 app.get("/health",async()=>({status:"ok",name:ctx.appName,version:ctx.version,uptime:process.uptime()}));
 app.get("/plugins",async()=>({plugins:plugins.list()}));
 app.get("/",async()=>({name:"Bee-Core",slogan:"All Is a Plugin",version:ctx.version,status:"running",endpoints:["/health","/plugins","/auth/login","/auth/refresh","/auth/me","/auth/logout"]}));
-async function bootstrap(){await plugins.initializeAll(ctx);await plugins.startAll(ctx);await events.emit("bee.started",{at:new Date().toISOString()});const port=Number(process.env.PORT??3000),host=process.env.HOST??"0.0.0.0";await app.listen({port,host});logger.info(`Bee-Core listening at http://${host}:${port}`);}
+async function bootstrap(){await plugins.mountAll(ctx);await events.emit("bee.started",{at:new Date().toISOString()});const port=Number(process.env.PORT??3000),host=process.env.HOST??"0.0.0.0";await app.listen({port,host});logger.info(`Bee-Core listening at http://${host}:${port}`);}
 let shuttingDown=false;
 const shutdown=async(signal:string)=>{if(shuttingDown)return;shuttingDown=true;logger.info(`Received ${signal}, shutting down`);await plugins.stopAll(ctx);await app.close();process.exit(0);};
 process.on("SIGTERM",()=>void shutdown("SIGTERM"));process.on("SIGINT",()=>void shutdown("SIGINT"));
