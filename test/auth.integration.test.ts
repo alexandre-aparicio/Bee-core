@@ -56,6 +56,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const tokens = login.json();
     const initialRefreshCookie=String(login.headers["set-cookie"]??"").split(";")[0];
     assert.ok(initialRefreshCookie.startsWith("bee_refresh="),"dashboard refresh token must be delivered as an HttpOnly cookie");
+    assert.match(String(login.headers["set-cookie"]??""),/HttpOnly/);
+    assert.match(String(login.headers["set-cookie"]??""),/SameSite=Strict/);
     assert.notEqual(tokens.tenantId,"tenant-alpha","login must not expose the internal tenant ID");
     assert.notEqual(tokens.user.id,"test-user","login must not expose the internal user ID");
     const initialClaims=JSON.parse(Buffer.from(tokens.accessToken.split(".")[1],"base64url").toString("utf8")) as {sub:string;tenantRef?:string;tenantId?:string};
@@ -433,6 +435,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
     const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken, cookie:rotatedRefreshCookie }, payload: {} });
     assert.equal(logout.statusCode, 200);
+    assert.match(String(logout.headers["set-cookie"]??""),/Max-Age=0/,"logout must clear the refresh cookie");
     const revokedSessionReference=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+refreshed.accessToken}});
     assert.equal(revokedSessionReference.statusCode,401,"session-bound resource references must stop resolving as soon as logout revokes their issuing session");
     const logoutAudit = await db.collection("tenant_audit_events").find({actorId:"test-user",action:"auth.logout"}).toArray();
