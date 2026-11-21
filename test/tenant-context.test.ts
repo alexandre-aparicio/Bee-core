@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MongoClient } from "mongodb";
 import { hasTenantPermission, resolveTenantContext, type TenantClaims } from "../src/core/tenant-context.js";
-import { maskTenantId } from "../src/core/session-id.js";
+import { maskResourceId, maskTenantId } from "../src/core/session-id.js";
 
 const uri = process.env.MONGODB_TEST_URI;
 
@@ -15,7 +15,7 @@ test("tenant context requires a valid session, active membership and company", {
   const secret="test-secret-that-is-long-enough-for-session-references";
   const sessionContext={sessionId:"session-one",expiresAt:sessionExpiry};
   const claims: TenantClaims = {
-    sub: "user-one",
+    sub: maskResourceId("user-one","user",sessionContext,secret),
     email: "forged@example.test",
     tenantRef: maskTenantId("company-one",sessionContext,secret),
     sid: "session-one",
