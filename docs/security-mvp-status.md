@@ -13,7 +13,10 @@ This document records implemented security controls and the remaining gaps befor
 - Successful login/logout audit events are integrated (PR #18).
 - Login performs a dummy bcrypt comparison for unknown users; Nginx applies login rate limiting and baseline security headers (PR #56).
 - Superadministrator TOTP MFA uses AES-256-GCM-encrypted secrets, replay prevention, and ten one-time hashed recovery codes. Platform administration requires MFA verification within the previous 15 minutes (security branch; not yet merged).
-- Dashboard access tokens remain in memory; refresh tokens are stored in rotating HttpOnly, SameSite=Strict cookies. Refresh lifetime is seven days with a 30-day absolute session cap; logout revokes the session (security branch; not yet merged).
+- Dashboard access tokens remain in memory across the Angular app; refresh tokens are stored in rotating HttpOnly, SameSite=Strict cookies. Refresh lifetime is seven days with a 30-day absolute session cap; logout revokes the session (security branch; not yet merged).
+- Direct membership creation returns a uniform response for unknown, disabled, already-active and over-limit addresses to reduce email enumeration (security branch; not yet merged).
+- MongoDB root authentication and a database-scoped application user are configured in Compose, with an initialization script and a documented migration procedure for existing volumes (security branch; not yet merged).
+- Production reverse-proxy TLS requirements are documented; Nginx emits HSTS only when the upstream reports HTTPS (security branch; not yet merged).
 - TOTP unit tests were added but have not yet been executed.
 - Invitation creation/acceptance/cancellation, custom role create/update/delete, membership role changes/suspension, plugin install/uninstall and company/marketplace permission denials are integrated (PR #20), with MongoDB integration assertions.
 
@@ -35,8 +38,7 @@ PR #20 is merged as `1c96e8100d2145f518a0232d300122c866551c1b`. Its PR-head back
 - MFA implementation is present on the current security branch but still needs automated execution and staging verification before merge.
 - Password recovery, email verification and immediate access-token revocation.
 - Provider-signed billing webhooks and payment reconciliation.
-- HTTPS/TLS, firewall policy, encrypted off-site backups, restore drills and monitoring.
-- MongoDB authentication and a safe migration plan for the existing data volume.
+- Actual certificate provisioning, reverse-proxy configuration, firewall policy, encrypted off-site backups, restore drills and monitoring. TLS configuration at the hosting reverse proxy still needs to be applied and verified.
 
 ## Test expectation
 
