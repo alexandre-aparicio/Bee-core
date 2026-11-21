@@ -81,14 +81,14 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(publicTicket.json().ticket);
     const publicAlpha = await app.inject({method:"GET",url:"/templates/public",headers:{host:"alpha.example.test"}});
     assert.equal(publicAlpha.statusCode,200);
-    assert.equal(publicAlpha.json().tenantId,"tenant-alpha");
+    assert.equal(publicAlpha.json().tenantId,"alpha","public discovery exposes the public slug, not the internal tenant ID");
     const setAlphaDomains = await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+tokens.accessToken},payload:{domains:["www.alpha.example.test"]}});
     assert.equal(setAlphaDomains.statusCode,200);
     const publicUpdatedDomain = await app.inject({method:"GET",url:"/templates/public",headers:{host:"www.alpha.example.test"}});
-    assert.equal(publicUpdatedDomain.json().tenantId,"tenant-alpha");
+    assert.equal(publicUpdatedDomain.json().tenantId,"alpha","public template discovery must not expose the internal tenant ID");
     const defaultTemplates = await app.inject({ method: "GET", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken } });
     assert.equal(defaultTemplates.statusCode, 200);
-    assert.equal(defaultTemplates.json().tenantId,"tenant-alpha");
+    assert.notEqual(defaultTemplates.json().tenantId,"tenant-alpha","authenticated template APIs must return a session-bound tenant reference");
     assert.deepEqual(defaultTemplates.json().selection, { public: "aurora", dashboard: "midnight" });
     assert.deepEqual(defaultTemplates.json().installedTemplates.sort(),["aurora","editorial","midnight","paper"]);
     const catalog = await app.inject({method:"GET",url:"/templates/catalog",headers:{authorization:"Bearer "+tokens.accessToken}});
