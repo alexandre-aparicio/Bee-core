@@ -502,3 +502,53 @@ test('platform administration supports card/list views, disabled actions, compan
   await dialog.getByRole('button', { name: 'Create company' }).click();
   await expect(page.getByRole('heading', { name: 'New Tenant' })).toBeVisible();
 });
+
+
+test('dashboard section deep links restore their own section and template surface', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
+    accessToken: 'section-route-owner-token',
+    tenantId: 'company-a',
+    user: { id: 'owner-1', email: 'owner@example.test', roles: ['admin'], tenantId: 'company-a' }
+  })));
+  await page.route('**/api/companies', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: 'company-a', name: 'Company A', role: 'owner', active: true }] })
+  }));
+  await page.route('**/api/templates/preferences', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      selection: { public: 'aurora', dashboard: 'midnight' },
+      installedTemplates: ['aurora', 'editorial', 'studio', 'midnight', 'paper', 'glass']
+    })
+  }));
+  await page.route('**/api/templates/theme', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ tokens: {}, customized: false })
+  }));
+  await page.route('**/api/templates/stream-ticket', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ ticket: 'section-route-test-ticket' })
+  }));
+  await page.route('**/api/templates/install', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ installedTemplates: ['aurora', 'editorial', 'studio', 'midnight', 'paper', 'glass'] })
+  }));
+
+  await page.goto('/dashboard/settings');
+  await expect(page.locator('.md-main > header')).toContainText('Company A / Settings');
+  await expect(page.locator('.md-content h1')).toHaveText('Settings');
+
+  await page.getByRole('button', { name: 'Dashboard themes' }).click();
+  await expect(page).toHaveURL('http://127.0.0.1:4200/dashboard/themes');
+  await expect(page.locator('.md-main > header')).toContainText('Company A / Dashboard Theme');
+  await expect(page.getByRole('region', { name: 'Template manager' })).toBeVisible();
+
+  await page.goto('/dashboard/public-theme');
+  await expect(page.locator('.md-main > header')).toContainText('Company A / Public Theme');
+  await expect(page.getByRole('region', { name: 'Template manager' })).toBeVisible();
+});
