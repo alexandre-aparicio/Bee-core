@@ -11,7 +11,7 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
 type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; platformRole?: "superadmin"; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; mfaSecretEnc?:string; mfaPendingSecretEnc?:string; mfaPendingExpiresAt?:Date; mfaLastStep?:number; createdAt:Date; updatedAt:Date };
-type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; tenantId?:string; expiresAt:Date; revokedAt:Date|null; mfaVerifiedAt?:Date; createdAt:Date };
+type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; tenantId?:string; expiresAt:Date; absoluteExpiresAt?:Date; revokedAt:Date|null; mfaVerifiedAt?:Date; createdAt:Date };
 type LoginBody = { email?:string; password?:string; client?:ClientType; mfaCode?:string };
 type RefreshBody = { refreshToken?:string };
 const validClients:ClientType[]=["backend","dashboard","public"];
@@ -19,10 +19,11 @@ const publicUser=(u:UserRecord,sessionId:string,expiresAt:Date,secret:string)=>(
 const clientFrom=(v:unknown):ClientType|null=>validClients.includes(v as ClientType)?v as ClientType:null;
 const hashToken=(t:string)=>createHash("sha256").update(t).digest("hex");
 const makeRefreshToken=()=>randomBytes(48).toString("base64url");
-const refreshExpiry=()=>new Date(Date.now()+30*24*60*60*1000);
+const refreshExpiry=()=>new Date(Date.now()+7*24*60*60*1000);
+const absoluteSessionExpiry=()=>new Date(Date.now()+30*24*60*60*1000);
 const readCookie=(req:any,name:string):string=>{const header=String(req.headers?.cookie??"");for(const part of header.split(";")){const [key,...rest]=part.trim().split("=");if(key===name)return decodeURIComponent(rest.join("="));}return "";};
 const isSameOrigin=(req:any):boolean=>{const origin=String(req.headers?.origin??"");if(!origin)return true;try{return new URL(origin).host===String(req.headers?.host??"");}catch{return false;}};
-const writeRefreshCookie=(reply:any,token:string,secure:boolean)=>reply.header("Set-Cookie",`bee_refresh=${encodeURIComponent(token)}; Path=/api/auth; HttpOnly; SameSite=Strict; Max-Age=2592000${secure?"; Secure":""}`);
+const writeRefreshCookie=(reply:any,token:string,secure:boolean)=>reply.header("Set-Cookie",`bee_refresh=${encodeURIComponent(token)}; Path=/api/auth; HttpOnly; SameSite=Strict; Max-Age=604800${secure?"; Secure":""}`);
 const clearRefreshCookie=(reply:any,secure:boolean)=>reply.header("Set-Cookie",`bee_refresh=; Path=/api/auth; HttpOnly; SameSite=Strict; Max-Age=0${secure?"; Secure":""}`);
 
 const mfaKeyFrom=(value:unknown):Buffer|null=>{const raw=String(value??"").trim();if(!raw)return null;const key=Buffer.from(raw,"base64");return key.length===32?key:null;};
@@ -109,13 +110,13 @@ export const authPlugin:BeePlugin={
    const membership=await db.collection("memberships").findOne({userId:u.id,tenantId,status:"active"});
    if(!membership)return reply.code(403).send({error:"No active company membership"});
    const membershipRole=String(membership.role??"member"),effectiveRoles:Role[]=membershipRole==="owner"||membershipRole==="admin"?["admin"]:["user"];
-   const sessionId=randomUUID(),expiresAt=refreshExpiry(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId,expiresAt),refreshToken=makeRefreshToken();
-   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt,revokedAt:null,...(mfaVerifiedAt?{mfaVerifiedAt}:{}),createdAt:new Date()});
+   const sessionId=randomUUID(),expiresAt=refreshExpiry(),absoluteExpiresAt=absoluteSessionExpiry(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId,expiresAt),refreshToken=makeRefreshToken();
+   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt,absoluteExpiresAt,revokedAt:null,...(mfaVerifiedAt?{mfaVerifiedAt}:{}),createdAt:new Date()});
    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
    await auditAuthEvent({tenantId,actorId:u.id,action:"auth.login",outcome:"success",metadata:{client}});
    const secureCookie=String(ctx.config.environment??"")!=="development";
    if(client==="dashboard")writeRefreshCookie(reply,refreshToken,secureCookie);
-   return {accessToken,...(client==="dashboard"?{}:{refreshToken}),tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,user:publicUser({...u,roles:effectiveRoles},sessionId,expiresAt,sessionIdSecret),client,tenantId:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret), ...(u.platformRole?{platformRole:u.platformRole}:{}),...(u.platformRole==="superadmin"&&!u.mfaSecretEnc?{mfaSetupRequired:true}:{})};
+   return {accessToken,...(client==="dashboard"?{}:{refreshToken}),tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,user:publicUser({...u,roles:effectiveRoles},sessionId,expiresAt,sessionIdSecret),client,tenantId:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret), ...(u.platformRole?{platformRole:u.platformRole}:{}),...(u.platformRole==="superadmin"&&!u.mfaSecretEnc?{mfaSetupRequired:true}:{})};
   });
   const resolveMfaAdmin=async(req:any,reply:any):Promise<{user:UserRecord;session:RefreshSession}|null>=>{
    try{await req.jwtVerify();}catch{return reply.code(401).send({error:"Unauthorized"}),null;}
@@ -156,7 +157,7 @@ export const authPlugin:BeePlugin={
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
    if(!isSameOrigin(req))return reply.code(403).send({error:"Cross-origin refresh request rejected"});
    const raw=String(req.body?.refreshToken??(readCookie(req,"bee_refresh")||""));if(raw.length<40)return reply.code(401).send({error:"Refresh session required"});
-   const next=makeRefreshToken(),session=await sessions.findOneAndUpdate({tokenHash:hashToken(raw),revokedAt:null,expiresAt:{$gt:new Date()}},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()}},{returnDocument:"after"});
+   const now=new Date(),next=makeRefreshToken(),session=await sessions.findOneAndUpdate({tokenHash:hashToken(raw),revokedAt:null,expiresAt:{$gt:now},$or:[{absoluteExpiresAt:{$gt:now}},{absoluteExpiresAt:{$exists:false}}]},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()}},{returnDocument:"after"});
    if(!session)return reply.code(401).send({error:"Invalid or expired refresh token"});
    const u=await users.findOne({id:session.userId,enabled:true});
    if(!u||!u.allowedClients.includes(session.client)){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Invalid or expired refresh token"});}
