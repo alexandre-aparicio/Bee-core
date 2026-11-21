@@ -269,6 +269,7 @@ export const organizationsPlugin:BeePlugin={
    const now=new Date();
    if(existing)await memberships.updateOne({id:existing.id},{$set:{role,status:"active",updatedAt:now}});
    else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.added",outcome:"success",resourceType:"membership",resourceId:target.id,metadata:{role}});
    return reply.code(201).send({membership:{userId:mask(auth,target.id,"user"),email:target.email,role,status:"active"}});
   });
   ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member";customRoleId?:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
