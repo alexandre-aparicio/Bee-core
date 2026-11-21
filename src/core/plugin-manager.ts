@@ -22,7 +22,7 @@ export class BeePluginManager {
   }
 
   private readonly configAccess: Record<string, readonly string[]> = {
-    auth: ["mongoUri", "mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "publicBaseDomain", "sessionIdSecret"],
+    auth: ["mongoUri", "mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "authMfaEncryptionKey", "publicBaseDomain", "sessionIdSecret"],
     organizations: ["mongoUri", "mongoDbName", "publicBaseDomain", "sessionIdSecret"],
     files: ["mongoUri", "mongoDbName", "fileStoragePath", "sessionIdSecret"],
     marketplace: ["mongoUri", "mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
