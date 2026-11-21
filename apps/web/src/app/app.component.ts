@@ -239,12 +239,15 @@ export class AppComponent implements OnInit {
   get navigationItems(): Array<{id:string;label:string;icon:string;group:string}> {
     const base = [
       {id:'dashboard',label:'Dashboard',icon:'▦',group:'WORKSPACE'},
-      
       {id:'organization',label:'Organization',icon:'♙',group:'WORKSPACE'},
       {id:'activity',label:'Activity',icon:'◷',group:'WORKSPACE'},
       {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
     ];
-    return base;
+    if (this.isPlatformAdmin) return [base[0], base[2], base[3]];
+    const role = (this.activeCompanyRole || '').toLowerCase();
+    if (role === 'manager') return base;
+    if (role === 'owner' || role === 'admin') return base;
+    return base.filter(item => ['dashboard','organization','settings'].includes(item.id));
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void {
