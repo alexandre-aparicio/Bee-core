@@ -65,6 +65,7 @@ type MarketplacePlugin = {
 export class BeeMarketplaceComponent implements OnInit, OnChanges {
   @Input() tenantId = "";
   @Input() canManage = false;
+  @Input() accessToken = "";
   @Output() activePluginsChange = new EventEmitter<string[]>();
   plugins: MarketplacePlugin[] = [];
   loading = false;
@@ -80,10 +81,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
   trackPlugin(_index: number, plugin: MarketplacePlugin): string { return plugin.id; }
   isHelloWorld(plugin: MarketplacePlugin): boolean { return /hello[\s-]*world|hola mundo/i.test(plugin.name); }
 
-  private get token(): string {
-    try { return JSON.parse(localStorage.getItem("bee-auth") || "null")?.accessToken || ""; }
-    catch { return ""; }
-  }
+  private get token(): string { return this.accessToken; }
 
   async load(): Promise<void> {
     if (!this.token) return;
