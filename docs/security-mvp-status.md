@@ -12,6 +12,7 @@ This document records implemented security controls and the remaining gaps befor
 - Tenant-scoped append-only audit writer validates metadata size/keys and creates tenant/time, actor/time and action/time indexes.
 - Successful login/logout audit events are integrated (PR #18).
 - Invitation creation/acceptance/cancellation, custom role create/update/delete, membership role changes/suspension, plugin install/uninstall and company/marketplace permission denials are integrated (PR #20), with MongoDB integration assertions.
+- Subscription changes and plugin entitlement grant/revocation events are tenant-audited; duplicate no-op billing webhook deliveries do not emit duplicate transition events. Provider references are bound to a single plugin per tenant and mismatched grant/revoke events are rejected (proposed PR: webhook entitlement hardening).
 
 ## Audit coverage integrated in PR #20
 
