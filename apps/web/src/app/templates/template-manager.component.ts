@@ -9,7 +9,7 @@ import type { BeeTemplateTarget } from './template.types';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="bee-template-manager" aria-label="Template manager">
+    <section class="bee-template-manager bee-dashboard-card" aria-label="Template manager">
       <div class="bee-template-manager__heading">
         <div>
           <span class="bee-template-manager__eyebrow">TEMPLATES</span>
