@@ -416,4 +416,5 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Added a disabled Upload control (future capability) and a vertical three-dot action menu per plugin. Install/Uninstall and Delete are visible but disabled; Details is the only enabled action.
 - Details navigates to the session-masked plugin URL `/dashboard/plugins/:maskPluginId/details` and loads the authenticated plugin detail endpoint. The route is recognized on direct navigation/reload and returns to Settings → Plugins.
 - No install, uninstall, delete or upload operation is exposed by this Settings UI.
-- Source and route handling committed directly to main. Angular build, Playwright, API behavior and VPS visual validation remain pending.
+- Added a Playwright smoke scenario for card/list switching, disabled Upload/Install/Uninstall/Delete controls, Details navigation and return to the catalogue.
+- Source, route handling, E2E scenario and progress documentation are committed directly to main. Angular build, Playwright execution, API behavior and VPS visual validation remain pending.
