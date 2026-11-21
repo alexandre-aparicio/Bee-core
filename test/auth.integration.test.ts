@@ -280,6 +280,15 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(managerInviteAdmin.statusCode,403);
     const managerMembers=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
     assert.equal(managerMembers.statusCode,200);
+    const ownerAuditEvents=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+    assert.equal(ownerAuditEvents.statusCode,200);
+    assert.ok(ownerAuditEvents.json().events.some((event:{action:string})=>event.action==="permission.denied"),"company owner can read only the active company's audit history");
+    const crossTenantAuditEvents=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(crossTenantAuditEvents.statusCode,403,"a valid member of another company cannot read this company's audit events");
+    const managerAuditEvents=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
+    assert.equal(managerAuditEvents.statusCode,403,"manager role cannot read restricted audit history");
+    const auditMutation=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+    assert.equal(auditMutation.statusCode,404,"tenant audit history exposes no mutation route");
     // Custom company role CRUD, assignment, tenant isolation and safe deletion.
     const createCustomRole=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Notes reader",description:"Read-only notes access",permissions:["notes.read"]}});
     assert.equal(createCustomRole.statusCode,201);
