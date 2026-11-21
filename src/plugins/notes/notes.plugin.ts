@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { requireAuth, requireTenantPermissions, type AuthenticatedRequest } from "../auth/auth.guard.js";
 import { requireInstalledPlugin } from "../../core/plugin-entitlements.js";
+import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
 type Note = Document & {
   id: string;
@@ -31,14 +32,26 @@ export const notesPlugin: BeePlugin = {
     mongoClient = new MongoClient(mongoUri, { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
     await mongoClient.connect();
     const db: Db = mongoClient.db(dbName);
+    const sessionIdSecret = String(ctx.config.jwtSecret ?? "");
+    if (sessionIdSecret.length < 32) throw new Error("Notes: JWT_SECRET must contain at least 32 characters.");
     const collection = (tenantId: string) => new TenantCollection<Note>(db.collection<Note>("tenant_notes"), tenantId);
     const preRead = [requireAuth(db, "dashboard"), requireTenantPermissions("notes.read"), requireInstalledPlugin(db, "notes")];
     const preWrite = [requireAuth(db, "dashboard"), requireTenantPermissions("notes.write"), requireInstalledPlugin(db, "notes")];
+    const publicNote = (note: Note, tenant: AuthenticatedRequest["tenantContext"]) => ({
+      id: maskResourceId(note.id, "note", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, sessionIdSecret),
+      title: note.title, content: note.content,
+      createdBy: maskResourceId(note.createdBy, "user", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, sessionIdSecret),
+      createdAt: note.createdAt, updatedAt: note.updatedAt
+    });
+    const resolveNoteId = (reference: string, tenant: AuthenticatedRequest["tenantContext"]): string | null => {
+      try { return unmaskResourceId(reference, "note", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, sessionIdSecret); }
+      catch { return null; }
+    };
 
     ctx.server.get("/notes", { preHandler: preRead }, async request => {
       const tenant = (request as AuthenticatedRequest).tenantContext;
       const rows = await collection(tenant.tenantId).find({}).sort({ updatedAt: -1 }).limit(200).toArray();
-      return { notes: rows.map(({ id, title, content, createdBy, createdAt, updatedAt }) => ({ id, title, content, createdBy, createdAt, updatedAt })) };
+      return { notes: rows.map(row => publicNote(row, tenant)) };
     });
 
     ctx.server.post<{ Body: { title?: string; content?: string } }>("/notes", { preHandler: preWrite }, async (request, reply) => {
@@ -58,14 +71,16 @@ export const notesPlugin: BeePlugin = {
         updatedAt: now
       };
       await collection(tenant.tenantId).insertOne(note);
-      return reply.code(201).send({ note });
+      return reply.code(201).send({ note: publicNote(note as Note, tenant) });
     });
 
     ctx.server.get<{ Params: { noteId: string } }>("/notes/:noteId", { preHandler: preRead }, async (request, reply) => {
       const tenant = (request as AuthenticatedRequest).tenantContext;
-      const note = await collection(tenant.tenantId).findOne({ id: request.params.noteId });
+      const noteId = resolveNoteId(request.params.noteId, tenant);
+      if (!noteId) return reply.code(404).send({ error: "Note not found" });
+      const note = await collection(tenant.tenantId).findOne({ id: noteId });
       if (!note) return reply.code(404).send({ error: "Note not found" });
-      return { note };
+      return { note: publicNote(note, tenant) };
     });
 
     ctx.server.put<{ Params: { noteId: string }; Body: { title?: string; content?: string } }>("/notes/:noteId", { preHandler: preWrite }, async (request, reply) => {
@@ -75,8 +90,10 @@ export const notesPlugin: BeePlugin = {
       if (!title || title.length > 120 || content.length > 5000) {
         return reply.code(400).send({ error: "Title is required (max 120 chars) and content must be at most 5000 chars" });
       }
+      const noteId = resolveNoteId(request.params.noteId, tenant);
+      if (!noteId) return reply.code(404).send({ error: "Note not found" });
       const result = await collection(tenant.tenantId).updateOne(
-        { id: request.params.noteId },
+        { id: noteId },
         { $set: { title, content, updatedAt: new Date() } }
       );
       if (!result.matchedCount) return reply.code(404).send({ error: "Note not found" });
@@ -85,7 +102,9 @@ export const notesPlugin: BeePlugin = {
 
     ctx.server.delete<{ Params: { noteId: string } }>("/notes/:noteId", { preHandler: preWrite }, async (request, reply) => {
       const tenant = (request as AuthenticatedRequest).tenantContext;
-      const result = await collection(tenant.tenantId).deleteOne({ id: request.params.noteId });
+      const noteId = resolveNoteId(request.params.noteId, tenant);
+      if (!noteId) return reply.code(404).send({ error: "Note not found" });
+      const result = await collection(tenant.tenantId).deleteOne({ id: noteId });
       if (!result.deletedCount) return reply.code(404).send({ error: "Note not found" });
       return { success: true };
     });
