@@ -398,7 +398,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const refreshed = refresh.json(); assert.notEqual(refreshed.refreshToken, tokens.refreshToken);
     const replay = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: tokens.refreshToken } });
     assert.equal(replay.statusCode, 401);
-    const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+    const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(removeBetaMember.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
     const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken }, payload: { refreshToken: refreshed.refreshToken } });
