@@ -123,6 +123,8 @@ export class AppComponent implements OnInit {
         this.activeCompanyName = active.name;
         this.activeCompanyRole = active.role;
       }
+      // Resolve deep-linked settings routes only after the active tenant role is known.
+      this.syncActiveSectionFromPath();
     } catch (error) {
       this.companyError = error instanceof Error ? error.message : 'Could not load companies';
     }
