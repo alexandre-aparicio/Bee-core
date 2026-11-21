@@ -88,7 +88,7 @@ export async function resolveTenantContext(
   }
 
   if (!options.allowSuspendedCompany) {
-    const company = await db.collection<{ id: string; status?: string }>("tenants").findOne({ id: claims.tenantId });
+    const company = await db.collection<{ id: string; status?: string }>("tenants").findOne({ id: tenantId });
     if (!company || company.status === "suspended") return null;
   }
 
