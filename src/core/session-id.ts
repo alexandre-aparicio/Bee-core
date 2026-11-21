@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
+import { createHmac, createCipheriv, createDecipheriv } from "node:crypto";
 
 export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job" | "audit" | "installation" | "subscription";
 export type SessionIdContext = { sessionId: string; expiresAt: Date };
@@ -15,8 +15,11 @@ export function maskResourceId(id: string, type: SessionResourceType, session: S
     throw new Error("Cannot mask an ID without an active session");
   }
   const payload: Payload = { v: 1, t: type, id, sid: session.sessionId, exp: session.expiresAt.getTime() };
-  const nonce = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", keyFor(secret, session.sessionId), nonce);
+  const key = keyFor(secret, session.sessionId);
+  // Deterministic per (session, resource type, internal ID): stable for the
+  // lifetime of a session without reusing a GCM nonce for different plaintexts.
+  const nonce = createHmac("sha256", key).update("nonce:v1:").update(type).update("\\0").update(id).digest().subarray(0, 12);
+  const cipher = createCipheriv("aes-256-gcm", key, nonce);
   const encrypted = Buffer.concat([cipher.update(JSON.stringify(payload), "utf8"), cipher.final()]);
   return Buffer.concat([Buffer.from([1]), nonce, cipher.getAuthTag(), encrypted]).toString("base64url");
 }
