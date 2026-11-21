@@ -284,3 +284,27 @@ The product model is now specified in `docs/template-business-model.md`.
 - Login responses now return session-bound user and tenant references. Refresh rotates the token and issues a new reference using the persisted session expiry. The tenant context resolver decrypts and compares the reference with the session's tenant before loading membership and company status.
 - This is **not an end-to-end migration** and is not merged to main. Other organization, Platform Administration, marketplace/plugin, public tenant, API request/response, SSE, and Angular contracts still require migration. Some existing clients expect stable raw IDs, so deploying this branch before those contracts are migrated may break navigation and API calls.
 - No build, unit tests, integration tests, CI, or VPS validation were run. Do not deploy this branch as a complete security release.
+## Session-bound resource IDs — end-to-end audit (2026-11-21)
+
+The session-bound AES-256-GCM reference codec from PR #52 is a foundation, not yet an application-wide migration. PR #54's authentication slice was audited against the organization, platform administration, marketplace, file, note and Angular surfaces. It is intentionally not merge-ready.
+
+Confirmed remaining exposure and compatibility work:
+
+- organizations.plugin.ts: public tenant discovery returns the real tenant ID; company, role, invitation and membership routes still accept and return real tenant/user/resource IDs. These routes must resolve typed references against the caller's persisted session before querying, and serialize every returned identifier.
+- platform-admin.plugin.ts: global company listing/creation, owner responses and tenant/plugin lifecycle routes still expose or accept real company, user, plugin and job IDs. Platform-admin references need the same session binding while preserving explicit cross-tenant authorization.
+- marketplace.plugin.ts: plugin routes and responses expose plugin IDs, tenant IDs and lifecycle job IDs; public tenant plugin discovery also returns real IDs. Webhook/provider identifiers are a separate trusted server-to-server contract and must not be blindly masked as browser references.
+- files.plugin.ts and notes.plugin.ts: file/note identifiers in route parameters and response payloads have not been migrated.
+- auth.plugin.ts: public tenant/template discovery and template SSE/ticket flows require separate review; the current auth slice is not a complete output-boundary sanitizer.
+- Angular: company/member, platform-admin and marketplace components currently display and send IDs as route identifiers. They must treat opaque references as opaque strings, and the matching backend endpoints must be migrated atomically. The present auth-only response change is not compatible with the existing route handlers.
+- tenant-context.ts still accepts the legacy plaintext tenantId JWT claim and reads the secret from process environment. Final migration must remove the legacy claim and inject the same configured key through a single dependency path only after all token issuers/consumers have migrated.
+
+Security invariants for completion:
+
+1. Every browser-visible resource reference is authenticated-encrypted, typed, session-bound and expires no later than the persisted session.
+2. All incoming references are decoded only after JWT verification and persisted-session lookup; type, session, expiry and tenant scope are checked before database access.
+3. All outgoing JSON, errors, URLs, pagination cursors, SSE payloads/tickets and Angular navigation state are audited for raw database IDs.
+4. Platform superadministrator cross-tenant operations remain explicitly authorized; masking is not authorization and must not weaken tenant scoping.
+5. Server-to-server webhooks and internal events retain their documented internal contract unless a browser boundary is crossed.
+6. Tests cover two sessions for one user, expiry/revocation, tampering, wrong resource type, cross-tenant IDOR, login/refresh/me, platform administration, organization CRUD, marketplace jobs, files, notes and SSE.
+
+Validation status: no build, automated test suite, CI workflow or VPS deployment was run for this audit. Do not merge PR #54 or describe the migration as complete until the API and Angular contract migration above is implemented and validated.
