@@ -57,7 +57,7 @@ export const filesPlugin: BeePlugin = {
     mongoClient = new MongoClient(mongoUri, { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
     await mongoClient.connect();
     const db = mongoClient.db(dbName);
-    const sessionIdSecret = String(ctx.config.jwtSecret ?? "");
+    const sessionIdSecret = String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
     if (sessionIdSecret.length < 32) throw new Error("Files: JWT_SECRET must contain at least 32 characters.");
     await seedPluginCommerce(db);
     // The metadata collection is accessed through a tenant-scoped facade per request.
