@@ -419,3 +419,17 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - No install, uninstall, delete or upload operation is exposed by this Settings UI.
 - Added a Playwright smoke scenario for card/list switching, disabled Upload/Install/Uninstall/Delete controls, Details navigation and return to the catalogue.
 - Source, route handling, E2E scenario and progress documentation are committed directly to main. Angular build, Playwright execution, API behavior and VPS visual validation remain pending.
+
+
+## Settings sections implementation — feature/settings-sections (2026-11-21)
+
+- Created `feature/settings-sections` from `main` at `86d30a8`; all work in this slice is isolated from main.
+- Kept Settings as the only primary navigation entry and removed duplicate top-level theme, branding, domains and integration destinations. The eight role-filtered Settings destinations remain inside its submenu.
+- Added canonical routes for General, Tenants, Plugins, Integrations, Plans & Licensing, Security, Infrastructure and Localization. The legacy `/dashboard/settings` URL resolves to General; Plans & Licensing now uses `/dashboard/settings/plans-licensing`.
+- Replaced the generic settings placeholder in Midnight, Glass and Paper with a shared Settings workspace component.
+- General now contains exactly Platform Identity, Appearance and Platform Defaults. Appearance reuses the existing template manager; identity/default fields clearly state that no settings persistence API is available and do not simulate saving.
+- Added distinct grouped field inventories for Integrations (connectors, global credentials, SMTP, notifications), Plans & Licensing (plans, pricing, subscriptions, licenses), Security (authentication, sessions, policy, privacy, retention), Infrastructure (runtime, storage, queues, logs, backups) and Localization (languages, regions, currencies and formats).
+- Reused the existing tenant directory and plugin catalogue rather than duplicating either implementation. Existing Activity audit log remains in Activity; Security references policy/retention and does not create a second audit viewer.
+- Preserved role visibility: Super Administrator sees all sections; tenant owners/admins see General, Plugins, Integrations, Security and Localization; tenant managers/members see Localization only. General and section workspaces identify platform versus active-tenant scope.
+- Backend dependency: the current API has no persisted global/tenant Settings service for platform identity/defaults, integrations/SMTP, billing plans/subscriptions, security policy/retention, infrastructure operations or localization. Those controls are intentionally marked unavailable; there are no fake save buttons or claims of persistence.
+- Validation: no build, tests, GitHub Actions, workflows or VPS checks were run, per request. Angular compile and live role/route/rendering checks remain unverified.

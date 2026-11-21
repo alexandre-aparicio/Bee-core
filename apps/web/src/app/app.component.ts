@@ -158,9 +158,9 @@ export class AppComponent implements OnInit {
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
     dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization',
-    activity: '/dashboard/activity', 'settings-general': '/dashboard/settings',
+    activity: '/dashboard/activity', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-plugins': '/dashboard/settings/plugins',
-    'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans',
+    'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans-licensing',
     'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
     'settings-localization': '/dashboard/settings/localization',
     'themes-dashboard': '/dashboard/themes', 'themes-public': '/dashboard/public-theme',
@@ -184,6 +184,7 @@ export class AppComponent implements OnInit {
       this.expandedMenuId = 'settings';
       return;
     }
+    if (this.path === '/dashboard/settings') { this.activeSection = 'settings-general'; this.expandedMenuId = 'settings'; return; }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
     const nextSection = entry?.[0] || 'dashboard';
     this.activeSection = nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)
@@ -223,6 +224,9 @@ export class AppComponent implements OnInit {
         : item.description
     }));
   }
+  get settingsComponentSection(): string {
+    return this.activeSection.replace('settings-', '') === 'plans' ? 'plans' : this.activeSection.replace('settings-', '');
+  }
   get settingsSectionTitle(): string { return this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || 'Settings'; }
   get settingsSectionDescription(): string { return this.settingsNavigationItems.find(item => item.id === this.activeSection)?.description || 'Manage your workspace preferences.'; }
   toggleNavigationMenu(menuId: string): void {
@@ -240,17 +244,7 @@ export class AppComponent implements OnInit {
       {id:'activity',label:'Activity',icon:'◷',group:'WORKSPACE'},
       {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
     ];
-    if (this.isPlatformAdmin) return [
-      base[0], base[2], base[3],
-      {id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},
-      {id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},
-      {id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'}
-    ];
-    const role = (this.activeCompanyRole || '').toLowerCase();
-    if (role === 'owner') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'},{id:'domains',label:'Domains',icon:'◎',group:'SYSTEM'},{id:'integrations',label:'Integrations',icon:'⌘',group:'SYSTEM'}];
-    if (role === 'admin') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'}];
-    if (role === 'manager') return base.filter(item => ['dashboard','organization','activity','settings'].includes(item.id));
-    return base.filter(item => ['dashboard','organization','settings'].includes(item.id));
+    return base;
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void {
