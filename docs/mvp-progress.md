@@ -266,3 +266,13 @@ The product model is now specified in `docs/template-business-model.md`.
 - Updated Midnight, Glass, and Paper dashboard templates to connect the company management route.
 - Added Playwright coverage for the card/list switcher, disabled menu actions, tenant management navigation, company creation modal, and unauthenticated dashboard redirect.
 - Validation status: source and E2E test changes committed on a feature branch; Angular build and Playwright suite have not been run in this environment.
+
+
+## Session-bound resource ID migration (2026-11-21 — foundation only)
+
+- Created the shared AES-256-GCM resource-reference codec in `src/core/session-id.ts`. References use a fresh nonce, carry a resource type, the issuing session ID and its expiry, and are cryptographically bound to a key derived from the server secret and session ID.
+- Added convenience functions for tenant, plugin and user IDs, plus generic support for memberships, roles, invitations, files, notes and jobs.
+- Added unit tests for cross-session rejection, per-call uniqueness, type substitution, tampering and expiry.
+- Added `docs/session-resource-ids.md` with the contract and mandatory integration requirements.
+- This is deliberately **not marked complete**: API route inputs/outputs, JWT claims, public endpoints, Angular state/routes and plugin interfaces have not yet been migrated. The codec must not be treated as active protection until those integrations and cross-tenant tests are complete.
+- Changes are on branch `feature/session-bound-resource-ids`; no build, test run, CI result or deployment verification is claimed.
