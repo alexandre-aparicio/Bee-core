@@ -70,6 +70,7 @@ export class BeeTemplateEngine {
     if (this.previewThemePackage) this.applyThemeTokens(PACKAGE_THEME_TOKENS[this.previewThemePackage], 'public');
     else this.restorePreviewTokens();
     this.apply();
+    if (target === 'public' && this.previewThemePackage) setTimeout(() => this.applyThemeTokens(PACKAGE_THEME_TOKENS[this.previewThemePackage!], 'public'), 0);
   }
 
   commitPreview(): void {
@@ -137,7 +138,7 @@ export class BeeTemplateEngine {
     this.persist();
     this.apply();
     if (target === 'public' && PACKAGE_THEME_TOKENS[templateId]) {
-      this.applyThemeTokens(PACKAGE_THEME_TOKENS[templateId], 'public');
+      setTimeout(() => this.applyThemeTokens(PACKAGE_THEME_TOKENS[templateId], 'public'), 0);
       void this.saveThemeTokens(PACKAGE_THEME_TOKENS[templateId], 'public');
     }
     void this.persistRemoteSelection();
