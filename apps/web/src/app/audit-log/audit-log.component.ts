@@ -9,7 +9,7 @@ type AuditEvent = { id:string; actorId:string; action:string; outcome:"success"|
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section id="activity" class="panel bee-audit-log" *ngIf="canRead">
+    <section id="activity" class="panel bee-dashboard-card bee-audit-log" *ngIf="canRead">
       <div class="panel-heading">
         <div><h2>Activity log</h2><p>Security and workspace events for the active company.</p></div>
         <div class="bee-audit-log__controls">
