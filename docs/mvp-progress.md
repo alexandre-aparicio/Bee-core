@@ -349,3 +349,11 @@ Current status: meaningful backend and frontend slices are now integrated in the
 - Added a 1 KiB UTF-8 bound for internal identifiers and a 2 KiB bound for external references to prevent unbounded parsing work at API boundaries.
 - Added unit cases for malformed/non-canonical and oversized references, plus empty and oversized identifiers.
 - This is additional defensive validation, not evidence that the full test suite passes. GitHub Actions currently reports no workflow runs for the latest PR head; no local build/test runner or VPS validation has been executed in this session.
+
+
+### Final review follow-up (2026-11-21)
+
+- Reviewed the remaining core event bus, plugin manager/entitlement/job modules, audit log, auth SSE stream, files, notes, marketplace, organizations, Platform Admin and Angular audit/notes/plugin surfaces. Persistence-layer tenant/user/plugin/job IDs remain internal; the reviewed browser-facing routes serialize the resource references or public slugs. Template SSE payloads contain template selections/tokens rather than database identifiers; private stream tickets are single-use and revalidate the persisted session on heartbeat.
+- Found and corrected a test-fixture mismatch: organization route IDs are opaque references, while direct MongoDB assertions must use the decoded internal tenant/resource IDs. Added a session-aware test helper and updated persistence assertions accordingly.
+- Simplified `/auth/me` to reuse the already validated session context and avoid redundant session lookups/non-null assertions.
+- This review is not a formal exhaustive proof for dynamically registered future plugin routes. Full backend/web build, unit/integration tests and VPS checks remain outstanding; no CI workflow run is associated with the latest head.
