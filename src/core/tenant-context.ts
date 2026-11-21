@@ -1,11 +1,14 @@
 import type { Db } from "mongodb";
 import { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
+import { unmaskTenantId } from "./session-id.js";
 
 export type CompanyRole = "owner" | "admin" | "manager" | "member";
 export type MembershipRole = CompanyRole | "custom";
 export type TenantClaims = {
   sub?: string;
   email?: string;
+  tenantRef?: string;
+  /** Legacy claim accepted only during rolling migration; remove after all old sessions expire. */
   tenantId?: string;
   sid?: string;
   client?: "backend" | "dashboard" | "public";
@@ -43,7 +46,7 @@ export async function resolveTenantContext(
   claims: TenantClaims,
   options: TenantContextOptions = {}
 ): Promise<TenantContext | null> {
-  if (claims.aud !== "bee-core" || !claims.sub || !claims.tenantId || !claims.sid || !claims.client) {
+  if (claims.aud !== "bee-core" || !claims.sub || (!claims.tenantRef && !claims.tenantId) || !claims.sid || !claims.client) {
     return null;
   }
 
@@ -52,25 +55,31 @@ export async function resolveTenantContext(
   const user = await users.findOne({ id: claims.sub, enabled: true });
   if (!user || !Array.isArray(user.allowedClients) || !user.allowedClients.includes(claims.client)) return null;
 
-  const session = await db.collection("refresh_sessions").findOne({
+  const session = await db.collection<{ id:string; userId:string; tenantId:string; expiresAt:Date; revokedAt:Date|null }>("refresh_sessions").findOne({
     id: claims.sid,
     userId: user.id,
-    tenantId: claims.tenantId,
     revokedAt: null,
     expiresAt: { $gt: now }
   });
   if (!session) return null;
+  let tenantId: string;
+  try {
+    tenantId = claims.tenantRef
+      ? unmaskTenantId(claims.tenantRef, { sessionId: session.id, expiresAt: session.expiresAt }, String(process.env.JWT_SECRET ?? ""))
+      : String(claims.tenantId ?? "");
+  } catch { return null; }
+  if (!tenantId || tenantId !== session.tenantId) return null;
 
   const membership = await db.collection<{ role: MembershipRole; customRoleId?: string; status: string }>("memberships").findOne({
     userId: user.id,
-    tenantId: claims.tenantId,
+    tenantId,
     status: "active"
   });
   if (!membership) return null;
   let permissions: readonly string[];
   if (membership.role === "custom") {
     if (!membership.customRoleId) return null;
-    const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId: claims.tenantId });
+    const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId });
     if (!customRole) return null;
     try { permissions = permissionsForCustomRole(customRole); } catch { return null; }
   } else {
@@ -86,7 +95,7 @@ export async function resolveTenantContext(
   return {
     userId: user.id,
     email: user.email,
-    tenantId: claims.tenantId,
+    tenantId,
     sessionId: claims.sid,
     client: claims.client,
     role: membership.role,
