@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
 
-export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job";
+export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job" | "audit";
 export type SessionIdContext = { sessionId: string; expiresAt: Date };
 type Payload = { v: 1; t: SessionResourceType; id: string; sid: string; exp: number };
 
@@ -46,3 +46,60 @@ export const maskPluginId = (id: string, session: SessionIdContext, secret: stri
 export const unmaskPluginId = (id: string, session: SessionIdContext, secret: string) => unmaskResourceId(id, "plugin", session, secret);
 export const maskUserId = (id: string, session: SessionIdContext, secret: string) => maskResourceId(id, "user", session, secret);
 export const unmaskUserId = (id: string, session: SessionIdContext, secret: string) => unmaskResourceId(id, "user", session, secret);
+
+
+const RESOURCE_FIELDS: Record<string, SessionResourceType> = {
+  tenantId: "tenant", companyId: "tenant", tenantIds: "tenant",
+  pluginId: "plugin", pluginIds: "plugin",
+  userId: "user", userIds: "user", actorId: "user", createdBy: "user", updatedBy: "user", ownerId: "user",
+  membershipId: "membership", roleId: "role", customRoleId: "role",
+  invitationId: "invitation", fileId: "file", noteId: "note", jobId: "job",
+  auditEventId: "audit"
+};
+
+const RESOURCE_CONTAINERS: Record<string, SessionResourceType> = {
+  tenant: "tenant", company: "tenant", companies: "tenant", tenants: "tenant",
+  plugin: "plugin", plugins: "plugin", installations: "plugin",
+  user: "user", users: "user", owner: "user", actor: "user",
+  membership: "membership", memberships: "membership",
+  role: "role", roles: "role",
+  invitation: "invitation", invitations: "invitation",
+  file: "file", files: "file",
+  note: "note", notes: "note",
+  job: "job", jobs: "job",
+  event: "audit", events: "audit"
+};
+
+export function transformSessionResourceIds<T>(
+  value: T,
+  direction: "mask" | "unmask",
+  session: SessionIdContext,
+  secret: string
+): T {
+  const transform = (input: unknown, parentType?: SessionResourceType, siblings?: Record<string, unknown>): unknown => {
+    if (Array.isArray(input)) return input.map(item => transform(item, parentType));
+    if (!input || typeof input !== "object" || input instanceof Date || Buffer.isBuffer(input)) return input;
+    const source = input as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(source)) {
+      const fieldType = RESOURCE_FIELDS[key] ??
+        (key === "resourceId" && typeof source.resourceType === "string" &&
+          ["tenant", "plugin", "user", "membership", "role", "invitation", "file", "note", "job", "audit"].includes(source.resourceType)
+          ? source.resourceType as SessionResourceType : undefined);
+      const childType = fieldType ?? (key === "id" ? parentType : RESOURCE_CONTAINERS[key]);
+      if (typeof child === "string" && child.length && childType && (key === "id" || fieldType)) {
+        result[key] = direction === "mask"
+          ? maskResourceId(child, childType, session, secret)
+          : unmaskResourceId(child, childType, session, secret);
+      } else if (Array.isArray(child) && fieldType) {
+        result[key] = child.map(item => typeof item === "string" && item.length
+          ? (direction === "mask" ? maskResourceId(item, fieldType, session, secret) : unmaskResourceId(item, fieldType, session, secret))
+          : transform(item, fieldType));
+      } else {
+        result[key] = transform(child, RESOURCE_CONTAINERS[key] ?? parentType, source);
+      }
+    }
+    return result;
+  };
+  return transform(value) as T;
+}
