@@ -169,8 +169,10 @@ export class AppComponent implements OnInit {
     this.activeSection = entry?.[0] || 'dashboard';
   }
   get platformTenantId(): string {
-    const match = this.path.match(new RegExp('^/dashboard/platform/([^/]+)/manage/?
-    return match ? decodeURIComponent(match[1]) : '';
+    const parts = this.path.split('/');
+    return parts.length >= 5 && parts[1] === 'dashboard' && parts[2] === 'platform' && parts[4] === 'manage'
+      ? decodeURIComponent(parts[3])
+      : '';
   }
   navigatePlatformManage(tenantId: string): void {
     const route = '/dashboard/platform/' + encodeURIComponent(tenantId) + '/manage';
