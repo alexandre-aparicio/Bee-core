@@ -364,3 +364,5 @@ Current status: meaningful backend and frontend slices are now integrated in the
 - Final configuration-boundary review found that the plugin manager's auth allowlist omitted `jwtSecret`, while the auth plugin now requires that secret to sign and validate session-bound references. This would cause auth initialization to fail when mounted through the isolated plugin manager.
 - Added `jwtSecret` only to the auth plugin's scoped configuration and added a plugin-manager regression assertion that auth receives it while the files plugin does not.
 - This is a source-level correction; the regression test has not yet been executed. The latest PR head still has no associated GitHub Actions run, so this remains unverified until CI runs.
+
+- Added an auth integration assertion that a previously issued company reference is rejected immediately after logout revokes its persisted session. This regression assertion is committed but remains unexecuted until CI runs.
