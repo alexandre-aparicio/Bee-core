@@ -1,16 +1,19 @@
 type Listener<T = unknown> = (payload: T) => void | Promise<void>;
 
 export class BeeEventBus {
-  private readonly listeners = new Map<string, Set<Listener>>();
+  private readonly listeners: Map<string, Set<Listener>>;
 
   constructor(
     private readonly namespace?: string,
-    private readonly sharedEvents: ReadonlySet<string> = new Set(["bee.started"])
-  ) {}
+    private readonly sharedEvents: ReadonlySet<string> = new Set(["bee.started"]),
+    listeners?: Map<string, Set<Listener>>
+  ) {
+    this.listeners = listeners ?? new Map<string, Set<Listener>>();
+  }
 
   /** Create a plugin-local event namespace while preserving system lifecycle events. */
   forPlugin(pluginName: string): BeeEventBus {
-    return new BeeEventBus(pluginName.toLowerCase(), this.sharedEvents);
+    return new BeeEventBus(pluginName.toLowerCase(), this.sharedEvents, this.listeners);
   }
 
   private eventKey(event: string): string {
