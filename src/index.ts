@@ -29,7 +29,7 @@ let sessionDb: Db | undefined;
 const resourceIdSecret = jwtSecret;
 
 app.addHook("preValidation", async (request, reply) => {
-  if (!request.headers.authorization) return;
+  if (!request.headers.authorization || request.url.split("?")[0] === "/billing/webhooks/entitlement") return;
   try {
     await request.jwtVerify();
   } catch {
