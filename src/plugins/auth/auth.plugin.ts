@@ -118,7 +118,7 @@ export const authPlugin:BeePlugin={
   const readTemplateTenant=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
    try{
     await req.jwtVerify();
-    const tenantContext=await resolveTenantContext(db,req.user as {sub?:string;email?:string;tenantId?:string;sid?:string;client?:"backend"|"dashboard"|"public";aud?:string});
+    const tenantContext=await resolveTenantContext(db,req.user as {sub?:string;email?:string;tenantRef?:string;tenantId?:string;sid?:string;client?:"backend"|"dashboard"|"public";aud?:string},{},sessionIdSecret);
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
     if(tenantContext.client!=="dashboard"){reply.code(403).send({error:"Private template management requires a dashboard session"});return null;}
     return tenantContext;
@@ -131,7 +131,7 @@ export const authPlugin:BeePlugin={
    const tenant=slug?await tenants.findOne({slug}):host!==publicBaseDomain?await tenants.findOne({domains:host}):null;
    const tenantId=tenant?.id??defaultTenantId;
    const saved=await templatePreferences.findOne({tenantId});
-   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)};
+   return {tenantId:tenant?.slug??"default",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)};
   });
   ctx.server.put<{Body:{domains?:string[]}}>("/tenants/domains",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
@@ -142,7 +142,7 @@ export const authPlugin:BeePlugin={
    const normalized=[...new Set(domains.map(domain=>domain.trim().toLowerCase()))];
    try{await tenants.updateOne({id:tenantId},{$set:{domains:normalized}},{upsert:true});}
    catch(error){return reply.code(409).send({error:"A domain is already assigned to another tenant"});}
-   return {tenantId,domains:normalized};
+   return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),domains:normalized};
   });
   ctx.server.get("/templates/catalog",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
@@ -155,7 +155,7 @@ export const authPlugin:BeePlugin={
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
    const tenantId=tenantContext.tenantId;
    const saved=await templatePreferences.findOne({tenantId});
-   return {tenantId,installedTemplates:getInstalledTemplates(saved)};
+   return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),installedTemplates:getInstalledTemplates(saved)};
   });
   ctx.server.post<{Body:{templateId?:string}}>("/templates/install",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
@@ -167,7 +167,7 @@ export const authPlugin:BeePlugin={
    const saved=await templatePreferences.findOne({tenantId});
    const installedTemplates=getInstalledTemplates(saved);
    broadcastTemplateUpdate(tenantId,{type:"installed",installedTemplates});
-   return {tenantId,installedTemplates};
+   return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),installedTemplates};
   });
   ctx.server.delete<{Params:{templateId:string}}>("/templates/install/:templateId",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
@@ -189,7 +189,7 @@ export const authPlugin:BeePlugin={
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
    const tenantId=tenantContext.tenantId;
    const saved=await templatePreferences.findOne({tenantId});
-   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},installedTemplates:getInstalledTemplates(saved)};
+   return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},installedTemplates:getInstalledTemplates(saved)};
   });
   ctx.server.put<{Body:{public?:string;dashboard?:string}}>("/templates/preferences",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
@@ -204,13 +204,13 @@ export const authPlugin:BeePlugin={
    const selection={public:body.public??current?.public??templateDefaults.public,dashboard:body.dashboard??current?.dashboard??templateDefaults.dashboard};
    await templatePreferences.updateOne({tenantId},{$set:{...selection,updatedAt:new Date()}},{upsert:true});
    broadcastTemplateUpdate(tenantId,{type:"preferences",selection});
-   return {tenantId,selection};
+   return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),selection};
   });
   ctx.server.get("/templates/theme",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
    const tenantId=tenantContext.tenantId;
    const saved=await templatePreferences.findOne({tenantId});
-   return {tenantId,tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens)};
+   return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens)};
   });
   ctx.server.put<{Body:{tokens?:Record<string,string>}}>("/templates/theme",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
@@ -225,7 +225,7 @@ export const authPlugin:BeePlugin={
    const tokens={...defaultThemeTokens,...(current?.themeTokens??{}),...input};
    await templatePreferences.updateOne({tenantId},{$set:{themeTokens:tokens,updatedAt:new Date()}},{upsert:true});
    broadcastTemplateUpdate(tenantId,{type:"theme",tokens,customized:true});
-   return {tenantId,tokens,customized:true};
+   return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),tokens,customized:true};
   });
   ctx.server.post("/templates/public-stream-ticket",async(req)=>{
    const host=String(req.hostname??"").toLowerCase().replace(/:\d+$/,"");
@@ -265,7 +265,7 @@ export const authPlugin:BeePlugin={
    const heartbeat=setInterval(async()=>{
     if(raw.destroyed){clearInterval(heartbeat);closeSubscriber();return;}
     if(record.claims){
-     try{const current=await resolveTenantContext(db,record.claims);if(!current){clearInterval(heartbeat);raw.end();closeSubscriber();return;}}
+     try{const current=await resolveTenantContext(db,record.claims,{},sessionIdSecret);if(!current){clearInterval(heartbeat);raw.end();closeSubscriber();return;}}
      catch{clearInterval(heartbeat);raw.end();closeSubscriber();return;}
     }
     if(!raw.destroyed)raw.write(": keep-alive\n\n");
