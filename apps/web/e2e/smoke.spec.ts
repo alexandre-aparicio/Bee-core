@@ -541,3 +541,42 @@ test('Settings plugins supports cards/list and only enables plugin details', asy
   await catalogue.getByRole('button', { name: /back to plugins/i }).click();
   await expect(page).toHaveURL(/\/dashboard\/settings\/plugins$/);
 });
+
+
+test('Settings exposes the eight role-authorized sections and General has exactly three cards', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
+    accessToken: 'platform-admin-token',
+    platformRole: 'superadmin',
+    tenantId: 'tenant-demo',
+    user: { id: 'root-1', email: 'root@example.test', roles: ['admin'], tenantId: 'tenant-demo' }
+  })));
+  await page.route('**/api/companies', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: 'tenant-demo', name: 'Bee Demo', role: 'owner', active: true }] })
+  }));
+  await page.route('**/api/templates/preferences', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ selection: { public: 'aurora', dashboard: 'midnight' }, installedTemplates: ['aurora', 'midnight'] })
+  }));
+  await page.goto('/dashboard/settings');
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard/settings');
+  await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible();
+  await expect(page.locator('.settings-workspace__general > article')).toHaveCount(3);
+  for (const title of ['Platform Identity', 'Appearance', 'Platform Defaults']) {
+    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+  }
+  const expected = [
+    ['Tenants', '/dashboard/settings/tenants'],
+    ['Plugins', '/dashboard/settings/plugins'],
+    ['Integrations', '/dashboard/settings/integrations'],
+    ['Plans & Licensing', '/dashboard/settings/plans-licensing'],
+    ['Security', '/dashboard/settings/security'],
+    ['Infrastructure', '/dashboard/settings/infrastructure'],
+    ['Localization', '/dashboard/settings/localization']
+  ];
+  for (const [label, route] of expected) {
+    await page.getByRole('button', { name: label, exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe(route);
+  }
+  await expect(page.getByRole('button', { name: 'Plugins', exact: true })).toHaveCount(1);
+});
