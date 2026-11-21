@@ -396,3 +396,14 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Restored the resource-type code map, supported-type set, 1 KiB ID / 2 KiB reference bounds, session-scoped HMAC key derivation and all six public convenience exports while retaining the compact version-2 AES-256-GCM reference format.
 - Fix committed directly to main: b6768f6 (fix(security): restore session ID codec helpers).
 - Not yet validated: no subsequent Docker build, TypeScript build, unit tests or VPS runtime check has been reported. The next build must be run against this commit; after a successful deploy, users must refresh/re-authenticate to obtain version-2 references.
+
+
+## Platform tenant directory moved into Settings (2026-11-21)
+
+- Removed the separate Platform Administration sidebar destination for the superadministrator. Tenant administration is now accessed through Settings → Tenants.
+- Reused the existing tenant/company directory component and its card/list toggle, creation modal, row/card actions and tenant management detail view; no second directory implementation was introduced.
+- Updated Midnight, Glass and Paper dashboard templates so Settings → Tenants renders the directory instead of the generic settings placeholder. Other Settings sections retain their existing placeholder surfaces.
+- Tenant detail URLs now live under `/dashboard/settings/tenants/:tenantId/manage`; returning from tenant detail returns to the Tenants directory. The obsolete `/dashboard/platform` navigation route was removed.
+- Updated the Playwright smoke scenario to open Settings → Tenants and verify card/list switching, tenant management and tenant creation.
+- Commits: `efee80f`, `5bd5194`, `946725c`, `703c962`, `c3097e6`, `17c0f66`, `ac5d0f0`.
+- Source and test changes are integrated directly into main. Angular build, Playwright execution and VPS visual/functional validation have not yet been run; do not mark this UI flow verified until those checks pass.
