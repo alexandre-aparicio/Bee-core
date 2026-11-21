@@ -168,7 +168,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaAfterUninstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterUninstall.statusCode, 403);
     assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-beta" }), 1);
-    const betaReinstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
+    const betaReinstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaReinstall.statusCode, 202);
     await waitForInstallJob(await resolveJobId(betaToken,betaReinstall.json().jobId as string));
     assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.installed",resourceType:"plugin",resourceId:"notes"}),2,"plugin reinstall should produce a second install event");
