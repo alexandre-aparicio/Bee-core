@@ -124,7 +124,7 @@ export const marketplacePlugin: BeePlugin = {
     const authenticate = async (request: any, reply: any) => {
       try {
         await request.jwtVerify();
-        const tenant = await resolveTenantContext(db, request.user);
+        const tenant = await resolveTenantContext(db, request.user, {}, String(ctx.config.jwtSecret ?? ""));
         if (!tenant) {
           reply.code(401).send({ error: "Unauthorized or active company session required" });
           return null;
