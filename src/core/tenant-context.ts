@@ -1,6 +1,6 @@
 import type { Db } from "mongodb";
 import { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
-import { unmaskTenantId } from "./session-id.js";
+import { unmaskTenantId, unmaskUserId } from "./session-id.js";
 
 export type CompanyRole = "owner" | "admin" | "manager" | "member";
 export type MembershipRole = CompanyRole | "custom";
@@ -51,21 +51,23 @@ export async function resolveTenantContext(
   }
 
   const now = new Date();
-  const users = db.collection<{ id: string; email: string; enabled: boolean; allowedClients?: string[] }>("users");
-  const user = await users.findOne({ id: claims.sub, enabled: true });
-  if (!user || !Array.isArray(user.allowedClients) || !user.allowedClients.includes(claims.client)) return null;
-
-  const session = await db.collection<{ id:string; userId:string; tenantId:string; expiresAt:Date; revokedAt:Date|null }>("refresh_sessions").findOne({
+  const session = await db.collection<{ id:string; userId:string; tenantId:string; client?:string; expiresAt:Date; revokedAt:Date|null }>("refresh_sessions").findOne({
     id: claims.sid,
-    userId: user.id,
     revokedAt: null,
     expiresAt: { $gt: now }
   });
-  if (!session) return null;
+  if (!session || session.client !== claims.client) return null;
+  let userId: string;
   let tenantId: string;
+  const sessionContext={sessionId:session.id,expiresAt:session.expiresAt};
   try {
-    tenantId = unmaskTenantId(claims.tenantRef, { sessionId: session.id, expiresAt: session.expiresAt }, sessionIdSecret);
+    userId = unmaskUserId(claims.sub, sessionContext, sessionIdSecret);
+    tenantId = unmaskTenantId(claims.tenantRef, sessionContext, sessionIdSecret);
   } catch { return null; }
+  if (!userId || userId !== session.userId) return null;
+  const users = db.collection<{ id: string; email: string; enabled: boolean; allowedClients?: string[] }>("users");
+  const user = await users.findOne({ id: userId, enabled: true });
+  if (!user || !Array.isArray(user.allowedClients) || !user.allowedClients.includes(claims.client)) return null;
   if (!tenantId || tenantId !== session.tenantId) return null;
 
   const membership = await db.collection<{ role: MembershipRole; customRoleId?: string; status: string }>("memberships").findOne({
