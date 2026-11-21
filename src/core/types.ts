@@ -11,6 +11,8 @@ export interface BeeLogger {
 }
 
 export interface BeeContext {
+  /** Plugin name when this context is scoped; undefined for the application context. */
+  readonly pluginName?: string;
   readonly appName: string;
   readonly version: string;
   readonly events: BeeEventBus;
