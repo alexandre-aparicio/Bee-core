@@ -8,7 +8,7 @@ The runtime migration is implemented in the API layer. All authenticated JSON re
 
 - MongoDB keeps its existing internal IDs. No database relationship or foreign key is rewritten.
 - Authenticated clients receive opaque, randomized references instead of internal tenant, plugin, user, membership, role, invitation, file, note, job, audit, installation and subscription IDs.
-- Each reference is encrypted with AES-256-GCM using a key derived from `JWT_SECRET` and the persisted session ID. A fresh 96-bit nonce is generated for every masking operation.
+- Each reference is encrypted with AES-256-GCM using a key derived from `JWT_SECRET` and the persisted session ID. A deterministic 96-bit nonce is derived from the session key, resource type and internal ID, keeping a resource reference stable within one session while producing a different reference in a new session.
 - The encrypted payload includes resource type, internal ID, session ID and the session's absolute expiry. References are therefore type-bound, session-bound and time-bound.
 - A new login creates a new session and new references. References from another session, a revoked session, a different resource type, a modified value or an expired session are rejected.
 - Refresh-token rotation retains the same session and does not extend its absolute 30-day expiry. Existing references remain valid until that expiry; the client receives the remaining refresh lifetime.
@@ -34,4 +34,4 @@ The runtime migration is implemented in the API layer. All authenticated JSON re
 
 ## Verification
 
-Unit tests cover opacity, fresh nonces, session separation, type substitution, tampering, expiry and recursive API translation. Integration tests exercise authentication, company switching, files, plugin lifecycle and platform administration through the central middleware. A successful GitHub Actions run is required before claiming end-to-end verification.
+Unit tests cover opacity, session stability, session separation, type substitution, tampering, expiry and recursive API translation. Integration tests exercise authentication, company switching, files, plugin lifecycle and platform administration through the central middleware. A successful GitHub Actions run is required before claiming end-to-end verification.
