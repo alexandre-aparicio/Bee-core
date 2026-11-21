@@ -77,7 +77,10 @@ export const authPlugin:BeePlugin={
    const email=String(req.body?.email??"").trim().toLowerCase(),password=String(req.body?.password??""),client=clientFrom(req.body?.client);
    if(!email||!password||!client)return reply.code(400).send({error:"email, password and valid client required"});
    const u=await users.findOne({email,enabled:true});
-   if(!u||!await bcrypt.compare(password,u.passwordHash))return reply.code(401).send({error:"Invalid credentials"});
+   // Always perform a bcrypt comparison to reduce account-enumeration timing differences.
+   const dummyPasswordHash=await bcrypt.hash("bee-core-invalid-login-timing-sentinel",12);
+   const passwordMatches=await bcrypt.compare(password,u?.passwordHash??dummyPasswordHash);
+   if(!u||!passwordMatches)return reply.code(401).send({error:"Invalid credentials"});
    if(!u.allowedClients.includes(client))return reply.code(403).send({error:"Client access denied"});
    if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
    const tenantId=u.tenantId??defaultTenantId;
