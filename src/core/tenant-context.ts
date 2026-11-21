@@ -37,7 +37,8 @@ export type TenantContextOptions = { allowSuspendedCompany?: boolean };
 export async function resolveTenantContext(
   db: Db,
   claims: TenantClaims,
-  options: TenantContextOptions = {}
+  options: TenantContextOptions = {},
+  resourceIdSecret = String(process.env.JWT_SECRET ?? "")
 ): Promise<TenantContext | null> {
   if (claims.aud !== "bee-core" || !claims.sub || !claims.tenantId || !claims.sid || !claims.client) return null;
 
@@ -53,9 +54,8 @@ export async function resolveTenantContext(
   let tenantId: string;
   try {
     const context = { sessionId: session.id, expiresAt: session.expiresAt };
-    const secret = String(process.env.JWT_SECRET ?? "");
-    userId = unmaskUserId(claims.sub, context, secret);
-    tenantId = unmaskTenantId(claims.tenantId, context, secret);
+    userId = unmaskUserId(claims.sub, context, resourceIdSecret);
+    tenantId = unmaskTenantId(claims.tenantId, context, resourceIdSecret);
   } catch { return null; }
   if (userId !== session.userId || tenantId !== session.tenantId) return null;
 
