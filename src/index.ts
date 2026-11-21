@@ -13,7 +13,7 @@ import { notesPlugin } from "./plugins/notes/notes.plugin.js";
 import { notificationsPlugin } from "./plugins/notifications/notifications.plugin.js";
 import { platformAdminPlugin } from "./plugins/platform-admin/platform-admin.plugin.js";
 const logger:BeeLogger={info:(m,c)=>console.log("[INFO]",m,c??""),warn:(m,c)=>console.warn("[WARN]",m,c??""),error:(m,c)=>console.error("[ERROR]",m,c??"")};
-const events=new BeeEventBus(),plugins=new BeePluginManager(),app=Fastify({logger:false});
+const events=new BeeEventBus(undefined,new Set(["bee.started","auth.login","notification.request"])),plugins=new BeePluginManager(),app=Fastify({logger:false});
 const jwtSecret=String(process.env.JWT_SECRET??"");
 if(jwtSecret.length<32)throw new Error("JWT_SECRET must contain at least 32 characters.");
 app.register(jwt,{secret:jwtSecret,sign:{expiresIn:"20m"}});
