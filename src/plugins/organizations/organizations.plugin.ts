@@ -353,8 +353,9 @@ export const organizationsPlugin:BeePlugin={
    if(!session)return reply.code(401).send({error:"Session expired or revoked"});
    const role: string=membership.role;
    const roles=role==="owner"||role==="admin"?["admin"]:["user"];
-   const accessToken=ctx.server.jwt.sign({sub:user!.id,email:user!.email,roles,tenantId:company.id,client:claims.client,aud:"bee-core",sid:claims.sid});
-   return {accessToken,tokenType:"Bearer",expiresIn:1200,tenantId:company.id,company:{id:company.id,name:company.name},membership:{role:membership.role}};
+   const tenantRef=maskTenantId(company.id,{sessionId:auth.tenantContext.sessionId,expiresAt:auth.tenantContext.sessionExpiresAt},sessionIdSecret);
+    const accessToken=ctx.server.jwt.sign({sub:user!.id,email:user!.email,roles,tenantRef,client:claims.client,aud:"bee-core",sid:claims.sid});
+   return {accessToken,tokenType:"Bearer",expiresIn:1200,tenantId:tenantRef,company:{id:tenantRef,name:company.name},membership:{role:membership.role}};
   });
   ctx.server.get("/companies/active/permissions",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
