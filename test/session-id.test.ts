@@ -52,3 +52,10 @@ test("resource IDs must be non-empty and bounded", () => {
   assert.throws(() => maskResourceId("", "tenant", sessionA, secret));
   assert.throws(() => maskResourceId("x".repeat(1025), "tenant", sessionA, secret));
 });
+
+
+test("resource references use compact URL-safe encoding", () => {
+  const masked = maskTenantId("550e8400-e29b-41d4-a716-446655440000", sessionA, secret);
+  assert.ok(masked.length < 128, `expected compact reference, got ${masked.length} characters`);
+  assert.equal(unmaskTenantId(masked, sessionA, secret), "550e8400-e29b-41d4-a716-446655440000");
+});
