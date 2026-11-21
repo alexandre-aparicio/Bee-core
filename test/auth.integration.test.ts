@@ -292,16 +292,16 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const betaManagerCompanyRef=betaManagerCompanies.json().companies.find((company:{name:string})=>company.name==="Second Company").id as string;
     const betaManagerContext=await app.inject({method:"POST",url:"/companies/"+betaManagerCompanyRef+"/activate",headers:{authorization:"Bearer "+betaReLogin.json().accessToken}});
     assert.equal(betaManagerContext.statusCode,200);
-    const managerInviteAdmin=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/invitations",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken},payload:{email:"admin-invite@example.com",role:"admin"}});
+    const managerInviteAdmin=await app.inject({method:"POST",url:"/companies/"+betaManagerCompanyRef+"/invitations",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken},payload:{email:"admin-invite@example.com",role:"admin"}});
     assert.equal(managerInviteAdmin.statusCode,403);
-    const managerMembers=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
+    const managerMembers=await app.inject({method:"GET",url:"/companies/"+betaManagerCompanyRef+"/memberships",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
     assert.equal(managerMembers.statusCode,200);
     const ownerAuditEvents=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(ownerAuditEvents.statusCode,200);
     assert.ok(ownerAuditEvents.json().events.some((event:{action:string})=>event.action==="permission.denied"),"company owner can read only the active company's audit history");
     const crossTenantAuditEvents=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(crossTenantAuditEvents.statusCode,403,"a valid member of another company cannot read this company's audit events");
-    const managerAuditEvents=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
+    const managerAuditEvents=await app.inject({method:"GET",url:"/companies/"+betaManagerCompanyRef+"/audit-events",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
     assert.equal(managerAuditEvents.statusCode,403,"manager role cannot read restricted audit history");
     const auditMutation=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(auditMutation.statusCode,404,"tenant audit history exposes no mutation route");
@@ -336,7 +336,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(!customPermissions.json().permissions.includes("members.manage"));
     const cannotDeleteAssignedRole=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(cannotDeleteAssignedRole.statusCode,409);
-    const resetCustomMemberRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/test-user-beta",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
+    const resetCustomMemberRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(resetCustomMemberRole.statusCode,200);
     const deleteCustomRole=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(deleteCustomRole.statusCode,200);
@@ -375,14 +375,16 @@ test("auth integration: login, token introspection, refresh rotation and logout"
 
     // Role assignment revokes previous sessions; authenticate again after reset to manager.
     const betaManagerReLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
-    const betaManagerFreshContext=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaManagerReLogin.json().accessToken}});
+    const betaManagerFreshCompanies=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+betaManagerReLogin.json().accessToken}});
+    const betaManagerFreshCompanyRef=betaManagerFreshCompanies.json().companies.find((company:{name:string})=>company.name==="Second Company").id as string;
+    const betaManagerFreshContext=await app.inject({method:"POST",url:"/companies/"+betaManagerFreshCompanyRef+"/activate",headers:{authorization:"Bearer "+betaManagerReLogin.json().accessToken}});
     assert.equal(betaManagerFreshContext.statusCode,200);
     const managerPermissions=await app.inject({method:"GET",url:"/companies/active/permissions",headers:{authorization:"Bearer "+betaManagerFreshContext.json().accessToken}});
     assert.equal(managerPermissions.statusCode,200);
     assert.equal(managerPermissions.json().role,"manager");
     assert.ok(managerPermissions.json().permissions.includes("files.read"));
     assert.ok(!managerPermissions.json().permissions.includes("members.manage"));
-    const managerAudit=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+betaManagerFreshContext.json().accessToken}});
+    const managerAudit=await app.inject({method:"GET",url:"/companies/"+betaManagerFreshCompanyRef+"/audit-events",headers:{authorization:"Bearer "+betaManagerFreshContext.json().accessToken}});
     assert.equal(managerAudit.statusCode,403,"company managers must not read owner/admin audit events");
 
 
