@@ -434,3 +434,8 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Backend dependency: the current API has no persisted global/tenant Settings service for platform identity/defaults, integrations/SMTP, billing plans/subscriptions, security policy/retention, infrastructure operations or localization. Those controls are intentionally marked unavailable; there are no fake save buttons or claims of persistence.
 - Added a Playwright smoke scenario covering the General three-card layout, the eight Super Administrator destinations, canonical route paths and the single Settings-only Plugins entry. The test source was not executed.
 - Validation: no build, tests, GitHub Actions, workflows or VPS checks were run, per request. Angular compile and live role/route/rendering checks remain unverified.
+
+
+## Tenant email system (feature branch)
+
+The branch `feature/tenant-email-system` adds a tenant-scoped email integration: mailbox accounts with encrypted credential storage, SMTP send (direct TLS and STARTTLS on 587), IMAP/POP3 inbound sync, stored messages, mailbox APIs and a dashboard Mail workspace. This work is not merged into `main`; compilation, integration tests and real provider interoperability have not been verified. POP3/IMAP message parsing is currently basic and does not yet provide full MIME decoding, attachment extraction, folder synchronization, deletion propagation or OAuth2 provider support. Account credentials require `BEE_MAIL_ENCRYPTION_KEY`; Compose and production environment examples now declare it.
