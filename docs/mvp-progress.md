@@ -378,3 +378,13 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Updated all platform-admin resource masking calls to use the session context only after the authorization guard succeeds (`req.platformSession!`). Each route returns immediately when the guard does not return an authenticated superadministrator; the guard assigns the session context before returning the user.
 - Fix committed directly to `main`: `b5c6e3ee1b06823bfce646f464817c98b05efedd` (`fix(platform-admin): narrow authenticated session context`).
 - Still unverified: the next full Docker build, container startup/health, automated tests, and VPS functional flows.
+
+
+### VPS 414 URI-length issue — compact resource references (2026-11-21)
+
+- The platform-admin company plugins request returned HTTP 414 when the encrypted company reference was embedded in the URL path.
+- Replaced the verbose JSON reference payload with a compact binary payload containing version, resource type, expiry and UTF-8 resource ID. The session ID is bound through the per-session derived AES-256-GCM key rather than repeated inside the encrypted payload.
+- New references use format version 2 and are URL-safe; old version-1 references are intentionally rejected and must be refreshed by reloading/re-authenticating after deployment.
+- Added a regression assertion that a UUID tenant reference is under 128 characters.
+- Commits: `36d8a91` (compact codec) and `353618b` (size regression test).
+- Still pending: pull/rebuild on VPS, confirm the 414 is gone, and run the session isolation/expiry flows. This addresses reference size; it does not replace a full audit of every endpoint and response field.
