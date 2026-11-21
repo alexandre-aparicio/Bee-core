@@ -96,6 +96,10 @@ export class BeePluginManager {
   }
 
   list(): BeePluginInfo[] {
-    return [...this.plugins.values()].map(({ plugin, status }) => ({ ...plugin.manifest, status }));
+    return [...this.plugins.values()].map(({ plugin, status, error }) => ({
+      ...plugin.manifest,
+      status,
+      ...(error ? { error: error instanceof Error ? error.message : String(error) } : {})
+    }));
   }
 }
