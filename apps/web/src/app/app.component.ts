@@ -153,20 +153,39 @@ export class AppComponent implements OnInit {
   toggleMenu(): void { this.menuOpen = !this.menuOpen; }
 
   activeSection = 'dashboard';
+  expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
     dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization',
-    activity: '/dashboard/activity', settings: '/dashboard/settings', platform: '/dashboard/platform',
+    activity: '/dashboard/activity', 'settings-general': '/dashboard/settings',
+    'settings-tenants': '/dashboard/settings/tenants', 'settings-plugins': '/dashboard/settings/plugins',
+    'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans',
+    'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
+    'settings-localization': '/dashboard/settings/localization', platform: '/dashboard/platform',
     'themes-dashboard': '/dashboard/themes', 'themes-public': '/dashboard/public-theme',
     branding: '/dashboard/branding', domains: '/dashboard/domains', integrations: '/dashboard/integrations',
     security: '/dashboard/security', system: '/dashboard/system'
   };
+  private readonly allSettingsSections = [
+    {id:'settings-general',label:'General',icon:'◉',description:'Platform name, domain, identity and global configuration.'},
+    {id:'settings-tenants',label:'Tenants',icon:'▤',description:'Company management, statuses, limits and tenant isolation.'},
+    {id:'settings-plugins',label:'Plugins',icon:'▣',description:'Catalogue, authorization, versions and dependencies.'},
+    {id:'settings-integrations',label:'Integrations',icon:'⌘',description:'Available connectors, global credentials and policies.'},
+    {id:'settings-plans',label:'Plans & Licensing',icon:'◇',description:'Plans, subscriptions, pricing and licenses.'},
+    {id:'settings-security',label:'Security',icon:'⌑',description:'Global policies, authentication, sessions and audit.'},
+    {id:'settings-infrastructure',label:'Infrastructure',icon:'⌁',description:'Runtime, storage, queues, logs and services.'},
+    {id:'settings-localization',label:'Localization',icon:'◎',description:'Languages, regions, currencies and global formats.'}
+  ];
   private syncActiveSectionFromPath(): void {
     if (this.path.startsWith('/dashboard/platform/') && this.path.endsWith('/manage')) {
       this.activeSection = 'platform';
       return;
     }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
-    this.activeSection = entry?.[0] || 'dashboard';
+    const nextSection = entry?.[0] || 'dashboard';
+    this.activeSection = nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)
+      ? 'dashboard'
+      : nextSection;
+    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : '';
   }
   get platformTenantId(): string {
     const parts = this.path.split('/');
@@ -184,7 +203,30 @@ export class AppComponent implements OnInit {
   navigatePlatformList(): void { this.navigateSection('platform'); }
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
-  get sectionTitle(): string { return this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
+  get sectionTitle(): string { return this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
+  get settingsNavigationItems(): Array<{id:string;label:string;icon:string;description:string}> {
+    const role = (this.activeCompanyRole || '').toLowerCase();
+    const allowed = this.isPlatformAdmin
+      ? this.allSettingsSections.map(item => item.id)
+      : ['owner','admin'].includes(role)
+        ? ['settings-general','settings-plugins','settings-integrations','settings-security','settings-localization']
+        : ['settings-localization'];
+    return this.allSettingsSections.filter(item => allowed.includes(item.id)).map(item => ({
+      ...item,
+      description: item.id === 'settings-general' && !this.isPlatformAdmin
+        ? 'Company name, identity and tenant-wide configuration.'
+        : item.description
+    }));
+  }
+  get settingsSectionTitle(): string { return this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || 'Settings'; }
+  get settingsSectionDescription(): string { return this.settingsNavigationItems.find(item => item.id === this.activeSection)?.description || 'Manage your workspace preferences.'; }
+  toggleNavigationMenu(menuId: string): void {
+    this.expandedMenuId = this.expandedMenuId === menuId ? '' : menuId;
+    if (this.expandedMenuId === 'settings' && !this.activeSection.startsWith('settings-')) {
+      const first = this.settingsNavigationItems[0];
+      if (first) this.navigateSection(first.id);
+    }
+  }
   get navigationItems(): Array<{id:string;label:string;icon:string;group:string}> {
     const base = [
       {id:'dashboard',label:'Dashboard',icon:'▦',group:'WORKSPACE'},
@@ -198,25 +240,25 @@ export class AppComponent implements OnInit {
       {id:'platform',label:'Platform Administration',icon:'⬡',group:'PLATFORM'},
       {id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},
       {id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},
-      {id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'},
-      {id:'domains',label:'Domains',icon:'◎',group:'SYSTEM'},
-      {id:'integrations',label:'Integrations',icon:'⌘',group:'SYSTEM'},
-      {id:'security',label:'Security',icon:'🔒',group:'PLATFORM'},
-      {id:'system',label:'System',icon:'⚙',group:'PLATFORM'}
+      {id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'}
     ];
     const role = (this.activeCompanyRole || '').toLowerCase();
     if (role === 'owner') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'},{id:'domains',label:'Domains',icon:'◎',group:'SYSTEM'},{id:'integrations',label:'Integrations',icon:'⌘',group:'SYSTEM'}];
     if (role === 'admin') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'}];
-    if (role === 'manager') return base.filter(item => ['dashboard','plugins','organization','activity'].includes(item.id));
-    return base.filter(item => ['dashboard','plugins','organization'].includes(item.id));
+    if (role === 'manager') return base.filter(item => ['dashboard','plugins','organization','activity','settings'].includes(item.id));
+    return base.filter(item => ['dashboard','plugins','organization','settings'].includes(item.id));
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void {
-    const route = this.sectionRoutes[id];
+    const targetId = id === 'settings' ? this.settingsNavigationItems[0]?.id : id;
+    if (!targetId) return;
+    if (targetId.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === targetId)) return;
+    const route = this.sectionRoutes[targetId];
     if (!route) return;
     if (window.location.pathname !== route) window.history.pushState({}, '', route);
     this.path = route;
-    this.activeSection = id;
+    this.activeSection = targetId;
+    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : '';
     this.menuOpen = false;
   }
 
