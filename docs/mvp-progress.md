@@ -202,3 +202,14 @@ The product model is now specified in `docs/template-business-model.md`.
 - Repaired three orphaned CSS rules in `styles.css`: the template-manager responsive rule, the empty template-slot display rule, and the template-manager catalog layout selector. These were left behind by the prior CSS extraction and generated CSS parser warnings.
 - These are source-level corrections only. No build, tests, or GitHub Actions workflows were run here. The user's next VPS build is still required to confirm the reported failures are resolved.
 - The six packages are not yet 100% composition-independent: their page markup/navigation and plugin composition still live in `app.component.html`. Do not begin plugin package separation until public and dashboard page composition has been moved behind the template package boundaries and the shared core only supplies runtime context/contracts.
+
+
+## Template page composition extraction (2026-11-21)
+
+- Moved the tenant public and corporate public page markup into package-owned Angular page components for Aurora, Editorial and Studio under each package's `pages/public.component.ts`.
+- Moved dashboard composition markup into package-owned Angular components for Midnight, Paper and Glass under each package's `pages/dashboard.component.ts`.
+- The package-owned public components contain the tenant and corporate variants; package-owned dashboard components preserve the dashboard navigation, company switching, section routing, marketplace, plugin outlet, membership, audit, platform administration, template settings and registered slots.
+- `app.component.html` now selects a package page component and keeps the core-level authentication/loading/tenant-resolution branches. Template package layout components still wrap the page compositions for package styles and appearance modes.
+- Updated each template manifest's `componentId` to its package-owned page component.
+- This completes the first source boundary extraction, not visual redesign: the six page components currently start from copied compositions and are independently editable, but have not yet been redesigned into distinct layouts. The core still selects components with explicit Angular branches; dynamic manifest-driven component rendering is not implemented.
+- No build, tests, workflows or VPS runtime validation were run. Compilation and runtime behavior remain unverified.
