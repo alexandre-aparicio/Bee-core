@@ -9,10 +9,10 @@
 .bee-template-package-host--editorial .feature-grid h3,.bee-template-package-host--editorial .stack-plugins>div{color:#20283a}
 .bee-template-package-host--editorial .bee-template-manager{background:#fff;color:#20283a;border-color:#e1e5ee}
 .bee-template-package-host--editorial .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
-.bee-layout--public-editorial{background:#f6f7fb;color:#20283a}
-.bee-layout--public-editorial .site-header{max-width:1280px;border-bottom:1px solid #e1e5ee}
-.bee-layout--public-editorial .hero{max-width:1280px;margin-inline:auto}
-.bee-layout--public-editorial .feature-section,.bee-layout--public-editorial .architecture{max-width:1280px;margin-inline:auto}
-.bee-layout--public-editorial .cta{max-width:1240px;margin-inline:auto}
-.bee-layout--public-editorial .hero{padding-inline:16px}
-.bee-layout--public-editorial footer{padding-inline:16px}
+.bee-template-package-host--editorial{background:#f6f7fb;color:#20283a}
+.bee-template-package-host--editorial .site-header{max-width:1280px;border-bottom:1px solid #e1e5ee}
+.bee-template-package-host--editorial .hero{max-width:1280px;margin-inline:auto}
+.bee-template-package-host--editorial .feature-section,.bee-template-package-host--editorial .architecture{max-width:1280px;margin-inline:auto}
+.bee-template-package-host--editorial .cta{max-width:1240px;margin-inline:auto}
+.bee-template-package-host--editorial .hero{padding-inline:16px}
+.bee-template-package-host--editorial footer{padding-inline:16px}
