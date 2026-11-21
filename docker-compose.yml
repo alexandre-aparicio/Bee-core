@@ -25,6 +25,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       AUTH_ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL:-}
       AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-}
+      AUTH_MFA_ENCRYPTION_KEY: ${AUTH_MFA_ENCRYPTION_KEY:?Set AUTH_MFA_ENCRYPTION_KEY in .env}
       MONGODB_URI: mongodb://mongodb:27017
       MONGODB_DB: ${MONGODB_DB:-bee_core}
       BEE_FILES_DIR: /data/bee-files
