@@ -275,7 +275,7 @@ export class AppComponent implements OnInit {
   navigatePlatformList(): void { this.navigateSection('settings-tenants'); }
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
-  get sectionTitle(): string { return this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
+  get sectionTitle(): string { return this.activeSection === 'notifications' ? 'Notifications' : this.activeSection === 'messages' ? 'Messages' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
   get settingsNavigationItems(): Array<{id:string;label:string;icon:string;description:string}> {
     const role = (this.activeCompanyRole || '').toLowerCase();
     const allowed = this.isPlatformAdmin
