@@ -15,25 +15,25 @@ const safeAccount=(a:MailAccount)=>({id:a.id,name:a.name,email:a.email,protocol:
 function openSocket(host:string,port:number,secure:boolean){return new Promise<any>((resolve,reject)=>{const socket=secure?tls.connect({host,port,servername:host}):net.connect({host,port});socket.setEncoding("utf8");socket.once("error",reject);if(secure)socket.once("secureConnect",()=>resolve(socket));else socket.once("connect",()=>resolve(socket));});}
 class LineClient {
  socket:any;buffer="";lines:string[]=[];waiters:Array<(v:string)=>void>=[];onData:(data:string)=>void;
- constructor(socket:any){this.socket=socket;this.onData=(data:string)=>{this.buffer+=data;while(this.buffer.includes("\\n")){const p=this.buffer.indexOf("\\n");const line=this.buffer.slice(0,p).replace(/\\r$/,"");this.buffer=this.buffer.slice(p+1);const w=this.waiters.shift();if(w)w(line);else this.lines.push(line);}};socket.on("data",this.onData);}
+ constructor(socket:any){this.socket=socket;this.onData=(data:string)=>{this.buffer+=data;while(this.buffer.includes("\n")){const p=this.buffer.indexOf("\n");const line=this.buffer.slice(0,p).replace(/\r$/,"");this.buffer=this.buffer.slice(p+1);const w=this.waiters.shift();if(w)w(line);else this.lines.push(line);}};socket.on("data",this.onData);}
  read(){return this.lines.length?Promise.resolve(this.lines.shift()!):new Promise<string>(resolve=>this.waiters.push(resolve));}
- write(s:string){this.socket.write(s+"\\r\\n");}
+ write(s:string){this.socket.write(s+"\r\n");}
  detach(){this.socket.removeListener("data",this.onData);}
  close(){this.socket.end();}
 }
 async function smtpSend(account:MailAccount,input:{to:string[];cc?:string[];subject:string;text:string;html?:string}){
  let socket=await openSocket(account.smtpHost,account.smtpPort,account.smtpSecure);let c=new LineClient(socket);
- const read=async()=>{let l=await c.read();while(/^\\d{3}-/.test(l))l=await c.read();return l;};
+ const read=async()=>{let l=await c.read();while(/^\d{3}-/.test(l))l=await c.read();return l;};
  const expect=async(code:string)=>{const l=await read();if(!l.startsWith(code))throw new Error("SMTP: "+l);return l;};
  try{
   await expect("220");c.write("EHLO bee-core");await expect("250");
   if(!account.smtpSecure&&account.smtpPort===587){c.write("STARTTLS");await expect("220");c.detach();socket=await new Promise<any>((resolve,reject)=>{const upgraded=tls.connect({socket,servername:account.smtpHost});upgraded.once("error",reject);upgraded.once("secureConnect",()=>resolve(upgraded));});c=new LineClient(socket);c.write("EHLO bee-core");await expect("250");}
-  if(account.smtpUsername){c.write("AUTH PLAIN "+Buffer.from("\\0"+account.smtpUsername+"\\0"+decrypt(account.smtpPasswordEncrypted)).toString("base64"));await expect("235");}
+  if(account.smtpUsername){c.write("AUTH PLAIN "+Buffer.from("\0"+account.smtpUsername+"\0"+decrypt(account.smtpPasswordEncrypted)).toString("base64"));await expect("235");}
   c.write("MAIL FROM:<"+account.email+">");await expect("250");for(const recipient of [...input.to,...(input.cc??[])]){c.write("RCPT TO:<"+recipient+">");await expect("250");}
   c.write("DATA");await expect("354");const boundary="bee-"+randomUUID();
-  const headers=["From: "+account.email,"To: "+input.to.join(", "),...(input.cc?.length?["Cc: "+input.cc.join(", ")]:[]),"Subject: "+input.subject.replace(/[\\r\\n]+/g," "),"Date: "+new Date().toUTCString(),"Message-ID: <"+randomUUID()+"@bee-core>","MIME-Version: 1.0"];
+  const headers=["From: "+account.email,"To: "+input.to.join(", "),...(input.cc?.length?["Cc: "+input.cc.join(", ")]:[]),"Subject: "+input.subject.replace(/[\r\n]+/g," "),"Date: "+new Date().toUTCString(),"Message-ID: <"+randomUUID()+"@bee-core>","MIME-Version: 1.0"];
   const body=input.html?["Content-Type: multipart/alternative; boundary="+boundary,"","--"+boundary,"Content-Type: text/plain; charset=UTF-8","Content-Transfer-Encoding: 8bit","",input.text||"","--"+boundary,"Content-Type: text/html; charset=UTF-8","Content-Transfer-Encoding: 8bit","",input.html,"--"+boundary+"--"]:["Content-Type: text/plain; charset=UTF-8","Content-Transfer-Encoding: 8bit","",input.text];
-  const mime=[...headers,...body,""].join("\\r\\n").replace(/^\\./gm,"..");socket.write(mime+"\\r\\n.\\r\\n");await expect("250");c.write("QUIT");await read();
+  const mime=[...headers,...body,""].join("\r\n").replace(/^\./gm,"..");socket.write(mime+"\r\n.\r\n");await expect("250");c.write("QUIT");await read();
  }finally{c.close();}
 }
 async function popFetch(account:MailAccount){const socket=await openSocket(account.host,account.port,account.secure);const c=new LineClient(socket);const read=async()=>c.read();const expect=async(prefix:string)=>{const l=await read();if(!l.startsWith(prefix))throw new Error("POP3: "+l);return l;};try{await expect("+OK");c.write("USER "+account.username);await expect("+OK");c.write("PASS "+decrypt(account.passwordEncrypted));await expect("+OK");c.write("STAT");const stat=await expect("+OK");const total=Number(stat.split(" ")[1]||0);const start=Math.max(1,total-50);const fetched:string[]=[];for(let n=start;n<=total;n++){c.write("RETR "+n);await expect("+OK");let raw="";while(true){const line=await read();if(line===".")break;raw+=line.replace(/^\.\./,".")+"\n";}fetched.push(raw);}c.write("QUIT");await read();return fetched;}finally{c.close();}}
