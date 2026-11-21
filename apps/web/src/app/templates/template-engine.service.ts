@@ -373,7 +373,7 @@ export class BeeTemplateEngine {
     if (typeof localStorage === 'undefined') return 'dark';
     const saved = localStorage.getItem(this.modeStorageKey(target));
     if (saved === 'light' || saved === 'dark') return saved;
-    return ['editorial', 'studio', 'paper'].includes(this.selection[target]) ? 'light' : 'dark';
+    return ['editorial', 'studio', 'paper', 'glass'].includes(this.selection[target]) ? 'light' : 'dark';
   }
 
   setMode(target: BeeTemplateTarget, mode: BeeThemeMode): void {
