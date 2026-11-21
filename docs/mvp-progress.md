@@ -316,3 +316,26 @@ Validation status: no build, automated test suite, CI workflow or VPS deployment
 - Files integration coverage now asserts opaque file IDs and rejects use of a file reference from a second session belonging to the same user.
 
 Still outstanding: organizations and Platform Administration routes, marketplace plugin/job references, public discovery contracts, auth template/SSE boundaries, remaining Angular contract migration, notes integration coverage, complete test/build/CI validation. This is a partial vertical slice, not an end-to-end completion.
+
+## Session-bound resource IDs — continued integration (2026-11-21)
+
+This entry supersedes the earlier audit's "remaining" bullets where the corresponding vertical slices are now implemented on the feature branch. It does not claim the overall migration is complete.
+
+Implemented on `feature/session-bound-ids-end-to-end`:
+- JWT subject (`sub`) and tenant claim now both use typed, session-bound encrypted references. The tenant context resolver decrypts both only after loading the active persisted session and verifies the resulting user and tenant against that session.
+- Removed acceptance of the legacy plaintext `tenantId` claim in `TenantClaims` / `resolveTenantContext`.
+- Company switching now issues a masked user subject as well as a masked tenant reference. Logout resolves the subject from the session reference, including after refresh expiry rotation.
+- Organization APIs mask company, user, role, invitation, membership and audit-event identifiers in responses and decode typed route/body references after session validation. Public tenant discovery exposes the public slug, not the MongoDB tenant ID.
+- Platform Administration masks company, owner, plugin and lifecycle-job identifiers and rejects references issued to another session. Its Angular component now uses the plugin reference returned by the platform plugin catalog rather than sending the raw `hello-world` package ID.
+- Marketplace masks tenant, plugin, dependency and lifecycle-job references; its routes decode plugin/job references within the authenticated session. The public installed-plugin list returns public package slugs only. Billing webhooks remain a separate authenticated server-to-server contract.
+- File and note endpoints mask their resource IDs; note creator IDs are also masked. Tenant-scoped persistence continues to use internal IDs only.
+- Updated authentication, organization, marketplace and platform-admin integration tests to use references issued for the relevant login session, including cross-session replay checks.
+- Documented the deterministic per-session reference behavior: same resource/type/expiry yields the same reference within a session; a different session yields a different reference.
+
+Remaining before merge:
+- Review every remaining plugin/API and browser boundary (including any dynamically registered plugin routes, event payloads, error metadata, and URL/query/body identifiers) for raw database IDs; the migration is not yet certified exhaustive.
+- Add/finish focused coverage for session expiry/revocation, logout after refresh, malformed/tampered/wrong-type references, notes/files cross-session use, and all platform lifecycle operations.
+- Run the full TypeScript build, unit/integration suites and CI. These have **not** been run from this environment; MongoDB-backed integration tests may require `MONGODB_TEST_URI`.
+- Review the final diff for type errors and compatibility before marking PR #54 ready. No VPS deployment or production verification has been performed.
+
+Current status: meaningful backend and frontend slices are now integrated in the PR branch, but PR #54 remains draft and must not be merged until the exhaustive boundary review and automated validation pass.
