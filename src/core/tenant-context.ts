@@ -1,5 +1,6 @@
 import type { Db } from "mongodb";
 import { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
+import { unmaskTenantId, unmaskUserId } from "./session-id.js";
 
 export type CompanyRole = "owner" | "admin" | "manager" | "member";
 export type MembershipRole = CompanyRole | "custom";
@@ -70,7 +71,7 @@ export async function resolveTenantContext(
   let permissions: readonly string[];
   if (membership.role === "custom") {
     if (!membership.customRoleId) return null;
-    const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId: claims.tenantId });
+    const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId });
     if (!customRole) return null;
     try { permissions = permissionsForCustomRole(customRole); } catch { return null; }
   } else {
