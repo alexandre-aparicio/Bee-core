@@ -149,14 +149,14 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const betaUninstallAttempts = await Promise.all([
       app.inject({ method: "DELETE", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } }),
-      app.inject({ method: "DELETE", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } })
+      app.inject({ method: "DELETE", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } })
     ]);
     assert.ok(betaUninstallAttempts.every(response => response.statusCode === 202));
     const betaUninstallJobRef = betaUninstallAttempts[0].json().jobId as string;
     const betaUninstallJobId = await resolveJobId(betaToken,betaUninstallJobRef);
     assert.equal(betaUninstallAttempts[1].json().jobId, betaUninstallJobRef, "concurrent uninstall requests must share one durable job");
     assert.equal(betaUninstallAttempts[0].json().action, "uninstall");
-    const conflictingInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
+    const conflictingInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(conflictingInstall.statusCode, 409, "install must not race an active uninstall for the same company/plugin");
     const foreignUninstallJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaUninstallJobRef, headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(foreignUninstallJobRead.statusCode, 404, "uninstall jobs must be tenant-scoped");
@@ -168,7 +168,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-beta" }), 1);
     const betaReinstall = await app.inject({ method: "POST", url: "/marketplace/plugins/notes/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaReinstall.statusCode, 202);
-    await waitForInstallJob(betaReinstall.json().jobId as string);
+    await waitForInstallJob(await resolveJobId(betaToken,betaReinstall.json().jobId as string));
     assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.installed",resourceType:"plugin",resourceId:"notes"}),2,"plugin reinstall should produce a second install event");
     const betaAfterReinstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterReinstall.statusCode, 200);
