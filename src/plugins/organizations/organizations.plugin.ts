@@ -6,10 +6,11 @@ import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type TenantAuditEvent } from "../../core/audit-log.js";
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
+import { maskResourceId, maskTenantId, unmaskResourceId, unmaskTenantId } from "../../core/session-id.js";
 
 type Company = { id:string; name:string; slug?:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
-type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantId?:string; sid?:string; aud?:string };
+type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantRef?:string; tenantId?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string; slug?:string };
 type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
 let mongoClient:MongoClient|undefined;
@@ -21,6 +22,11 @@ export const organizationsPlugin:BeePlugin={
   mongoClient=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongoClient.connect();
   const db:Db=mongoClient.db(dbName);
+  const sessionIdSecret=String(ctx.config.jwtSecret??"");
+  if(sessionIdSecret.length<32)throw new Error("Organizations: JWT_SECRET must contain at least 32 characters.");
+  const sessionOf=(auth:{tenantContext:TenantContext})=>({sessionId:auth.tenantContext.sessionId,expiresAt:auth.tenantContext.sessionExpiresAt});
+  const mask=(auth:{tenantContext:TenantContext},id:string,type:import("../../core/session-id.js").SessionResourceType)=>maskResourceId(id,type,sessionOf(auth),sessionIdSecret);
+  const unmask=(auth:{tenantContext:TenantContext},id:string,type:import("../../core/session-id.js").SessionResourceType)=>unmaskResourceId(id,type,sessionOf(auth),sessionIdSecret);
   const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
   await ensureTenantAuditIndexes(auditEvents);
   const auditOrganizationEvent=async(event:{tenantId:string;actorId:string;action:TenantAuditEvent["action"];outcome:TenantAuditEvent["outcome"];resourceType?:string;resourceId?:string;metadata?:TenantAuditEvent["metadata"]})=>{try{const record:import("../../core/audit-log.js").AuditEventInput={id:randomUUID(),occurredAt:new Date(),tenantId:event.tenantId,actorId:event.actorId,action:event.action,outcome:event.outcome,resourceType:event.resourceType,resourceId:event.resourceId,metadata:event.metadata};await appendTenantAuditEvent(auditEvents,record);}catch(error){ctx.logger.error("Organization audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
@@ -87,6 +93,13 @@ export const organizationsPlugin:BeePlugin={
     const tenantContext=await resolveTenantContext(db,claims,options);
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
     if(tenantContext.client!=="dashboard"){reply.code(403).send({error:"Company administration requires a dashboard session"});return null;}
+    try {
+     if(req.params?.companyId)req.params.companyId=unmaskTenantId(String(req.params.companyId),sessionOf({tenantContext}),sessionIdSecret);
+     if(req.params?.roleId)req.params.roleId=unmaskResourceId(String(req.params.roleId),"role",sessionOf({tenantContext}),sessionIdSecret);
+     if(req.params?.invitationId)req.params.invitationId=unmaskResourceId(String(req.params.invitationId),"invitation",sessionOf({tenantContext}),sessionIdSecret);
+     if(req.params?.userId)req.params.userId=unmaskResourceId(String(req.params.userId),"user",sessionOf({tenantContext}),sessionIdSecret);
+     if(typeof req.body?.customRoleId==="string"&&req.body.customRoleId.trim())req.body.customRoleId=unmaskResourceId(req.body.customRoleId.trim(),"role",sessionOf({tenantContext}),sessionIdSecret);
+    } catch { reply.code(404).send({error:"Resource not found"});return null; }
     const user=await users.findOne({id:tenantContext.userId,enabled:true});
     if(!user){reply.code(401).send({error:"Unauthorized"});return null;}
     return {claims,tenantContext,user};
