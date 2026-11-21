@@ -57,7 +57,7 @@ export const organizationsPlugin:BeePlugin={
    if(slug)tenant=await companies.findOne({slug});
    else if(!hostname.endsWith("."+publicBaseDomain))tenant=await companies.findOne({domains:hostname});
    if(!tenant||(tenant.status??"active")!=="active")return reply.code(404).send({error:"Public tenant not found"});
-   return {kind:"tenant",tenant:{id:tenant.id,name:tenant.name,slug:tenant.slug??null}};
+   return {kind:"tenant",tenant:{name:tenant.name,slug:tenant.slug??null}};
   });
   await Promise.all([
    memberships.createIndex({id:1},{unique:true,name:"memberships_id_unique"}),
@@ -131,7 +131,7 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.read",reply);if(!actor)return;
    const rows=await customRoles.find({tenantId:req.params.companyId}).sort({name:1}).toArray();
-   return {roles:rows.map(({id,name,description,permissions,createdAt,updatedAt})=>({id,name,description,permissions,createdAt,updatedAt}))};
+   return {roles:rows.map(({id,name,description,permissions,createdAt,updatedAt})=>({id:mask(auth,id,"role"),name,description,permissions,createdAt,updatedAt}))};
   });
   ctx.server.post<{Params:{companyId:string};Body:{name?:string;description?:string;permissions?:unknown}}>("/companies/:companyId/roles",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -142,7 +142,7 @@ export const organizationsPlugin:BeePlugin={
    const now=new Date(),role:CustomRolePolicy={id:randomUUID(),tenantId:req.params.companyId,name,description,permissions,createdBy:auth.user!.id,updatedBy:auth.user!.id,createdAt:now,updatedAt:now};
    try{await customRoles.insertOne(role);}catch{return reply.code(409).send({error:"A custom role with this name already exists"});}
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.created",outcome:"success",resourceType:"role",resourceId:role.id,metadata:{name}});
-   return reply.code(201).send({role:{id:role.id,name,description,permissions}});
+   return reply.code(201).send({role:{id:mask(auth,role.id,"role"),name,description,permissions}});
   });
   ctx.server.put<{Params:{companyId:string;roleId:string};Body:{name?:string;description?:string;permissions?:unknown}}>("/companies/:companyId/roles/:roleId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -153,7 +153,7 @@ export const organizationsPlugin:BeePlugin={
    const result=await customRoles.updateOne({id:req.params.roleId,tenantId:req.params.companyId},{$set:{name,description,permissions,updatedBy:auth.user!.id,updatedAt:new Date()}});
    if(!result.matchedCount)return reply.code(404).send({error:"Custom role not found"});
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.updated",outcome:"success",resourceType:"role",resourceId:req.params.roleId,metadata:{name}});
-   return {role:{id:req.params.roleId,name,description,permissions}};
+   return {role:{id:mask(auth,req.params.roleId,"role"),name,description,permissions}};
   });
   ctx.server.delete<{Params:{companyId:string;roleId:string}}>("/companies/:companyId/roles/:roleId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -188,13 +188,13 @@ export const organizationsPlugin:BeePlugin={
    const token=randomBytes(32).toString("base64url"),now=new Date(),invitation:Invitation={id:randomUUID(),tenantId:req.params.companyId,email,role,tokenHash:createHash("sha256").update(token).digest("hex"),createdBy:auth.user!.id,createdAt:now,expiresAt:new Date(now.getTime()+7*24*60*60*1000),acceptedAt:null,cancelledAt:null};
    await invitations.insertOne(invitation);
    await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"invitation",resourceId:invitation.id,metadata:{role:invitation.role,phase:"created"}});
-   return reply.code(201).send({invitation:{id:invitation.id,email,role,expiresAt:invitation.expiresAt},acceptanceToken:token});
+   return reply.code(201).send({invitation:{id:mask(auth,invitation.id,"invitation"),email,role,expiresAt:invitation.expiresAt},acceptanceToken:token});
   });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/invitations",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const rows=await invitations.find({tenantId:req.params.companyId}).sort({createdAt:-1}).toArray();
-   return {invitations:rows.map(row=>({id:row.id,email:row.email,role:row.role,createdAt:row.createdAt,expiresAt:row.expiresAt,acceptedAt:row.acceptedAt,cancelledAt:row.cancelledAt,status:row.acceptedAt?"accepted":row.cancelledAt?"cancelled":row.expiresAt<=new Date()?"expired":"pending"}))};
+   return {invitations:rows.map(row=>({id:mask(auth,row.id,"invitation"),email:row.email,role:row.role,createdAt:row.createdAt,expiresAt:row.expiresAt,acceptedAt:row.acceptedAt,cancelledAt:row.cancelledAt,status:row.acceptedAt?"accepted":row.cancelledAt?"cancelled":row.expiresAt<=new Date()?"expired":"pending"}))};
   });
   ctx.server.delete<{Params:{companyId:string;invitationId:string}}>("/companies/:companyId/invitations/:invitationId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -225,7 +225,7 @@ export const organizationsPlugin:BeePlugin={
    if(existing)await memberships.updateOne({id:existing.id},{$set:{role:invitation.role,status:"active",updatedAt:now}});
    else await memberships.insertOne({id:randomUUID(),userId:auth.user!.id,tenantId:invitation.tenantId,role:invitation.role,status:"active",createdAt:now,updatedAt:now});
    await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"membership",resourceId:auth.user!.id,metadata:{role:invitation.role,phase:"accepted"}});
-   return {success:true,company:{id:company.id,name:company.name},membership:{role:invitation.role,status:"active"}};
+   return {success:true,company:{id:mask(auth,company.id,"tenant"),name:company.name},membership:{role:invitation.role,status:"active"}};
   });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/memberships",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -234,7 +234,7 @@ export const organizationsPlugin:BeePlugin={
    const rows=await memberships.find({tenantId:companyId}).toArray();
    const memberUsers=await users.find({id:{$in:rows.map(row=>row.userId)}}).project({id:1,email:1}).toArray();
    const emails=new Map(memberUsers.map(user=>[user.id,user.email]));
-   return {memberships:rows.map(row=>({userId:row.userId,email:emails.get(row.userId)??null,role:row.role,customRoleId:row.customRoleId??null,status:row.status,createdAt:row.createdAt}))};
+   return {memberships:rows.map(row=>({userId:mask(auth,row.userId,"user"),email:emails.get(row.userId)??null,role:row.role,customRoleId:row.customRoleId?mask(auth,row.customRoleId,"role"):null,status:row.status,createdAt:row.createdAt}))};
   });
   ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/memberships",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -257,7 +257,7 @@ export const organizationsPlugin:BeePlugin={
    const now=new Date();
    if(existing)await memberships.updateOne({id:existing.id},{$set:{role,status:"active",updatedAt:now}});
    else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
-   return reply.code(201).send({membership:{userId:target.id,email:target.email,role,status:"active"}});
+   return reply.code(201).send({membership:{userId:mask(auth,target.id,"user"),email:target.email,role,status:"active"}});
   });
   ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member";customRoleId?:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -282,7 +282,7 @@ export const organizationsPlugin:BeePlugin={
    await memberships.updateOne({id:target.id},update);
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.role_changed",outcome:"success",resourceType:"membership",resourceId:target.userId,metadata:{previousRole:target.role,newRole:update.$set.role}});
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
-   return {membership:{userId:target.userId,role:update.$set.role,customRoleId:update.$set.customRoleId??null,status:"active"},sessionsRevoked:true};
+   return {membership:{userId:mask(auth,target.userId,"user"),role:update.$set.role,customRoleId:update.$set.customRoleId?mask(auth,update.$set.customRoleId,"role"):null,status:"active"},sessionsRevoked:true};
   });
   ctx.server.delete<{Params:{companyId:string;userId:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -321,7 +321,7 @@ export const organizationsPlugin:BeePlugin={
    const result=[];
    for(const membership of rows){
     const company=await companies.findOne({id:membership.tenantId});
-    if(company)result.push({id:company.id,name:company.name,status:company.status??"active",role:membership.role,active:membership.tenantId===auth.tenantContext.tenantId});
+    if(company)result.push({id:mask(auth,company.id,"tenant"),name:company.name,status:company.status??"active",role:membership.role,active:membership.tenantId===auth.tenantContext.tenantId});
    }
    return {companies:result};
   });
@@ -338,7 +338,7 @@ export const organizationsPlugin:BeePlugin={
    await db.collection("tenants").insertOne(company);
    try{await memberships.insertOne(membership);}
    catch(error){await companies.deleteOne({id});throw error;}
-   return reply.code(201).send({company:{id,name,slug,status:"active"},membership:{role:"owner",status:"active"},next:"POST /companies/"+id+"/activate to switch the current session"});
+   return reply.code(201).send({company:{id:mask(auth,id,"tenant"),name,slug,status:"active"},membership:{role:"owner",status:"active"},next:"POST /companies/"+mask(auth,id,"tenant")+"/activate to switch the current session"});
   });
   ctx.server.post<{Params:{companyId:string}}>("/companies/:companyId/activate",async(req,reply)=>{
    const auth=await authenticate(req,reply,{allowSuspendedCompany:true});if(!auth)return;
@@ -364,18 +364,18 @@ export const organizationsPlugin:BeePlugin={
    if(membership.role==="custom"&&membership.customRoleId){
     const custom=await customRoles.findOne({id:membership.customRoleId,tenantId});
     if(!custom)return reply.code(403).send({error:"Assigned custom role is unavailable"});
-    return {tenantId,role:membership.role,customRoleId:membership.customRoleId,permissions:permissionsForCustomRole(custom)};
+    return {tenantId:mask(auth,tenantId,"tenant"),role:membership.role,customRoleId:mask(auth,membership.customRoleId,"role"),permissions:permissionsForCustomRole(custom)};
    }
-   return {tenantId,role:membership.role,permissions:rolePermissions[membership.role as keyof typeof rolePermissions]};
+   return {tenantId:mask(auth,tenantId,"tenant"),role:membership.role,permissions:rolePermissions[membership.role as keyof typeof rolePermissions]};
   });
   ctx.server.get("/companies/active",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
-   const tenantId=String(auth.claims.tenantId??auth.user!.tenantId??"");
+   const tenantId=auth.tenantContext.tenantId;
    const membership=await memberships.findOne({userId:auth.user!.id,tenantId,status:"active"});
    if(!membership)return reply.code(403).send({error:"Active company membership required"});
    const company=await companies.findOne({id:tenantId});
    if(!company)return reply.code(404).send({error:"Company not found"});
-   return {company:{id:company.id,name:company.name,status:company.status??"active"},membership:{role:membership.role}};
+   return {company:{id:mask(auth,company.id,"tenant"),name:company.name,status:company.status??"active"},membership:{role:membership.role}};
   });
   ctx.logger.info("Organizations plugin initialized: company memberships backfilled and indexed.");
  },
