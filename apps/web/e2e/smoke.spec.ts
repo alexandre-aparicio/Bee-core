@@ -76,8 +76,9 @@ test('public tenant template and design tokens hot-load from the request domain'
   }));
   await page.goto('/');
   await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
-  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#112233');
-  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--purple').trim())).toBe('#abcdef');
+  await expect.poll(() => page.locator('.bee-template-package-host--editorial').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#112233');
+  await expect.poll(() => page.locator('.bee-template-package-host--editorial').evaluate(node => getComputedStyle(node).getPropertyValue('--purple').trim())).toBe('#abcdef');
+  await expect.poll(() => page.locator('.bee-template-package-host--midnight').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
 });
 
 
@@ -110,13 +111,13 @@ test('tenant admin can install and activate a trusted dashboard template package
   await expect(manager.getByText('Package installed for this tenant.')).toBeVisible();
   await manager.getByLabel('Dashboard').selectOption('glass');
   await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
-  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#101827');
+  await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
   await manager.getByRole('button', { name: 'Discard preview' }).click();
   await expect(page.locator('[data-bee-layout="dashboard.midnight"]')).toBeVisible();
   await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
   await manager.getByLabel('Dashboard').selectOption('glass');
   await manager.getByRole('button', { name: 'Apply template changes' }).click();
-  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#101827');
+  await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
 });
 
 
