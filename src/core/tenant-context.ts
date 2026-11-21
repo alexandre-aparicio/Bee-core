@@ -8,8 +8,6 @@ export type TenantClaims = {
   sub?: string;
   email?: string;
   tenantRef?: string;
-  /** Legacy claim accepted only during rolling migration; remove after all old sessions expire. */
-  tenantId?: string;
   sid?: string;
   client?: "backend" | "dashboard" | "public";
   aud?: string;
@@ -48,7 +46,7 @@ export async function resolveTenantContext(
   options: TenantContextOptions = {},
   sessionIdSecret: string = String(process.env.JWT_SECRET ?? "")
 ): Promise<TenantContext | null> {
-  if (claims.aud !== "bee-core" || !claims.sub || (!claims.tenantRef && !claims.tenantId) || !claims.sid || !claims.client) {
+  if (claims.aud !== "bee-core" || !claims.sub || !claims.tenantRef || !claims.sid || !claims.client) {
     return null;
   }
 
@@ -66,9 +64,7 @@ export async function resolveTenantContext(
   if (!session) return null;
   let tenantId: string;
   try {
-    tenantId = claims.tenantRef
-      ? unmaskTenantId(claims.tenantRef, { sessionId: session.id, expiresAt: session.expiresAt }, sessionIdSecret)
-      : String(claims.tenantId ?? "");
+    tenantId = unmaskTenantId(claims.tenantRef, { sessionId: session.id, expiresAt: session.expiresAt }, sessionIdSecret);
   } catch { return null; }
   if (!tenantId || tenantId !== session.tenantId) return null;
 
