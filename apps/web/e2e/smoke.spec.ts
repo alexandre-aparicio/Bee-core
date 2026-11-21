@@ -1,5 +1,20 @@
 import { test, expect } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/me', route => {
+    const token = route.request().headers().authorization || '';
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        authenticated: true,
+        tenantId: 'tenant-demo',
+        platformRole: token === 'Bearer platform-admin-token' ? 'superadmin' : null
+      })
+    });
+  });
+});
+
 test('landing page renders the main message', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /build less core/i })).toBeVisible();
@@ -25,9 +40,11 @@ test('password recovery route works', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /reset password/i })).toBeVisible();
 });
 
-test('dashboard displays unauthenticated guard', async ({ page }) => {
+test('dashboard redirects unauthenticated visitors to the visible login page', async ({ page }) => {
   await page.goto('/dashboard');
-  await expect(page.getByRole('heading', { name: /session required/i })).toBeVisible();
+  await expect(page).toHaveURL(/\\/login$/);
+  await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
+  await expect(page.getByPlaceholder('you@example.com')).toBeVisible();
 });
 
 
@@ -430,4 +447,58 @@ test('company member data cannot leak across a rapid active-company switch', asy
   await expect(page.getByText('member-a@example.test')).toHaveCount(0);
   await expect(companyBMemberRow.locator('option[value="custom:role-b"]')).toHaveText('Company B custom role');
   await expect(page.getByLabel('Active company')).toHaveValue('company-b');
+});
+
+
+test('platform administration supports card/list views, disabled actions, company management and create modal', async ({ page }) => {
+  let companies = [
+    { id: 'company-1', name: 'Acme Studio', slug: 'acme', status: 'active', createdAt: '2026-11-20T00:00:00.000Z', membersCount: 4 }
+  ];
+  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
+    accessToken: 'platform-admin-token',
+    platformRole: 'superadmin',
+    tenantId: 'company-1',
+    user: { id: 'root-1', email: 'root@example.test', roles: ['admin'], tenantId: 'company-1' }
+  })));
+  await page.route('**/api/platform/companies', route => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON();
+      companies.push({ id: 'company-2', name: body.name, slug: body.slug || null, status: 'active', createdAt: new Date().toISOString(), membersCount: 1 });
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ company: companies[1] }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ companies }) });
+  });
+  await page.route('**/api/platform/companies/*/plugins', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ plugins: [{ id: 'hello-world', name: 'Hola Mundo', installed: true, status: 'installed' }] })
+  }));
+  await page.route('**/api/platform/companies/*/plugins/hello-world', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, status: 'installed' })
+  }));
+  await page.route('**/api/platform/companies/*', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ success: true })
+  }));
+
+  await page.goto('/dashboard/platform');
+  await expect(page.getByRole('heading', { name: 'Platform Administration' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Acme Studio' })).toBeVisible();
+  await page.getByTitle('List view').click();
+  await expect(page.locator('.platform-admin__table')).toBeVisible();
+  await expect(page.locator('.platform-admin__table')).toContainText('Acme Studio');
+  await page.getByTitle('Card view').click();
+  await page.getByRole('button', { name: 'Company actions' }).click();
+  await expect(page.getByRole('button', { name: 'Disable' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Message' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Manage', exact: true }).click();
+  await expect(page).toHaveURL(/\\/dashboard\\/platform\\/company-1\\/manage$/);
+  await expect(page.getByRole('heading', { name: 'Acme Studio' })).toBeVisible();
+  await page.getByRole('button', { name: /companies/i }).click();
+  await page.getByRole('button', { name: /new company/i }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Create a company' })).toBeVisible();
+  await dialog.getByPlaceholder('Dragchart').fill('New Tenant');
+  await dialog.getByPlaceholder('new-tenant').fill('new-tenant');
+  await dialog.getByPlaceholder('owner@company.com').fill('owner@new-tenant.test');
+  await dialog.getByRole('button', { name: 'Create company' }).click();
+  await expect(page.getByRole('heading', { name: 'New Tenant' })).toBeVisible();
 });
