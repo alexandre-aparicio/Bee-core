@@ -107,7 +107,7 @@ export const authPlugin:BeePlugin={
    (req as any).__beeSessionIdContext={sessionId:session.id,expiresAt:session.expiresAt};
    return {accessToken:issue({...u,roles},session.client,activeTenantId,session.id,session.expiresAt),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:Math.max(0,Math.floor((session.expiresAt.getTime()-Date.now())/1000)),client:session.client,tenantId:activeTenantId,...(u.platformRole?{platformRole:u.platformRole}:{})};
   });
-  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string;tenantId?:string;sid?:string};const tenantContext=await resolveTenantContext(db,c);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});return {authenticated:true,user:{id:tenantContext.userId,email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:tenantContext.tenantId,platformRole:(await users.findOne({id:tenantContext.userId}))?.platformRole??null};}catch{return reply.code(401).send({error:"Unauthorized"});}});
+  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string;tenantId?:string;sid?:string};const tenantContext=await resolveTenantContext(db,c,{},resourceIdSecret);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});return {authenticated:true,user:{id:tenantContext.userId,email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:tenantContext.tenantId,platformRole:(await users.findOne({id:tenantContext.userId}))?.platformRole??null};}catch{return reply.code(401).send({error:"Unauthorized"});}});
   ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const claims=req.user as {sid?:string;aud?:string};if(claims.aud!=="bee-core"||!claims.sid)return reply.code(401).send({error:"Unauthorized"});const session=await sessions.findOne({id:claims.sid,revokedAt:null});if(!session)return reply.code(401).send({error:"Session is no longer active"});await sessions.updateOne({id:session.id,revokedAt:null},{$set:{revokedAt:new Date()}});await auditAuthEvent({tenantId:session.tenantId??defaultTenantId,actorId:session.userId,action:"auth.logout",outcome:"success",metadata:{refreshTokenProvided:Boolean(req.body?.refreshToken)}});return {success:true,message:"Session revoked."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
@@ -123,7 +123,7 @@ export const authPlugin:BeePlugin={
   const readTemplateTenant=async(req:import("fastify").FastifyRequest,reply:import("fastify").FastifyReply)=>{
    try{
     await req.jwtVerify();
-    const tenantContext=await resolveTenantContext(db,req.user as {sub?:string;email?:string;tenantId?:string;sid?:string;client?:"backend"|"dashboard"|"public";aud?:string});
+    const tenantContext=await resolveTenantContext(db,req.user as {sub?:string;email?:string;tenantId?:string;sid?:string;client?:"backend"|"dashboard"|"public";aud?:string},{},resourceIdSecret);
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
     if(tenantContext.client!=="dashboard"){reply.code(403).send({error:"Private template management requires a dashboard session"});return null;}
     return tenantContext;
@@ -270,7 +270,7 @@ export const authPlugin:BeePlugin={
    const heartbeat=setInterval(async()=>{
     if(raw.destroyed){clearInterval(heartbeat);closeSubscriber();return;}
     if(record.claims){
-     try{const current=await resolveTenantContext(db,record.claims);if(!current){clearInterval(heartbeat);raw.end();closeSubscriber();return;}}
+     try{const current=await resolveTenantContext(db,record.claims,{},resourceIdSecret);if(!current){clearInterval(heartbeat);raw.end();closeSubscriber();return;}}
      catch{clearInterval(heartbeat);raw.end();closeSubscriber();return;}
     }
     if(!raw.destroyed)raw.write(": keep-alive\n\n");
