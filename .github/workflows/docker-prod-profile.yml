@@ -44,7 +44,14 @@ jobs:
             ((.services.mongodb.ports // []) | length == 0) and
             ((.services["bee-core"].ports // []) | length == 0) and
             ((.services.web.ports // []) | length == 1) and
-            ((.services.web.ports[0].published | tostring) == "18080")
+            ((.services.web.ports[0].published | tostring) == "18080") and
+            (.services.mongodb.init == true) and
+            (.services["bee-core"].init == true) and
+            (.services.web.init == true) and
+            ((.services.mongodb.networks | keys) == ["backend"]) and
+            ((.services["bee-core"].networks | keys) == ["backend", "frontend"]) and
+            ((.services.web.networks | keys) == ["frontend"]) and
+            (.networks.backend.internal == true)
           ' compose.json
 
       - name: Build and launch production overlay
@@ -97,7 +104,7 @@ jobs:
             -d "$(jq -nc --arg token "$refresh_token" '{refreshToken:$token}')")
           printf '%s' "$refreshed" | jq -e '.accessToken and .refreshToken' >/dev/null
 
-      - name: Verify MongoDB backup and restore round-trip
+      - name: Verify MongoDB and file-volume backup/restore round-trips
         run: |
           set -euo pipefail
           db_name=$(grep '^MONGODB_DB=' .env | cut -d= -f2)
@@ -107,7 +114,10 @@ jobs:
           mongodb_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)
           network=$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
           test -n "$network"
+          files_volume=$(docker volume ls --filter label=com.docker.compose.volume=bee_core_files --format '{{.Name}}' | head -n1)
+          test -n "$files_volume"
           mkdir -p "$RUNNER_TEMP/bee-backups"
+          docker run --rm -v "$files_volume:/files" alpine:3.20 sh -c "mkdir -p /files/ci && printf 'bee-core-files-backup-probe' > /files/ci/backup-probe.txt"
           tools_version=100.12.2
           tools_archive="$RUNNER_TEMP/mongodb-database-tools.tgz"
           curl -fsSL "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-${tools_version}.tgz" -o "$tools_archive"
@@ -117,8 +127,14 @@ jobs:
           test -x "$tools_dir/mongorestore"
           docker run --rm --network "$network" -v "$RUNNER_TEMP/bee-backups:/backup" -v "$tools_dir:/tools:ro" ubuntu:22.04 /tools/mongodump --uri="mongodb://mongodb:27017/${db_name}" --archive=/backup/bee-core.archive --gzip
           docker run --rm --network "$network" -v "$RUNNER_TEMP/bee-backups:/backup" -v "$tools_dir:/tools:ro" ubuntu:22.04 /tools/mongorestore --uri="mongodb://mongodb:27017/${restore_db}" --archive=/backup/bee-core.archive --gzip --nsInclude="${db_name}.*" --nsFrom="${db_name}.*" --nsTo="${restore_db}.*"
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval "const restored=db.getSiblingDB('${restore_db}'); const probe=restored.backup_restore_probe.findOne({_id:'ci-roundtrip'}); if(!probe || probe.verified !== true) throw new Error('Backup restore verification failed'); print('PASS MongoDB backup/restore round-trip');"
+          docker run --rm -v "$files_volume:/data:ro" -v "$RUNNER_TEMP/bee-backups:/backup" alpine:3.20 sh -c "tar -czf /backup/bee-core-files.tar.gz -C /data ."
+          docker volume rm bee-core-files-restore-ci >/dev/null 2>&1 || true
+          docker volume create bee-core-files-restore-ci
+          docker run --rm -v bee-core-files-restore-ci:/restore -v "$RUNNER_TEMP/bee-backups:/backup:ro" alpine:3.20 sh -c "tar -xzf /backup/bee-core-files.tar.gz -C /restore"
+          docker run --rm -v bee-core-files-restore-ci:/restore:ro alpine:3.20 sh -c 'test "$(cat /restore/ci/backup-probe.txt)" = "bee-core-files-backup-probe"'
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval "const restored=db.getSiblingDB('${restore_db}'); const probe=restored.backup_restore_probe.findOne({_id:'ci-roundtrip'}); if(!probe || probe.verified !== true) throw new Error('MongoDB backup restore verification failed'); print('PASS MongoDB backup/restore round-trip');"
           docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval "db.getSiblingDB('${restore_db}').dropDatabase()"
+          docker volume rm bee-core-files-restore-ci
 
       - name: Collect diagnostics on failure
         if: failure()
@@ -128,4 +144,6 @@ jobs:
 
       - name: Tear down isolated stack
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
+          docker volume rm bee-core-files-restore-ci >/dev/null 2>&1 || true

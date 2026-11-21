@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — repository main now includes tenant subdomain routing through `fd19a01021d3a04433f650af491bcfb439a8a5db`. Template business-model clarification and removal of the color-picker UI are being recorded in subsequent commits. No tests or CI were run for the latest template changes, per user instruction.
+Updated: 2026-11-21 — current main inspected at `8b396c7503183b9d64f32e88608e3d6e48a9e75f` (session-bound resource ID codec foundation). Repository GitHub Actions workflows are disabled during this release-verification pass; see the snapshot below.
 
 ## How progress is measured
 
@@ -275,4 +275,29 @@ The product model is now specified in `docs/template-business-model.md`.
 - Added unit tests for cross-session rejection, per-call uniqueness, type substitution, tampering and expiry.
 - Added `docs/session-resource-ids.md` with the contract and mandatory integration requirements.
 - This is deliberately **not marked complete**: API route inputs/outputs, JWT claims, public endpoints, Angular state/routes and plugin interfaces have not yet been migrated. The codec must not be treated as active protection until those integrations and cross-tenant tests are complete.
-- Changes are on branch `feature/session-bound-resource-ids`; no build, test run, CI result or deployment verification is claimed.
+- The codec commit `8b396c7` is now on `main`. This remains a foundation only: route/API inputs and outputs, JWT claims, public endpoints, Angular state/routes and plugin interfaces are not yet migrated. No build, test, CI result or deployment verification is claimed for this commit.
+
+
+## Release verification snapshot — 2026-11-21 (main `8b396c7`)
+
+- The exact current main SHA `8b396c7503183b9d64f32e88608e3d6e48a9e75f` has **zero GitHub check runs**. The most recent main attempts visible in Actions were cancelled, not passed. A direct rerun attempt returned HTTP 403: `Unable to re-run this job, disabled workflow`; repository Actions are disabled and cannot be re-enabled through the available GitHub connection.
+- PR #6 (`security/custom-roles-audit`) is closed without merge and superseded by the persisted custom-role and audit integration in PRs #17, #18 and #20. Its old PR-head Backend check passed, but Angular production build and Docker full-stack image build failed on an unresolved `bee-notes` component and its `tenantId`/`canWrite` bindings. That historical branch is not a valid release gate for current main.
+- PR #7 (`mvp/docker-deployment`) is merged. Its PR-head Backend, Angular and Docker Compose full-stack checks passed. Later PR #19 added the dedicated production Compose workflow; subsequent main changes still require a fresh run.
+- PR #50 (`security/org-routes-cross-tenant-regressions`) has been rebased onto current main. It carries focused organization-route IDOR tests, caller-tenant denial audit, isolated Compose network, init-process settings, Docker context exclusions, file-volume backup/restore verification and dashboard deep-link smoke test. These changes remain unverified until Actions are restored.
+- PR #47 and PR #51 cover billing entitlement webhook audit/idempotency and concurrent compare-and-set behavior. Neither current PR head has check runs. The webhook still uses a shared static Bearer secret rather than provider signature verification; replay-window/event-ID deduplication and payment reconciliation remain gaps.
+- Neither root nor `apps/web` currently has a committed npm lockfile. Dockerfiles and CI use `npm install`, so a clean build is not dependency-reproducible. Commit lockfiles and use `npm ci` before tagging.
+- The historical PR #6 Docker build log also reported 2 critical backend dependency vulnerabilities and 32 web dependency vulnerabilities (2 critical, 9 high, 19 moderate, 2 low). These counts belong to that older dependency resolution, not a fresh scan of current main; with no current CI run and no lockfiles, treat dependency risk as untriaged until a reproducible `npm audit` report is produced.
+- The resource-reference codec is on main, but it is not active protection until resource IDs are migrated through routes, public links, Angular state and plugin contracts with session-expiry and cross-tenant regression tests.
+- Docker Engine is unavailable in this execution environment, and shell network access to GitHub is unavailable. No local build/test or live clean-install is claimed.
+
+## MVP 0.1.0 release gate
+
+- [ ] Re-enable the Backend, Angular and production Compose GitHub Actions workflows.
+- [ ] Run all three workflows on the exact release candidate SHA; backend MongoDB integration, Angular production build/browser smoke and production overlay clean install must pass.
+- [ ] Confirm production Compose exposes only the web proxy, isolates MongoDB on an internal network, persists MongoDB and private files, and passes MongoDB plus file-volume backup/restore round-trips.
+- [ ] Merge only after review the organization-route cross-company IDOR regression suite and prove denied requests leave target-tenant state unchanged while auditing the caller tenant.
+- [ ] Complete route-by-route tenant authorization review, including files/media, SSE, billing webhooks and background jobs; integrate the session-bound resource codec where required.
+- [ ] Replace the static billing webhook secret with provider-signed payload verification and replay/event-ID protection before accepting untrusted public billing events.
+- [ ] Commit root and Angular lockfiles, switch CI/Docker installs to `npm ci`, and resolve/triage dependency advisories without unsafe forced major upgrades.
+- [ ] Document and test encrypted off-site backup retention, TLS/firewall, monitoring/log rotation and a clean first-install/restore procedure.
+- [ ] Tag `0.1.0` only after the checklist is satisfied. Until then, describe Bee-Core as a deployment candidate, not production-safe.
