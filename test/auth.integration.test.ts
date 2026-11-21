@@ -422,6 +422,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
     const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken }, payload: { refreshToken: refreshed.refreshToken } });
     assert.equal(logout.statusCode, 200);
+    const revokedSessionReference=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+refreshed.accessToken}});
+    assert.equal(revokedSessionReference.statusCode,401,"session-bound resource references must stop resolving as soon as logout revokes their issuing session");
     const logoutAudit = await db.collection("tenant_audit_events").find({actorId:"test-user",action:"auth.logout"}).toArray();
     assert.equal(logoutAudit.length,1,"logout should be audited for the authenticated user");
     assert.equal(logoutAudit[0].tenantId,secondCompanyInternalId,"logout audit should retain the active company context");
