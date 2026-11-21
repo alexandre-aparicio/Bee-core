@@ -14,7 +14,7 @@ export type AuthenticatedRequest = FastifyRequest & {
  * Use this guard for every private business-plugin route; do not authorize from
  * the JWT roles array alone.
  */
-export function requireAuth(db: Db, client?: BeeAuthClient) {
+export function requireAuth(db: Db, client?: BeeAuthClient, sessionIdSecret: string = String(process.env.JWT_SECRET ?? "")) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await request.jwtVerify();
@@ -22,7 +22,7 @@ export function requireAuth(db: Db, client?: BeeAuthClient) {
       if (claims.aud !== "bee-core" || !claims.sub || !claims.client) {
         return reply.code(401).send({ error: "Invalid token" });
       }
-      const context = await resolveTenantContext(db, claims);
+      const context = await resolveTenantContext(db, claims, {}, sessionIdSecret);
       if (!context) return reply.code(401).send({ error: "Unauthorized or active company session required" });
       if (client && context.client !== client) {
         return reply.code(403).send({ error: "Token client context not allowed" });
