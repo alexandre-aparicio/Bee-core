@@ -72,6 +72,7 @@ jobs:
         run: |
           cat > .env <<'EOF'
           JWT_SECRET=ci-only-secret-that-is-long-enough-for-bee-core-auth-tests-2026
+          BEE_MAIL_ENCRYPTION_KEY=ci-only-mail-encryption-key-that-is-unique-for-tests-2026
           AUTH_ADMIN_EMAIL=ci-admin@bee-core.invalid
           AUTH_ADMIN_PASSWORD=CI-only-Password-2026!
           MONGODB_DB=bee_core_ci
