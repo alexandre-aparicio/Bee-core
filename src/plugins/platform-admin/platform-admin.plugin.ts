@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
 import { enqueuePluginInstallJob, enqueuePluginUninstallJob } from "../../core/plugin-install-jobs.js";
 import { getTrustedPluginPackage, isPluginInstalled } from "../../core/plugin-entitlements.js";
+import { unmaskUserId } from "../../core/session-id.js";
 
 type Company={id:string;name:string;slug?:string;createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
@@ -19,9 +20,13 @@ export const platformAdminPlugin:BeePlugin={
   const guard=async(req:any,reply:any):Promise<User|null>=>{
    try{await req.jwtVerify();const claims=req.user as Claims;
     if(claims.aud!=="bee-core"||claims.client!=="dashboard"||!claims.sub||!claims.sid)return reply.code(401).send({error:"Platform admin session required"}),null;
-    const session=await sessions.findOne({id:claims.sid,userId:claims.sub,client:"dashboard",revokedAt:null,expiresAt:{$gt:new Date()}});
-    const user=await users.findOne({id:claims.sub,enabled:true,platformRole:"superadmin"});
-    if(!session||!user)return reply.code(403).send({error:"Platform superadministrator required"}),null;
+    const session=await sessions.findOne({id:claims.sid,client:"dashboard",revokedAt:null,expiresAt:{$gt:new Date()}});
+    if(!session)return reply.code(403).send({error:"Platform superadministrator required"}),null;
+    let userId:string;
+    try{userId=unmaskUserId(String((req.user as Claims & {sub?:string}).sub??""),{sessionId:session.id,expiresAt:session.expiresAt},String(ctx.config.jwtSecret??""));}catch{return reply.code(401).send({error:"Invalid session identity"}),null;}
+    if(userId!==session.userId)return reply.code(401).send({error:"Invalid session identity"}),null;
+    const user=await users.findOne({id:session.userId,enabled:true,platformRole:"superadmin"});
+    if(!user)return reply.code(403).send({error:"Platform superadministrator required"}),null;
     return user;
    }catch{return reply.code(401).send({error:"Unauthorized"}),null;}
   };
