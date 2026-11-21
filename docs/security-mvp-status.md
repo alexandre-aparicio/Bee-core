@@ -35,3 +35,11 @@ PR #20 is merged as `1c96e8100d2145f518a0232d300122c866551c1b`. Its PR-head back
 ## Test expectation
 
 MongoDB integration tests in GitHub Actions must execute (not skip) with the CI MongoDB service. Passing checks prove only the cases explicitly covered; they do not replace a complete security review.
+
+
+## Organization route isolation in progress (PR #50)
+
+- Cross-company membership, custom-role and invitation list/create/update/delete attempts are expected to return HTTP 403 when the path company differs from the server-resolved active tenant.
+- The denial event is appended to the caller's active tenant with the requested company ID and mismatch reason; the target tenant receives no audit write.
+- MongoDB integration assertions snapshot the target membership, invitation and custom-role state before the attempts and verify that it remains unchanged.
+- This coverage is not yet merged or CI-verified. It covers these organization routes only and does not establish universal tenant isolation.
