@@ -235,13 +235,13 @@ export class AppComponent implements OnInit {
   get navigationItems(): Array<{id:string;label:string;icon:string;group:string}> {
     const base = [
       {id:'dashboard',label:'Dashboard',icon:'▦',group:'WORKSPACE'},
-      {id:'plugins',label:'Plugins',icon:'▣',group:'WORKSPACE'},
+      
       {id:'organization',label:'Organization',icon:'♙',group:'WORKSPACE'},
       {id:'activity',label:'Activity',icon:'◷',group:'WORKSPACE'},
       {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
     ];
     if (this.isPlatformAdmin) return [
-      base[0], base[1], base[3], base[4],
+      base[0], base[2], base[3],
       {id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},
       {id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},
       {id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'}
@@ -249,8 +249,8 @@ export class AppComponent implements OnInit {
     const role = (this.activeCompanyRole || '').toLowerCase();
     if (role === 'owner') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'},{id:'domains',label:'Domains',icon:'◎',group:'SYSTEM'},{id:'integrations',label:'Integrations',icon:'⌘',group:'SYSTEM'}];
     if (role === 'admin') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'}];
-    if (role === 'manager') return base.filter(item => ['dashboard','plugins','organization','activity','settings'].includes(item.id));
-    return base.filter(item => ['dashboard','plugins','organization','settings'].includes(item.id));
+    if (role === 'manager') return base.filter(item => ['dashboard','organization','activity','settings'].includes(item.id));
+    return base.filter(item => ['dashboard','organization','settings'].includes(item.id));
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void {
