@@ -127,7 +127,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.ok(!/^[0-9a-f-]{36}$/i.test(betaInstallJobRef));
     const betaInstallJobId = await resolveJobId(betaToken,betaInstallJobRef);
     for (const response of betaNotesInstallAttempts.filter(item => item.statusCode === 202)) {
-      assert.equal(response.json().jobId, betaInstallJobRef, "concurrent install requests must share one durable job");
+      assert.equal(await resolveJobId(betaToken,response.json().jobId as string), betaInstallJobId, "concurrent install references must resolve to the same durable job");
     }
     const foreignJobRead = await app.inject({ method: "GET", url: "/marketplace/install-jobs/" + betaInstallJobRef, headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(foreignJobRead.statusCode, 404, "install jobs must be tenant-scoped");
@@ -146,6 +146,8 @@ test("company plans and purchases control plugin visibility, installation and ac
     });
     assert.equal(betaNoteCreate.statusCode, 201);
     const betaNoteId = betaNoteCreate.json().note.id as string;
+    assert.ok(!/^[0-9a-f-]{36}$/i.test(betaNoteId),"note IDs must be opaque references");
+    assert.notEqual(betaNoteCreate.json().note.createdBy,"market-owner-beta","note creator IDs must not expose internal user IDs");
 
     const betaUninstallAttempts = await Promise.all([
       app.inject({ method: "DELETE", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } }),
@@ -154,7 +156,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.ok(betaUninstallAttempts.every(response => response.statusCode === 202));
     const betaUninstallJobRef = betaUninstallAttempts[0].json().jobId as string;
     const betaUninstallJobId = await resolveJobId(betaToken,betaUninstallJobRef);
-    assert.equal(betaUninstallAttempts[1].json().jobId, betaUninstallJobRef, "concurrent uninstall requests must share one durable job");
+    assert.equal(await resolveJobId(betaToken,betaUninstallAttempts[1].json().jobId as string), betaUninstallJobId, "concurrent uninstall references must resolve to the same durable job");
     assert.equal(betaUninstallAttempts[0].json().action, "uninstall");
     const conflictingInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(conflictingInstall.statusCode, 409, "install must not race an active uninstall for the same company/plugin");
