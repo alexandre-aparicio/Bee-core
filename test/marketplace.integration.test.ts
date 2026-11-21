@@ -210,6 +210,11 @@ test("company plans and purchases control plugin visibility, installation and ac
       providerReference: "alpha-invalid-date", expiresAt: "not-a-date"
     });
     assert.equal(invalidExpiryPurchase.statusCode, 400);
+    const oversizedProviderReference = await webhook({
+      event: "plugin.purchase", tenantId: "market-alpha", pluginId: "notes",
+      providerReference: "x".repeat(201)
+    });
+    assert.equal(oversizedProviderReference.statusCode, 400);
     const unknownTenantWebhook = await webhook({
       event: "plugin.purchase", tenantId: "no-such-company", pluginId: "notes",
       providerReference: "unknown-tenant-purchase"
