@@ -183,7 +183,7 @@ export const authPlugin:BeePlugin={
    const updated=await templatePreferences.findOne({tenantId});
    const installedTemplates=getInstalledTemplates(updated);
    broadcastTemplateUpdate(tenantId,{type:"installed",installedTemplates});
-   return {tenantId,installedTemplates};
+   return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),installedTemplates};
   });
   ctx.server.get("/templates/preferences",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
