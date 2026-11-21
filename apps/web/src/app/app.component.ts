@@ -16,6 +16,7 @@ export class AppComponent implements OnInit {
   constructor(private readonly templates: BeeTemplateEngine) {}
 
   ngOnInit(): void {
+    this.syncActiveSectionFromPath();
     window.addEventListener('popstate', this.handlePublicPopState);
     if (this.dashboard && this.auth?.accessToken) void this.loadCompanies();
     else if (!['/login', '/register', '/forgot'].includes(this.path)) void this.loadPublicTenant();
@@ -23,6 +24,7 @@ export class AppComponent implements OnInit {
 
   private readonly handlePublicPopState = (): void => {
     this.path = window.location.pathname;
+    this.syncActiveSectionFromPath();
     this.menuOpen = false;
   };
 
@@ -60,7 +62,7 @@ export class AppComponent implements OnInit {
   activePlugins: string[] = [];
   setActivePlugins(pluginIds: string[]): void { this.activePlugins = pluginIds; }
   get mode(): 'login'|'register'|'forgot' { return this.path === '/register' ? 'register' : this.path === '/forgot' ? 'forgot' : 'login'; }
-  get dashboard(): boolean { return this.path === '/dashboard'; }
+  get dashboard(): boolean { return this.path === '/dashboard' || this.path.startsWith('/dashboard/'); }
   get signedEmail(): string { return this.auth?.user?.email || 'Workspace user'; }
   get initial(): string { return this.signedEmail.charAt(0).toUpperCase(); }
   private readSession(): any { try { return JSON.parse(localStorage.getItem('bee-auth') || 'null'); } catch { return null; } }
@@ -134,6 +136,17 @@ export class AppComponent implements OnInit {
   toggleMenu(): void { this.menuOpen = !this.menuOpen; }
 
   activeSection = 'dashboard';
+  private readonly sectionRoutes: Record<string, string> = {
+    dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization',
+    activity: '/dashboard/activity', settings: '/dashboard/settings', platform: '/dashboard/platform',
+    'themes-dashboard': '/dashboard/themes', 'themes-public': '/dashboard/public-theme',
+    branding: '/dashboard/branding', domains: '/dashboard/domains', integrations: '/dashboard/integrations',
+    security: '/dashboard/security', system: '/dashboard/system'
+  };
+  private syncActiveSectionFromPath(): void {
+    const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
+    this.activeSection = entry?.[0] || 'dashboard';
+  }
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get sectionTitle(): string { return this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
@@ -163,7 +176,14 @@ export class AppComponent implements OnInit {
     return base.filter(item => ['dashboard','plugins','organization'].includes(item.id));
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
-  navigateSection(id: string): void { this.activeSection = id; this.menuOpen = false; }
+  navigateSection(id: string): void {
+    const route = this.sectionRoutes[id];
+    if (!route) return;
+    if (window.location.pathname !== route) window.history.pushState({}, '', route);
+    this.path = route;
+    this.activeSection = id;
+    this.menuOpen = false;
+  }
 
   bars = [30,52,44,67,46,80,60,92,56,72,48,85,62,95,54,74,40,63,80,47,70,98,56,72];
 }
