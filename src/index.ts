@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import jwt from "@fastify/jwt";
 import { BeeEventBus } from "./core/event-bus.js";
 import { BeePluginManager } from "./core/plugin-manager.js";
 import type { BeeContext, BeeLogger } from "./core/types.js";
@@ -11,6 +12,9 @@ import { notesPlugin } from "./plugins/notes/notes.plugin.js";
 import { platformAdminPlugin } from "./plugins/platform-admin/platform-admin.plugin.js";
 const logger:BeeLogger={info:(m,c)=>console.log("[INFO]",m,c??""),warn:(m,c)=>console.warn("[WARN]",m,c??""),error:(m,c)=>console.error("[ERROR]",m,c??"")};
 const events=new BeeEventBus(),plugins=new BeePluginManager(),app=Fastify({logger:false});
+const jwtSecret=String(process.env.JWT_SECRET??"");
+if(jwtSecret.length<32)throw new Error("JWT_SECRET must contain at least 32 characters.");
+app.register(jwt,{secret:jwtSecret,sign:{expiresIn:"20m"}});
 const ctx:BeeContext={appName:"Bee-Core",version:"0.3.1",events,logger,server:app,config:Object.freeze({environment:process.env.NODE_ENV??"development",jwtSecret:process.env.JWT_SECRET??"",mongoUri:process.env.MONGODB_URI??"",mongoDbName:process.env.MONGODB_DB??"bee_core",authAdminEmail:process.env.AUTH_ADMIN_EMAIL??"",authAdminPassword:process.env.AUTH_ADMIN_PASSWORD??"",fileStoragePath:process.env.BEE_FILES_DIR??"/data/bee-files",billingWebhookSecret:process.env.BEE_BILLING_WEBHOOK_SECRET??"",publicBaseDomain:process.env.PUBLIC_BASE_DOMAIN??"beecore.beeprojects.net"})};
 plugins.register(helloPlugin);plugins.register(authPlugin);plugins.register(organizationsPlugin);plugins.register(filesPlugin);plugins.register(marketplacePlugin);plugins.register(notesPlugin);plugins.register(platformAdminPlugin);
 app.get("/health",async()=>({status:"ok",name:ctx.appName,version:ctx.version,uptime:process.uptime()}));
