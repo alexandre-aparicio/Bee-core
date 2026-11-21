@@ -36,7 +36,7 @@ export const notesPlugin: BeePlugin = {
     if (sessionIdSecret.length < 32) throw new Error("Notes: JWT_SECRET must contain at least 32 characters.");
     const collection = (tenantId: string) => new TenantCollection<Note>(db.collection<Note>("tenant_notes"), tenantId);
     const preRead = [requireAuth(db, "dashboard", sessionIdSecret), requireTenantPermissions("notes.read"), requireInstalledPlugin(db, "notes")];
-    const preWrite = [requireAuth(db, "dashboard"), requireTenantPermissions("notes.write"), requireInstalledPlugin(db, "notes")];
+    const preWrite = [requireAuth(db, "dashboard", sessionIdSecret), requireTenantPermissions("notes.write"), requireInstalledPlugin(db, "notes")];
     const publicNote = (note: Note, tenant: AuthenticatedRequest["tenantContext"]) => ({
       id: maskResourceId(note.id, "note", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, sessionIdSecret),
       title: note.title, content: note.content,
