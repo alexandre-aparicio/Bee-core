@@ -357,3 +357,10 @@ Current status: meaningful backend and frontend slices are now integrated in the
 - Found and corrected a test-fixture mismatch: organization route IDs are opaque references, while direct MongoDB assertions must use the decoded internal tenant/resource IDs. Added a session-aware test helper and updated persistence assertions accordingly.
 - Simplified `/auth/me` to reuse the already validated session context and avoid redundant session lookups/non-null assertions.
 - This review is not a formal exhaustive proof for dynamically registered future plugin routes. Full backend/web build, unit/integration tests and VPS checks remain outstanding; no CI workflow run is associated with the latest head.
+
+
+### Auth plugin secret-scope correction (2026-11-21)
+
+- Final configuration-boundary review found that the plugin manager's auth allowlist omitted `jwtSecret`, while the auth plugin now requires that secret to sign and validate session-bound references. This would cause auth initialization to fail when mounted through the isolated plugin manager.
+- Added `jwtSecret` only to the auth plugin's scoped configuration and added a plugin-manager regression assertion that auth receives it while the files plugin does not.
+- This is a source-level correction; the regression test has not yet been executed. The latest PR head still has no associated GitHub Actions run, so this remains unverified until CI runs.
