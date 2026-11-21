@@ -371,3 +371,10 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Added a Fastify module augmentation declaring the optional `platformSession` request property used by the platform-admin guard and handlers.
 - Fix commits: `5730494` (auth tenant type) and `b37691f` (platform-admin request type).
 - These are source-level TypeScript corrections. The user must pull the new commits and rerun the Docker build; successful backend/Angular builds and runtime behavior are not yet confirmed.
+
+### Second VPS build feedback — platform-admin session narrowing (2026-11-21)
+
+- The next VPS image build passed the previous `tenant.slug` and Fastify request declaration errors, then TypeScript reported that `request.platformSession` remains optional at call sites.
+- Updated all platform-admin resource masking calls to use the session context only after the authorization guard succeeds (`req.platformSession!`). Each route returns immediately when the guard does not return an authenticated superadministrator; the guard assigns the session context before returning the user.
+- Fix committed directly to `main`: `b5c6e3ee1b06823bfce646f464817c98b05efedd` (`fix(platform-admin): narrow authenticated session context`).
+- Still unverified: the next full Docker build, container startup/health, automated tests, and VPS functional flows.
