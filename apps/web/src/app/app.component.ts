@@ -18,8 +18,10 @@ export class AppComponent implements OnInit {
   ngOnInit(): void {
     this.syncActiveSectionFromPath();
     window.addEventListener('popstate', this.handlePublicPopState);
-    if (this.dashboard && this.auth?.accessToken) void this.loadCompanies();
-    else if (!['/login', '/register', '/forgot'].includes(this.path)) void this.loadPublicTenant();
+    if (this.dashboard) {
+      if (this.auth?.accessToken) void this.validateDashboardSession();
+      else window.location.replace('/login');
+    } else if (!['/login', '/register', '/forgot'].includes(this.path)) void this.loadPublicTenant();
   }
 
   private readonly handlePublicPopState = (): void => {
@@ -94,6 +96,21 @@ export class AppComponent implements OnInit {
     }
   }
 
+  async validateDashboardSession(): Promise<void> {
+    try {
+      const response = await fetch(this.api + '/auth/me', { headers: { authorization: 'Bearer ' + this.auth.accessToken } });
+      const result = await response.json();
+      if (!response.ok || !result.authenticated) throw new Error(result.error || 'Session expired');
+      this.auth = { ...this.auth, tenantId: result.tenantId || this.auth.tenantId, platformRole: result.platformRole ?? this.auth.platformRole };
+      localStorage.setItem('bee-auth', JSON.stringify(this.auth));
+      await this.loadCompanies();
+    } catch {
+      localStorage.removeItem('bee-auth');
+      this.auth = null;
+      window.location.replace('/login');
+    }
+  }
+
   async loadCompanies(): Promise<void> {
     try {
       const response = await fetch(this.api + '/companies', { headers: { authorization: 'Bearer ' + this.auth.accessToken } });
@@ -144,9 +161,77 @@ export class AppComponent implements OnInit {
     security: '/dashboard/security', system: '/dashboard/system'
   };
   private syncActiveSectionFromPath(): void {
+    if (this.path.startsWith('/dashboard/platform/') && this.path.endsWith('/manage')) {
+      this.activeSection = 'platform';
+      return;
+    }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
     this.activeSection = entry?.[0] || 'dashboard';
   }
+  get platformTenantId(): string {
+    const parts = this.path.split('/');
+    return parts.length >= 5 && parts[1] === 'dashboard' && parts[2] === 'platform' && parts[4] === 'manage'
+      ? decodeURIComponent(parts[3])
+      : '';
+  }
+  navigatePlatformManage(tenantId: string): void {
+    const route = '/dashboard/platform/' + encodeURIComponent(tenantId) + '/manage';
+    window.history.pushState({}, '', route);
+    this.path = route;
+    this.activeSection = 'platform';
+    this.menuOpen = false;
+  }
+  navigatePlatformList(): void { this.navigateSection('platform'); }
+  get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
+  get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
+  get sectionTitle(): string { return this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
+  get navigationItems(): Array<{id:string;label:string;icon:string;group:string}> {
+    const base = [
+      {id:'dashboard',label:'Dashboard',icon:'▦',group:'WORKSPACE'},
+      {id:'plugins',label:'Plugins',icon:'▣',group:'WORKSPACE'},
+      {id:'organization',label:'Organization',icon:'♙',group:'WORKSPACE'},
+      {id:'activity',label:'Activity',icon:'◷',group:'WORKSPACE'},
+      {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
+    ];
+    if (this.isPlatformAdmin) return [
+      base[0], base[1], base[3], base[4],
+      {id:'platform',label:'Platform Administration',icon:'⬡',group:'PLATFORM'},
+      {id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},
+      {id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},
+      {id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'},
+      {id:'domains',label:'Domains',icon:'◎',group:'SYSTEM'},
+      {id:'integrations',label:'Integrations',icon:'⌘',group:'SYSTEM'},
+      {id:'security',label:'Security',icon:'🔒',group:'PLATFORM'},
+      {id:'system',label:'System',icon:'⚙',group:'PLATFORM'}
+    ];
+    const role = (this.activeCompanyRole || '').toLowerCase();
+    if (role === 'owner') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'},{id:'domains',label:'Domains',icon:'◎',group:'SYSTEM'},{id:'integrations',label:'Integrations',icon:'⌘',group:'SYSTEM'}];
+    if (role === 'admin') return [...base,{id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},{id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},{id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'}];
+    if (role === 'manager') return base.filter(item => ['dashboard','plugins','organization','activity'].includes(item.id));
+    return base.filter(item => ['dashboard','plugins','organization'].includes(item.id));
+  }
+  get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
+  navigateSection(id: string): void {
+    const route = this.sectionRoutes[id];
+    if (!route) return;
+    if (window.location.pathname !== route) window.history.pushState({}, '', route);
+    this.path = route;
+    this.activeSection = id;
+    this.menuOpen = false;
+  }
+
+  bars = [30,52,44,67,46,80,60,92,56,72,48,85,62,95,54,74,40,63,80,47,70,98,56,72];
+}));
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+  navigatePlatformManage(tenantId: string): void {
+    const route = '/dashboard/platform/' + encodeURIComponent(tenantId) + '/manage';
+    window.history.pushState({}, '', route);
+    this.path = route;
+    this.activeSection = 'platform';
+    this.menuOpen = false;
+  }
+  navigatePlatformList(): void { this.navigateSection('platform'); }
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get sectionTitle(): string { return this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
