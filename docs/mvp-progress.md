@@ -362,3 +362,12 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - **Not yet validated:** no GitHub Actions workflow runs or combined status checks were reported for merge commit `af873670`. TypeScript checks, Angular build, unit/integration tests, Playwright, Docker and VPS manual validation remain pending.
 - Next validation is to deploy/update the source on the VPS, run the build and tests there, exercise login/refresh/company switching/logout and cross-session/cross-tenant access, then fix any findings directly on `main`.
 - Do not treat the merge as production deployment, successful compilation, passing tests, or complete security certification.
+
+
+## First VPS build feedback after session-bound ID merge (2026-11-21)
+
+- The user's first `docker compose up -d --build` after pulling main reached the backend TypeScript build and failed on two declarations: the auth plugin's tenant collection type omitted the already-used optional `slug` field, and Fastify's request type did not declare the platform-admin session context attached by its guard.
+- Corrected the auth tenant collection type to include `slug?: string`.
+- Added a Fastify module augmentation declaring the optional `platformSession` request property used by the platform-admin guard and handlers.
+- Fix commits: `5730494` (auth tenant type) and `b37691f` (platform-admin request type).
+- These are source-level TypeScript corrections. The user must pull the new commits and rerun the Docker build; successful backend/Angular builds and runtime behavior are not yet confirmed.
