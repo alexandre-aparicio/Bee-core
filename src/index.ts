@@ -1,10 +1,8 @@
 import Fastify from "fastify";
 import jwt from "@fastify/jwt";
-import { MongoClient, type Db } from "mongodb";
 import { BeeEventBus } from "./core/event-bus.js";
 import { BeePluginManager } from "./core/plugin-manager.js";
 import type { BeeContext, BeeLogger } from "./core/types.js";
-import { transformSessionResourceIds } from "./core/session-id.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
@@ -24,47 +22,6 @@ const app = Fastify({ logger: false });
 const jwtSecret = String(process.env.JWT_SECRET ?? "");
 if (jwtSecret.length < 32) throw new Error("JWT_SECRET must contain at least 32 characters.");
 app.register(jwt, { secret: jwtSecret, sign: { expiresIn: "20m" } });
-
-let sessionDb: Db | undefined;
-const resourceIdSecret = jwtSecret;
-
-app.addHook("preValidation", async (request, reply) => {
-  if (!request.headers.authorization || request.url.split("?")[0] === "/billing/webhooks/entitlement") return;
-  try {
-    await request.jwtVerify();
-  } catch {
-    return reply.code(401).send({ error: "Unauthorized" });
-  }
-  const claims = request.user as { sid?: string; aud?: string; client?: string };
-  if (claims.aud !== "bee-core" || !claims.sid || !sessionDb) {
-    return reply.code(401).send({ error: "Active session required" });
-  }
-  const session = await sessionDb.collection<{ id: string; expiresAt: Date; revokedAt: Date | null }>("refresh_sessions").findOne({
-    id: claims.sid, revokedAt: null, expiresAt: { $gt: new Date() }
-  });
-  if (!session || !(session.expiresAt instanceof Date)) return reply.code(401).send({ error: "Session expired or revoked" });
-  const sessionContext = { sessionId: session.id, expiresAt: session.expiresAt };
-  (request as any).__beeSessionIdContext = sessionContext;
-  try {
-    if (request.params && typeof request.params === "object") {
-      (request as any).params = transformSessionResourceIds(request.params, "unmask", sessionContext, resourceIdSecret);
-    }
-    if (request.query && typeof request.query === "object") {
-      (request as any).query = transformSessionResourceIds(request.query, "unmask", sessionContext, resourceIdSecret);
-    }
-    if (request.body && typeof request.body === "object" && !Buffer.isBuffer(request.body)) {
-      (request as any).body = transformSessionResourceIds(request.body, "unmask", sessionContext, resourceIdSecret);
-    }
-  } catch {
-    return reply.code(400).send({ error: "Invalid, expired, or session-mismatched resource reference" });
-  }
-});
-
-app.addHook("preSerialization", async (request, _reply, payload) => {
-  const sessionContext = (request as any).__beeSessionIdContext as { sessionId: string; expiresAt: Date } | undefined;
-  if (!sessionContext || !payload || typeof payload !== "object" || Buffer.isBuffer(payload)) return payload;
-  return transformSessionResourceIds(payload, "mask", sessionContext, resourceIdSecret);
-});
 
 const ctx: BeeContext = {
   appName: "Bee-Core",
@@ -101,12 +58,6 @@ app.get("/", async () => ({
 }));
 
 async function bootstrap() {
-  const mongoUri = String(ctx.config.mongoUri ?? "");
-  if (!mongoUri) throw new Error("MONGODB_URI is required.");
-  const sessionMongo = new MongoClient(mongoUri, { maxPoolSize: 5, serverSelectionTimeoutMS: 10000 });
-  await sessionMongo.connect();
-  sessionDb = sessionMongo.db(String(ctx.config.mongoDbName ?? "bee_core"));
-  app.addHook("onClose", async () => { await sessionMongo.close(); });
   await plugins.mountAll(ctx);
   await events.emit("bee.started", { at: new Date().toISOString() });
   const port = Number(process.env.PORT ?? 3000);
