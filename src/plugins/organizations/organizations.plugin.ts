@@ -52,7 +52,7 @@ export const organizationsPlugin:BeePlugin={
    if(slug)tenant=await companies.findOne({slug});
    else if(!hostname.endsWith("."+publicBaseDomain))tenant=await companies.findOne({domains:hostname});
    if(!tenant||(tenant.status??"active")!=="active")return reply.code(404).send({error:"Public tenant not found"});
-   return {kind:"tenant",tenant:{id:tenant.id,name:tenant.name,slug:tenant.slug??null}};
+   return {kind:"tenant",tenant:{id:tenant.slug??"",name:tenant.name,slug:tenant.slug??null}};
   });
   await Promise.all([
    memberships.createIndex({id:1},{unique:true,name:"memberships_id_unique"}),
