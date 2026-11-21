@@ -59,7 +59,7 @@ const RESOURCE_FIELDS: Record<string, SessionResourceType> = {
 
 const RESOURCE_CONTAINERS: Record<string, SessionResourceType> = {
   tenant: "tenant", company: "tenant", companies: "tenant", tenants: "tenant",
-  plugin: "plugin", plugins: "plugin", installations: "plugin",
+  plugin: "plugin", plugins: "plugin",
   user: "user", users: "user", owner: "user", actor: "user",
   membership: "membership", memberships: "membership",
   role: "role", roles: "role",
