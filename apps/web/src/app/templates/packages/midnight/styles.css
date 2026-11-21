@@ -1,3 +1,11 @@
 /* Midnight package-owned layout styles. */
 .bee-template-package-host--midnight{display:block;min-height:100vh}
-.bee-layout--dashboard-midnight .dashboard{background:#090b13;color:#e8eaf2}
+.bee-template-package-host--midnight .md-dashboard{background:#090b13;color:#e8eaf2}
+
+/* Midnight section cards follow the active dashboard package, not the public website theme. */
+.bee-template-package-host--midnight .md-content .panel,.bee-template-package-host--midnight .md-content .dash-stat{background:#101827;border:1px solid #25324a;color:#e5ecf8}
+.bee-template-package-host--midnight .md-content .quick-action{background:#111b2a;border:1px solid #283750;color:inherit}
+
+.bee-template-package-host--midnight .md-content .bee-dashboard-card{background:#101827;border:1px solid #25324a;color:#e5ecf8}
+
+.bee-template-package-host--midnight{--bg:#080a12;--panel:#10131e;--muted:#8991a4;--border:#303447;--purple:#8c72ff;--cyan:#69e5d4;color:#e8eaf2}

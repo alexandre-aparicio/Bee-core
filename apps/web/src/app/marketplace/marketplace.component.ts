@@ -20,7 +20,7 @@ type MarketplacePlugin = {
   standalone: true,
   imports: [CommonModule],
   template: `
-    <section id="plugins" class="panel bee-marketplace">
+    <section id="plugins" class="panel bee-dashboard-card bee-marketplace">
       <div class="panel-heading">
         <div><h2>Company plugin marketplace</h2><p>Only packages available to this company's plan or purchases are shown.</p></div>
         <button class="bee-marketplace__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
