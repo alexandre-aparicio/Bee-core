@@ -276,3 +276,11 @@ The product model is now specified in `docs/template-business-model.md`.
 - Added `docs/session-resource-ids.md` with the contract and mandatory integration requirements.
 - This is deliberately **not marked complete**: API route inputs/outputs, JWT claims, public endpoints, Angular state/routes and plugin interfaces have not yet been migrated. The codec must not be treated as active protection until those integrations and cross-tenant tests are complete.
 - Changes are on branch `feature/session-bound-resource-ids`; no build, test run, CI result or deployment verification is claimed.
+
+
+## Session-bound resource IDs — auth integration attempt (2026-11-21)
+
+- Added an initial authentication-path integration on `feature/session-bound-ids-end-to-end`: newly issued JWTs carry an AES-GCM `tenantRef` rather than a plaintext `tenantId`; the reference is bound to the persisted refresh-session ID and expiry.
+- Login responses now return session-bound user and tenant references. Refresh rotates the token and issues a new reference using the persisted session expiry. The tenant context resolver decrypts and compares the reference with the session's tenant before loading membership and company status.
+- This is **not an end-to-end migration** and is not merged to main. Other organization, Platform Administration, marketplace/plugin, public tenant, API request/response, SSE, and Angular contracts still require migration. Some existing clients expect stable raw IDs, so deploying this branch before those contracts are migrated may break navigation and API calls.
+- No build, unit tests, integration tests, CI, or VPS validation were run. Do not deploy this branch as a complete security release.
