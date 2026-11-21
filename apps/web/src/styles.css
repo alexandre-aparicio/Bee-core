@@ -274,12 +274,12 @@ button.dash-nav:focus-visible{outline:2px solid var(--purple);outline-offset:2px
 .tenant-public-page .auth-card>a{display:inline-block;margin-top:18px;color:inherit;font-weight:600}
 @media(max-width:520px){.tenant-public-nav{gap:8px}.tenant-public-nav a{font-size:11px}}
 .tenant-public-actions>a{color:inherit;font-size:12px;text-decoration:none}
-body[data-bee-public-mode="light"] .tenant-public-page{background:#f7f8fc;color:#20283a}
-body[data-bee-public-mode="light"] .tenant-public-page .auth-top>a{color:#59657a}
-body[data-bee-public-mode="light"] .tenant-public-page .auth-card{background:#fff;border-color:#e1e5ef;box-shadow:0 24px 70px #28344a18}
-body[data-bee-public-mode="light"] .tenant-public-page .auth-card h1{color:#20283a}
-body[data-bee-public-mode="light"] .tenant-public-page .auth-card>p,body[data-bee-public-mode="light"] .tenant-public-page .auth-card>small{color:#657187}
-body[data-bee-public-mode="light"] .tenant-public-page .auth-footer{color:#657187}
+.bee-template-package-host[data-bee-public-mode="light"] .tenant-public-page{background:#f7f8fc;color:#20283a}
+.bee-template-package-host[data-bee-public-mode="light"] .tenant-public-page .auth-top>a{color:#59657a}
+.bee-template-package-host[data-bee-public-mode="light"] .tenant-public-page .auth-card{background:#fff;border-color:#e1e5ef;box-shadow:0 24px 70px #28344a18}
+.bee-template-package-host[data-bee-public-mode="light"] .tenant-public-page .auth-card h1{color:#20283a}
+.bee-template-package-host[data-bee-public-mode="light"] .tenant-public-page .auth-card>p,.bee-template-package-host[data-bee-public-mode="light"] .tenant-public-page .auth-card>small{color:#657187}
+.bee-template-package-host[data-bee-public-mode="light"] .tenant-public-page .auth-footer{color:#657187}
 @media(max-width:520px){.tenant-public-actions{gap:8px}.tenant-public-actions>a{font-size:10px}}
 
 .bee-layout{min-height:100vh;width:100%;isolation:isolate}
