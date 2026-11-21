@@ -276,3 +276,14 @@ The product model is now specified in `docs/template-business-model.md`.
 - Added `docs/session-resource-ids.md` with the contract and mandatory integration requirements.
 - This is deliberately **not marked complete**: API route inputs/outputs, JWT claims, public endpoints, Angular state/routes and plugin interfaces have not yet been migrated. The codec must not be treated as active protection until those integrations and cross-tenant tests are complete.
 - Changes are on branch `feature/session-bound-resource-ids`; no build, test run, CI result or deployment verification is claimed.
+
+## Platform Settings navigation — Agent 2 (2026-11-21)
+
+- Added a single expandable Settings group to the Midnight, Glass and Paper dashboard sidebars, with the eight requested destinations: General, Tenants, Plugins, Integrations, Plans & Licensing, Security, Infrastructure and Localization.
+- Enforced one expanded navigation group at a time through a shared `expandedMenuId` state.
+- Applied role-based visibility: platform Super Admin sees all eight sections; tenant owners/admins see tenant-appropriate General, Plugins, Integrations, Security and Localization; tenant managers and standard members see Localization only.
+- Added role-aware settings route handling, section titles/descriptions and consistent configuration-workspace presentation.
+- Documented scope and role matrix in `docs/platform-settings-navigation.md`.
+- Presentation/navigation only: no new backend settings endpoints or permissions are implied.
+- No tests, Angular build, GitHub Actions workflows or deployment checks were run, per request. Compilation and visual behavior remain unverified.
+- All changes are isolated on `agent-2/platform-settings-navigation`; no changes were made to `main`. Agent 2 will request explicit approval before any integration into `main`.
