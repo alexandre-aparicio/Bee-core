@@ -17,7 +17,7 @@ export const platformAdminPlugin:BeePlugin={
   const mongo=new MongoClient(String(ctx.config.mongoUri??""),{maxPoolSize:8,serverSelectionTimeoutMS:10000});
   await mongo.connect();const db:Db=mongo.db(String(ctx.config.mongoDbName??"bee_core"));
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
-  const sessionIdSecret=String(ctx.config.jwtSecret??"");
+  const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Platform admin: JWT_SECRET must contain at least 32 characters.");
   const mask=(session:{sessionId:string;expiresAt:Date},id:string,type:import("../../core/session-id.js").SessionResourceType)=>maskResourceId(id,type,session,sessionIdSecret);
   const guard=async(req:any,reply:any):Promise<User|null>=>{
