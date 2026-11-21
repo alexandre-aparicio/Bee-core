@@ -255,3 +255,13 @@ The product model is now specified in `docs/template-business-model.md`.
 - Preserved tenant name, Home navigation, conditional Hello World link/page, theme toggle, and header/footer template slots. Corporate fallback remains in each component.
 - Direct commits to main: Aurora `16dc9c6`, Editorial `3ad7b55`, Studio `ee44a06`.
 - Source edits only. No build, tests, workflows, or VPS visual validation performed; verify the Angular compile and actual browser appearance after deployment.
+
+## 2026-11-21 — Platform Administration company directory and login recovery
+
+- Reworked Platform Administration into a company directory with card and list views.
+- Moved company creation into a modal opened from the view toolbar.
+- Added a vertical actions menu to each company: Disable and Message remain intentionally disabled; Manage opens `/dashboard/platform/:tenantId/manage`.
+- Added a tenant management view with company identity, subdomain, member count, status, and the existing platform-level status / Hola Mundo controls.
+- Restored login route priority in the root template and added dashboard session validation against `/api/auth/me`; missing or expired sessions are cleared and redirected to `/login`.
+- Updated Midnight, Glass, and Paper dashboard templates to connect the company management route.
+- Validation status: source changes committed on a feature branch; build and automated tests have not been run in this environment.
