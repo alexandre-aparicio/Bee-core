@@ -7,7 +7,7 @@ styles:[\`.bee-notify{position:relative;display:inline-flex}.bee-notify-trigger{
 export class BeeNotificationCenterComponent implements OnChanges,OnDestroy{
  @Input() accessToken='';@Input() tenantId='';
  unread=0;items:NotificationItem[]=[];open=false;loading=false;socket?:WebSocket;retry?:ReturnType<typeof setTimeout>;stopped=false;
- ngOnChanges(changes:SimpleChanges){if(changes['accessToken']||changes['tenantId']){this.closeSocket();this.stopped=false;if(this.accessToken)this.connect();}}
+ ngOnChanges(changes:SimpleChanges){if(changes['accessToken']||changes['tenantId']){this.closeSocket();this.stopped=false;if(this.accessToken){void this.load();this.connect();}}}
  ngOnDestroy(){this.stopped=true;this.closeSocket();}
  toggle(){this.open=!this.open;if(this.open)void this.load();}
  async load(){if(!this.accessToken)return;this.loading=true;try{const [list,count]=await Promise.all([fetch('/api/notifications?limit=30',{headers:{authorization:'Bearer '+this.accessToken}}),fetch('/api/notifications/unread-count',{headers:{authorization:'Bearer '+this.accessToken}})]);if(list.ok){const data=await list.json();this.items=data.notifications??[];}if(count.ok){const data=await count.json();this.unread=Number(data.count)||0;}}catch{}finally{this.loading=false;}}
