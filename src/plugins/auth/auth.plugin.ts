@@ -1,7 +1,8 @@
 import type { BeePlugin } from "../../core/types.js";
 import bcrypt from "bcryptjs";
 import { MongoClient, type Collection, type Db } from "mongodb";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
+import { createTotpSecret, provisioningUri, verifyTotp } from "../../core/totp.js";
 import { resolveTenantContext } from "../../core/tenant-context.js";
 import { maskTenantId, maskUserId, unmaskUserId } from "../../core/session-id.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
@@ -9,16 +10,26 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
-type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; platformRole?: "superadmin"; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; createdAt:Date; updatedAt:Date };
-type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; tenantId?:string; expiresAt:Date; revokedAt:Date|null; createdAt:Date };
-type LoginBody = { email?:string; password?:string; client?:ClientType };
+type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; platformRole?: "superadmin"; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; mfaSecretEnc?:string; mfaPendingSecretEnc?:string; mfaPendingExpiresAt?:Date; mfaLastStep?:number; mfaRecoveryHashes?:string[]; createdAt:Date; updatedAt:Date };
+type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; tenantId?:string; expiresAt:Date; absoluteExpiresAt?:Date; revokedAt:Date|null; mfaVerifiedAt?:Date; createdAt:Date };
+type LoginBody = { email?:string; password?:string; client?:ClientType; mfaCode?:string };
 type RefreshBody = { refreshToken?:string };
 const validClients:ClientType[]=["backend","dashboard","public"];
 const publicUser=(u:UserRecord,sessionId:string,expiresAt:Date,secret:string)=>({id:maskUserId(u.id,{sessionId,expiresAt},secret),email:u.email,roles:u.roles,allowedClients:u.allowedClients,tenantId:maskTenantId(u.tenantId??"default",{sessionId,expiresAt},secret),...(u.platformRole?{platformRole:u.platformRole}:{})});
 const clientFrom=(v:unknown):ClientType|null=>validClients.includes(v as ClientType)?v as ClientType:null;
 const hashToken=(t:string)=>createHash("sha256").update(t).digest("hex");
 const makeRefreshToken=()=>randomBytes(48).toString("base64url");
-const refreshExpiry=()=>new Date(Date.now()+30*24*60*60*1000);
+const refreshExpiry=()=>new Date(Date.now()+7*24*60*60*1000);
+const absoluteSessionExpiry=()=>new Date(Date.now()+30*24*60*60*1000);
+const readCookie=(req:any,name:string):string=>{const header=String(req.headers?.cookie??"");for(const part of header.split(";")){const [key,...rest]=part.trim().split("=");if(key===name)return decodeURIComponent(rest.join("="));}return "";};
+const isSameOrigin=(req:any):boolean=>{const origin=String(req.headers?.origin??"");if(!origin)return true;try{return new URL(origin).host===String(req.headers?.host??"");}catch{return false;}};
+const writeRefreshCookie=(reply:any,token:string,secure:boolean)=>reply.header("Set-Cookie",`bee_refresh=${encodeURIComponent(token)}; Path=/api/auth; HttpOnly; SameSite=Strict; Max-Age=604800${secure?"; Secure":""}`);
+const clearRefreshCookie=(reply:any,secure:boolean)=>reply.header("Set-Cookie",`bee_refresh=; Path=/api/auth; HttpOnly; SameSite=Strict; Max-Age=0${secure?"; Secure":""}`);
+
+const mfaKeyFrom=(value:unknown):Buffer|null=>{const raw=String(value??"").trim();if(!raw)return null;const key=Buffer.from(raw,"base64");return key.length===32?key:null;};
+const encryptMfaSecret=(secret:string,key:Buffer):string=>{const iv=randomBytes(12),cipher=createCipheriv("aes-256-gcm",key,iv),encrypted=Buffer.concat([cipher.update(secret,"utf8"),cipher.final()]);return [iv.toString("base64url"),cipher.getAuthTag().toString("base64url"),encrypted.toString("base64url")].join(".");};
+const decryptMfaSecret=(value:string,key:Buffer):string=>{const [iv,tag,data]=value.split(".");if(!iv||!tag||!data)throw new Error("Invalid encrypted MFA secret");const decipher=createDecipheriv("aes-256-gcm",key,Buffer.from(iv,"base64url"));decipher.setAuthTag(Buffer.from(tag,"base64url"));return Buffer.concat([decipher.update(Buffer.from(data,"base64url")),decipher.final()]).toString("utf8");};
+
 
 export const authPlugin:BeePlugin={
  manifest:{name:"auth",version:"0.3.0",description:"Persistent authentication for backend, dashboard and public frontend clients"},
@@ -27,6 +38,7 @@ export const authPlugin:BeePlugin={
   if(!mongoUri)throw new Error("Auth: MONGODB_URI is required.");
   const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongo.connect(); const db:Db=mongo.db(dbName);
+  const mfaEncryptionKey=mfaKeyFrom(ctx.config.authMfaEncryptionKey);
   const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Auth: JWT_SECRET must contain at least 32 characters for session-bound resource references.");
   const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
@@ -48,7 +60,8 @@ export const authPlugin:BeePlugin={
    tenants.createIndex({id:1},{unique:true,name:"tenants_id_unique"}),
    tenants.createIndex({domains:1},{unique:true,sparse:true,name:"tenants_domains_unique"})
   ]);
-  await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
+  await sessions.updateMany({absoluteExpiresAt:{$exists:false}},{$set:{absoluteExpiresAt:absoluteSessionExpiry()}});
+   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
   await users.updateMany({$or:[{tenantId:{$exists:false}},{tenantId:""}]},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});
   const preferencesCollectionExists=await db.listCollections({name:"template_preferences"},{nameOnly:true}).hasNext();
   if(!preferencesCollectionExists){
@@ -82,20 +95,77 @@ export const authPlugin:BeePlugin={
    const passwordMatches=await bcrypt.compare(password,u?.passwordHash??dummyPasswordHash);
    if(!u||!passwordMatches)return reply.code(401).send({error:"Invalid credentials"});
    if(!u.allowedClients.includes(client))return reply.code(403).send({error:"Client access denied"});
+   let mfaVerifiedAt:Date|undefined;
+   if(u.platformRole==="superadmin"&&u.mfaSecretEnc){
+    const code=String(req.body?.mfaCode??"");
+    if(!mfaEncryptionKey)return reply.code(503).send({error:"Superadministrator MFA encryption is not configured"});
+    let secret:string;try{secret=decryptMfaSecret(u.mfaSecretEnc,mfaEncryptionKey);}catch(error){ctx.logger.error("Could not decrypt superadministrator MFA secret",{userId:u.id,error});return reply.code(503).send({error:"MFA configuration unavailable"});}
+    const step=verifyTotp(secret,code);
+    if(step!==null){
+     const consumed=await users.updateOne({id:u.id,mfaSecretEnc:u.mfaSecretEnc,$or:[{mfaLastStep:{$lt:step}},{mfaLastStep:{$exists:false}}]},{$set:{mfaLastStep:step}});
+     if(!consumed.modifiedCount)return reply.code(401).send({error:"Authenticator code has already been used",mfaRequired:true});
+    }else{
+     const recoveryHash=hashToken(code.trim().toUpperCase());
+     const consumed=await users.updateOne({id:u.id,mfaRecoveryHashes:recoveryHash},{$pull:{mfaRecoveryHashes:recoveryHash}});
+     if(!consumed.modifiedCount)return reply.code(401).send({error:"A valid authenticator or unused recovery code is required",mfaRequired:true});
+     ctx.logger.info("Superadministrator used a one-time MFA recovery code",{userId:u.id});
+    }
+    mfaVerifiedAt=new Date();
+   }
    if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
    const tenantId=u.tenantId??defaultTenantId;
    const membership=await db.collection("memberships").findOne({userId:u.id,tenantId,status:"active"});
    if(!membership)return reply.code(403).send({error:"No active company membership"});
    const membershipRole=String(membership.role??"member"),effectiveRoles:Role[]=membershipRole==="owner"||membershipRole==="admin"?["admin"]:["user"];
-   const sessionId=randomUUID(),expiresAt=refreshExpiry(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId,expiresAt),refreshToken=makeRefreshToken();
-   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt,revokedAt:null,createdAt:new Date()});
+   const sessionId=randomUUID(),expiresAt=refreshExpiry(),absoluteExpiresAt=absoluteSessionExpiry(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId,expiresAt),refreshToken=makeRefreshToken();
+   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt,absoluteExpiresAt,revokedAt:null,...(mfaVerifiedAt?{mfaVerifiedAt}:{}),createdAt:new Date()});
    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
    await auditAuthEvent({tenantId,actorId:u.id,action:"auth.login",outcome:"success",metadata:{client}});
-   return {accessToken,refreshToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,user:publicUser({...u,roles:effectiveRoles},sessionId,expiresAt,sessionIdSecret),client,tenantId:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret), ...(u.platformRole?{platformRole:u.platformRole}:{})};
+   const secureCookie=String(ctx.config.environment??"")!=="development";
+   if(client==="dashboard")writeRefreshCookie(reply,refreshToken,secureCookie);
+   return {accessToken,...(client==="dashboard"?{}:{refreshToken}),tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,user:publicUser({...u,roles:effectiveRoles},sessionId,expiresAt,sessionIdSecret),client,tenantId:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret), ...(u.platformRole?{platformRole:u.platformRole}:{}),...(u.platformRole==="superadmin"&&!u.mfaSecretEnc?{mfaSetupRequired:true}:{})};
+  });
+  const resolveMfaAdmin=async(req:any,reply:any):Promise<{user:UserRecord;session:RefreshSession}|null>=>{
+   try{await req.jwtVerify();}catch{return reply.code(401).send({error:"Unauthorized"}),null;}
+   const claims=req.user as {sub?:string;sid?:string;aud?:string;client?:ClientType};
+   if(claims.aud!=="bee-core"||claims.client!=="dashboard"||!claims.sub||!claims.sid)return reply.code(401).send({error:"Dashboard superadministrator session required"}),null;
+   const session=await sessions.findOne({id:claims.sid,client:"dashboard",revokedAt:null,expiresAt:{$gt:new Date()}});
+   if(!session)return reply.code(401).send({error:"Session expired"}),null;
+   let userId="";try{userId=unmaskUserId(claims.sub,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret);}catch{return reply.code(401).send({error:"Invalid session"}),null;}
+   const user=await users.findOne({id:userId,enabled:true,platformRole:"superadmin"});
+   if(!user||user.id!==session.userId)return reply.code(403).send({error:"Superadministrator access required"}),null;
+   return {user,session};
+  };
+  ctx.server.post("/auth/mfa/setup",async(req,reply)=>{
+   const current=await resolveMfaAdmin(req,reply);if(!current)return;
+   if(current.user.mfaSecretEnc)return reply.code(409).send({error:"MFA is already configured"});
+   if(!mfaEncryptionKey)return reply.code(503).send({error:"Set AUTH_MFA_ENCRYPTION_KEY to a base64-encoded 32-byte key before configuring MFA"});
+   const secret=createTotpSecret(),encrypted=encryptMfaSecret(secret,mfaEncryptionKey);
+   await users.updateOne({id:current.user.id},{$set:{mfaPendingSecretEnc:encrypted,mfaPendingExpiresAt:new Date(Date.now()+10*60*1000)}});
+   return {secret,provisioningUri:provisioningUri(secret,current.user.email),expiresIn:600};
+  });
+  ctx.server.post<{Body:{code?:string}}>("/auth/mfa/confirm",async(req,reply)=>{
+   const current=await resolveMfaAdmin(req,reply);if(!current)return;
+   if(!mfaEncryptionKey)return reply.code(503).send({error:"MFA encryption is not configured"});
+   if(!current.user.mfaPendingSecretEnc||!current.user.mfaPendingExpiresAt||current.user.mfaPendingExpiresAt<=new Date())return reply.code(409).send({error:"Start MFA setup again"});
+   let secret:string;try{secret=decryptMfaSecret(current.user.mfaPendingSecretEnc,mfaEncryptionKey);}catch{return reply.code(503).send({error:"MFA configuration unavailable"});}
+   const step=verifyTotp(secret,String(req.body?.code??""));
+   if(step===null)return reply.code(401).send({error:"Invalid authenticator code"});
+   const recoveryCodes=Array.from({length:10},()=>randomBytes(9).toString("base64url").toUpperCase());
+   const saved=await users.updateOne({id:current.user.id,mfaPendingSecretEnc:current.user.mfaPendingSecretEnc,mfaPendingExpiresAt:{$gt:new Date()}},{$set:{mfaSecretEnc:current.user.mfaPendingSecretEnc,mfaLastStep:step,mfaRecoveryHashes:recoveryCodes.map(code=>hashToken(code))},$unset:{mfaPendingSecretEnc:"",mfaPendingExpiresAt:""}});
+   if(!saved.modifiedCount)return reply.code(409).send({error:"MFA setup expired; start again"});
+   const verifiedAt=new Date();
+   await sessions.updateOne({id:current.session.id,userId:current.user.id,revokedAt:null},{$set:{mfaVerifiedAt:verifiedAt}});
+   const tenantId=current.session.tenantId??current.user.tenantId??defaultTenantId;
+   const membership=await db.collection("memberships").findOne({userId:current.user.id,tenantId,status:"active"});
+   const role=String(membership?.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
+   await auditAuthEvent({tenantId,actorId:current.user.id,action:"auth.login",outcome:"success",metadata:{client:"dashboard",mfa:"enrolled"}});
+   return {success:true,accessToken:issue({...current.user,roles}, "dashboard",tenantId,current.session.id,current.session.expiresAt),expiresIn:1200,platformRole:"superadmin",recoveryCodes};
   });
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
-   const raw=String(req.body?.refreshToken??"");if(raw.length<40)return reply.code(400).send({error:"refreshToken required"});
-   const next=makeRefreshToken(),session=await sessions.findOneAndUpdate({tokenHash:hashToken(raw),revokedAt:null,expiresAt:{$gt:new Date()}},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()}},{returnDocument:"after"});
+   if(!isSameOrigin(req))return reply.code(403).send({error:"Cross-origin refresh request rejected"});
+   const raw=String(req.body?.refreshToken??(readCookie(req,"bee_refresh")||""));if(raw.length<40)return reply.code(401).send({error:"Refresh session required"});
+   const now=new Date(),next=makeRefreshToken(),session=await sessions.findOneAndUpdate({tokenHash:hashToken(raw),revokedAt:null,expiresAt:{$gt:now},absoluteExpiresAt:{$gt:now}},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()}},{returnDocument:"after"});
    if(!session)return reply.code(401).send({error:"Invalid or expired refresh token"});
    const u=await users.findOne({id:session.userId,enabled:true});
    if(!u||!u.allowedClients.includes(session.client)){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Invalid or expired refresh token"});}
@@ -103,10 +173,13 @@ export const authPlugin:BeePlugin={
    const membership=await db.collection("memberships").findOne({userId:u.id,tenantId:activeTenantId,status:"active"});
    if(!membership){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Company membership is no longer active"});}
    const role=String(membership.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
-   return {accessToken:issue({...u,roles},session.client,activeTenantId,session.id,session.expiresAt),refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:2592000,client:session.client,tenantId:maskTenantId(activeTenantId,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret),...(u.platformRole?{platformRole:u.platformRole}:{})};
+   const accessToken=issue({...u,roles},session.client,activeTenantId,session.id,session.expiresAt);
+   const secureCookie=String(ctx.config.environment??"")!=="development";
+   if(session.client==="dashboard"){writeRefreshCookie(reply,next,secureCookie);return {accessToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,client:session.client,tenantId:maskTenantId(activeTenantId,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret),user:publicUser({...u,roles},session.id,session.expiresAt,sessionIdSecret),...(u.platformRole?{platformRole:u.platformRole}:{})};}
+   return {accessToken,refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,client:session.client,tenantId:maskTenantId(activeTenantId,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret),user:publicUser({...u,roles},session.id,session.expiresAt,sessionIdSecret),...(u.platformRole?{platformRole:u.platformRole}:{})};
   });
   ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as {sub?:string;email?:string;roles?:Role[];client?:ClientType;aud?:string;tenantRef?:string;sid?:string};const tenantContext=await resolveTenantContext(db,c,{},sessionIdSecret);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});const sessionContext={sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt};const user=await users.findOne({id:tenantContext.userId,enabled:true},{projection:{platformRole:1}});return {authenticated:true,user:{id:maskUserId(tenantContext.userId,sessionContext,sessionIdSecret),email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:maskTenantId(tenantContext.tenantId,sessionContext,sessionIdSecret),platformRole:user?.platformRole??null};}catch{return reply.code(401).send({error:"Unauthorized"});}});
-  ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{try{await req.jwtVerify();const claims=req.user as {sub?:string;aud?:string;sid?:string};if(claims.aud!=="bee-core"||!claims.sub||!claims.sid)return reply.code(401).send({error:"Unauthorized"});const session=await sessions.findOne({id:claims.sid});if(!session)return {success:true,message:"Session is already unavailable."};let userId:string;try{userId=unmaskUserId(claims.sub,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret)===session.userId?session.userId:"";}catch{return reply.code(401).send({error:"Unauthorized"});}if(!userId)return reply.code(401).send({error:"Unauthorized"});const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({id:session.id,tokenHash:hashToken(raw),userId,revokedAt:null},{$set:{revokedAt:new Date()}});await sessions.updateOne({id:session.id,userId,revokedAt:null},{$set:{revokedAt:new Date()}});if(session.tenantId)await auditAuthEvent({tenantId:session.tenantId,actorId:userId,action:"auth.logout",outcome:"success",metadata:{refreshTokenProvided:Boolean(raw)}});return {success:true,message:"Refresh session revoked. Current access token expires within 20 minutes."};}catch{return reply.code(401).send({error:"Unauthorized"});}});
+  ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{const secureCookie=String(ctx.config.environment??"")!=="development";if(!isSameOrigin(req))return reply.code(403).send({error:"Cross-origin logout request rejected"});const cookieToken=readCookie(req,"bee_refresh");clearRefreshCookie(reply,secureCookie);try{await req.jwtVerify();const claims=req.user as {sub?:string;aud?:string;sid?:string};if(claims.aud!=="bee-core"||!claims.sub||!claims.sid)return reply.code(401).send({error:"Unauthorized"});const session=await sessions.findOne({id:claims.sid});if(!session)return {success:true,message:"Session is already unavailable."};let userId:string;try{userId=unmaskUserId(claims.sub,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret)===session.userId?session.userId:"";}catch{return reply.code(401).send({error:"Unauthorized"});}if(!userId)return reply.code(401).send({error:"Unauthorized"});const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({id:session.id,tokenHash:hashToken(raw),userId,revokedAt:null},{$set:{revokedAt:new Date()}});await sessions.updateOne({id:session.id,userId,revokedAt:null},{$set:{revokedAt:new Date()}});if(session.tenantId)await auditAuthEvent({tenantId:session.tenantId,actorId:userId,action:"auth.logout",outcome:"success",metadata:{refreshTokenProvided:Boolean(raw||cookieToken)}});return {success:true,message:"Refresh session revoked."};}catch{if(cookieToken.length>=40){await sessions.updateOne({tokenHash:hashToken(cookieToken),revokedAt:null},{$set:{revokedAt:new Date()}});return {success:true,message:"Refresh session revoked."};}return reply.code(401).send({error:"Unauthorized"});}});
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;
   const allowedThemeTokens=["--bg","--panel","--muted","--border","--purple","--cyan"] as const;

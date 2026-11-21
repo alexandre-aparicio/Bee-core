@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { Component, Input, OnInit } from "@angular/core";
 
 type PluginRecord = {
   id: string; name: string; version: string; description: string; category: string;
@@ -80,8 +80,9 @@ export class PluginSettingsComponent implements OnInit {
   error = "";
   view: "cards" | "list" = "cards";
   openMenuId = "";
+  @Input() accessToken = "";
   ngOnInit(): void { void this.load(); }
-  private get token(): string { try { return JSON.parse(localStorage.getItem("bee-auth") || "null")?.accessToken || ""; } catch { return ""; } }
+  private get token(): string { return this.accessToken; }
   trackPlugin(_index: number, plugin: PluginRecord): string { return plugin.id; }
   toggleMenu(id: string): void { this.openMenuId = this.openMenuId === id ? "" : id; }
   async load(): Promise<void> {

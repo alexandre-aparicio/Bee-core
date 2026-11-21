@@ -40,6 +40,7 @@ export const platformAdminPlugin:BeePlugin={
     if(claims.aud!=="bee-core"||claims.client!=="dashboard"||!claims.sub||!claims.sid)return reply.code(401).send({error:"Platform admin session required"}),null;
     const session=await sessions.findOne({id:claims.sid,client:"dashboard",revokedAt:null,expiresAt:{$gt:new Date()}});
     if(!session)return reply.code(403).send({error:"Platform superadministrator required"}),null;
+    if(!session.mfaVerifiedAt||Date.now()-session.mfaVerifiedAt.getTime()>15*60*1000)return reply.code(403).send({error:"Recent MFA verification required"}),null;
     const sessionContext={sessionId:session.id,expiresAt:session.expiresAt};
     let userId="";try{userId=unmaskResourceId(String(claims.sub),"user",sessionContext,sessionIdSecret);}catch{return reply.code(401).send({error:"Invalid session subject"}),null;}
     if(userId!==session.userId)return reply.code(401).send({error:"Invalid session subject"}),null;

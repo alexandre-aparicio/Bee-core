@@ -20,7 +20,7 @@ export class AppComponent implements OnInit {
     window.addEventListener('popstate', this.handlePublicPopState);
     if (this.dashboard) {
       if (this.auth?.accessToken) void this.validateDashboardSession();
-      else window.location.replace('/login');
+      else void this.refreshDashboardSession();
     } else if (!['/login', '/register', '/forgot'].includes(this.path)) void this.loadPublicTenant();
   }
 
@@ -48,7 +48,13 @@ export class AppComponent implements OnInit {
   path = window.location.pathname;
   menuOpen = false;
   email = ''; password = ''; reveal = false; busy = false; error = '';
-  auth: any = this.readSession();
+  auth: any = null;
+  mfaCode = '';
+  mfaRequired = false;
+  mfaSetupMode = false;
+  mfaSetupSecret = '';
+  mfaSetupUri = '';
+  mfaRecoveryCodes: string[] = [];
   api = '/api';
   publicTenant: { id: string; name: string; slug: string | null } | null = null;
   publicTenantPlugins: string[] = [];
@@ -67,8 +73,41 @@ export class AppComponent implements OnInit {
   get dashboard(): boolean { return this.path === '/dashboard' || this.path.startsWith('/dashboard/'); }
   get signedEmail(): string { return this.auth?.user?.email || 'Workspace user'; }
   get initial(): string { return this.signedEmail.charAt(0).toUpperCase(); }
-  private readSession(): any { try { return JSON.parse(localStorage.getItem('bee-auth') || 'null'); } catch { return null; } }
-  async signIn(e: Event): Promise<void> { e.preventDefault(); this.error = ''; if (this.mode !== 'login') { this.error = this.mode === 'register' ? 'Self-registration is not enabled yet. Contact your workspace administrator.' : 'Password recovery is not configured yet. Contact your workspace administrator.'; return; } this.busy = true; try { const response = await fetch(this.api + '/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: this.email, password: this.password, client: 'dashboard' }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Login failed'); localStorage.setItem('bee-auth', JSON.stringify(result)); window.location.assign('/dashboard'); } catch (err) { this.error = err instanceof Error ? err.message : 'Sign in failed'; } finally { this.busy = false; } }
+  async signIn(e: Event): Promise<void> {
+    e.preventDefault();
+    if (this.mfaSetupMode) { await this.confirmMfaSetup(e); return; }
+    this.error = '';
+    if (this.mode !== 'login') { this.error = this.mode === 'register' ? 'Self-registration is not enabled yet. Contact your workspace administrator.' : 'Password recovery is not configured yet. Contact your workspace administrator.'; return; }
+    this.busy = true;
+    try {
+      const response = await fetch(this.api + '/auth/login', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: this.email, password: this.password, client: 'dashboard', ...(this.mfaCode ? { mfaCode: this.mfaCode } : {}) }) });
+      const result = await response.json();
+      if (!response.ok) { if (result.mfaRequired) this.mfaRequired = true; throw new Error(result.error || 'Login failed'); }
+      this.auth = result;
+      this.templates.setAuthSession(this.auth);
+      if (result.mfaSetupRequired) {
+        const setup = await fetch(this.api + '/auth/mfa/setup', { method: 'POST', credentials: 'same-origin', headers: { authorization: 'Bearer ' + result.accessToken } });
+        const setupResult = await setup.json();
+        if (!setup.ok) throw new Error(setupResult.error || 'Could not start MFA setup');
+        this.mfaSetupSecret = setupResult.secret; this.mfaSetupUri = setupResult.provisioningUri; this.mfaSetupMode = true; this.mfaRequired = false; this.error = ''; return;
+      }
+      window.location.assign('/dashboard');
+    } catch (err) { this.error = err instanceof Error ? err.message : 'Sign in failed'; }
+    finally { this.busy = false; }
+  }
+  async confirmMfaSetup(e: Event): Promise<void> {
+    e.preventDefault(); this.error = ''; this.busy = true;
+    try {
+      const response = await fetch(this.api + '/auth/mfa/confirm', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + this.auth?.accessToken }, body: JSON.stringify({ code: this.mfaCode }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'MFA verification failed');
+      this.auth = { ...this.auth, accessToken: result.accessToken, platformRole: result.platformRole };
+      this.templates.setAuthSession(this.auth);
+      this.mfaSetupMode = false; this.mfaCode = ''; this.mfaRecoveryCodes = result.recoveryCodes || [];
+    } catch (err) { this.error = err instanceof Error ? err.message : 'MFA setup failed'; }
+    finally { this.busy = false; }
+  }
+  finishMfaSetup(): void { this.mfaRecoveryCodes = []; window.location.assign('/dashboard'); }
   async loadPublicTenant(): Promise<void> {
     this.publicTenantLoading = true;
     this.publicTenantNotFound = false;
@@ -98,22 +137,35 @@ export class AppComponent implements OnInit {
 
   async validateDashboardSession(): Promise<void> {
     try {
-      const response = await fetch(this.api + '/auth/me', { headers: { authorization: 'Bearer ' + this.auth.accessToken } });
+      const response = await fetch(this.api + '/auth/me', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
       const result = await response.json();
       if (!response.ok || !result.authenticated) throw new Error(result.error || 'Session expired');
       this.auth = { ...this.auth, tenantId: result.tenantId || this.auth.tenantId, platformRole: result.platformRole ?? this.auth.platformRole };
-      localStorage.setItem('bee-auth', JSON.stringify(this.auth));
+      this.templates.setAuthSession(this.auth);
       await this.loadCompanies();
-    } catch {
-      localStorage.removeItem('bee-auth');
-      this.auth = null;
-      window.location.replace('/login');
-    }
+      window.setTimeout(() => void this.refreshDashboardSession(), 15 * 60 * 1000);
+    } catch { await this.refreshDashboardSession(); }
+  }
+  async refreshDashboardSession(): Promise<void> {
+    try {
+      const response = await fetch(this.api + '/auth/refresh', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const result = await response.json();
+      if (!response.ok || !result.accessToken) throw new Error(result.error || 'Session expired');
+      this.auth = { ...result, client: 'dashboard' };
+      this.templates.setAuthSession(this.auth);
+      const check = await fetch(this.api + '/auth/me', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
+      const checked = await check.json();
+      if (!check.ok || !checked.authenticated) throw new Error(checked.error || 'Session validation failed');
+      this.auth = { ...this.auth, tenantId: checked.tenantId || this.auth.tenantId, platformRole: checked.platformRole ?? this.auth.platformRole };
+      this.templates.setAuthSession(this.auth);
+      await this.loadCompanies();
+      window.setTimeout(() => void this.refreshDashboardSession(), 15 * 60 * 1000);
+    } catch { this.auth = null; this.templates.setAuthSession(null); window.location.replace('/login'); }
   }
 
   async loadCompanies(): Promise<void> {
     try {
-      const response = await fetch(this.api + '/companies', { headers: { authorization: 'Bearer ' + this.auth.accessToken } });
+      const response = await fetch(this.api + '/companies', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not load companies');
       this.companies = result.companies || [];
@@ -135,13 +187,13 @@ export class AppComponent implements OnInit {
     this.companyError = '';
     try {
       const response = await fetch(this.api + '/companies/' + encodeURIComponent(companyId) + '/activate', {
-        method: 'POST', headers: { authorization: 'Bearer ' + this.auth.accessToken }
+        method: 'POST', credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken }
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not switch company');
       const roles = result.membership?.role === 'owner' || result.membership?.role === 'admin' ? ['admin'] : ['user'];
       this.auth = { ...this.auth, accessToken: result.accessToken, tenantId: result.tenantId, user: { ...this.auth.user, tenantId: result.tenantId, roles } };
-      localStorage.setItem('bee-auth', JSON.stringify(this.auth));
+      this.templates.setAuthSession(this.auth);
       await this.templates.refreshForActiveCompany();
       await this.loadCompanies();
       this.companyBusy = false;
@@ -151,7 +203,10 @@ export class AppComponent implements OnInit {
       await this.loadCompanies();
     }
   }
-  logout(): void { localStorage.removeItem('bee-auth'); window.location.assign('/login'); }
+  async logout(): Promise<void> {
+    try { if (this.auth?.accessToken) await fetch(this.api + '/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } }); }
+    finally { this.auth = null; this.templates.setAuthSession(null); window.location.assign('/login'); }
+  }
   toggleMenu(): void { this.menuOpen = !this.menuOpen; }
 
   activeSection = 'dashboard';
