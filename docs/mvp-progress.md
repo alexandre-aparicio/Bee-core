@@ -228,3 +228,12 @@ The product model is now specified in `docs/template-business-model.md`.
 - Public tenant pages keep tenant name, Home/Hello World navigation (when enabled), theme toggle, and Hello World content. Corporate fallback remains, but is simplified to a clean valid structure rather than the copied marketing page markup.
 - Dashboard page shells keep company switching, grouped navigation, theme toggle, and primary sections for dashboard, plugins/marketplace + outlet, organization, activity, appearance/template manager and platform admin. This repair simplifies some placeholder content and does not claim the former copied dashboard markup was preserved verbatim.
 - Source changes only; no build, tests, workflows or VPS runtime validation were performed. Compilation remains unverified until the user runs the build.
+
+
+## Angular build errors from tenant/dashboard templates (2026-11-21)
+
+- Repaired the root `app.component.html` control-flow structure and formatted the template branches to remove the unclosed `@else` parser error.
+- Removed the extra Angular block closure after the platform-admin condition in Midnight, Paper and Glass dashboard templates that caused NG5002.
+- Removed imports from AppComponent that were no longer directly used after page composition moved to package components.
+- Corrected the Editorial page component closing tag in the root template.
+- The reported build warnings were likely cascading from template parse errors, but the build has not been rerun; warning cleanup and successful compilation are not yet confirmed.
