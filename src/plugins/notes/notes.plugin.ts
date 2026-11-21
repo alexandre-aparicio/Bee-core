@@ -32,7 +32,7 @@ export const notesPlugin: BeePlugin = {
     mongoClient = new MongoClient(mongoUri, { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
     await mongoClient.connect();
     const db: Db = mongoClient.db(dbName);
-    const sessionIdSecret = String(ctx.config.jwtSecret ?? "");
+    const sessionIdSecret = String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
     if (sessionIdSecret.length < 32) throw new Error("Notes: JWT_SECRET must contain at least 32 characters.");
     const collection = (tenantId: string) => new TenantCollection<Note>(db.collection<Note>("tenant_notes"), tenantId);
     const preRead = [requireAuth(db, "dashboard", sessionIdSecret), requireTenantPermissions("notes.read"), requireInstalledPlugin(db, "notes")];
