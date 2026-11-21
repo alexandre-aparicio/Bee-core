@@ -3,6 +3,7 @@ name: Bee-Core production Compose profile
 on:
   pull_request:
     paths:
+      - "src/**"
       - "docker-compose.yml"
       - "docker-compose.prod.yml"
       - ".env.production.example"
