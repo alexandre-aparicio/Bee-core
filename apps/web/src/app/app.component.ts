@@ -178,6 +178,7 @@ export class AppComponent implements OnInit {
     {id:'settings-localization',label:'Localization',icon:'◎',description:'Languages, regions, currencies and global formats.'}
   ];
   private syncActiveSectionFromPath(): void {
+    if (/^\/dashboard\/plugins\/[^/]+\/details\/?$/.test(this.path)) { this.activeSection = 'settings-plugins'; this.expandedMenuId = 'settings'; return; }
     if (this.path.startsWith('/dashboard/settings/tenants/') && this.path.endsWith('/manage')) {
       this.activeSection = 'settings-tenants';
       this.expandedMenuId = 'settings';
@@ -190,6 +191,7 @@ export class AppComponent implements OnInit {
       : nextSection;
     this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : '';
   }
+  get pluginDetailsId(): string { const match = this.path.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/); return match ? decodeURIComponent(match[1]) : ''; }
   get platformTenantId(): string {
     const parts = this.path.split('/');
     return parts.length >= 6 && parts[1] === 'dashboard' && parts[2] === 'settings' && parts[3] === 'tenants' && parts[5] === 'manage'

@@ -407,3 +407,13 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Updated the Playwright smoke scenario to open Settings → Tenants and verify card/list switching, tenant management and tenant creation.
 - Commits: `efee80f`, `5bd5194`, `946725c`, `703c962`, `c3097e6`, `17c0f66`, `ac5d0f0`.
 - Source and test changes are integrated directly into main. Angular build, Playwright execution and VPS visual/functional validation have not yet been run; do not mark this UI flow verified until those checks pass.
+
+
+## Plugin catalogue moved into Settings (2026-11-21)
+
+- Added a dedicated plugin management surface under Settings → Plugins in the Midnight, Glass and Paper dashboard templates; the existing workspace Plugins marketplace remains available separately.
+- The Settings catalogue reuses the authenticated tenant-scoped marketplace API and displays plugin cards or a compact list.
+- Added a disabled Upload control (future capability) and a vertical three-dot action menu per plugin. Install/Uninstall and Delete are visible but disabled; Details is the only enabled action.
+- Details navigates to the session-masked plugin URL `/dashboard/plugins/:maskPluginId/details` and loads the authenticated plugin detail endpoint. The route is recognized on direct navigation/reload and returns to Settings → Plugins.
+- No install, uninstall, delete or upload operation is exposed by this Settings UI.
+- Source and route handling committed directly to main. Angular build, Playwright, API behavior and VPS visual validation remain pending.
