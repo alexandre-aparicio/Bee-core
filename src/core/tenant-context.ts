@@ -16,8 +16,8 @@ export type TenantClaims = {
 export const COMPANY_ROLE_PERMISSIONS: Record<CompanyRole, readonly string[]> = {
   owner: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "billing.manage", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send", "mail.manage"],
   admin: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "files.read", "files.write", "notes.read", "notes.write"],
-  manager: ["members.read", "plugins.read", "files.read", "files.write", "notes.read", "notes.write"],
-  member: ["members.read", "plugins.read", "files.read", "notes.read"]
+  manager: ["members.read", "plugins.read", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send"],
+  member: ["members.read", "plugins.read", "files.read", "notes.read", "mail.read"]
 };
 
 export type TenantContext = {
