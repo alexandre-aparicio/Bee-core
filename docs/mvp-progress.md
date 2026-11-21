@@ -237,3 +237,12 @@ The product model is now specified in `docs/template-business-model.md`.
 - Removed imports from AppComponent that were no longer directly used after page composition moved to package components.
 - Corrected the Editorial page component closing tag in the root template.
 - The reported build warnings were likely cascading from template parse errors, but the build has not been rerun; warning cleanup and successful compilation are not yet confirmed.
+
+
+## Dashboard CSS selector mismatches (2026-11-21)
+
+- Reviewed Glass, Midnight and Paper dashboard package components after the user reported the header/sidebar styles were not applying correctly.
+- Fixed the outer dashboard selector mismatch: `gd-dashboard` / `md-dashboard` / `pd-dashboard` now match the CSS root selectors (previously `glass-dashboard` / `midnight-dashboard` / `paper-dashboard`).
+- Replaced stale header selectors (`gd-top` / `md-top` / `pd-top`) with selectors matching the actual `<header>` elements inside each main region.
+- Added explicit header button and sidebar group-heading/logout styles to each package so they do not depend on the global dashboard class system.
+- Source edits committed directly to `main`; source was fetched back to confirm selectors. No build, tests, workflows or VPS validation performed.
