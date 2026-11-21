@@ -258,7 +258,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(activeCompany.statusCode,200);
     assert.equal(activeCompany.json().company.id,secondCompanyId);
     const rejectCrossCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaTokens.accessToken}});
-    assert.equal(rejectCrossCompany.statusCode,403);
+    assert.equal(rejectCrossCompany.statusCode,404,"references issued to another session must not resolve");
     const addBetaMembership=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"beta@example.com",role:"member"}});
     assert.equal(addBetaMembership.statusCode,201);
     const memberList=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
@@ -300,7 +300,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(ownerAuditEvents.statusCode,200);
     assert.ok(ownerAuditEvents.json().events.some((event:{action:string})=>event.action==="permission.denied"),"company owner can read only the active company's audit history");
     const crossTenantAuditEvents=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
-    assert.equal(crossTenantAuditEvents.statusCode,403,"a valid member of another company cannot read this company's audit events");
+    assert.equal(crossTenantAuditEvents.statusCode,401,"a stale tenant context must not remain usable after company switching");
     const managerAuditEvents=await app.inject({method:"GET",url:"/companies/"+betaManagerCompanyRef+"/audit-events",headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
     assert.equal(managerAuditEvents.statusCode,403,"manager role cannot read restricted audit history");
     const auditMutation=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
@@ -313,7 +313,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const companyRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(companyRoles.json().roles.some((role:{id:string;name:string})=>role.id===customRoleId&&role.name==="Notes reader"));
     const crossTenantCustomRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+betaTokens.accessToken}});
-    assert.equal(crossTenantCustomRoles.statusCode,401);
+    assert.equal(crossTenantCustomRoles.statusCode,404,"company references cannot be replayed across sessions");
     const customRoleUpdate=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Notes reader updated",description:"Updated",permissions:["notes.read","files.read"]}});
     assert.equal(customRoleUpdate.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyId,actorId:"test-user",action:"role.updated",resourceId:customRoleId}),"custom role update should be audited");
