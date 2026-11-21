@@ -9,6 +9,7 @@ interface ManagedPlugin {
 
 export class BeePluginManager {
   private readonly plugins = new Map<string, ManagedPlugin>();
+  private readonly startupOrder: ManagedPlugin[] = [];
 
   register(plugin: BeePlugin): void {
     const name = plugin.manifest?.name;
@@ -31,7 +32,7 @@ export class BeePluginManager {
 
   private createPluginContext(pluginName: string, ctx: BeeContext): BeeContext {
     const prefix = `[${pluginName}]`;
-    const allowedConfig = this.configAccess[pluginName] ?? [];
+    const allowedConfig = this.configAccess[pluginName.toLowerCase()] ?? [];
     const scopedConfig = Object.fromEntries(allowedConfig.filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
     return Object.freeze({
       ...ctx,
@@ -110,7 +111,11 @@ export class BeePluginManager {
       if (managed.status !== "registered") continue;
       const pluginName = managed.plugin.manifest.name;
       ctx.server.register(async scopedServer => {
-        const pluginContext = this.createPluginContext(pluginName, { ...ctx, server: scopedServer });
+        const pluginContext = this.createPluginContext(pluginName, {
+          ...ctx,
+          server: scopedServer,
+          events: ctx.events.forPlugin(pluginName)
+        });
         managed.context = pluginContext;
         try {
           this.dependenciesReady(managed);
@@ -120,6 +125,7 @@ export class BeePluginManager {
           await managed.plugin.start?.(pluginContext);
           managed.status = "started";
           managed.error = undefined;
+          this.startupOrder.push(managed);
         } catch (error) {
           managed.status = "failed";
           managed.error = error;
@@ -137,13 +143,15 @@ export class BeePluginManager {
   }
 
   async stopAll(ctx: BeeContext): Promise<void> {
-    for (const managed of [...this.plugins.values()].reverse()) {
+    for (const managed of [...this.startupOrder].reverse()) {
       if (managed.status !== "started") continue;
       const pluginContext = managed.context ?? this.createPluginContext(managed.plugin.manifest.name, ctx);
       try {
         await managed.plugin.stop?.(pluginContext);
         managed.status = "stopped";
         managed.error = undefined;
+        const startedIndex = this.startupOrder.indexOf(managed);
+        if (startedIndex >= 0) this.startupOrder.splice(startedIndex, 1);
       } catch (error) {
         managed.status = "failed";
         managed.error = error;
