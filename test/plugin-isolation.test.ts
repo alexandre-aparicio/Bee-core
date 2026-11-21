@@ -142,6 +142,7 @@ test("scoped logger prefixes warn and error and scoped config cannot be mutated"
 
 test("plugin event buses are isolated while system startup events remain visible", async () => {
   const server = Fastify(), manager = new BeePluginManager(), received: string[] = [];
+  const rootContext = makeContext(server);
   manager.register({ manifest: { name: "alpha", version: "1" }, initialize(ctx) {
     ctx.events.on("private.ready", () => received.push("alpha"));
     ctx.events.on("bee.started", () => received.push("system"));
@@ -150,9 +151,9 @@ test("plugin event buses are isolated while system startup events remain visible
   manager.register({ manifest: { name: "beta", version: "1" }, initialize(ctx) {
     ctx.events.on("private.ready", () => received.push("beta"));
   } });
-  await manager.mountAll(makeContext(server));
-  await makeContext(server).events.emit("private.ready", {});
-  await makeContext(server).events.emit("bee.started", {});
+  await manager.mountAll(rootContext);
+  await rootContext.events.emit("private.ready", {});
+  await rootContext.events.emit("bee.started", {});
   assert.deepEqual(received, ["alpha", "system"]);
   await server.close();
 });
