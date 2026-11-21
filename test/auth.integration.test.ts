@@ -66,6 +66,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(companyListResponse.statusCode,200);
     const companyRef=companyListResponse.json().companies[0].id as string;
     assert.notEqual(companyRef,"tenant-alpha","company IDs returned to the browser must be opaque references");
+     const unknownMembership=await app.inject({method:"POST",url:"/companies/"+encodeURIComponent(companyRef)+"/memberships",headers:{authorization:"Bearer "+tokens.accessToken},payload:{email:"not-registered@example.test",role:"member"}});
+     const existingMembership=await app.inject({method:"POST",url:"/companies/"+encodeURIComponent(companyRef)+"/memberships",headers:{authorization:"Bearer "+tokens.accessToken},payload:{email:"test@example.com",role:"member"}});
+     assert.equal(unknownMembership.statusCode,202);
+     assert.equal(existingMembership.statusCode,202);
+     assert.deepEqual(unknownMembership.json(),existingMembership.json(),"membership API must not reveal whether an email belongs to an enabled account");
     const rawCompanyRef=await app.inject({method:"GET",url:"/companies/tenant-alpha/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(rawCompanyRef.statusCode,404,"raw internal tenant IDs must not resolve in organization routes");
     const secondSessionLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
