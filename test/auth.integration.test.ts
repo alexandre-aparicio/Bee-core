@@ -49,6 +49,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const tokens = login.json();
     assert.notEqual(tokens.tenantId,"tenant-alpha","login must not expose the internal tenant ID");
     assert.notEqual(tokens.user.id,"test-user","login must not expose the internal user ID");
+    const initialClaims=JSON.parse(Buffer.from(tokens.accessToken.split(".")[1],"base64url").toString("utf8")) as {sub:string;tenantRef?:string;tenantId?:string};
+    assert.notEqual(initialClaims.sub,"test-user");
+    assert.ok(initialClaims.tenantRef);
+    assert.equal(initialClaims.tenantId,undefined,"JWTs must not carry a plaintext tenantId claim");
     const companyListResponse=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(companyListResponse.statusCode,200);
     const companyRef=companyListResponse.json().companies[0].id as string;
@@ -253,6 +257,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const secondCompanyId=createCompany.json().company.id as string;
     const activateCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(activateCompany.statusCode,200);
+    const switchedClaims=JSON.parse(Buffer.from(activateCompany.json().accessToken.split(".")[1],"base64url").toString("utf8")) as {sub:string;tenantRef?:string};
+    assert.notEqual(switchedClaims.sub,"test-user","company switching must keep the JWT subject opaque");
+    assert.ok(switchedClaims.tenantRef);
     assert.equal(activateCompany.json().tenantId,secondCompanyId);
     const activeCompany=await app.inject({method:"GET",url:"/companies/active",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(activeCompany.statusCode,200);
@@ -393,6 +400,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
 
     const me = await app.inject({ method: "GET", url: "/auth/me", headers: { authorization: "Bearer " + activateCompany.json().accessToken } });
     assert.equal(me.statusCode, 200); assert.equal(me.json().authenticated, true);
+    assert.notEqual(me.json().user.id,"test-user","/auth/me must not expose internal user IDs");
     const refresh = await app.inject({ method: "POST", url: "/auth/refresh", payload: { refreshToken: tokens.refreshToken } });
     assert.equal(refresh.statusCode, 200);
     const refreshed = refresh.json(); assert.notEqual(refreshed.refreshToken, tokens.refreshToken);
