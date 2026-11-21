@@ -19,6 +19,9 @@
             ],
             "tsConfig": "tsconfig.app.json",
             "assets": [],
+            "scripts": [
+              "src/assets/qrcode.min.js"
+            ],
             "styles": [
               "src/styles.css"
             ],
