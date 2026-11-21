@@ -45,11 +45,12 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const originalInject=app.inject.bind(app);
     (app as any).inject=async(input:any)=>{
       const options=typeof input==="string"?{url:input}:{...input};
+      if(String(options.url??"").split("?")[0]==="/billing/webhooks/entitlement")return originalInject(options);
       const authorization=String(options.headers?.authorization??"");
       const requestToken=authorization.startsWith("Bearer ")?authorization.slice(7):"";
       const sessionContextFor=async(token:string)=>{
         if(!token)return null;
-        const claims=app.jwt.decode(token) as {sid?:string}|null;
+        let claims:{sid?:string}|null=null;try{claims=app.jwt.decode(token) as {sid?:string}|null;}catch{return null;}
         if(!claims?.sid)return null;
         const session=await db.collection("refresh_sessions").findOne({id:claims.sid});
         return session?{sessionId:session.id,expiresAt:session.expiresAt}:null;
@@ -101,6 +102,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const login = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "Test-password-12345", client: "dashboard" } });
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
+    const loginClaims=app.jwt.decode(tokens.accessToken) as {sub:string;tenantId:string;sid:string};
+    assert.notEqual(loginClaims.sub,"test-user","JWT must not disclose the internal user ID");
+    assert.notEqual(loginClaims.tenantId,"tenant-alpha","JWT must not disclose the internal tenant ID");
     const publicClientLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"public"}});
     assert.equal(publicClientLogin.statusCode,200,"the fixture account may authenticate to the public client");
     const publicClientHeaders={authorization:"Bearer "+publicClientLogin.json().accessToken};
@@ -131,11 +135,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(publicTicket.json().ticket);
     const publicAlpha = await app.inject({method:"GET",url:"/templates/public",headers:{host:"alpha.example.test"}});
     assert.equal(publicAlpha.statusCode,200);
-    assert.equal(publicAlpha.json().tenantId,"tenant-alpha");
+    assert.equal(publicAlpha.json().tenantId,undefined,"public template data must not disclose an internal tenant ID");
     const setAlphaDomains = await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+tokens.accessToken},payload:{domains:["www.alpha.example.test"]}});
     assert.equal(setAlphaDomains.statusCode,200);
     const publicUpdatedDomain = await app.inject({method:"GET",url:"/templates/public",headers:{host:"www.alpha.example.test"}});
-    assert.equal(publicUpdatedDomain.json().tenantId,"tenant-alpha");
+    assert.equal(publicUpdatedDomain.json().tenantId,undefined,"public template data must not disclose an internal tenant ID");
     const defaultTemplates = await app.inject({ method: "GET", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken } });
     assert.equal(defaultTemplates.statusCode, 200);
     assert.equal(defaultTemplates.json().tenantId,"tenant-alpha");
@@ -258,8 +262,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(!betaRead.json().installedTemplates.includes("studio"));
     const betaInstall = await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{templateId:"studio"}});
     assert.equal(betaInstall.statusCode,403);
-    const betaClaims=JSON.parse(Buffer.from(betaTokens.accessToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
-    const staleAdminToken=app.jwt.sign({sub:app.jwt.decode(betaTokens.accessToken).sub,email:"beta@example.com",roles:["admin"],tenantId:app.jwt.decode(betaTokens.accessToken).tenantId,client:"dashboard",aud:"bee-core",sid:betaClaims.sid});
+    const betaClaims=app.jwt.decode(betaTokens.accessToken) as {sid:string;sub:string;tenantId:string};
+    const staleAdminToken=app.jwt.sign({sub:betaClaims.sub,email:"beta@example.com",roles:["admin"],tenantId:betaClaims.tenantId,client:"dashboard",aud:"bee-core",sid:betaClaims.sid});
     const staleAdminTemplateInstall=await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+staleAdminToken},payload:{templateId:"studio"}});
     assert.equal(staleAdminTemplateInstall.statusCode,403,"template writes must use the live tenant membership role, not stale JWT roles");
     const betaDomainWrite=await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{domains:["beta-new.example.test"]}});
