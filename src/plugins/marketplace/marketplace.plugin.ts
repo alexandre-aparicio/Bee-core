@@ -181,7 +181,7 @@ export const marketplacePlugin: BeePlugin = {
       else if (!hostname.endsWith("." + baseDomain) && hostname !== baseDomain) company = await db.collection("tenants").findOne({ domains: hostname, status: { $ne: "suspended" } });
       if (!company) return reply.code(404).send({ error: "Public tenant not found" });
       const plugins = await getTenantPluginCatalog(db, String(company.id));
-      return { tenantId: company.id, pluginIds: plugins.filter((plugin: any) => plugin.installed && plugin.entitled).map((plugin: any) => plugin.id) };
+      return { pluginIds: plugins.filter((plugin: any) => plugin.installed && plugin.entitled).map((plugin: any) => plugin.id) };
     });
 
     ctx.server.get<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId", async (request: any, reply: any) => {
