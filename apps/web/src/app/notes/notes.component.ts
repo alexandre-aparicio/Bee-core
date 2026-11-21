@@ -61,6 +61,7 @@ type Note = {
 export class BeeNotesComponent implements OnInit, OnChanges {
   @Input() tenantId = "";
   @Input() canWrite = false;
+  @Input() accessToken = "";
   notes: Note[] = [];
   draftTitle = "";
   draftContent = "";
@@ -77,10 +78,7 @@ export class BeeNotesComponent implements OnInit, OnChanges {
 
   trackNote(_index: number, note: Note): string { return note.id; }
 
-  private get token(): string {
-    try { return JSON.parse(localStorage.getItem("bee-auth") || "null")?.accessToken || ""; }
-    catch { return ""; }
-  }
+  private get token(): string { return this.accessToken; }
 
   private async request(url: string, method = "GET", body?: unknown): Promise<any> {
     const response = await fetch(url, {
