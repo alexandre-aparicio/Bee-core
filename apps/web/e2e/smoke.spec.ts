@@ -42,7 +42,7 @@ test('password recovery route works', async ({ page }) => {
 
 test('dashboard redirects unauthenticated visitors to the visible login page', async ({ page }) => {
   await page.goto('/dashboard');
-  await expect(page).toHaveURL(/\\/login$/);
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/login');
   await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
   await expect(page.getByPlaceholder('you@example.com')).toBeVisible();
 });
@@ -490,7 +490,7 @@ test('platform administration supports card/list views, disabled actions, compan
   await expect(page.getByRole('button', { name: 'Disable' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Message' })).toBeDisabled();
   await page.getByRole('button', { name: 'Manage', exact: true }).click();
-  await expect(page).toHaveURL(/\\/dashboard\\/platform\\/company-1\\/manage$/);
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard/platform/company-1/manage');
   await expect(page.getByRole('heading', { name: 'Acme Studio' })).toBeVisible();
   await page.getByRole('button', { name: /companies/i }).click();
   await page.getByRole('button', { name: /new company/i }).click();
