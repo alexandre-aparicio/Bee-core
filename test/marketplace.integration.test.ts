@@ -9,6 +9,7 @@ import { marketplacePlugin } from "../src/plugins/marketplace/marketplace.plugin
 import { notesPlugin } from "../src/plugins/notes/notes.plugin.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
+import { maskResourceId, transformSessionResourceIds } from "../src/core/session-id.js";
 
 const uri = process.env.MONGODB_TEST_URI;
 
@@ -63,6 +64,43 @@ test("company plans and purchases control plugin visibility, installation and ac
     await marketplacePlugin.initialize?.(ctx);
     await notesPlugin.initialize?.(ctx);
     await app.ready();
+    const resourceSecret=String(ctx.config.jwtSecret);
+    const originalInject=app.inject.bind(app);
+    (app as any).inject=async(input:any)=>{
+      const options=typeof input==="string"?{url:input}:{...input};
+      if(String(options.url??"").split("?")[0]==="/billing/webhooks/entitlement")return originalInject(options);
+      const authorization=String(options.headers?.authorization??"");
+      const requestToken=authorization.startsWith("Bearer ")?authorization.slice(7):"";
+      let sessionContext:any=null;
+      if(requestToken){
+        try{
+          const claims=app.jwt.decode(requestToken) as {sid?:string}|null;
+          if(claims?.sid){const session=await db.collection("refresh_sessions").findOne({id:claims.sid});if(session)sessionContext={sessionId:session.id,expiresAt:session.expiresAt};}
+        }catch{}
+      }
+      if(sessionContext&&typeof options.url==="string"){
+        const parsed=new URL(options.url,"http://localhost");
+        const segments=parsed.pathname.split("/");
+        const maskSegment=(index:number,type:"plugin"|"job"|"note")=>{const value=segments[index];if(value&&value.length<70)segments[index]=maskResourceId(value,type,sessionContext,resourceSecret);};
+        if(segments[1]==="marketplace"&&segments[2]==="plugins"&&segments[3])maskSegment(3,"plugin");
+        if(segments[1]==="marketplace"&&segments[2]==="install-jobs"&&segments[3])maskSegment(3,"job");
+        if(segments[1]==="notes"&&segments[2])maskSegment(2,"note");
+        parsed.pathname=segments.join("/");
+        options.url=parsed.pathname+parsed.search;
+        if(options.payload&&typeof options.payload==="object"&&!Buffer.isBuffer(options.payload))options.payload=transformSessionResourceIds(options.payload,"mask",sessionContext,resourceSecret);
+      }
+      const response=await originalInject(options);
+      let body:any;try{body=response.json();}catch{return response;}
+      const token=typeof body?.accessToken==="string"?body.accessToken:"";
+      if(!sessionContext&&token){
+        try{const claims=app.jwt.decode(token) as {sid?:string}|null;if(claims?.sid){const session=await db.collection("refresh_sessions").findOne({id:claims.sid});if(session)sessionContext={sessionId:session.id,expiresAt:session.expiresAt};}}catch{}
+      }
+      if(sessionContext&&body&&typeof body==="object"){
+        try{body=transformSessionResourceIds(body,"unmask",sessionContext,resourceSecret);}catch{}
+        return new Proxy(response,{get(target,property){if(property==="json")return ()=>body;if(property==="body")return JSON.stringify(body);return Reflect.get(target,property,target);}});
+      }
+      return response;
+    };
 
     const login = async (email: string) => {
       const response = await app.inject({

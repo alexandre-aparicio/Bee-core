@@ -124,7 +124,7 @@ export const marketplacePlugin: BeePlugin = {
     const authenticate = async (request: any, reply: any) => {
       try {
         await request.jwtVerify();
-        const tenant = await resolveTenantContext(db, request.user);
+        const tenant = await resolveTenantContext(db, request.user, {}, String(ctx.config.jwtSecret ?? ""));
         if (!tenant) {
           reply.code(401).send({ error: "Unauthorized or active company session required" });
           return null;
@@ -181,7 +181,7 @@ export const marketplacePlugin: BeePlugin = {
       else if (!hostname.endsWith("." + baseDomain) && hostname !== baseDomain) company = await db.collection("tenants").findOne({ domains: hostname, status: { $ne: "suspended" } });
       if (!company) return reply.code(404).send({ error: "Public tenant not found" });
       const plugins = await getTenantPluginCatalog(db, String(company.id));
-      return { tenantId: company.id, pluginIds: plugins.filter((plugin: any) => plugin.installed && plugin.entitled).map((plugin: any) => plugin.id) };
+      return { pluginIds: plugins.filter((plugin: any) => plugin.installed && plugin.entitled).map((plugin: any) => plugin.id) };
     });
 
     ctx.server.get<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId", async (request: any, reply: any) => {

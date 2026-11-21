@@ -1,18 +1,37 @@
-# Session-bound resource references
+# Session-bound resource identifiers
 
-Bee-Core's resource-reference codec is being introduced as a shared security primitive.
+## Status
+
+The runtime migration is implemented in the API layer. All authenticated JSON requests and responses pass through the central session-ID middleware registered by the auth plugin. Production build, automated tests and full browser flows must pass in GitHub Actions before this is marked verified.
 
 ## Contract
-- Internal MongoDB IDs remain unchanged and are used only by backend persistence and relationships.
-- External references are encrypted with AES-256-GCM and are bound to a session ID and resource type.
-- Each encryption uses a fresh 96-bit nonce, so repeated references for the same resource are different.
-- The encrypted payload carries the issuing session expiry. A reference cannot be used in another session, for another resource type, or after its expiry.
-- The encryption key is derived server-side from the configured secret and the session ID using HMAC-SHA-256. The secret must be at least 32 characters and must never be sent to clients.
 
-## API
-The shared module `src/core/session-id.ts` exports generic `maskResourceId` / `unmaskResourceId` functions and convenience wrappers for tenant, plugin and user IDs. Additional resource types are supported by the shared type.
+- MongoDB keeps its existing internal IDs. No database relationship or foreign key is rewritten.
+- Authenticated clients receive opaque, randomized references instead of internal tenant, plugin, user, membership, role, invitation, file, note, job, audit, installation and subscription IDs.
+- Each reference is encrypted with AES-256-GCM using a key derived from `JWT_SECRET` and the persisted session ID. A deterministic 96-bit nonce is derived from the session key, resource type and internal ID, keeping a resource reference stable within one session while producing a different reference in a new session.
+- The encrypted payload includes resource type, internal ID, session ID and the session's absolute expiry. References are therefore type-bound, session-bound and time-bound.
+- A new login creates a new session and new references. References from another session, a revoked session, a different resource type, a modified value or an expired session are rejected.
+- Refresh-token rotation retains the same session and does not extend its absolute 30-day expiry. Existing references remain valid until that expiry; the client receives the remaining refresh lifetime.
+- Logout revokes the persisted session. The API middleware rejects the session before route handlers run, invalidating all references immediately.
 
-## Important integration requirement
-This codec alone does not protect an endpoint. Every API route that accepts or returns resource IDs must be migrated to mask outgoing identifiers and unmask incoming references using the authenticated session's persisted expiry. Authorization and tenant scoping must still be enforced after unmasking. Public, unauthenticated endpoints must not expose internal IDs; they should use public slugs or omit IDs.
+## API integration
 
-Do not consider the migration complete until all API routes, JWT claims, frontend route state and plugin interfaces have been migrated and cross-session / cross-tenant integration tests pass.
+- The auth plugin owns JWT registration and the central Fastify `preValidation` / `preSerialization` hooks.
+- Incoming route parameters, query parameters and typed JSON body fields are unmasked before plugin handlers access MongoDB.
+- Typed resource fields in JSON responses are masked before serialization, including nested objects and arrays.
+- JWT `sub` and `tenantId` claims contain encrypted references rather than internal user or tenant IDs. The random `sid` identifies the active session; authorization resolves user and tenant from the persisted session and verifies both encrypted claims.
+- Company switching issues new encrypted user/tenant claims bound to the same persisted session.
+- Public tenant resolution returns a public tenant slug rather than a database ID. Public template responses omit tenant IDs. Public plugin page identifiers remain stable package slugs, not database record IDs.
+- The billing entitlement webhook is intentionally excluded from session-ID translation because it authenticates with its separate machine-to-machine webhook secret; its tenant reference is validated server-side.
+
+## Security requirements
+
+- Never use a masked reference as an authorization decision. Every protected handler must continue to enforce session validity, tenant membership, role/permission checks and tenant-scoped database queries.
+- Keep `JWT_SECRET` private and at least 32 characters long. Rotating it invalidates existing JWTs and references, requiring users to sign in again.
+- Do not log raw IDs, decrypted references or access/refresh tokens.
+- Any new resource ID field or route parameter must be added to `RESOURCE_FIELDS` / `RESOURCE_CONTAINERS` in `src/core/session-id.ts` and covered by tests.
+- Public endpoints must not return internal database IDs. If a public flow needs a reference, use a non-sensitive public slug or a separately designed short-lived public capability.
+
+## Verification
+
+Unit tests cover opacity, session stability, session separation, type substitution, tampering, expiry and recursive API translation. Integration tests exercise authentication, company switching, files, plugin lifecycle and platform administration through the central middleware. A successful GitHub Actions run is required before claiming end-to-end verification.

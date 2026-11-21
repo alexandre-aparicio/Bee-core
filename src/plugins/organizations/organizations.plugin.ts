@@ -6,6 +6,7 @@ import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type TenantAuditEvent } from "../../core/audit-log.js";
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
+import { maskTenantId, maskUserId } from "../../core/session-id.js";
 
 type Company = { id:string; name:string; slug?:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
@@ -51,7 +52,7 @@ export const organizationsPlugin:BeePlugin={
    if(slug)tenant=await companies.findOne({slug});
    else if(!hostname.endsWith("."+publicBaseDomain))tenant=await companies.findOne({domains:hostname});
    if(!tenant||(tenant.status??"active")!=="active")return reply.code(404).send({error:"Public tenant not found"});
-   return {kind:"tenant",tenant:{id:tenant.id,name:tenant.name,slug:tenant.slug??null}};
+   return {kind:"tenant",tenant:{id:tenant.slug??"",name:tenant.name,slug:tenant.slug??null}};
   });
   await Promise.all([
    memberships.createIndex({id:1},{unique:true,name:"memberships_id_unique"}),
@@ -84,7 +85,7 @@ export const organizationsPlugin:BeePlugin={
    try{
     await req.jwtVerify();
     const claims=req.user as Claims;
-    const tenantContext=await resolveTenantContext(db,claims,options);
+    const tenantContext=await resolveTenantContext(db,claims,options,String(ctx.config.jwtSecret??""));
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
     if(tenantContext.client!=="dashboard"){reply.code(403).send({error:"Company administration requires a dashboard session"});return null;}
     const user=await users.findOne({id:tenantContext.userId,enabled:true});
@@ -325,7 +326,7 @@ export const organizationsPlugin:BeePlugin={
    await db.collection("tenants").insertOne(company);
    try{await memberships.insertOne(membership);}
    catch(error){await companies.deleteOne({id});throw error;}
-   return reply.code(201).send({company:{id,name,slug,status:"active"},membership:{role:"owner",status:"active"},next:"POST /companies/"+id+"/activate to switch the current session"});
+   return reply.code(201).send({company:{id,name,slug,status:"active"},membership:{role:"owner",status:"active"}});
   });
   ctx.server.post<{Params:{companyId:string}}>("/companies/:companyId/activate",async(req,reply)=>{
    const auth=await authenticate(req,reply,{allowSuspendedCompany:true});if(!auth)return;
@@ -340,7 +341,10 @@ export const organizationsPlugin:BeePlugin={
    if(!session)return reply.code(401).send({error:"Session expired or revoked"});
    const role: string=membership.role;
    const roles=role==="owner"||role==="admin"?["admin"]:["user"];
-   const accessToken=ctx.server.jwt.sign({sub:user!.id,email:user!.email,roles,tenantId:company.id,client:claims.client,aud:"bee-core",sid:claims.sid});
+   const sessionContext={sessionId:session.id,expiresAt:session.expiresAt};
+   const secret=String(ctx.config.jwtSecret??"");
+   const accessToken=ctx.server.jwt.sign({sub:maskUserId(user!.id,sessionContext,secret),email:user!.email,roles,tenantId:maskTenantId(company.id,sessionContext,secret),client:claims.client,aud:"bee-core",sid:claims.sid});
+   (req as any).__beeSessionIdContext=sessionContext;
    return {accessToken,tokenType:"Bearer",expiresIn:1200,tenantId:company.id,company:{id:company.id,name:company.name},membership:{role:membership.role}};
   });
   ctx.server.get("/companies/active/permissions",async(req,reply)=>{

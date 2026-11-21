@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { maskPluginId, maskResourceId, maskTenantId, unmaskPluginId, unmaskResourceId, unmaskTenantId } from "../src/core/session-id.js";
+import { maskPluginId, maskResourceId, maskTenantId, transformSessionResourceIds, unmaskPluginId, unmaskResourceId, unmaskTenantId } from "../src/core/session-id.js";
 
 const secret = "test-secret-that-is-long-enough-for-hmac-256";
 const sessionA = { sessionId: "session-a", expiresAt: new Date(Date.now() + 60_000) };
@@ -13,10 +13,11 @@ test("references are opaque and resolve only in the originating session", () => 
   assert.throws(() => unmaskTenantId(masked, sessionB, secret));
 });
 
-test("each mask operation produces a fresh reference", () => {
+test("references stay stable in one session and rotate in a new session", () => {
   const first = maskPluginId("hello-world", sessionA, secret);
   const second = maskPluginId("hello-world", sessionA, secret);
-  assert.notEqual(first, second);
+  assert.equal(first, second);
+  assert.notEqual(first, maskPluginId("hello-world", sessionB, secret));
   assert.equal(unmaskPluginId(first, sessionA, secret), "hello-world");
   assert.equal(unmaskPluginId(second, sessionA, secret), "hello-world");
 });
@@ -38,4 +39,20 @@ test("a reference cannot outlive its issuing session expiry", () => {
   const shortSession = { sessionId: "short", expiresAt: new Date(Date.now() + 60_000) };
   const masked = maskTenantId("tenant-1", shortSession, secret);
   assert.throws(() => unmaskTenantId(masked, { ...shortSession, expiresAt: new Date(Date.now() - 1000) }, secret));
+});
+
+
+test("recursive API translation masks typed resource IDs and rejects another session", () => {
+  const payload = {
+    company: { id: "tenant-internal", name: "Acme" },
+    plugins: [{ id: "hello-world", name: "Hello World" }],
+    memberships: [{ userId: "user-internal", customRoleId: "role-internal" }]
+  };
+  const masked = transformSessionResourceIds(payload, "mask", sessionA, secret);
+  assert.notEqual(masked.company.id, "tenant-internal");
+  assert.notEqual(masked.plugins[0].id, "hello-world");
+  assert.notEqual(masked.memberships[0].userId, "user-internal");
+  const restored = transformSessionResourceIds(masked, "unmask", sessionA, secret);
+  assert.deepEqual(restored, payload);
+  assert.throws(() => transformSessionResourceIds(masked, "unmask", sessionB, secret));
 });

@@ -12,6 +12,7 @@ import { filesPlugin } from "../src/plugins/files/files.plugin.js";
 import { requireAuth, requireRoles, requireTenantPermissions, type AuthenticatedRequest } from "../src/plugins/auth/auth.guard.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
+import { maskResourceId, transformSessionResourceIds } from "../src/core/session-id.js";
 
 const uri = process.env.MONGODB_TEST_URI;
 test("auth integration: login, token introspection, refresh rotation and logout", { skip: !uri }, async () => {
@@ -40,6 +41,60 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const secondAlphaAdmin=await db.collection("memberships").findOne({userId:"test-user-alpha-admin-two",tenantId:"tenant-alpha"});
     assert.equal(secondAlphaAdmin?.role,"admin");
     await app.ready();
+    const resourceSecret=String(ctx.config.jwtSecret);
+    const originalInject=app.inject.bind(app);
+    (app as any).inject=async(input:any)=>{
+      const options=typeof input==="string"?{url:input}:{...input};
+      if(String(options.url??"").split("?")[0]==="/billing/webhooks/entitlement")return originalInject(options);
+      const authorization=String(options.headers?.authorization??"");
+      const requestToken=authorization.startsWith("Bearer ")?authorization.slice(7):"";
+      const sessionContextFor=async(token:string)=>{
+        if(!token)return null;
+        let claims:{sid?:string}|null=null;try{claims=app.jwt.decode(token) as {sid?:string}|null;}catch{return null;}
+        if(!claims?.sid)return null;
+        const session=await db.collection("refresh_sessions").findOne({id:claims.sid});
+        return session?{sessionId:session.id,expiresAt:session.expiresAt}:null;
+      };
+      let sessionContext=await sessionContextFor(requestToken);
+      if(sessionContext&&typeof options.url==="string"){
+        const parsed=new URL(options.url,"http://localhost");
+        const segments=parsed.pathname.split("/");
+        const maskSegment=(index:number,type:import("../src/core/session-id.js").SessionResourceType)=>{
+          const value=segments[index];
+          if(value&&value!=="active"&&value.length<70)segments[index]=maskResourceId(value,type,sessionContext!,resourceSecret);
+        };
+        if(segments[1]==="companies") {
+          maskSegment(2,"tenant");
+          const action=segments[3];
+          if(action==="roles"&&segments[4])maskSegment(4,"role");
+          if(action==="invitations"&&segments[4])maskSegment(4,"invitation");
+          if(action==="memberships"&&segments[4])maskSegment(4,"user");
+        }
+        if(segments[1]==="platform"&&segments[2]==="companies"){
+          maskSegment(3,"tenant");
+          if(segments[4]==="plugins"&&segments[5])maskSegment(5,"plugin");
+        }
+        if(segments[1]==="files"&&segments[2])maskSegment(2,"file");
+        if(segments[1]==="notes"&&segments[2])maskSegment(2,"note");
+        if(segments[1]==="marketplace"&&segments[2]==="plugins"&&segments[3])maskSegment(3,"plugin");
+        if(segments[1]==="marketplace"&&segments[2]==="install-jobs"&&segments[3])maskSegment(3,"job");
+        parsed.pathname=segments.join("/");
+        options.url=parsed.pathname+parsed.search;
+        if(options.payload&&typeof options.payload==="object"&&!Buffer.isBuffer(options.payload)){
+          options.payload=transformSessionResourceIds(options.payload,"mask",sessionContext,resourceSecret);
+        }
+      }
+      const response=await originalInject(options);
+      let parsedBody:any;
+      try{parsedBody=response.json();}catch{return response;}
+      const responseToken=typeof parsedBody?.accessToken==="string"?parsedBody.accessToken:"";
+      if(!sessionContext&&responseToken)sessionContext=await sessionContextFor(responseToken);
+      if(sessionContext&&parsedBody&&typeof parsedBody==="object"){
+        try{parsedBody=transformSessionResourceIds(parsedBody,"unmask",sessionContext,resourceSecret);}catch{}
+        return new Proxy(response,{get(target,property){if(property==="json")return ()=>parsedBody;if(property==="body")return JSON.stringify(parsedBody);return Reflect.get(target,property,target);}});
+      }
+      return response;
+    };
     const bad = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "wrong", client: "dashboard" } });
     assert.equal(bad.statusCode, 401);
     const denied = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "beta@example.com", password: "Test-password-12345", client: "public" } });
@@ -47,6 +102,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const login = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "test@example.com", password: "Test-password-12345", client: "dashboard" } });
     assert.equal(login.statusCode, 200);
     const tokens = login.json();
+    const loginClaims=app.jwt.decode(tokens.accessToken) as {sub:string;tenantId:string;sid:string};
+    assert.notEqual(loginClaims.sub,"test-user","JWT must not disclose the internal user ID");
+    assert.notEqual(loginClaims.tenantId,"tenant-alpha","JWT must not disclose the internal tenant ID");
     const publicClientLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"public"}});
     assert.equal(publicClientLogin.statusCode,200,"the fixture account may authenticate to the public client");
     const publicClientHeaders={authorization:"Bearer "+publicClientLogin.json().accessToken};
@@ -77,11 +135,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(publicTicket.json().ticket);
     const publicAlpha = await app.inject({method:"GET",url:"/templates/public",headers:{host:"alpha.example.test"}});
     assert.equal(publicAlpha.statusCode,200);
-    assert.equal(publicAlpha.json().tenantId,"tenant-alpha");
+    assert.equal(publicAlpha.json().tenantId,undefined,"public template data must not disclose an internal tenant ID");
     const setAlphaDomains = await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+tokens.accessToken},payload:{domains:["www.alpha.example.test"]}});
     assert.equal(setAlphaDomains.statusCode,200);
     const publicUpdatedDomain = await app.inject({method:"GET",url:"/templates/public",headers:{host:"www.alpha.example.test"}});
-    assert.equal(publicUpdatedDomain.json().tenantId,"tenant-alpha");
+    assert.equal(publicUpdatedDomain.json().tenantId,undefined,"public template data must not disclose an internal tenant ID");
     const defaultTemplates = await app.inject({ method: "GET", url: "/templates/preferences", headers: { authorization: "Bearer " + tokens.accessToken } });
     assert.equal(defaultTemplates.statusCode, 200);
     assert.equal(defaultTemplates.json().tenantId,"tenant-alpha");
@@ -204,8 +262,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(!betaRead.json().installedTemplates.includes("studio"));
     const betaInstall = await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{templateId:"studio"}});
     assert.equal(betaInstall.statusCode,403);
-    const betaClaims=JSON.parse(Buffer.from(betaTokens.accessToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
-    const staleAdminToken=app.jwt.sign({sub:"test-user-beta",email:"beta@example.com",roles:["admin"],tenantId:"tenant-beta",client:"dashboard",aud:"bee-core",sid:betaClaims.sid});
+    const betaClaims=app.jwt.decode(betaTokens.accessToken) as {sid:string;sub:string;tenantId:string};
+    const staleAdminToken=app.jwt.sign({sub:betaClaims.sub,email:"beta@example.com",roles:["admin"],tenantId:betaClaims.tenantId,client:"dashboard",aud:"bee-core",sid:betaClaims.sid});
     const staleAdminTemplateInstall=await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+staleAdminToken},payload:{templateId:"studio"}});
     assert.equal(staleAdminTemplateInstall.statusCode,403,"template writes must use the live tenant membership role, not stale JWT roles");
     const betaDomainWrite=await app.inject({method:"PUT",url:"/tenants/domains",headers:{authorization:"Bearer "+betaTokens.accessToken},payload:{domains:["beta-new.example.test"]}});
@@ -261,7 +319,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const betaCannotManageMembers=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+betaActivateSecond.json().accessToken},payload:{email:"legacy@example.com",role:"member"}});
     assert.equal(betaCannotManageMembers.statusCode,403);
     const betaCompanyClaims=app.jwt.decode(betaActivateSecond.json().accessToken) as {sid:string};
-    const staleOwnerOrganizationToken=app.jwt.sign({sub:"test-user-beta",email:"beta@example.com",roles:["owner"],tenantId:secondCompanyId,client:"dashboard",aud:"bee-core",sid:betaCompanyClaims.sid});
+    const betaActivatedClaims=app.jwt.decode(betaActivateSecond.json().accessToken) as {sub:string;tenantId:string}; const staleOwnerOrganizationToken=app.jwt.sign({sub:betaActivatedClaims.sub,email:"beta@example.com",roles:["owner"],tenantId:betaActivatedClaims.tenantId,client:"dashboard",aud:"bee-core",sid:betaCompanyClaims.sid});
     const staleOwnerRoleCreate=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+staleOwnerOrganizationToken},payload:{name:"Forged owner role",permissions:["notes.read"]}});
     assert.equal(staleOwnerRoleCreate.statusCode,403,"organization writes must use the current membership role, not stale JWT roles");
     assert.equal(await db.collection("company_roles").countDocuments({tenantId:secondCompanyId,name:"Forged owner role"}),0);
