@@ -6,6 +6,7 @@ import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type TenantAuditEvent } from "../../core/audit-log.js";
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
+import { maskTenantId, maskUserId } from "../../core/session-id.js";
 
 type Company = { id:string; name:string; slug?:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
@@ -84,7 +85,7 @@ export const organizationsPlugin:BeePlugin={
    try{
     await req.jwtVerify();
     const claims=req.user as Claims;
-    const tenantContext=await resolveTenantContext(db,claims,options);
+    const tenantContext=await resolveTenantContext(db,claims,options,String(ctx.config.jwtSecret??""));
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
     if(tenantContext.client!=="dashboard"){reply.code(403).send({error:"Company administration requires a dashboard session"});return null;}
     const user=await users.findOne({id:tenantContext.userId,enabled:true});
