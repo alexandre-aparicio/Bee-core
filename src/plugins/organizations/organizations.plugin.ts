@@ -255,22 +255,21 @@ export const organizationsPlugin:BeePlugin={
    if(!email||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid email and role are required"});
    if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign administrators"});
    const target=await users.findOne({email,enabled:true});
-   if(!target)return reply.code(404).send({error:"An existing enabled user is required"});
-   const existing=await memberships.findOne({userId:target.id,tenantId:req.params.companyId});
-   if(existing?.status==="active")return reply.code(409).send({error:"User is already a company member"});
+   const existing=await memberships.findOne({userId:target?.id??"__unknown_account__",tenantId:req.params.companyId});
    const userLimit=await getTenantUserLimit(db,req.params.companyId);
-   if(userLimit!==null){
-    const [activeMembers,pendingInvitations]=await Promise.all([
-     memberships.countDocuments({tenantId:req.params.companyId,status:"active"}),
-     invitations.countDocuments({tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()}})
-    ]);
-    if(activeMembers+pendingInvitations>=userLimit)return reply.code(409).send({error:"Company user limit reached for the current plan"});
+   const [activeMembers,pendingInvitations]=await Promise.all([
+    memberships.countDocuments({tenantId:req.params.companyId,status:"active"}),
+    invitations.countDocuments({tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()}})
+   ]);
+   const underLimit=userLimit===null||activeMembers+pendingInvitations<userLimit;
+   if(target&&existing?.status!=="active"&&underLimit){
+    const now=new Date();
+    if(existing)await memberships.updateOne({id:existing.id},{$set:{role,status:"active",updatedAt:now}});
+    else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
+    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.added",outcome:"success",resourceType:"membership",resourceId:target.id,metadata:{role}});
    }
-   const now=new Date();
-   if(existing)await memberships.updateOne({id:existing.id},{$set:{role,status:"active",updatedAt:now}});
-   else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
-   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.added",outcome:"success",resourceType:"membership",resourceId:target.id,metadata:{role}});
-   return reply.code(201).send({membership:{userId:mask(auth,target.id,"user"),email:target.email,role,status:"active"}});
+   // Unknown, disabled, already-active and over-limit addresses receive the same response.
+   return reply.code(202).send({success:true,message:"The membership request has been accepted for processing."});
   });
   ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member";customRoleId?:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
