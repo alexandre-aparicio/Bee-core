@@ -43,40 +43,40 @@ export class BeePluginManager {
     }
   }
 
-  async initializeAll(ctx: BeeContext): Promise<void> {
+  /**
+   * Register every plugin in a distinct Fastify encapsulation scope.
+   * initialize/start run inside that scope so routes, hooks and decorators
+   * owned by a plugin cannot leak into sibling plugins.
+   */
+  async mountAll(ctx: BeeContext): Promise<void> {
     for (const managed of this.plugins.values()) {
       if (managed.status !== "registered") continue;
       const pluginName = managed.plugin.manifest.name;
-      const pluginContext = this.createPluginContext(pluginName, ctx);
-      managed.context = pluginContext;
-      try {
-        this.dependenciesReady(managed);
-        await managed.plugin.initialize?.(pluginContext);
-        managed.status = "initialized";
-        managed.error = undefined;
-      } catch (error) {
-        managed.status = "failed";
-        managed.error = error;
-        ctx.logger.error(`Plugin '${pluginName}' initialization failed; other plugins will continue`, error);
-      }
+      ctx.server.register(async scopedServer => {
+        const pluginContext = this.createPluginContext(pluginName, { ...ctx, server: scopedServer });
+        managed.context = pluginContext;
+        try {
+          this.dependenciesReady(managed);
+          await managed.plugin.initialize?.(pluginContext);
+          managed.status = "initialized";
+          managed.error = undefined;
+          await managed.plugin.start?.(pluginContext);
+          managed.status = "started";
+          managed.error = undefined;
+        } catch (error) {
+          managed.status = "failed";
+          managed.error = error;
+          ctx.logger.error(`Plugin '${pluginName}' failed in its isolated scope; other plugins will continue`, error);
+          try {
+            await managed.plugin.stop?.(pluginContext);
+          } catch (cleanupError) {
+            ctx.logger.warn(`Plugin '${pluginName}' cleanup after failure also failed`, cleanupError);
+          }
+        }
+      });
     }
-  }
-
-  async startAll(ctx: BeeContext): Promise<void> {
-    for (const managed of this.plugins.values()) {
-      if (managed.status !== "initialized") continue;
-      const pluginContext = managed.context ?? this.createPluginContext(managed.plugin.manifest.name, ctx);
-      try {
-        this.dependenciesReady(managed);
-        await managed.plugin.start?.(pluginContext);
-        managed.status = "started";
-        managed.error = undefined;
-      } catch (error) {
-        managed.status = "failed";
-        managed.error = error;
-        ctx.logger.error(`Plugin '${managed.plugin.manifest.name}' start failed; other plugins will continue`, error);
-      }
-    }
+    // Fastify runs the encapsulated registration callbacks and awaits their lifecycle work.
+    await ctx.server.ready();
   }
 
   async stopAll(ctx: BeeContext): Promise<void> {
