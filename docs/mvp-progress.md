@@ -287,3 +287,67 @@ The product model is now specified in `docs/template-business-model.md`.
 - Presentation/navigation only: no new backend settings endpoints or permissions are implied.
 - No tests, Angular build, GitHub Actions workflows or deployment checks were run, per request. Compilation and visual behavior remain unverified.
 - All changes are isolated on `agent-2/platform-settings-navigation`; no changes were made to `main`. Agent 2 will request explicit approval before any integration into `main`.
+
+## Session-bound resource IDs — continued integration (2026-11-21)
+
+This entry supersedes the earlier audit's "remaining" bullets where the corresponding vertical slices are now implemented on the feature branch. It does not claim the overall migration is complete.
+
+Implemented on `feature/session-bound-ids-end-to-end`:
+- JWT subject (`sub`) and tenant claim now both use typed, session-bound encrypted references. The tenant context resolver decrypts both only after loading the active persisted session and verifies the resulting user and tenant against that session.
+- Removed acceptance of the legacy plaintext `tenantId` claim in `TenantClaims` / `resolveTenantContext`.
+- Company switching now issues a masked user subject as well as a masked tenant reference. Logout resolves the subject from the session reference, including after refresh expiry rotation.
+- Organization APIs mask company, user, role, invitation, membership and audit-event identifiers in responses and decode typed route/body references after session validation. Public tenant discovery exposes the public slug, not the MongoDB tenant ID.
+- Platform Administration masks company, owner, plugin and lifecycle-job identifiers and rejects references issued to another session. Its Angular component now uses the plugin reference returned by the platform plugin catalog rather than sending the raw `hello-world` package ID.
+- Angular company, member, invitation and marketplace flows continue treating returned IDs as opaque strings; marketplace UI behavior now identifies the Hello World package by its display name rather than comparing an opaque reference with the raw package slug.
+- Marketplace masks tenant, plugin, dependency and lifecycle-job references; its routes decode plugin/job references within the authenticated session. The public installed-plugin list returns public package slugs only. Billing webhooks remain a separate authenticated server-to-server contract.
+- Marketplace lifecycle-job responses now use an explicit public-field allowlist, excluding internal tenant/actor/worker data. Organization audit-event serialization masks known identifier fields nested inside metadata (including marketplace job IDs).
+- File and note endpoints mask their resource IDs; note creator IDs are also masked. Tenant-scoped persistence continues to use internal IDs only.
+- Updated authentication, organization, marketplace and platform-admin integration tests to use references issued for the relevant login session, including cross-session replay checks.
+- Documented the deterministic per-session reference behavior: same resource/type/expiry yields the same reference within a session; a different session yields a different reference.
+
+Remaining before merge:
+- Review every remaining plugin/API and browser boundary (including any dynamically registered plugin routes, event payloads, error metadata, and URL/query/body identifiers) for raw database IDs; the migration is not yet certified exhaustive.
+- Add/finish focused coverage for session expiry/revocation, logout after refresh, malformed/tampered/wrong-type references, notes/files cross-session use, and all platform lifecycle operations.
+- Run the full TypeScript build, unit/integration suites and CI. These have **not** been run from this environment; MongoDB-backed integration tests may require `MONGODB_TEST_URI`.
+- Review the final diff for type errors and compatibility before marking PR #54 ready. No VPS deployment or production verification has been performed.
+
+Current status: meaningful backend and frontend slices are now integrated in the PR branch, but PR #54 remains draft and must not be merged until the exhaustive boundary review and automated validation pass.
+
+
+### Session-bound reference codec hardening (2026-11-21)
+
+- Hardened the shared decoder against non-canonical Base64URL encodings, oversized references, malformed resource types, invalid session expiries and invalid decoded identifier payloads.
+- Added a 1 KiB UTF-8 bound for internal identifiers and a 2 KiB bound for external references to prevent unbounded parsing work at API boundaries.
+- Added unit cases for malformed/non-canonical and oversized references, plus empty and oversized identifiers.
+- This is additional defensive validation, not evidence that the full test suite passes. GitHub Actions currently reports no workflow runs for the latest PR head; no local build/test runner or VPS validation has been executed in this session.
+
+
+### Final review follow-up (2026-11-21)
+
+- Reviewed the remaining core event bus, plugin manager/entitlement/job modules, audit log, auth SSE stream, files, notes, marketplace, organizations, Platform Admin and Angular audit/notes/plugin surfaces. Persistence-layer tenant/user/plugin/job IDs remain internal; the reviewed browser-facing routes serialize the resource references or public slugs. Template SSE payloads contain template selections/tokens rather than database identifiers; private stream tickets are single-use and revalidate the persisted session on heartbeat.
+- Found and corrected a test-fixture mismatch: organization route IDs are opaque references, while direct MongoDB assertions must use the decoded internal tenant/resource IDs. Added a session-aware test helper and updated persistence assertions accordingly.
+- Simplified `/auth/me` to reuse the already validated session context and avoid redundant session lookups/non-null assertions.
+- This review is not a formal exhaustive proof for dynamically registered future plugin routes. Full backend/web build, unit/integration tests and VPS checks remain outstanding; no CI workflow run is associated with the latest head.
+
+
+### Auth plugin secret-scope correction (2026-11-21)
+
+- Final configuration-boundary review found that the plugin manager's auth allowlist omitted `jwtSecret`, while the auth plugin now requires that secret to sign and validate session-bound references. This would cause auth initialization to fail when mounted through the isolated plugin manager.
+- Added `jwtSecret` only to the auth plugin's scoped configuration and added a plugin-manager regression assertion that auth receives it while the files plugin does not.
+- This is a source-level correction; the regression test has not yet been executed. The latest PR head still has no associated GitHub Actions run, so this remains unverified until CI runs.
+
+- Added an auth integration assertion that a previously issued company reference is rejected immediately after logout revokes its persisted session. This regression assertion is committed but remains unexecuted until CI runs.
+
+### Invitation response reference test correction (2026-11-21)
+
+- Final test review found one assertion comparing a company reference issued to the invitation creator's session with the reference returned to the invited user's separate session. Session-bound references must differ across sessions even when they represent the same tenant.
+- Updated the integration test to decode the accepting user's returned company reference with that user's persisted session and compare the resulting internal tenant ID to the tenant created by the original session.
+- This fixes the test's cross-session assumption and strengthens the intended isolation check. The MongoDB-backed test remains unexecuted; CI/build validation is still required.
+
+### Dedicated session-reference secret isolation (2026-11-21)
+
+- The final plugin-manager review found that the new ID codec is used by auth, organizations, marketplace, Platform Admin, files and notes, but the isolated plugin contexts did not receive a shared codec key. That would make those plugins fail initialization when mounted by the real plugin manager.
+- Corrected the boundary by deriving a dedicated 256-bit `sessionIdSecret` from the root `JWT_SECRET` with HMAC-SHA256 and passing only that derived key to the six plugins that need to encode/decode resource references.
+- The JWT signing secret is no longer included in any of those plugin-scoped configs. The plugins use the derived key; direct plugin tests retain a compatibility fallback to their explicitly supplied test secret.
+- Updated plugin-manager regression assertions to verify that auth and files receive the same derived key and neither receives `jwtSecret`.
+- This fixes a source-level initialization blocker. TypeScript, plugin-manager tests, MongoDB integration tests and GitHub Actions remain unexecuted; do not treat the change as validated until CI passes.

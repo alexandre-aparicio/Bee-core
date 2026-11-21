@@ -70,6 +70,7 @@ test("private files and images are isolated by active company", { skip: !uri }, 
       return response.json().accessToken as string;
     };
     const alphaToken = await login("files-alpha@example.test");
+    const alphaSecondSessionToken = await login("files-alpha@example.test");
     const publicLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"files-alpha@example.test",password:"Test-password-12345",client:"public"}});
     assert.equal(publicLogin.statusCode,200);
     const publicFileList=await app.inject({method:"GET",url:"/files",headers:{authorization:"Bearer "+publicLogin.json().accessToken}});
@@ -91,6 +92,7 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     });
     assert.equal(alphaUpload.statusCode, 201);
     const alphaFileId = alphaUpload.json().file.id as string;
+    assert.ok(!/^[0-9a-f-]{36}$/i.test(alphaFileId), "file IDs returned to clients must be opaque references");
     assert.equal(alphaUpload.json().file.name, "private-alpha.png");
 
     const betaUpload = await app.inject({
@@ -113,6 +115,8 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     assert.deepEqual(alphaList.json().files.map((file: { id: string }) => [file.id]), [[alphaFileId]]);
     assert.deepEqual(betaList.json().files.map((file: { id: string }) => [file.id]), [[betaFileId]]);
 
+    const crossSessionRead = await app.inject({ method: "GET", url: "/files/" + alphaFileId, headers: { authorization: "Bearer " + alphaSecondSessionToken } });
+    assert.equal(crossSessionRead.statusCode, 404, "a file reference must not resolve in another session of the same user");
     const crossRead = await app.inject({ method: "GET", url: "/files/" + alphaFileId, headers: { authorization: "Bearer " + betaManagerToken } });
     assert.equal(crossRead.statusCode, 404);
     const crossDelete = await app.inject({ method: "DELETE", url: "/files/" + alphaFileId, headers: { authorization: "Bearer " + betaManagerToken } });

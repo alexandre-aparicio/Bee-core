@@ -5,7 +5,7 @@ Bee-Core's resource-reference codec is being introduced as a shared security pri
 ## Contract
 - Internal MongoDB IDs remain unchanged and are used only by backend persistence and relationships.
 - External references are encrypted with AES-256-GCM and are bound to a session ID and resource type.
-- Each encryption uses a fresh 96-bit nonce, so repeated references for the same resource are different.
+- References are deterministic within one session for the same resource, type and expiry so clients can safely compare IDs returned by different endpoints. The 96-bit GCM nonce is derived with a keyed HMAC-SHA-256 PRF over the complete encrypted payload; distinct payloads therefore receive pseudorandom nonces, while identical payloads reproduce the same reference.
 - The encrypted payload carries the issuing session expiry. A reference cannot be used in another session, for another resource type, or after its expiry.
 - The encryption key is derived server-side from the configured secret and the session ID using HMAC-SHA-256. The secret must be at least 32 characters and must never be sent to clients.
 

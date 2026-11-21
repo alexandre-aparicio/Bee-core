@@ -7,6 +7,7 @@ import { claimPluginInstallJob, completePluginInstallJob, renewPluginInstallJobL
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
+import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
@@ -33,6 +34,12 @@ export const marketplacePlugin: BeePlugin = {
     mongoClient = new MongoClient(String(ctx.config.mongoUri ?? ""), { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
     await mongoClient.connect();
     const db = mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
+    if(sessionIdSecret.length<32)throw new Error("Marketplace: JWT_SECRET must contain at least 32 characters.");
+    const sessionOf=(tenant:import("../../core/tenant-context.js").TenantContext)=>({sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt});
+    const mask=(tenant:import("../../core/tenant-context.js").TenantContext,id:string,type:import("../../core/session-id.js").SessionResourceType)=>maskResourceId(id,type,sessionOf(tenant),sessionIdSecret);
+    const publicPlugin=(tenant:import("../../core/tenant-context.js").TenantContext,plugin:any)=>({...plugin,id:mask(tenant,String(plugin.id),"plugin"),...(Array.isArray(plugin.dependencies)?{dependencies:plugin.dependencies.map((id:string)=>mask(tenant,id,"plugin"))}:{})});
+    const publicJob=(tenant:import("../../core/tenant-context.js").TenantContext,job:any)=>({id:mask(tenant,String(job.id),"job"),pluginId:mask(tenant,String(job.pluginId),"plugin"),action:job.action,status:job.status,attempts:job.attempts,maxAttempts:job.maxAttempts,createdAt:job.createdAt,updatedAt:job.updatedAt,startedAt:job.startedAt??null,finishedAt:job.finishedAt??null});
     const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
     const installJobs:Collection<PluginInstallJob>=db.collection<PluginInstallJob>("plugin_install_jobs");
     await ensurePluginInstallJobIndexes(installJobs);
@@ -124,7 +131,7 @@ export const marketplacePlugin: BeePlugin = {
     const authenticate = async (request: any, reply: any) => {
       try {
         await request.jwtVerify();
-        const tenant = await resolveTenantContext(db, request.user);
+        const tenant = await resolveTenantContext(db, request.user, {}, sessionIdSecret);
         if (!tenant) {
           reply.code(401).send({ error: "Unauthorized or active company session required" });
           return null;
@@ -133,6 +140,10 @@ export const marketplacePlugin: BeePlugin = {
           reply.code(403).send({ error: "Plugin marketplace management requires a dashboard session" });
           return null;
         }
+        try {
+          if (request.params?.pluginId) request.params.pluginId=unmaskResourceId(String(request.params.pluginId),"plugin",sessionOf(tenant),sessionIdSecret);
+          if (request.params?.jobId) request.params.jobId=unmaskResourceId(String(request.params.jobId),"job",sessionOf(tenant),sessionIdSecret);
+        } catch { reply.code(404).send({error:"Resource not found"}); return null; }
         if (!hasTenantPermission(tenant, "plugins.read")) {
           await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission:"plugins.read"}});
           reply.code(403).send({ error: "Plugin catalog permission required" });
@@ -153,14 +164,14 @@ export const marketplacePlugin: BeePlugin = {
         getTenantPluginCatalog(db, tenant.tenantId)
       ]);
       return {
-        tenantId: tenant.tenantId,
+        tenantId: mask(tenant,tenant.tenantId,"tenant"),
         subscription: {
           planId: subscription.planId,
           status: subscription.status,
           currentPeriodEnd: subscription.currentPeriodEnd
         },
         entitlements: catalog.filter(plugin => plugin.entitled).map(plugin => ({
-          pluginId: plugin.id,
+          pluginId: mask(tenant,plugin.id,"plugin"),
           source: plugin.accessSource,
           installed: plugin.installed
         }))
@@ -170,7 +181,7 @@ export const marketplacePlugin: BeePlugin = {
     ctx.server.get("/marketplace/plugins", async (request: any, reply: any) => {
       const tenant = await authenticate(request, reply);
       if (!tenant) return;
-      return { tenantId: tenant.tenantId, plugins: await getTenantPluginCatalog(db, tenant.tenantId) };
+      return { tenantId: mask(tenant,tenant.tenantId,"tenant"), plugins: (await getTenantPluginCatalog(db, tenant.tenantId)).map(plugin=>publicPlugin(tenant,plugin)) };
     });
     ctx.server.get("/public/tenant/plugins", async (request: any, reply: any) => {
       const hostname = String(request.hostname ?? "").trim().toLowerCase().replace(/\.$/, "");
@@ -181,7 +192,7 @@ export const marketplacePlugin: BeePlugin = {
       else if (!hostname.endsWith("." + baseDomain) && hostname !== baseDomain) company = await db.collection("tenants").findOne({ domains: hostname, status: { $ne: "suspended" } });
       if (!company) return reply.code(404).send({ error: "Public tenant not found" });
       const plugins = await getTenantPluginCatalog(db, String(company.id));
-      return { tenantId: company.id, pluginIds: plugins.filter((plugin: any) => plugin.installed && plugin.entitled).map((plugin: any) => plugin.id) };
+      return { pluginIds: plugins.filter((plugin: any) => plugin.installed && plugin.entitled).map((plugin: any) => plugin.id) };
     });
 
     ctx.server.get<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId", async (request: any, reply: any) => {
@@ -189,7 +200,7 @@ export const marketplacePlugin: BeePlugin = {
       if (!tenant) return;
       const plugin = (await getTenantPluginCatalog(db, tenant.tenantId)).find(item => item.id === request.params.pluginId);
       if (!plugin) return reply.code(404).send({ error: "Plugin not visible to this company" });
-      return { plugin };
+      return { plugin: publicPlugin(tenant,plugin) };
     });
 
     ctx.server.get<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId/versions", async (request: any, reply: any) => {
@@ -202,7 +213,7 @@ export const marketplacePlugin: BeePlugin = {
         .sort({ publishedAt: -1 })
         .toArray();
       return {
-        pluginId: plugin.id,
+        pluginId: mask(tenant,plugin.id,"plugin"),
         versions: publishedVersions.map(item => ({
           version: item.version,
           compatibility: item.compatibility ?? null,
@@ -235,20 +246,20 @@ export const marketplacePlugin: BeePlugin = {
       const activeJob = await installJobs.findOne({ activeKey });
       if (activeJob) {
         if (activeJob.action !== "install") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
-        return reply.code(202).send({ jobId: activeJob.id, pluginId, action: "install", status: activeJob.status, accepted: true, duplicate: true, statusUrl: "/marketplace/install-jobs/" + activeJob.id });
+        return reply.code(202).send({ jobId: mask(tenant,activeJob.id,"job"), pluginId: mask(tenant,pluginId,"plugin"), action: "install", status: activeJob.status, accepted: true, duplicate: true, statusUrl: "/marketplace/install-jobs/" + mask(tenant,activeJob.id,"job") });
       }
       if (await isPluginInstalled(db, tenant.tenantId, pluginId)) {
-        return { pluginId, status: "installed", alreadyInstalled: true };
+        return { pluginId: mask(tenant,pluginId,"plugin"), status: "installed", alreadyInstalled: true };
       }
       const queued = await enqueuePluginInstallJob(installJobs, { tenantId: tenant.tenantId, pluginId, actorId: tenant.userId });
       if (queued.job.action !== "install") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
       return reply.code(202).send({
-        jobId: queued.job.id,
-        pluginId,
+        jobId: mask(tenant,queued.job.id,"job"),
+        pluginId: mask(tenant,pluginId,"plugin"),
         status: queued.job.status,
         accepted: true,
         duplicate: !queued.created,
-        statusUrl: "/marketplace/install-jobs/" + queued.job.id
+        statusUrl: "/marketplace/install-jobs/" + mask(tenant,queued.job.id,"job")
       });
     });
 
@@ -270,11 +281,11 @@ export const marketplacePlugin: BeePlugin = {
       const activeJob = await installJobs.findOne({ activeKey: tenant.tenantId + ":" + pluginId });
       if (activeJob) {
         if (activeJob.action !== "update") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
-        return reply.code(202).send({ jobId: activeJob.id, pluginId, action: "update", status: activeJob.status, accepted: true, duplicate: true, statusUrl: "/marketplace/install-jobs/" + activeJob.id });
+        return reply.code(202).send({ jobId: mask(tenant,activeJob.id,"job"), pluginId: mask(tenant,pluginId,"plugin"), action: "update", status: activeJob.status, accepted: true, duplicate: true, statusUrl: "/marketplace/install-jobs/" + mask(tenant,activeJob.id,"job") });
       }
       const queued = await enqueuePluginUpdateJob(installJobs, { tenantId: tenant.tenantId, pluginId, actorId: tenant.userId, previousVersion });
       if (queued.job.action !== "update") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
-      return reply.code(202).send({ jobId: queued.job.id, pluginId, action: "update", status: queued.job.status, accepted: true, duplicate: !queued.created, statusUrl: "/marketplace/install-jobs/" + queued.job.id });
+      return reply.code(202).send({ jobId: mask(tenant,queued.job.id,"job"), pluginId: mask(tenant,pluginId,"plugin"), action: "update", status: queued.job.status, accepted: true, duplicate: !queued.created, statusUrl: "/marketplace/install-jobs/" + mask(tenant,queued.job.id,"job") });
     });
 
     ctx.server.get<{ Params: { jobId: string } }>("/marketplace/install-jobs/:jobId", async (request: any, reply: any) => {
@@ -282,10 +293,10 @@ export const marketplacePlugin: BeePlugin = {
       if (!tenant) return;
       const job = await installJobs.findOne(
         { id: String(request.params.jobId), tenantId: tenant.tenantId },
-        { projection: { _id: 0, id: 1, pluginId: 1, action: 1, status: 1, attempts: 1, maxAttempts: 1, createdAt: 1, updatedAt: 1, startedAt: 1, finishedAt: 1, result: 1,  } }
+        { projection: { _id: 0, id: 1, pluginId: 1, action: 1, status: 1, attempts: 1, maxAttempts: 1, createdAt: 1, updatedAt: 1, startedAt: 1, finishedAt: 1 } }
       );
       if (!job) return reply.code(404).send({ error: "Installation job not found" });
-      return { job: { ...job, ...(job.status === "failed" ? { error: "Plugin " + job.action + " failed. Contact an administrator." } : {}) } };
+      return { job: { ...publicJob(tenant,job), ...(job.status === "failed" ? { error: "Plugin " + job.action + " failed. Contact an administrator." } : {}) } };
     });
 
     ctx.server.delete<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId/install", async (request: any, reply: any) => {
@@ -303,7 +314,7 @@ export const marketplacePlugin: BeePlugin = {
       const activeJob = await installJobs.findOne({ activeKey });
       if (activeJob) {
         if (activeJob.action !== "uninstall") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
-        return reply.code(202).send({ jobId: activeJob.id, pluginId, action: "uninstall", status: activeJob.status, accepted: true, duplicate: true, statusUrl: "/marketplace/install-jobs/" + activeJob.id });
+        return reply.code(202).send({ jobId: mask(tenant,activeJob.id,"job"), pluginId: mask(tenant,pluginId,"plugin"), action: "uninstall", status: activeJob.status, accepted: true, duplicate: true, statusUrl: "/marketplace/install-jobs/" + mask(tenant,activeJob.id,"job") });
       }
       if (!await isPluginInstalled(db, tenant.tenantId, pluginId)) return reply.code(404).send({ error: "Plugin is not installed" });
       const otherInstalled = await db.collection("tenant_plugin_installations")
@@ -316,8 +327,8 @@ export const marketplacePlugin: BeePlugin = {
       const queued = await enqueuePluginUninstallJob(installJobs, { tenantId: tenant.tenantId, pluginId, actorId: tenant.userId });
       if (queued.job.action !== "uninstall") return reply.code(409).send({ error: "A plugin lifecycle operation is already in progress" });
       return reply.code(202).send({
-        jobId: queued.job.id, pluginId, action: "uninstall", status: queued.job.status,
-        accepted: true, duplicate: !queued.created, statusUrl: "/marketplace/install-jobs/" + queued.job.id
+        jobId: mask(tenant,queued.job.id,"job"), pluginId: mask(tenant,pluginId,"plugin"), action: "uninstall", status: queued.job.status,
+        accepted: true, duplicate: !queued.created, statusUrl: "/marketplace/install-jobs/" + mask(tenant,queued.job.id,"job")
       });
     });
 

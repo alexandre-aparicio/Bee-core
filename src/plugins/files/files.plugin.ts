@@ -6,6 +6,7 @@ import path from "node:path";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { getTenantStorageLimitBytes, hasPluginEntitlement, isPluginInstalled, seedPluginCommerce } from "../../core/plugin-entitlements.js";
+import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
 type FileRecord = Document & {
   id: string;
@@ -56,6 +57,8 @@ export const filesPlugin: BeePlugin = {
     mongoClient = new MongoClient(mongoUri, { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
     await mongoClient.connect();
     const db = mongoClient.db(dbName);
+    const sessionIdSecret = String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
+    if (sessionIdSecret.length < 32) throw new Error("Files: JWT_SECRET must contain at least 32 characters.");
     await seedPluginCommerce(db);
     // The metadata collection is accessed through a tenant-scoped facade per request.
     await Promise.all([
@@ -72,7 +75,7 @@ export const filesPlugin: BeePlugin = {
     const authenticate = async (request: any, reply: any) => {
       try {
         await request.jwtVerify();
-        const tenant = await resolveTenantContext(db, request.user);
+        const tenant = await resolveTenantContext(db, request.user, {}, sessionIdSecret);
         if (!tenant) {
           reply.code(401).send({ error: "Unauthorized or active company session required" });
           return null;
@@ -140,8 +143,8 @@ export const filesPlugin: BeePlugin = {
       try { decoded = decodeURIComponent(value); } catch { /* retain the original header value */ }
       return path.basename(decoded).replace(/[\r\n\0]/g, "").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 160) || "file";
     };
-    const publicRecord = (file: FileRecord) => ({
-      id: file.id,
+    const publicRecord = (file: FileRecord, tenantSession: import("../../core/tenant-context.js").TenantContext) => ({
+      id: maskResourceId(file.id, "file", { sessionId: tenantSession.sessionId, expiresAt: tenantSession.sessionExpiresAt }, sessionIdSecret),
       name: file.originalName,
       contentType: file.contentType,
       size: file.size,
@@ -188,7 +191,7 @@ export const filesPlugin: BeePlugin = {
         await releaseStorage(tenant.tenantId, body.length);
         throw error;
       }
-      return reply.code(201).send({ file: publicRecord(record) });
+      return reply.code(201).send({ file: publicRecord(record, tenant) });
     });
 
     ctx.server.get("/files", async (request: any, reply: any) => {
@@ -196,15 +199,17 @@ export const filesPlugin: BeePlugin = {
       if (!tenant) return;
       if (!hasTenantPermission(tenant, "files.read")) return reply.code(403).send({ error: "File read permission required" });
       const records = await scopedFiles(tenant.tenantId).find({}).sort({ createdAt: -1 }).limit(200).toArray();
-      return { files: records.map(publicRecord) };
+      return { files: records.map(record => publicRecord(record, tenant)) };
     });
 
     ctx.server.get<{ Params: { fileId: string } }>("/files/:fileId", async (request: any, reply: any) => {
       const tenant = await authenticate(request, reply);
       if (!tenant) return;
       if (!hasTenantPermission(tenant, "files.read")) return reply.code(403).send({ error: "File read permission required" });
-      if (!/^[0-9a-f-]{36}$/i.test(request.params.fileId)) return reply.code(404).send({ error: "File not found" });
-      const record = await scopedFiles(tenant.tenantId).findOne({ id: request.params.fileId });
+      let fileId: string;
+      try { fileId = unmaskResourceId(request.params.fileId, "file", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, sessionIdSecret); } catch { return reply.code(404).send({ error: "File not found" }); }
+      if (!/^[0-9a-f-]{36}$/i.test(fileId)) return reply.code(404).send({ error: "File not found" });
+      const record = await scopedFiles(tenant.tenantId).findOne({ id: fileId });
       if (!record) return reply.code(404).send({ error: "File not found" });
       let data: Buffer;
       try { data = await readFile(storagePath(tenant.tenantId, record.id)); }
@@ -222,9 +227,11 @@ export const filesPlugin: BeePlugin = {
       const tenant = await authenticate(request, reply);
       if (!tenant) return;
       if (!hasTenantPermission(tenant, "files.write")) return reply.code(403).send({ error: "File write permission required" });
-      if (!/^[0-9a-f-]{36}$/i.test(request.params.fileId)) return reply.code(404).send({ error: "File not found" });
+      let fileId: string;
+      try { fileId = unmaskResourceId(request.params.fileId, "file", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, sessionIdSecret); } catch { return reply.code(404).send({ error: "File not found" }); }
+      if (!/^[0-9a-f-]{36}$/i.test(fileId)) return reply.code(404).send({ error: "File not found" });
       const collection = scopedFiles(tenant.tenantId);
-      const record = await collection.findOne({ id: request.params.fileId });
+      const record = await collection.findOne({ id: fileId });
       if (!record) return reply.code(404).send({ error: "File not found" });
       await unlink(storagePath(tenant.tenantId, record.id)).catch((error: NodeJS.ErrnoException) => {
         if (error.code !== "ENOENT") throw error;
