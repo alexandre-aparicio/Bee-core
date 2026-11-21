@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
 
-export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job";
+export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job" | "audit-event";
 export type SessionIdContext = { sessionId: string; expiresAt: Date };
 type Payload = { v: 1; t: SessionResourceType; id: string; sid: string; exp: number };
 
