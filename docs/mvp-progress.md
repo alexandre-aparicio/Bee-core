@@ -220,3 +220,11 @@ The product model is now specified in `docs/template-business-model.md`.
 - Redesigned the three tenant-public template compositions (Aurora, Editorial and Studio) with separate page structures and package-scoped component styles. Their tenant welcome and enabled `hello-world` plugin routes are preserved; the corporate landing fallback remains in each public component.
 - Redesigned the three dashboard shells (Midnight, Paper and Glass) with different navigation/shell composition, responsive layout and visual treatments. The shared dashboard section content and actions are retained inside the package-owned shell, including plugin marketplace/outlet, organization members, audit log, appearance manager and platform admin access.
 - This is a source-level implementation only. No build, test, GitHub workflow, or VPS runtime check was executed, so compilation and visual rendering are not verified.
+
+
+## Template markup repair (2026-11-21)
+
+- Replaced malformed Angular/HTML template strings in all six package-owned public/dashboard page components. Corrected unbalanced tag closures and broken control-flow/template nesting introduced by the earlier copy-and-edit step.
+- Public tenant pages keep tenant name, Home/Hello World navigation (when enabled), theme toggle, and Hello World content. Corporate fallback remains, but is simplified to a clean valid structure rather than the copied marketing page markup.
+- Dashboard page shells keep company switching, grouped navigation, theme toggle, and primary sections for dashboard, plugins/marketplace + outlet, organization, activity, appearance/template manager and platform admin. This repair simplifies some placeholder content and does not claim the former copied dashboard markup was preserved verbatim.
+- Source changes only; no build, tests, workflows or VPS runtime validation were performed. Compilation remains unverified until the user runs the build.
