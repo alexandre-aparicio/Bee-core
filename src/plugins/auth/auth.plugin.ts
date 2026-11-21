@@ -1,5 +1,4 @@
 import type { BeePlugin } from "../../core/types.js";
-import jwt from "@fastify/jwt";
 import bcrypt from "bcryptjs";
 import { MongoClient, type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -23,10 +22,8 @@ const refreshExpiry=()=>new Date(Date.now()+30*24*60*60*1000);
 export const authPlugin:BeePlugin={
  manifest:{name:"auth",version:"0.3.0",description:"Persistent authentication for backend, dashboard and public frontend clients"},
  async initialize(ctx){
-  const secret=String(ctx.config.jwtSecret??""),mongoUri=String(ctx.config.mongoUri??""),dbName=String(ctx.config.mongoDbName??"bee_core");
-  if(secret.length<32)throw new Error("Auth: JWT_SECRET must contain at least 32 characters.");
+  const mongoUri=String(ctx.config.mongoUri??""),dbName=String(ctx.config.mongoDbName??"bee_core");
   if(!mongoUri)throw new Error("Auth: MONGODB_URI is required.");
-  await ctx.server.register(jwt,{secret,sign:{expiresIn:"20m"}});
   const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongo.connect(); const db:Db=mongo.db(dbName);
   const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
