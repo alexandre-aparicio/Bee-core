@@ -27,7 +27,7 @@ export const authPlugin:BeePlugin={
   if(!mongoUri)throw new Error("Auth: MONGODB_URI is required.");
   const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
   await mongo.connect(); const db:Db=mongo.db(dbName);
-  const sessionIdSecret=String(ctx.config.jwtSecret??"");
+  const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Auth: JWT_SECRET must contain at least 32 characters for session-bound resource references.");
   const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
   await ensureTenantAuditIndexes(auditEvents);
