@@ -213,3 +213,10 @@ The product model is now specified in `docs/template-business-model.md`.
 - Updated each template manifest's `componentId` to its package-owned page component.
 - This completes the first source boundary extraction, not visual redesign: the six page components currently start from copied compositions and are independently editable, but have not yet been redesigned into distinct layouts. The core still selects components with explicit Angular branches; dynamic manifest-driven component rendering is not implemented.
 - No build, tests, workflows or VPS runtime validation were run. Compilation and runtime behavior remain unverified.
+
+
+## Distinct dashboard and tenant-public designs (2026-11-21)
+
+- Redesigned the three tenant-public template compositions (Aurora, Editorial and Studio) with separate page structures and package-scoped component styles. Their tenant welcome and enabled `hello-world` plugin routes are preserved; the corporate landing fallback remains in each public component.
+- Redesigned the three dashboard shells (Midnight, Paper and Glass) with different navigation/shell composition, responsive layout and visual treatments. The shared dashboard section content and actions are retained inside the package-owned shell, including plugin marketplace/outlet, organization members, audit log, appearance manager and platform admin access.
+- This is a source-level implementation only. No build, test, GitHub workflow, or VPS runtime check was executed, so compilation and visual rendering are not verified.
