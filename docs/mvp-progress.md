@@ -308,3 +308,11 @@ Security invariants for completion:
 6. Tests cover two sessions for one user, expiry/revocation, tampering, wrong resource type, cross-tenant IDOR, login/refresh/me, platform administration, organization CRUD, marketplace jobs, files, notes and SSE.
 
 Validation status: no build, automated test suite, CI workflow or VPS deployment was run for this audit. Do not merge PR #54 or describe the migration as complete until the API and Angular contract migration above is implemented and validated.
+### Additional resource-boundary slice — files and notes (2026-11-21)
+
+- TenantContext now carries the persisted session expiry so resource codecs can enforce the same session lifetime at API boundaries.
+- Files API now returns session-bound opaque file references and decodes them before tenant-scoped download/delete lookups. Invalid, expired, wrong-session and wrong-type references resolve as not found.
+- Notes API now returns allowlisted note fields, masks note IDs and creator user IDs, and decodes note route references before tenant-scoped reads/updates/deletes. Internal tenantId is no longer serialized in note payloads.
+- Files integration coverage now asserts opaque file IDs and rejects use of a file reference from a second session belonging to the same user.
+
+Still outstanding: organizations and Platform Administration routes, marketplace plugin/job references, public discovery contracts, auth template/SSE boundaries, remaining Angular contract migration, notes integration coverage, complete test/build/CI validation. This is a partial vertical slice, not an end-to-end completion.
