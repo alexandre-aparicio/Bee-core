@@ -1,4 +1,10 @@
 import type { BeePlugin } from "../../core/types.js";
+
+declare module "fastify" {
+ interface FastifyRequest {
+  platformSession?: { sessionId: string; expiresAt: Date };
+ }
+}
 import bcrypt from "bcryptjs";
 import { MongoClient, type Db } from "mongodb";
 import { randomUUID } from "node:crypto";
