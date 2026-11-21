@@ -26,7 +26,7 @@ General contains exactly three cards:
 2. **Appearance** — reuses the existing template manager for dashboard/public themes and appearance modes.
 3. **Platform Defaults** — default workspace landing, onboarding and workspace experience.
 
-Appearance reuses the existing template engine and its permission checks. Identity and defaults are informational and explicitly unavailable for editing until a settings persistence API exists; the UI does not claim to save them.
+Appearance reuses the existing template manager only in tenant scope. The current template engine persists preferences per active tenant, so it is deliberately not exposed as a global platform control. Global appearance, identity and defaults remain informational/unavailable until a platform settings persistence API exists; the UI does not claim to save them.
 
 ## Section ownership
 
