@@ -18,7 +18,7 @@ export function maskResourceId(id: string, type: SessionResourceType, session: S
   const key = keyFor(secret, session.sessionId);
   // Deterministic per (session, resource type, internal ID): stable for the
   // lifetime of a session without reusing a GCM nonce for different plaintexts.
-  const nonce = createHmac("sha256", key).update("nonce:v1:").update(type).update("\\0").update(id).digest().subarray(0, 12);
+  const nonce = createHmac("sha256", key).update("nonce:v1:").update(JSON.stringify(payload)).digest().subarray(0, 12);
   const cipher = createCipheriv("aes-256-gcm", key, nonce);
   const encrypted = Buffer.concat([cipher.update(JSON.stringify(payload), "utf8"), cipher.final()]);
   return Buffer.concat([Buffer.from([1]), nonce, cipher.getAuthTag(), encrypted]).toString("base64url");
