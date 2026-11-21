@@ -2,6 +2,7 @@ services:
   mongodb:
     image: mongo:8
     container_name: bee-core-mongodb
+    init: true
     restart: unless-stopped
     environment:
       MONGO_INITDB_DATABASE: bee_core
@@ -16,6 +17,7 @@ services:
   bee-core:
     build: .
     container_name: bee-core
+    init: true
     restart: unless-stopped
     env_file:
       - .env
@@ -47,6 +49,7 @@ services:
       args:
         VITE_BEE_API: /api
     container_name: bee-core-web
+    init: true
     restart: unless-stopped
     depends_on:
       bee-core:
