@@ -84,6 +84,7 @@ export class AppComponent implements OnInit {
       const result = await response.json();
       if (!response.ok) { if (result.mfaRequired) this.mfaRequired = true; throw new Error(result.error || 'Login failed'); }
       this.auth = result;
+      this.templates.setAuthSession(this.auth);
       if (result.mfaSetupRequired) {
         const setup = await fetch(this.api + '/auth/mfa/setup', { method: 'POST', credentials: 'same-origin', headers: { authorization: 'Bearer ' + result.accessToken } });
         const setupResult = await setup.json();
@@ -101,6 +102,7 @@ export class AppComponent implements OnInit {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'MFA verification failed');
       this.auth = { ...this.auth, accessToken: result.accessToken, platformRole: result.platformRole };
+      this.templates.setAuthSession(this.auth);
       this.mfaSetupMode = false; this.mfaCode = ''; this.mfaRecoveryCodes = result.recoveryCodes || [];
     } catch (err) { this.error = err instanceof Error ? err.message : 'MFA setup failed'; }
     finally { this.busy = false; }
@@ -139,6 +141,7 @@ export class AppComponent implements OnInit {
       const result = await response.json();
       if (!response.ok || !result.authenticated) throw new Error(result.error || 'Session expired');
       this.auth = { ...this.auth, tenantId: result.tenantId || this.auth.tenantId, platformRole: result.platformRole ?? this.auth.platformRole };
+      this.templates.setAuthSession(this.auth);
       await this.loadCompanies();
       window.setTimeout(() => void this.refreshDashboardSession(), 15 * 60 * 1000);
     } catch { await this.refreshDashboardSession(); }
@@ -149,13 +152,15 @@ export class AppComponent implements OnInit {
       const result = await response.json();
       if (!response.ok || !result.accessToken) throw new Error(result.error || 'Session expired');
       this.auth = { ...result, client: 'dashboard' };
+      this.templates.setAuthSession(this.auth);
       const check = await fetch(this.api + '/auth/me', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
       const checked = await check.json();
       if (!check.ok || !checked.authenticated) throw new Error(checked.error || 'Session validation failed');
       this.auth = { ...this.auth, tenantId: checked.tenantId || this.auth.tenantId, platformRole: checked.platformRole ?? this.auth.platformRole };
+      this.templates.setAuthSession(this.auth);
       await this.loadCompanies();
       window.setTimeout(() => void this.refreshDashboardSession(), 15 * 60 * 1000);
-    } catch { this.auth = null; window.location.replace('/login'); }
+    } catch { this.auth = null; this.templates.setAuthSession(null); window.location.replace('/login'); }
   }
 
   async loadCompanies(): Promise<void> {
@@ -188,6 +193,7 @@ export class AppComponent implements OnInit {
       if (!response.ok) throw new Error(result.error || 'Could not switch company');
       const roles = result.membership?.role === 'owner' || result.membership?.role === 'admin' ? ['admin'] : ['user'];
       this.auth = { ...this.auth, accessToken: result.accessToken, tenantId: result.tenantId, user: { ...this.auth.user, tenantId: result.tenantId, roles } };
+      this.templates.setAuthSession(this.auth);
       await this.templates.refreshForActiveCompany();
       await this.loadCompanies();
       this.companyBusy = false;
@@ -199,7 +205,7 @@ export class AppComponent implements OnInit {
   }
   async logout(): Promise<void> {
     try { if (this.auth?.accessToken) await fetch(this.api + '/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } }); }
-    finally { this.auth = null; window.location.assign('/login'); }
+    finally { this.auth = null; this.templates.setAuthSession(null); window.location.assign('/login'); }
   }
   toggleMenu(): void { this.menuOpen = !this.menuOpen; }
 
