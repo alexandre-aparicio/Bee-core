@@ -85,8 +85,8 @@ export const authPlugin:BeePlugin={
    const sessionContext={sessionId:activeSession.id,expiresAt:activeSession.expiresAt};
    (request as any).__beeSessionIdContext=sessionContext;
    try{
-    if(request.params&&typeof request.params==="object")(request as any).params=transformSessionResourceIds(request.params,"unmask",sessionContext,resourceIdSecret);
-    if(request.query&&typeof request.query==="object")(request as any).query=transformSessionResourceIds(request.query,"unmask",sessionContext,resourceIdSecret);
+    if(request.params&&typeof request.params==="object")Object.assign(request.params as object,transformSessionResourceIds(request.params,"unmask",sessionContext,resourceIdSecret));
+    if(request.query&&typeof request.query==="object")Object.assign(request.query as object,transformSessionResourceIds(request.query,"unmask",sessionContext,resourceIdSecret));
     if(request.body&&typeof request.body==="object"&&!Buffer.isBuffer(request.body))(request as any).body=transformSessionResourceIds(request.body,"unmask",sessionContext,resourceIdSecret);
    }catch{return reply.code(400).send({error:"Invalid, expired, or session-mismatched resource reference"});}
   });
@@ -160,7 +160,7 @@ export const authPlugin:BeePlugin={
    const tenant=slug?await tenants.findOne({slug}):host!==publicBaseDomain?await tenants.findOne({domains:host}):null;
    const tenantId=tenant?.id??defaultTenantId;
    const saved=await templatePreferences.findOne({tenantId});
-   return {tenantId,selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)};
+   return {selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)};
   });
   ctx.server.put<{Body:{domains?:string[]}}>("/tenants/domains",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
