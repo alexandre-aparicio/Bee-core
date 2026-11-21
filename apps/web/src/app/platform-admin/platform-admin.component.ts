@@ -12,19 +12,19 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
  <section class="platform-admin">
    @if (!managedTenantId) {
      <div class="platform-admin__toolbar">
-       <div><h2>Companies</h2><p>Manage every company registered on Bee-Core</p></div>
+       <div><h2>Tenants</h2><p>Manage every tenant registered on Bee-Core</p></div>
        <div class="platform-admin__toolbar-actions">
          <div class="platform-admin__view-toggle" aria-label="Company display">
            <button type="button" [class.is-active]="viewMode==='cards'" [attr.aria-pressed]="viewMode==='cards'" (click)="viewMode='cards'" title="Card view">▦</button>
            <button type="button" [class.is-active]="viewMode==='list'" [attr.aria-pressed]="viewMode==='list'" (click)="viewMode='list'" title="List view">☷</button>
          </div>
-         <button type="button" class="platform-admin__create-trigger" (click)="openCreate()">＋ New company</button>
+         <button type="button" class="platform-admin__create-trigger" (click)="openCreate()">＋ New tenant</button>
        </div>
      </div>
      @if(error){<p class="platform-admin__error">{{error}}</p>}
      @if(success){<p class="platform-admin__success">{{success}}</p>}
      @if(loading){<div class="platform-admin__empty">Loading companies…</div>}
-     @else if(!companies.length){<div class="platform-admin__empty">No companies have been created yet.</div>}
+     @else if(!companies.length){<div class="platform-admin__empty">No tenants have been created yet.</div>}
      @else if(viewMode==='cards'){
        <div class="platform-admin__cards">
          @for(c of companies;track c.id){
@@ -46,13 +46,13 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
                <span [class.is-suspended]="c.status==='suspended'"><i></i>{{c.status}}</span>
                <span>{{c.membersCount ?? 0}} members</span>
              </div>
-             <div class="platform-company-card__footer"><span>Hola Mundo · {{pluginStates[c.id]?.status || 'unavailable'}}</span><button type="button" (click)="manageCompany.emit(c.id)">Manage company ↗</button></div>
+             <div class="platform-company-card__footer"><span>Hola Mundo · {{pluginStates[c.id]?.status || 'unavailable'}}</span><button type="button" (click)="manageCompany.emit(c.id)">Manage tenant ↗</button></div>
            </article>
          }
        </div>
      } @else {
        <div class="platform-admin__table-wrap"><table class="platform-admin__table">
-         <thead><tr><th>Company</th><th>Subdomain</th><th>Members</th><th>Status</th><th>Actions</th></tr></thead>
+         <thead><tr><th>Tenant</th><th>Subdomain</th><th>Members</th><th>Status</th><th>Actions</th></tr></thead>
          <tbody>@for(c of companies;track c.id){<tr>
            <td><strong>{{c.name}}</strong><small>{{c.id}}</small></td>
            <td>{{c.slug || '—'}}</td><td>{{c.membersCount ?? 0}}</td>
@@ -69,8 +69,8 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
      }
    } @else {
      <div class="platform-admin__manage-head">
-       <button type="button" class="platform-admin__back" (click)="backToList.emit()">← Companies</button>
-       <div><span class="platform-admin__eyebrow">PLATFORM / COMPANY</span><h2>{{managedCompany?.name || 'Company management'}}</h2><p>Manage this tenant and its platform-level status</p></div>
+       <button type="button" class="platform-admin__back" (click)="backToList.emit()">← Tenants</button>
+       <div><span class="platform-admin__eyebrow">SETTINGS / TENANTS</span><h2>{{managedCompany?.name || 'Company management'}}</h2><p>Manage this tenant and its platform-level configuration</p></div>
      </div>
      @if(error){<p class="platform-admin__error">{{error}}</p>}
      @if(managedCompany){
@@ -93,7 +93,7 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
    @if(showCreateModal){
      <div class="platform-admin__modal-backdrop" (click)="closeCreate()">
        <section class="platform-admin__modal" role="dialog" aria-modal="true" aria-labelledby="platform-create-title" (click)="$event.stopPropagation()">
-         <div class="platform-admin__modal-head"><div><span class="platform-admin__eyebrow">PLATFORM ADMINISTRATION</span><h2 id="platform-create-title">Create a company</h2><p>Set up a new tenant and its first owner.</p></div><button type="button" aria-label="Close" (click)="closeCreate()">×</button></div>
+         <div class="platform-admin__modal-head"><div><span class="platform-admin__eyebrow">TENANT MANAGEMENT</span><h2 id="platform-create-title">Create a tenant</h2><p>Create a tenant and configure its first owner.</p></div><button type="button" aria-label="Close" (click)="closeCreate()">×</button></div>
          <form class="platform-admin-form" (ngSubmit)="create()">
            <label>Company name</label><input name="companyName" [(ngModel)]="name" required minlength="2" maxlength="120" placeholder="Dragchart">
            <label>Public subdomain slug</label><input name="companySlug" [(ngModel)]="slug" pattern="[a-z0-9-]+" maxlength="48" placeholder="dragchart">
@@ -101,7 +101,7 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
            <label>Owner email</label><input name="ownerEmail" type="email" [(ngModel)]="ownerEmail" required placeholder="owner@company.com">
            <label>Initial password (new user only)</label><input name="ownerPassword" type="password" [(ngModel)]="ownerPassword" minlength="12" placeholder="At least 12 characters">
            @if(error){<p class="platform-admin__error">{{error}}</p>}
-           <div class="platform-admin__modal-actions"><button type="button" class="platform-admin__cancel" (click)="closeCreate()">Cancel</button><button type="submit" [disabled]="busy">{{busy?'Creating…':'Create company'}}</button></div>
+           <div class="platform-admin__modal-actions"><button type="button" class="platform-admin__cancel" (click)="closeCreate()">Cancel</button><button type="submit" [disabled]="busy">{{busy?'Creating…':'Create tenant'}}</button></div>
          </form>
        </section>
      </div>
@@ -123,8 +123,8 @@ export class PlatformAdminComponent implements OnInit {
  openCreate(){this.error='';this.success='';this.showCreateModal=true;}
  closeCreate(){if(this.busy)return;this.showCreateModal=false;this.error='';}
  toggleMenu(id:string){this.openMenuId=this.openMenuId===id?'':id;}
- async load(){this.loading=true;this.error='';try{const r=await fetch('/api/platform/companies',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to list companies');this.companies=d.companies??[];await Promise.all(this.companies.map(async company=>{try{const pr=await fetch('/api/platform/companies/'+encodeURIComponent(company.id)+'/plugins',{headers:this.headers()});const pd=await pr.json();if(pr.ok){const plugin=pd.plugins?.[0];if(plugin)this.pluginStates[company.id]={id:plugin.id,installed:!!plugin.installed,status:plugin.status,name:plugin.name};}}catch{}}));}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.loading=false;}}
- async create(){this.busy=true;this.error='';this.success='';try{const r=await fetch('/api/platform/companies',{method:'POST',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({name:this.name,slug:this.slug||undefined,ownerEmail:this.ownerEmail,ownerPassword:this.ownerPassword||undefined})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Creation failed');this.success='Company created successfully.';this.name='';this.slug='';this.ownerEmail='';this.ownerPassword='';this.showCreateModal=false;await this.load();}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.busy=false;}}
+ async load(){this.loading=true;this.error='';try{const r=await fetch('/api/platform/companies',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to list tenants');this.companies=d.companies??[];await Promise.all(this.companies.map(async company=>{try{const pr=await fetch('/api/platform/companies/'+encodeURIComponent(company.id)+'/plugins',{headers:this.headers()});const pd=await pr.json();if(pr.ok){const plugin=pd.plugins?.[0];if(plugin)this.pluginStates[company.id]={id:plugin.id,installed:!!plugin.installed,status:plugin.status,name:plugin.name};}}catch{}}));}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.loading=false;}}
+ async create(){this.busy=true;this.error='';this.success='';try{const r=await fetch('/api/platform/companies',{method:'POST',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({name:this.name,slug:this.slug||undefined,ownerEmail:this.ownerEmail,ownerPassword:this.ownerPassword||undefined})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Creation failed');this.success='Tenant created successfully.';this.name='';this.slug='';this.ownerEmail='';this.ownerPassword='';this.showCreateModal=false;await this.load();}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.busy=false;}}
  async toggleHelloWorld(c:PlatformCompany){if(this.pluginBusyId)return;this.pluginBusyId=c.id;this.error='';try{const current=this.pluginStates[c.id];if(!current?.id)return;const r=await fetch('/api/platform/companies/'+encodeURIComponent(c.id)+'/plugins/'+encodeURIComponent(current.id),{method:'PUT',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({enabled:!current?.installed})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Plugin activation failed');this.pluginStates[c.id]={installed:!!d.enabled,status:d.status??(d.enabled?'installing':'uninstalling'),id:current.id,name:current.name};await this.load();}catch(e){this.error=e instanceof Error?e.message:'Plugin activation failed';}finally{this.pluginBusyId='';}}
  async toggle(c:PlatformCompany){this.busy=true;this.error='';try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(c.id),{method:'PATCH',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({status:c.status==='active'?'suspended':'active'})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Status change failed');await this.load();}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.busy=false;}}
 }
