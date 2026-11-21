@@ -341,3 +341,11 @@ Remaining before merge:
 - Review the final diff for type errors and compatibility before marking PR #54 ready. No VPS deployment or production verification has been performed.
 
 Current status: meaningful backend and frontend slices are now integrated in the PR branch, but PR #54 remains draft and must not be merged until the exhaustive boundary review and automated validation pass.
+
+
+### Session-bound reference codec hardening (2026-11-21)
+
+- Hardened the shared decoder against non-canonical Base64URL encodings, oversized references, malformed resource types, invalid session expiries and invalid decoded identifier payloads.
+- Added a 1 KiB UTF-8 bound for internal identifiers and a 2 KiB bound for external references to prevent unbounded parsing work at API boundaries.
+- Added unit cases for malformed/non-canonical and oversized references, plus empty and oversized identifiers.
+- This is additional defensive validation, not evidence that the full test suite passes. GitHub Actions currently reports no workflow runs for the latest PR head; no local build/test runner or VPS validation has been executed in this session.
