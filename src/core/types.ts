@@ -38,4 +38,5 @@ export interface BeePluginManifest {
 
 export interface BeePluginInfo extends BeePluginManifest {
   status: BeePluginStatus;
+  error?: string;
 }
