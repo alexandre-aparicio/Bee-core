@@ -264,4 +264,5 @@ The product model is now specified in `docs/template-business-model.md`.
 - Added a tenant management view with company identity, subdomain, member count, status, and the existing platform-level status / Hola Mundo controls.
 - Restored login route priority in the root template and added dashboard session validation against `/api/auth/me`; missing or expired sessions are cleared and redirected to `/login`.
 - Updated Midnight, Glass, and Paper dashboard templates to connect the company management route.
-- Validation status: source changes committed on a feature branch; build and automated tests have not been run in this environment.
+- Added Playwright coverage for the card/list switcher, disabled menu actions, tenant management navigation, company creation modal, and unauthenticated dashboard redirect.
+- Validation status: source and E2E test changes committed on a feature branch; Angular build and Playwright suite have not been run in this environment.
