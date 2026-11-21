@@ -1,5 +1,4 @@
 import Fastify from "fastify";
-import jwt from "@fastify/jwt";
 import { BeeEventBus } from "./core/event-bus.js";
 import { BeePluginManager } from "./core/plugin-manager.js";
 import type { BeeContext, BeeLogger } from "./core/types.js";
@@ -21,7 +20,6 @@ const plugins = new BeePluginManager();
 const app = Fastify({ logger: false });
 const jwtSecret = String(process.env.JWT_SECRET ?? "");
 if (jwtSecret.length < 32) throw new Error("JWT_SECRET must contain at least 32 characters.");
-app.register(jwt, { secret: jwtSecret, sign: { expiresIn: "20m" } });
 
 const ctx: BeeContext = {
   appName: "Bee-Core",
