@@ -147,7 +147,12 @@ export class AppComponent implements OnInit {
       const result = await response.json();
       if (!response.ok || !result.accessToken) throw new Error(result.error || 'Session expired');
       this.auth = { ...result, client: 'dashboard' };
-      await this.validateDashboardSession();
+      const check = await fetch(this.api + '/auth/me', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
+      const checked = await check.json();
+      if (!check.ok || !checked.authenticated) throw new Error(checked.error || 'Session validation failed');
+      this.auth = { ...this.auth, tenantId: checked.tenantId || this.auth.tenantId, platformRole: checked.platformRole ?? this.auth.platformRole };
+      await this.loadCompanies();
+      window.setTimeout(() => void this.refreshDashboardSession(), 15 * 60 * 1000);
     } catch { this.auth = null; window.location.replace('/login'); }
   }
 
