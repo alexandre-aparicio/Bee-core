@@ -67,7 +67,7 @@ test("tenant context requires a valid session, active membership and company", {
       updatedAt: new Date()
     });
     await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { role: "custom", customRoleId: "role-reader" } });
-    const customContext = await resolveTenantContext(db, claims);
+    const customContext = await resolveTenantContext(db, claims, {}, secret);
     assert.ok(customContext);
     assert.equal(customContext.role, "custom");
     assert.equal(customContext.customRoleId, "role-reader");
@@ -80,11 +80,11 @@ test("tenant context requires a valid session, active membership and company", {
     assert.equal(await resolveTenantContext(db, { ...claims, client: "public" }, {}, secret), null);
 
     await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { status: "suspended" } });
-    assert.equal(await resolveTenantContext(db, claims), null);
+    assert.equal(await resolveTenantContext(db, claims, {}, secret), null);
     await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { status: "active" } });
 
     await db.collection("tenants").updateOne({ id: "company-one" }, { $set: { status: "suspended" } });
-    assert.equal(await resolveTenantContext(db, claims), null);
+    assert.equal(await resolveTenantContext(db, claims, {}, secret), null);
     const allowSuspended = await resolveTenantContext(db, claims, { allowSuspendedCompany: true }, secret);
     assert.ok(allowSuspended);
   } finally {
