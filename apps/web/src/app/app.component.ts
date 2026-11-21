@@ -224,7 +224,7 @@ export class AppComponent implements OnInit {
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
     dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization',
-    activity: '/dashboard/activity', 'settings-general': '/dashboard/settings/general',
+    activity: '/dashboard/activity', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans-licensing',
     'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
@@ -256,7 +256,7 @@ export class AppComponent implements OnInit {
     this.activeSection = nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)
       ? 'dashboard'
       : nextSection;
-    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : '';
+    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages'].includes(this.activeSection) ? 'notifications' : '');
   }
   get pluginDetailsId(): string { const match = this.path.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/); return match ? decodeURIComponent(match[1]) : ''; }
   get platformTenantId(): string {
@@ -307,6 +307,7 @@ export class AppComponent implements OnInit {
       {id:'dashboard',label:'Dashboard',icon:'▦',group:'WORKSPACE'},
       {id:'organization',label:'Organization',icon:'♙',group:'WORKSPACE'},
       {id:'activity',label:'Activity',icon:'◷',group:'WORKSPACE'},
+      {id:'notifications',label:'Notifications',icon:'♧',group:'WORKSPACE'},
       {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
     ];
     if (this.isPlatformAdmin) return [base[0], base[2], base[3]];
@@ -325,7 +326,7 @@ export class AppComponent implements OnInit {
     if (window.location.pathname !== route) window.history.pushState({}, '', route);
     this.path = route;
     this.activeSection = targetId;
-    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : '';
+    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages'].includes(targetId) ? 'notifications' : '');
     this.menuOpen = false;
   }
 
