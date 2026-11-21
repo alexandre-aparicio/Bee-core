@@ -39,7 +39,7 @@ export const marketplacePlugin: BeePlugin = {
     const sessionOf=(tenant:import("../../core/tenant-context.js").TenantContext)=>({sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt});
     const mask=(tenant:import("../../core/tenant-context.js").TenantContext,id:string,type:import("../../core/session-id.js").SessionResourceType)=>maskResourceId(id,type,sessionOf(tenant),sessionIdSecret);
     const publicPlugin=(tenant:import("../../core/tenant-context.js").TenantContext,plugin:any)=>({...plugin,id:mask(tenant,String(plugin.id),"plugin"),...(Array.isArray(plugin.dependencies)?{dependencies:plugin.dependencies.map((id:string)=>mask(tenant,id,"plugin"))}:{})});
-    const publicJob=(tenant:import("../../core/tenant-context.js").TenantContext,job:any)=>({...job,id:mask(tenant,String(job.id),"job"),pluginId:mask(tenant,String(job.pluginId),"plugin")});
+    const publicJob=(tenant:import("../../core/tenant-context.js").TenantContext,job:any)=>({id:mask(tenant,String(job.id),"job"),pluginId:mask(tenant,String(job.pluginId),"plugin"),action:job.action,status:job.status,attempts:job.attempts,maxAttempts:job.maxAttempts,createdAt:job.createdAt,updatedAt:job.updatedAt,startedAt:job.startedAt??null,finishedAt:job.finishedAt??null});
     const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
     const installJobs:Collection<PluginInstallJob>=db.collection<PluginInstallJob>("plugin_install_jobs");
     await ensurePluginInstallJobIndexes(installJobs);
@@ -293,7 +293,7 @@ export const marketplacePlugin: BeePlugin = {
       if (!tenant) return;
       const job = await installJobs.findOne(
         { id: String(request.params.jobId), tenantId: tenant.tenantId },
-        { projection: { _id: 0, id: 1, pluginId: 1, action: 1, status: 1, attempts: 1, maxAttempts: 1, createdAt: 1, updatedAt: 1, startedAt: 1, finishedAt: 1, result: 1,  } }
+        { projection: { _id: 0, id: 1, pluginId: 1, action: 1, status: 1, attempts: 1, maxAttempts: 1, createdAt: 1, updatedAt: 1, startedAt: 1, finishedAt: 1 } }
       );
       if (!job) return reply.code(404).send({ error: "Installation job not found" });
       return { job: { ...publicJob(tenant,job), ...(job.status === "failed" ? { error: "Plugin " + job.action + " failed. Contact an administrator." } : {}) } };
