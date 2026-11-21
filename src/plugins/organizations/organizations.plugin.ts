@@ -90,7 +90,7 @@ export const organizationsPlugin:BeePlugin={
    try{
     await req.jwtVerify();
     const claims=req.user as Claims;
-    const tenantContext=await resolveTenantContext(db,claims,options);
+    const tenantContext=await resolveTenantContext(db,claims,options,sessionIdSecret);
     if(!tenantContext){reply.code(401).send({error:"Unauthorized or active company session required"});return null;}
     if(tenantContext.client!=="dashboard"){reply.code(403).send({error:"Company administration requires a dashboard session"});return null;}
     try {
