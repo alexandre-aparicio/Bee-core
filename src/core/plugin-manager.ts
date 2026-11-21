@@ -1,4 +1,5 @@
 import type { BeeContext, BeePlugin, BeePluginInfo, BeePluginStatus } from "./types.js";
+import { createHmac } from "node:crypto";
 
 interface ManagedPlugin {
   plugin: BeePlugin;
@@ -21,12 +22,12 @@ export class BeePluginManager {
   }
 
   private readonly configAccess: Record<string, readonly string[]> = {
-    auth: ["mongoUri", "mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "publicBaseDomain", "jwtSecret"],
-    organizations: ["mongoUri", "mongoDbName", "publicBaseDomain"],
-    files: ["mongoUri", "mongoDbName", "fileStoragePath"],
-    marketplace: ["mongoUri", "mongoDbName", "billingWebhookSecret", "publicBaseDomain"],
-    notes: ["mongoUri", "mongoDbName"],
-    "platform-admin": ["mongoUri", "mongoDbName"],
+    auth: ["mongoUri", "mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "publicBaseDomain", "sessionIdSecret"],
+    organizations: ["mongoUri", "mongoDbName", "publicBaseDomain", "sessionIdSecret"],
+    files: ["mongoUri", "mongoDbName", "fileStoragePath", "sessionIdSecret"],
+    marketplace: ["mongoUri", "mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
+    notes: ["mongoUri", "mongoDbName", "sessionIdSecret"],
+    "platform-admin": ["mongoUri", "mongoDbName", "sessionIdSecret"],
     hello: []
   };
 
@@ -34,6 +35,12 @@ export class BeePluginManager {
     const prefix = `[${pluginName}]`;
     const allowedConfig = this.configAccess[pluginName.toLowerCase()] ?? [];
     const scopedConfig = Object.fromEntries(allowedConfig.filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
+    // Resource references use a dedicated key derived from JWT_SECRET. Plugins
+    // that serialize IDs never receive the JWT signing secret itself.
+    if (allowedConfig.includes("sessionIdSecret")) {
+      const jwtSecret = String(ctx.config.jwtSecret ?? "");
+      if (jwtSecret.length >= 32) scopedConfig.sessionIdSecret = createHmac("sha256", jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
+    }
     return Object.freeze({
       ...ctx,
       pluginName,
