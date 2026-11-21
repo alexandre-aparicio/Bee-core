@@ -134,6 +134,14 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaInstallJob = await waitForInstallJob(betaInstallJobId);
     assert.equal(betaInstallJob.attempts, 1);
     assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.installed",resourceType:"plugin",resourceId:"notes"}),1,"successful concurrent plugin installation should be audited once");
+    const betaCompanyRefs=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+betaToken}});
+    const betaCompanyRef=betaCompanyRefs.json().companies[0].id as string;
+    const pluginAudit=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(betaCompanyRef)+"/audit-events?action=plugin.installed&limit=100",headers:{authorization:"Bearer "+betaToken}});
+    assert.equal(pluginAudit.statusCode,200);
+    const pluginAuditEvent=pluginAudit.json().events.find((event:{action:string})=>event.action==="plugin.installed");
+    assert.ok(pluginAuditEvent);
+    assert.notEqual(pluginAuditEvent.metadata.jobId,betaInstallJobId,"audit metadata must not leak internal lifecycle job IDs");
+    assert.ok(!/^[0-9a-f-]{36}$/i.test(pluginAuditEvent.metadata.jobId));
     assert.equal(await db.collection("tenant_plugin_installations").countDocuments({ tenantId: "market-beta", pluginId: "notes", status: "installed" }), 1);
     const betaNotesList = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaNotesList.statusCode, 200);
