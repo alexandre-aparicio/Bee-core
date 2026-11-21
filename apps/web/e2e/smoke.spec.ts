@@ -475,7 +475,7 @@ test('platform administration supports card/list views, disabled actions, compan
   await page.route('**/api/platform/companies/*/plugins/hello-world', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, status: 'installed' })
   }));
-  await page.route('**/api/platform/companies/*', route => route.fulfill({
+  await page.route('**/api/platform/companies/company-1', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ success: true })
   }));
 
@@ -497,7 +497,7 @@ test('platform administration supports card/list views, disabled actions, compan
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Create a company' })).toBeVisible();
   await dialog.getByPlaceholder('Dragchart').fill('New Tenant');
-  await dialog.getByPlaceholder('new-tenant').fill('new-tenant');
+  await dialog.locator('input[name="companySlug"]').fill('new-tenant');
   await dialog.getByPlaceholder('owner@company.com').fill('owner@new-tenant.test');
   await dialog.getByRole('button', { name: 'Create company' }).click();
   await expect(page.getByRole('heading', { name: 'New Tenant' })).toBeVisible();
