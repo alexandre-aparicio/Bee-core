@@ -224,7 +224,7 @@ export class AppComponent implements OnInit {
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
     dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization',
-    activity: '/dashboard/activity', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
+    activity: '/dashboard/activity', notifications: '/dashboard/notifications', messages: '/dashboard/messages', mail: '/dashboard/mail', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans-licensing',
     'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
@@ -256,7 +256,7 @@ export class AppComponent implements OnInit {
     this.activeSection = nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)
       ? 'dashboard'
       : nextSection;
-    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages'].includes(this.activeSection) ? 'notifications' : '');
+    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : '');
   }
   get pluginDetailsId(): string { const match = this.path.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/); return match ? decodeURIComponent(match[1]) : ''; }
   get platformTenantId(): string {
@@ -275,7 +275,7 @@ export class AppComponent implements OnInit {
   navigatePlatformList(): void { this.navigateSection('settings-tenants'); }
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
-  get sectionTitle(): string { return this.activeSection === 'notifications' ? 'Notifications' : this.activeSection === 'messages' ? 'Messages' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
+  get sectionTitle(): string { return this.activeSection === 'notifications' ? 'Notifications' : this.activeSection === 'messages' ? 'Messages' : this.activeSection === 'mail' ? 'Mail' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
   get settingsNavigationItems(): Array<{id:string;label:string;icon:string;description:string}> {
     const role = (this.activeCompanyRole || '').toLowerCase();
     const allowed = this.isPlatformAdmin
@@ -326,7 +326,7 @@ export class AppComponent implements OnInit {
     if (window.location.pathname !== route) window.history.pushState({}, '', route);
     this.path = route;
     this.activeSection = targetId;
-    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages'].includes(targetId) ? 'notifications' : '');
+    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : '');
     this.menuOpen = false;
   }
 
