@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
 
-export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job" | "audit";
+export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job" | "audit" | "installation" | "subscription";
 export type SessionIdContext = { sessionId: string; expiresAt: Date };
 type Payload = { v: 1; t: SessionResourceType; id: string; sid: string; exp: number };
 
@@ -54,7 +54,7 @@ const RESOURCE_FIELDS: Record<string, SessionResourceType> = {
   userId: "user", userIds: "user", actorId: "user", createdBy: "user", updatedBy: "user", ownerId: "user",
   membershipId: "membership", roleId: "role", customRoleId: "role",
   invitationId: "invitation", fileId: "file", noteId: "note", jobId: "job",
-  auditEventId: "audit"
+  auditEventId: "audit", installationId: "installation", subscriptionId: "subscription"
 };
 
 const RESOURCE_CONTAINERS: Record<string, SessionResourceType> = {
@@ -67,7 +67,7 @@ const RESOURCE_CONTAINERS: Record<string, SessionResourceType> = {
   file: "file", files: "file",
   note: "note", notes: "note",
   job: "job", jobs: "job",
-  event: "audit", events: "audit"
+  event: "audit", events: "audit", installation: "installation", installations: "installation", subscription: "subscription", subscriptions: "subscription"
 };
 
 export function transformSessionResourceIds<T>(
@@ -84,7 +84,7 @@ export function transformSessionResourceIds<T>(
     for (const [key, child] of Object.entries(source)) {
       const fieldType = RESOURCE_FIELDS[key] ??
         (key === "resourceId" && typeof source.resourceType === "string" &&
-          ["tenant", "plugin", "user", "membership", "role", "invitation", "file", "note", "job", "audit"].includes(source.resourceType)
+          ["tenant", "plugin", "user", "membership", "role", "invitation", "file", "note", "job", "audit", "installation", "subscription"].includes(source.resourceType)
           ? source.resourceType as SessionResourceType : undefined);
       const childType = fieldType ?? (key === "id" ? parentType : RESOURCE_CONTAINERS[key]);
       if (typeof child === "string" && child.length && childType && (key === "id" || fieldType)) {
