@@ -373,7 +373,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const legacyAcceptLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"legacy@example.com",password:"Test-password-12345",client:"dashboard"}});
     const acceptedInvite=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyAcceptLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
     assert.equal(acceptedInvite.statusCode,200);
-    assert.equal(acceptedInvite.json().company.id,secondCompanyId);
+    const acceptedCompanyInternalId=await resolveReference(legacyAcceptLogin.json().accessToken,acceptedInvite.json().company.id,"tenant");
+    assert.equal(acceptedCompanyInternalId,secondCompanyInternalId,"invitation acceptance must return a company reference bound to the accepting session");
     const invitationAcceptedAudit=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,action:"member.invited",resourceType:"membership",resourceId:"legacy-user","metadata.phase":"accepted"});
     assert.ok(invitationAcceptedAudit,"invitation acceptance should be tenant-audited");
     const duplicateAccept=await app.inject({method:"POST",url:"/invitations/accept",headers:{authorization:"Bearer "+legacyLogin.json().accessToken},payload:{token:createInvite.json().acceptanceToken}});
