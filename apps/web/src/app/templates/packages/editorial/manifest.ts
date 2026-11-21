@@ -8,7 +8,7 @@ export const EDITORIAL_MANIFEST: BeeTemplateManifest = {
   "description": "Light, content-first public experience.",
   "builtIn": true,
   "layout": "public.editorial",
-  "componentId": "BeeEditorialLayoutComponent",
+  "componentId": "BeeEditorialPageComponent",
   "slots": [
     "header",
     "hero",
