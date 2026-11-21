@@ -27,6 +27,7 @@ export type TenantContext = {
   email: string;
   tenantId: string;
   sessionId: string;
+  sessionExpiresAt: Date;
   client: NonNullable<TenantClaims["client"]>;
   role: MembershipRole;
   customRoleId?: string;
@@ -97,6 +98,7 @@ export async function resolveTenantContext(
     email: user.email,
     tenantId,
     sessionId: claims.sid,
+    sessionExpiresAt: session.expiresAt,
     client: claims.client,
     role: membership.role,
     ...(membership.customRoleId ? { customRoleId: membership.customRoleId } : {}),
