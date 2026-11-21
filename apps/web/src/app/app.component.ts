@@ -178,8 +178,9 @@ export class AppComponent implements OnInit {
     {id:'settings-localization',label:'Localization',icon:'◎',description:'Languages, regions, currencies and global formats.'}
   ];
   private syncActiveSectionFromPath(): void {
-    if (this.path.startsWith('/dashboard/platform/') && this.path.endsWith('/manage')) {
-      this.activeSection = 'platform';
+    if (this.path.startsWith('/dashboard/settings/tenants/') && this.path.endsWith('/manage')) {
+      this.activeSection = 'settings-tenants';
+      this.expandedMenuId = 'settings';
       return;
     }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
@@ -191,18 +192,18 @@ export class AppComponent implements OnInit {
   }
   get platformTenantId(): string {
     const parts = this.path.split('/');
-    return parts.length >= 5 && parts[1] === 'dashboard' && parts[2] === 'platform' && parts[4] === 'manage'
-      ? decodeURIComponent(parts[3])
+    return parts.length >= 6 && parts[1] === 'dashboard' && parts[2] === 'settings' && parts[3] === 'tenants' && parts[5] === 'manage'
+      ? decodeURIComponent(parts[4])
       : '';
   }
   navigatePlatformManage(tenantId: string): void {
-    const route = '/dashboard/platform/' + encodeURIComponent(tenantId) + '/manage';
+    const route = '/dashboard/settings/tenants/' + encodeURIComponent(tenantId) + '/manage';
     window.history.pushState({}, '', route);
     this.path = route;
-    this.activeSection = 'platform';
+    this.activeSection = 'settings-tenants';
     this.menuOpen = false;
   }
-  navigatePlatformList(): void { this.navigateSection('platform'); }
+  navigatePlatformList(): void { this.navigateSection('settings-tenants'); }
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get sectionTitle(): string { return this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
@@ -239,7 +240,6 @@ export class AppComponent implements OnInit {
     ];
     if (this.isPlatformAdmin) return [
       base[0], base[1], base[3], base[4],
-      {id:'platform',label:'Platform Administration',icon:'⬡',group:'PLATFORM'},
       {id:'themes-dashboard',label:'Dashboard Theme',icon:'◈',group:'APPEARANCE'},
       {id:'themes-public',label:'Public Theme',icon:'◈',group:'APPEARANCE'},
       {id:'branding',label:'Branding',icon:'✦',group:'APPEARANCE'}
