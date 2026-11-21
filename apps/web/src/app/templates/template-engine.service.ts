@@ -66,8 +66,8 @@ export class BeeTemplateEngine {
     }
     this.selection = { ...this.selection, [target]: templateId };
     this.selectionRevision++;
-    this.previewThemePackage = PACKAGE_THEME_TOKENS[templateId] ? templateId : null;
-    if (this.previewThemePackage) this.applyThemeTokens(PACKAGE_THEME_TOKENS[this.previewThemePackage]);
+    this.previewThemePackage = target === 'public' && PACKAGE_THEME_TOKENS[templateId] ? templateId : null;
+    if (this.previewThemePackage) this.applyThemeTokens(PACKAGE_THEME_TOKENS[this.previewThemePackage], 'public');
     else this.restorePreviewTokens();
     this.apply();
   }
@@ -80,7 +80,7 @@ export class BeeTemplateEngine {
     this.selectionRevision++;
     this.persist();
     void this.persistRemoteSelection();
-    if (packageId) void this.saveThemeTokens(this.themeTokens);
+    if (packageId) void this.saveThemeTokens(this.themeTokens, 'public');
   }
 
   cancelPreview(): void {
@@ -92,9 +92,8 @@ export class BeeTemplateEngine {
     this.themeTokens = { ...snapshot.tokens };
     this.persist();
     if (typeof document !== 'undefined') {
-      for (const [key, value] of Object.entries(snapshot.tokens)) document.documentElement.style.setProperty(key, value);
-      if (snapshot.customized) document.body.dataset['beeCustomTheme'] = 'true';
-      else delete document.body.dataset['beeCustomTheme'];
+      if (snapshot.customized) this.applyThemeTokens(snapshot.tokens, 'public');
+      else this.clearThemeTokens('public');
     }
     this.apply();
   }
@@ -102,11 +101,8 @@ export class BeeTemplateEngine {
   private restorePreviewTokens(): void {
     if (!this.previewSnapshot) return;
     this.themeTokens = { ...this.previewSnapshot.tokens };
-    if (typeof document !== 'undefined') {
-      for (const [key, value] of Object.entries(this.previewSnapshot.tokens)) document.documentElement.style.setProperty(key, value);
-      if (this.previewSnapshot.customized) document.body.dataset['beeCustomTheme'] = 'true';
-      else delete document.body.dataset['beeCustomTheme'];
-    }
+    if (this.previewSnapshot.customized) this.applyThemeTokens(this.previewSnapshot.tokens, 'public');
+    else this.clearThemeTokens('public');
   }
 
   getSelection(): BeeTemplateSelection {
@@ -140,7 +136,10 @@ export class BeeTemplateEngine {
     this.selectionRevision++;
     this.persist();
     this.apply();
-    if (PACKAGE_THEME_TOKENS[templateId]) void this.saveThemeTokens(PACKAGE_THEME_TOKENS[templateId]);
+    if (target === 'public' && PACKAGE_THEME_TOKENS[templateId]) {
+      this.applyThemeTokens(PACKAGE_THEME_TOKENS[templateId], 'public');
+      void this.saveThemeTokens(PACKAGE_THEME_TOKENS[templateId], 'public');
+    }
     void this.persistRemoteSelection();
   }
 
@@ -207,7 +206,7 @@ export class BeeTemplateEngine {
       if (payload.selection?.public && this.registry.get(payload.selection.public)?.target === 'public' && this.installedTemplateIds.has(payload.selection.public)) this.selection.public = payload.selection.public;
       if (payload.selection?.dashboard && this.registry.get(payload.selection.dashboard)?.target === 'dashboard' && this.installedTemplateIds.has(payload.selection.dashboard)) this.selection.dashboard = payload.selection.dashboard;
       this.apply();
-      if (payload.tokens && payload.customized) this.applyThemeTokens(payload.tokens);
+      if (payload.tokens && payload.customized) this.applyThemeTokens(payload.tokens, 'public');
       await this.connectPublicEvents();
     } catch { /* The built-in public template is the offline fallback. */ }
   }
@@ -236,7 +235,6 @@ export class BeeTemplateEngine {
       if (dashboardId && this.registry.get(dashboardId)?.target === 'dashboard' && this.installedTemplateIds.has(dashboardId)) this.selection.dashboard = dashboardId;
       this.persist();
       this.apply();
-      await this.restoreRemoteTheme();
       await this.connectRemoteEvents();
     } catch {
       // Local selection remains the offline fallback.
@@ -254,7 +252,8 @@ export class BeeTemplateEngine {
     } catch { /* Keep the last known theme when offline. */ }
   }
 
-  async saveThemeTokens(tokens: Record<string, string>): Promise<boolean> {
+  async saveThemeTokens(tokens: Record<string, string>, target: BeeTemplateTarget = 'public'): Promise<boolean> {
+    if (target !== 'public') return false;
     const token = this.authToken();
     if (!token || !this.canManageTemplates || typeof fetch === 'undefined') return false;
     const safeTokens: Record<string, string> = {};
@@ -266,18 +265,33 @@ export class BeeTemplateEngine {
     const response = await fetch('/api/templates/theme', { method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ tokens: safeTokens }) });
     if (!response.ok) return false;
     const payload = await response.json() as { tokens?: Record<string, string>; customized?: boolean };
-    if (payload.tokens) this.applyThemeTokens(payload.tokens);
+    if (payload.tokens) this.applyThemeTokens(payload.tokens, 'public');
     return true;
   }
 
-  private applyThemeTokens(tokens: Record<string, string>): void {
+  private themeHost(target: BeeTemplateTarget): HTMLElement | null {
+    if (typeof document === 'undefined') return null;
+    const templateId = this.selection[target];
+    return document.querySelector<HTMLElement>(`.bee-template-package-host--${templateId}`);
+  }
+
+  private clearThemeTokens(target: BeeTemplateTarget): void {
+    const host = this.themeHost(target);
+    if (host) for (const key of THEME_TOKEN_KEYS) host.style.removeProperty(key);
+    if (typeof document !== 'undefined') delete document.body.dataset['beeCustomTheme'];
+  }
+
+  private applyThemeTokens(tokens: Record<string, string>, target: BeeTemplateTarget = 'public'): void {
+    if (target !== 'public') return;
+    const host = this.themeHost('public');
     for (const key of THEME_TOKEN_KEYS) {
       const value = tokens[key];
       if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) {
         this.themeTokens[key] = value;
-        if (typeof document !== 'undefined') { document.documentElement.style.setProperty(key, value); document.body.dataset['beeCustomTheme'] = 'true'; }
+        host?.style.setProperty(key, value);
       }
     }
+    if (typeof document !== 'undefined') document.body.dataset['beeCustomTheme'] = 'true';
   }
 
   private async connectRemoteEvents(): Promise<void> {
@@ -374,6 +388,10 @@ export class BeeTemplateEngine {
     document.body.dataset['beeDashboardTemplate'] = this.selection.dashboard;
     document.body.dataset['beePublicMode'] = this.getMode('public');
     document.body.dataset['beeDashboardMode'] = this.getMode('dashboard');
+    const publicHost = this.themeHost('public');
+    const dashboardHost = this.themeHost('dashboard');
+    if (publicHost) publicHost.dataset['beePublicMode'] = this.getMode('public');
+    if (dashboardHost) dashboardHost.dataset['beeDashboardMode'] = this.getMode('dashboard');
   }
 
   private readSelection(): BeeTemplateSelection {
