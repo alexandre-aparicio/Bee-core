@@ -52,7 +52,7 @@ export const authPlugin:BeePlugin={
   const templatePreferences=db.collection<{tenantId?:string;userId?:string;public:string;dashboard:string;themeTokens?:Record<string,string>;installedTemplates?:string[];updatedAt:Date}>("template_preferences");
   type TemplateStreamTicket={tenantId:string;ip:string;userId?:string;claims?:import("../../core/tenant-context.js").TenantClaims};
   type TemplateSubscriber={response:import("node:http").ServerResponse;ip:string;userId?:string;claims?:import("../../core/tenant-context.js").TenantClaims;release:()=>void};
-  const templateStreamTickets=new BoundedTicketStore<TemplateStreamTicket>(5_000,30_000);
+  const templateStreamTickets=new BoundedTicketStore<TemplateStreamTicket>(5_000,Number(ctx.config.realtimeTicketTtlMs??30_000));
   const templateConnections=realtimeConnectionLimiterFor(ctx.server);
   const templateSubscribers=new Map<string,Set<TemplateSubscriber>>();
   const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.response.destroyed){clients.delete(client);client.release();continue;}client.response.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
