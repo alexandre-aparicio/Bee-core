@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import Fastify from "fastify";
 import jwt from "@fastify/jwt";
 import {MongoClient} from "mongodb";
-import bcrypt from "bcryptjs";
 import {createHmac} from "node:crypto";
 import {base32Decode} from "../src/core/totp.js";
 import {authPlugin} from "../src/plugins/auth/auth.plugin.js";
