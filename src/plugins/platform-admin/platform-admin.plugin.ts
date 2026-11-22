@@ -1,4 +1,5 @@
 import type { BeePlugin } from "../../core/types.js";
+import type { PlatformIdentityDocument } from "../../core/platform-identity.js";
 
 declare module "fastify" {
  interface FastifyRequest {
@@ -60,16 +61,9 @@ export const platformAdminPlugin:BeePlugin={
     return user;
    }catch{return reply.code(401).send({error:"Unauthorized"}),null;}
   };
-  type PlatformIdentity = {
-   key:"global";
-   brand:{platformName:string;pageTitle:string;tagline:string;description:string;legalName:string;websiteUrl:string;contactEmail:string;copyright:string};
-   assets:{primaryLogoUrl:string;secondaryLogoUrl:string;brandMarkUrl:string;faviconUrl:string;appleTouchIconUrl:string;socialImageUrl:string;loginLogoUrl:string};
-   seo:{title:string;description:string;keywords:string[];canonicalUrl:string;robotsIndex:boolean;robotsFollow:boolean;openGraphTitle:string;openGraphDescription:string;openGraphImageUrl:string;twitterCard:"summary"|"summary_large_image";twitterTitle:string;twitterDescription:string;twitterImageUrl:string};
-   updatedAt:Date;updatedBy:string;
-  };
-  const identityCollection=db.collection<PlatformIdentity>("platform_identity");
+  const identityCollection=db.collection<PlatformIdentityDocument>("platform_identity");
   await identityCollection.createIndex({key:1},{unique:true,name:"platform_identity_singleton"});
-  const defaultIdentity=():PlatformIdentity=>({key:"global",
+  const defaultIdentity=():PlatformIdentityDocument=>({key:"global",
    brand:{platformName:"Bee-Core",pageTitle:"Bee-Core",tagline:"All Is a Plugin",description:"",legalName:"",websiteUrl:"",contactEmail:"",copyright:""},
    assets:{primaryLogoUrl:"",secondaryLogoUrl:"",brandMarkUrl:"",faviconUrl:"",appleTouchIconUrl:"",socialImageUrl:"",loginLogoUrl:""},
    seo:{title:"",description:"",keywords:[],canonicalUrl:"",robotsIndex:true,robotsFollow:true,openGraphTitle:"",openGraphDescription:"",openGraphImageUrl:"",twitterCard:"summary_large_image",twitterTitle:"",twitterDescription:"",twitterImageUrl:""},
@@ -84,7 +78,7 @@ export const platformAdminPlugin:BeePlugin={
    const raw=cleanText(value,2048);if(!raw)return "";
    try{const parsed=new URL(raw);return ["https:","http:"].includes(parsed.protocol)?parsed.toString():"";}catch{return "";}
   };
-  const normalizeIdentity=(body:any,actorId:string):PlatformIdentity=>{
+  const normalizeIdentity=(body:any,actorId:string):PlatformIdentityDocument=>{
    const base=defaultIdentity();
    const brand=body?.brand??{},assets=body?.assets??{},seo=body?.seo??{};
    const keywords=Array.isArray(seo.keywords)?seo.keywords.slice(0,20).map((v:unknown)=>cleanText(v,60)).filter(Boolean):[];
@@ -102,7 +96,7 @@ export const platformAdminPlugin:BeePlugin={
   ctx.server.get("/platform/identity",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const identity=await readIdentity();
-   const {_id,...safe}=identity as PlatformIdentity & {_id?:unknown};
+   const {_id,...safe}=identity as PlatformIdentityDocument & {_id?:unknown};
    return safe;
   });
   ctx.server.put<{Body:Record<string,unknown>}>("/platform/identity",async(req,reply)=>{
