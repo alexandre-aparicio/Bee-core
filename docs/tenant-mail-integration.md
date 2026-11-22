@@ -26,7 +26,7 @@ Incoming IMAP and POP3 currently use implicit TLS only (IMAP 993, POP3 995); inc
 
 ## Dashboard
 
-Dashboard → Notifications → Mail. Configure each mailbox with incoming IMAP/POP3 details and outgoing SMTP details. Editing keeps the mailbox address immutable and permits replacing passwords without returning existing secrets. The automatic sync toggle is per mailbox. Message deletion is local to Bee-Core; it does not delete the original remote email. POP3 does not remove remote messages.
+Dashboard → Mail. Configure each mailbox with incoming IMAP/POP3 details and outgoing SMTP details. Editing keeps the mailbox address immutable and permits replacing passwords without returning existing secrets. The automatic sync toggle is per mailbox. Message deletion is local to Bee-Core; it does not delete the original remote email. POP3 does not remove remote messages.
 
 ## API
 
