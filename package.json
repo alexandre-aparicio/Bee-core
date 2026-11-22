@@ -12,7 +12,7 @@
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@fastify/jwt": "^9.0.2",
+    "@fastify/jwt": "^10.2.8",
     "bcryptjs": "^2.4.3",
     "fastify": "^5.2.1",
     "mongodb": "^6.15.0",

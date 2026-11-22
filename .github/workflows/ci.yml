@@ -14,7 +14,7 @@ on:
       - ".env*.example"
       - ".github/workflows/ci.yml"
   push:
-    branches: [main]
+    branches: [main, security/hardening-92]
     paths:
       - "src/**"
       - "test/**"
@@ -51,8 +51,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies from lockfile
+        run: npm ci
+      - name: Production dependency audit
+        run: npm audit --omit=dev
       - name: Type check
         run: npm run check
       - name: Build

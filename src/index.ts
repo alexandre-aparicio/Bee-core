@@ -16,7 +16,7 @@ const logger:BeeLogger={info:(m,c)=>console.log("[INFO]",m,c??""),warn:(m,c)=>co
 const events=new BeeEventBus(undefined,new Set(["bee.started","auth.login","notification.request"])),plugins=new BeePluginManager(),app=Fastify({logger:false});
 const jwtSecret=String(process.env.JWT_SECRET??"");
 if(jwtSecret.length<32)throw new Error("JWT_SECRET must contain at least 32 characters.");
-app.register(jwt,{secret:jwtSecret,sign:{expiresIn:"20m"}});
+app.register(jwt,{secret:jwtSecret,sign:{algorithm:"HS256",expiresIn:"20m",iss:"bee-core",aud:"bee-core"},verify:{algorithms:["HS256"],allowedAud:"bee-core",allowedIss:"bee-core",requiredClaims:["exp","aud","iss"]}});
 app.register(websocket);
 const ctx:BeeContext={appName:"Bee-Core",version:"0.3.1",events,logger,server:app,config:Object.freeze({environment:process.env.NODE_ENV??"development",jwtSecret:process.env.JWT_SECRET??"",mongoUri:process.env.MONGODB_URI??"",mongoDbName:process.env.MONGODB_DB??"bee_core",authAdminEmail:process.env.AUTH_ADMIN_EMAIL??"",authAdminPassword:process.env.AUTH_ADMIN_PASSWORD??"",authMfaEncryptionKey:process.env.AUTH_MFA_ENCRYPTION_KEY??"",fileStoragePath:process.env.BEE_FILES_DIR??"/data/bee-files",billingWebhookSecret:process.env.BEE_BILLING_WEBHOOK_SECRET??"",publicBaseDomain:process.env.PUBLIC_BASE_DOMAIN??"beecore.beeprojects.net"})};
 plugins.register(helloPlugin);plugins.register(authPlugin);plugins.register(organizationsPlugin);plugins.register(filesPlugin);plugins.register(marketplacePlugin);plugins.register(notesPlugin);plugins.register(platformAdminPlugin);plugins.register(notificationsPlugin);
