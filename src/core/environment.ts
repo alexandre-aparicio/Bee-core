@@ -7,7 +7,7 @@ export interface BeeEnvironmentConfig {
 }
 
 const isExampleValue = (value: string): boolean =>
-  /(?:replace[_ -]?with|change[_ -]?me|changeme|example|placeholder|your[_ -]|password123|secret123)/i.test(value);
+  /(?:replace[_ -]?with|change[_ -]?me|changeme|example|placeholder|your[_ -]|password123|secret123|^(?:password|admin|secret|test)$/i.test(value);
 
 export function validateEnvironment(env: NodeJS.ProcessEnv = process.env): BeeEnvironmentConfig {
   const errors: string[] = [];
@@ -48,6 +48,10 @@ export function validateEnvironment(env: NodeJS.ProcessEnv = process.env): BeeEn
       ["MONGODB_URI", mongoUri],
       ["MongoDB username", mongoUsername],
       ["MongoDB password", mongoPassword],
+      ["MONGO_ROOT_USERNAME", String(env.MONGO_ROOT_USERNAME ?? "").trim()],
+      ["MONGO_ROOT_PASSWORD", String(env.MONGO_ROOT_PASSWORD ?? "").trim()],
+      ["MONGO_APP_USERNAME", String(env.MONGO_APP_USERNAME ?? "").trim()],
+      ["MONGO_APP_PASSWORD", String(env.MONGO_APP_PASSWORD ?? "").trim()],
       ["AUTH_ADMIN_PASSWORD", String(env.AUTH_ADMIN_PASSWORD ?? "").trim()]
     ] as const) {
       if (value && isExampleValue(value)) errors.push(`${name} contains an example or placeholder value; replace it before production startup.`);
