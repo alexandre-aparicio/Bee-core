@@ -472,3 +472,11 @@ PR #59 has been integrated into `main` at `dc1e16e94f63965a807ca57771fdc6c2b5dc4
 - The user's Docker build reached the backend TypeScript compilation and failed in `src/plugins/mail/mail.plugin.ts` because Fastify request bodies for the create-account, update-account and send-mail handlers were inferred as `{}`. This produced missing-property diagnostics for mailbox fields and message fields, plus string-indexing errors in the account update handler.
 - Added explicit request-body record types and local casts for those three handlers. The route handlers retain their existing runtime validation, tenant checks, permissions and persistence behavior; this change only makes the unvalidated incoming JSON shape explicit to TypeScript.
 - Fix committed on `fix/mail-plugin-request-body-types`. No local build, tests, Docker build or VPS verification were run from this GitHub-only environment. A successful CI run and a fresh VPS `docker compose up -d --build` are still required before considering the compile failure resolved.
+
+
+## VPS build feedback — mail workspace escaped newline (2026-11-22)
+
+- The user's Docker build reached Angular compilation and failed with TS1127, TS1434 and TS7008 in `apps/web/src/app/mail/mail-workspace.component.ts` at line 29. The `startAdd()` method was followed by the two literal characters `\\n` instead of a real source newline, so TypeScript parsed `n async testAccount()` as invalid class-member syntax.
+- Replaced that literal escape sequence with an actual line break before `async testAccount()`. No runtime behavior was changed.
+- The three NG8107 diagnostics in `platform-admin.component.ts` are warnings only and are not the cause of this build failure; they are left unchanged.
+- This correction is isolated on `fix/mail-workspace-literal-newline`. No Angular build, tests, Docker build or VPS verification were run here; the user's next rebuild is required to confirm the fix.
