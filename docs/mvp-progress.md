@@ -509,3 +509,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - The currently running GitHub Actions run #45011257135 was still in progress when inspected. The available GitHub connection does not expose a cancel-run action, so this change does not claim that the already-started run was cancelled. It may finish; removal prevents subsequent runs from those deleted workflow definitions.
 - No tests, builds or deployments were executed as part of this workflow cleanup. Historical completed/failed/cancelled runs remain visible in GitHub Actions history; deleting workflow YAML does not erase past runs.
 - Commits: main workflow deletions `87e2d21`, `33bd008`, `ef4f655`, `344ce00`; PR #84 branch workflow deletion `7f9693d`.
+
+
+## Proposed capability — Connected Devices (2026-11-22)
+
+- Added the future Connected Devices capability specification in [docs/connected-devices.md](connected-devices.md), covering QR pairing, tenant-scoped device registry, explicit approval, revocable credentials, least-privilege capability scopes, companion applications, realtime events, opt-in location, mobile POS/handheld workflows, and phased acceptance criteria.
+- Linked the specification from the README and the SaaS/plugin platform roadmap.
+- This is a product/architecture proposal only. No device service, QR pairing flow, mobile app, location tracking, POS device integration, API, or UI has been implemented or verified.
+- It is explicitly excluded from MVP implementation and release-readiness percentages until scope is approved, implemented, and tested.
