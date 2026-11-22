@@ -7,7 +7,7 @@ import jwt from "@fastify/jwt";
 const secret = "bee-core-jwt-security-test-secret-2026";
 const b64url = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
 
-const signedToken = (payload: Record<string, unknown>, algorithm = "HS256") => {
+const signedToken = (payload: unknown, algorithm = "HS256") => {
   const header = b64url({ alg: algorithm, typ: "JWT" });
   const body = b64url(payload);
   const digest = algorithm === "HS384" ? "sha384" : "sha256";
@@ -80,6 +80,11 @@ test("JWT verification enforces algorithm, issuer, audience and required expirat
 
     await t.test("rejects a token missing required claims", () => {
       const token = signedToken({ sub: "security-test-user", iss: "bee-core", aud: "bee-core" });
+      assert.throws(() => app.jwt.verify(token));
+    });
+
+    await t.test("rejects a signed array payload instead of a claims object", () => {
+      const token = signedToken(["security-test-user", "platformRole:superadmin"]);
       assert.throws(() => app.jwt.verify(token));
     });
   } finally {
