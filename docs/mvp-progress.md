@@ -491,3 +491,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Updated the superadmin navigation allow-list in `apps/web/src/app/app.component.ts` to include the existing `settings` menu entry. The previous filter explicitly removed Settings even though `settingsNavigationItems` already grants superadmins all eight Settings sections.
 - The change is limited to frontend menu visibility; it does not broaden backend authorization or change the permissions of other roles.
 - Based on current `main` commit `881138bef1c377c71d22f4d7105bfe0d38acdb53`. No Angular build, automated tests, browser verification or VPS deployment test was run in this GitHub-only environment.
+
+
+## Angular production HTML and strict CSP compatibility (2026-11-22)
+
+- The deployed public document contained a generated stylesheet link with `media="print" onload="this.media='all'"`. The inline `onload` handler was blocked by the existing strict `script-src 'self'` policy; the browser DOM inspection identified this exact element.
+- Updated `apps/web/angular.json` production optimization to keep script/style/font optimization enabled while setting `styles.inlineCritical: false`. This disables Angular's critical-CSS inlining transformation that generated the inline event handler; stylesheets remain external same-origin assets and load normally without an inline handler.
+- The fix is committed directly to `main` at `7eeeaca67c2d88a55149212defb5e6c4c65e07d3`. The build and deployed HTML have not yet been verified in this GitHub-only environment. Rebuild the web image and confirm the served HTML has no `onload` attribute before considering the CSP console error resolved.
