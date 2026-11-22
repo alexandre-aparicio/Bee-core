@@ -60,6 +60,59 @@ export const platformAdminPlugin:BeePlugin={
     return user;
    }catch{return reply.code(401).send({error:"Unauthorized"}),null;}
   };
+  type PlatformIdentity = {
+   key:"global";
+   brand:{platformName:string;pageTitle:string;tagline:string;description:string;legalName:string;websiteUrl:string;contactEmail:string;copyright:string};
+   assets:{primaryLogoUrl:string;secondaryLogoUrl:string;brandMarkUrl:string;faviconUrl:string;appleTouchIconUrl:string;socialImageUrl:string;loginLogoUrl:string};
+   seo:{title:string;description:string;keywords:string[];canonicalUrl:string;robotsIndex:boolean;robotsFollow:boolean;openGraphTitle:string;openGraphDescription:string;openGraphImageUrl:string;twitterCard:"summary"|"summary_large_image";twitterTitle:string;twitterDescription:string;twitterImageUrl:string};
+   updatedAt:Date;updatedBy:string;
+  };
+  const identityCollection=db.collection<PlatformIdentity>("platform_identity");
+  await identityCollection.createIndex({key:1},{unique:true,name:"platform_identity_singleton"});
+  const defaultIdentity=():PlatformIdentity=>({key:"global",
+   brand:{platformName:"Bee-Core",pageTitle:"Bee-Core",tagline:"All Is a Plugin",description:"",legalName:"",websiteUrl:"",contactEmail:"",copyright:""},
+   assets:{primaryLogoUrl:"",secondaryLogoUrl:"",brandMarkUrl:"",faviconUrl:"",appleTouchIconUrl:"",socialImageUrl:"",loginLogoUrl:""},
+   seo:{title:"",description:"",keywords:[],canonicalUrl:"",robotsIndex:true,robotsFollow:true,openGraphTitle:"",openGraphDescription:"",openGraphImageUrl:"",twitterCard:"summary_large_image",twitterTitle:"",twitterDescription:"",twitterImageUrl:""},
+   updatedAt:new Date(0),updatedBy:"system"
+  });
+  const readIdentity=async()=>{
+   const saved=await identityCollection.findOne({key:"global"},{projection:{_id:0}});
+   return saved??defaultIdentity();
+  };
+  const cleanText=(value:unknown,max:number):string=>typeof value==="string"?value.trim().slice(0,max):"";
+  const cleanUrl=(value:unknown):string=>{
+   const raw=cleanText(value,2048);if(!raw)return "";
+   try{const parsed=new URL(raw);return ["https:","http:"].includes(parsed.protocol)?parsed.toString():"";}catch{return "";}
+  };
+  const normalizeIdentity=(body:any,actorId:string):PlatformIdentity=>{
+   const base=defaultIdentity();
+   const brand=body?.brand??{},assets=body?.assets??{},seo=body?.seo??{};
+   const keywords=Array.isArray(seo.keywords)?seo.keywords.slice(0,20).map((v:unknown)=>cleanText(v,60)).filter(Boolean):[];
+   return {key:"global",
+    brand:{platformName:cleanText(brand.platformName,120)||base.brand.platformName,pageTitle:cleanText(brand.pageTitle,180),tagline:cleanText(brand.tagline,180),description:cleanText(brand.description,1000),legalName:cleanText(brand.legalName,180),websiteUrl:cleanUrl(brand.websiteUrl),contactEmail:cleanText(brand.contactEmail,254),copyright:cleanText(brand.copyright,180)},
+    assets:{primaryLogoUrl:cleanUrl(assets.primaryLogoUrl),secondaryLogoUrl:cleanUrl(assets.secondaryLogoUrl),brandMarkUrl:cleanUrl(assets.brandMarkUrl),faviconUrl:cleanUrl(assets.faviconUrl),appleTouchIconUrl:cleanUrl(assets.appleTouchIconUrl),socialImageUrl:cleanUrl(assets.socialImageUrl),loginLogoUrl:cleanUrl(assets.loginLogoUrl)},
+    seo:{title:cleanText(seo.title,180),description:cleanText(seo.description,320),keywords,canonicalUrl:cleanUrl(seo.canonicalUrl),robotsIndex:seo.robotsIndex!==false,robotsFollow:seo.robotsFollow!==false,openGraphTitle:cleanText(seo.openGraphTitle,180),openGraphDescription:cleanText(seo.openGraphDescription,320),openGraphImageUrl:cleanUrl(seo.openGraphImageUrl),twitterCard:seo.twitterCard==="summary"?"summary":"summary_large_image",twitterTitle:cleanText(seo.twitterTitle,180),twitterDescription:cleanText(seo.twitterDescription,320),twitterImageUrl:cleanUrl(seo.twitterImageUrl)},
+    updatedAt:new Date(),updatedBy:actorId
+   };
+  };
+  ctx.server.get("/public/platform-identity",async()=>{
+   const identity=await readIdentity();
+   return {brand:identity.brand,assets:identity.assets,seo:identity.seo};
+  });
+  ctx.server.get("/platform/identity",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const identity=await readIdentity();
+   const {_id,...safe}=identity as PlatformIdentity & {_id?:unknown};
+   return safe;
+  });
+  ctx.server.put<{Body:Record<string,unknown>}>("/platform/identity",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const identity=normalizeIdentity(req.body,actor.id);
+   await identityCollection.updateOne({key:"global"},{$set:identity}, {upsert:true});
+   await recordPlatformAudit({actorId:actor.id,action:"platform.identity.updated",resourceType:"platform_identity",metadata:{updatedAt:identity.updatedAt.toISOString()}});
+   const {_id,...safe}=identity as PlatformIdentity & {_id?:unknown};
+   return {success:true,identity:safe};
+  });
   ctx.server.get("/platform/audit-events",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const page=Number((req.query as any)?.page??1),limit=Number((req.query as any)?.limit??25);
