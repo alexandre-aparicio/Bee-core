@@ -11,7 +11,7 @@ on:
       - "apps/web/Dockerfile"
       - "src/**"
   push:
-    branches: [main]
+    branches: [main, fix/compose-mongodb-authenticated-backup]
     paths:
       - "docker-compose.yml"
       - "docker-compose.prod.yml"
