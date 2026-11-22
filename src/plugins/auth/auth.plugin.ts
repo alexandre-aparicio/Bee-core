@@ -363,7 +363,7 @@ export const authPlugin:BeePlugin={
    raw.on("close",()=>{clearInterval(heartbeat);closeSubscriber();});
    return reply;
   });
-  ctx.server.addHook("onClose",async()=>{await mongo.close();});
+  ctx.server.addHook("onClose",async()=>{for(const subscribers of templateSubscribers.values())for(const subscriber of subscribers){subscriber.release();if(!subscriber.response.destroyed)subscriber.response.end();}templateSubscribers.clear();templateStreamTickets.clear();await mongo.close();});
   ctx.logger.info("Auth plugin initialized",{clients:validClients,persistence:"mongodb",refreshRotation:true,platformSuperadminBootstrap:Boolean(adminEmail&&adminPassword)});
  }
 };
