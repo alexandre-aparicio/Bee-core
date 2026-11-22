@@ -1,5 +1,5 @@
 import type { BeePlugin } from "../../core/types.js";
-import { MongoClient, type Db, type Collection } from "mongodb";
+import { type Db, type Collection } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { resolveTenantContext, type TenantClaims } from "../../core/tenant-context.js";
 import { BoundedTicketStore, realtimeConnectionLimiterFor } from "../../core/realtime-limits.js";
@@ -11,8 +11,7 @@ const safeRoute=(value:unknown)=>typeof value==="string"&&/^\/(?!\/)[^\\\s]*$/.t
 export const notificationsPlugin:BeePlugin={
  manifest:{name:"notifications",version:"0.1.0",description:"Tenant-safe notifications and realtime WebSocket delivery",dependencies:["auth"]},
  async initialize(ctx){
-  const mongo=new MongoClient(String(ctx.config.mongoUri??""),{maxPoolSize:5,serverSelectionTimeoutMS:10000});
-  await mongo.connect();const db:Db=mongo.db(String(ctx.config.mongoDbName??"bee_core"));
+  const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const collection:Collection<NotificationRecord>=db.collection("notifications");
   await Promise.all([collection.createIndex({userId:1,tenantId:1,createdAt:-1},{name:"notifications_user_tenant_created"}),collection.createIndex({userId:1,tenantId:1,readAt:1},{name:"notifications_user_tenant_read"}),collection.createIndex({expiresAt:1},{expireAfterSeconds:0,sparse:true,name:"notifications_ttl"})]);
   const tickets=new BoundedTicketStore<RealtimeTicket>(5_000,30_000);
@@ -55,7 +54,7 @@ export const notificationsPlugin:BeePlugin={
   });
   const onRequest=ctx.events.on("notification.request",async(payload:any)=>{if(!payload||typeof payload!=="object")return;const userId=String(payload.userId??""),tenantId=String(payload.tenantId??"");await createNotification({userId,tenantId,title:String(payload.title??""),message:String(payload.message??""),type:payload.type,category:payload.category,priority:payload.priority,action:payload.action,metadata:payload.metadata});});
   const onLogin=ctx.events.on("auth.login",async(payload:any)=>{if(!payload?.userId)return;const user=await db.collection<{id:string;tenantId?:string}>("users").findOne({id:String(payload.userId)});if(!user?.tenantId)return;await createNotification({userId:user.id,tenantId:user.tenantId,title:"New sign-in",message:"A new session was started for your account.",type:"auth.login",category:"security",priority:"low"});});
-  ctx.server.addHook("onClose",async()=>{onRequest();onLogin();for(const c of clients){c.release();c.socket.close(1001,"Server shutting down");}clients.clear();tickets.clear();await mongo.close();});
+  ctx.server.addHook("onClose",async()=>{onRequest();onLogin();for(const c of clients){c.release();c.socket.close(1001,"Server shutting down");}clients.clear();tickets.clear();});
   ctx.logger.info("Notifications and realtime WebSocket initialized",{websocket:"/realtime",storage:"mongodb"});
  }
 };
