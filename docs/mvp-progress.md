@@ -27,7 +27,7 @@ The target is a reproducible Docker-installable MVP, not a security-certified pu
 
 - [ ] Backend typecheck, build, MongoDB integration tests and production dependency audit pass on the exact release candidate.
 - [ ] Angular production build and browser acceptance tests pass on the exact release candidate.
-- [ ] Production Compose workflow passes on the exact release candidate, including host-port isolation, clean stack startup, API/web health and persistence across service restarts.
+- [ ] Production Compose workflow passes on the exact release candidate, including host-port isolation, clean stack startup, API/web health, MongoDB persistence and private-file volume upload/download across service restarts.
 - [ ] Clean installation from empty Docker volumes is repeated using only the documented .env and Compose commands.
 - [ ] Authenticated MongoDB backup and isolated restore round-trip pass. The unauthenticated backup/restore commands in the current main workflow are being corrected in PR #76; do not mark this gate complete until its Compose workflow passes.
 - [ ] Cross-company organization access denials are recorded only in the actor's active tenant; regression implementation is in PR #74 and needs CI.
