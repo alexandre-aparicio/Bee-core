@@ -6,16 +6,71 @@ styles:[`.bee-notify{position:relative;display:inline-flex}.bee-notify-trigger{p
 })
 export class BeeNotificationCenterComponent implements OnChanges,OnDestroy{
  @Input() accessToken='';@Input() tenantId='';
- unread=0;items:NotificationItem[]=[];open=false;loading=false;error="";socket?:WebSocket;retry?:ReturnType<typeof setTimeout>;stopped=false;
- ngOnChanges(changes:SimpleChanges){if(changes['accessToken']||changes['tenantId']){this.closeSocket();this.stopped=false;if(this.accessToken){void this.load();this.connect();}}}
- ngOnDestroy(){this.stopped=true;this.closeSocket();}
+ unread=0;items:NotificationItem[]=[];open=false;loading=false;error="";
+ socket?:WebSocket;retry?:ReturnType<typeof setTimeout>;stopped=true;private connectionGeneration=0;
+ ngOnChanges(changes:SimpleChanges){
+  if(changes['accessToken']||changes['tenantId']){
+   this.stopConnection();
+   if(this.accessToken){this.stopped=false;void this.load();void this.connect();}
+  }
+ }
+ ngOnDestroy(){this.stopConnection();}
  toggle(){this.open=!this.open;if(this.open)void this.load();}
  async load(){if(!this.accessToken)return;this.loading=true;this.error='';try{const [list,count]=await Promise.all([fetch('/api/notifications?limit=30',{headers:{authorization:'Bearer '+this.accessToken}}),fetch('/api/notifications/unread-count',{headers:{authorization:'Bearer '+this.accessToken}})]);if(!list.ok||!count.ok)throw new Error('Notifications are unavailable');const data=await list.json(),countData=await count.json();this.items=data.notifications??[];this.unread=Number(countData.count)||0;}catch{this.error='Unable to load notifications. Please refresh and try again.';}finally{this.loading=false;}}
  async markRead(item:NotificationItem){if(item.readAt)return;try{const response=await fetch('/api/notifications/'+encodeURIComponent(item.id)+'/read',{method:'PATCH',headers:{authorization:'Bearer '+this.accessToken}});if(!response.ok)throw new Error('Mark read failed');item.readAt=new Date();this.unread=Math.max(0,this.unread-1);}catch{this.error='Could not mark this notification as read.';}}
  async markAll(){try{const r=await fetch('/api/notifications/read-all',{method:'PATCH',headers:{authorization:'Bearer '+this.accessToken}});if(!r.ok)throw new Error('Mark all read failed');this.items=this.items.map(i=>({...i,readAt:i.readAt??new Date()}));this.unread=0;this.error='';}catch{this.error='Could not mark notifications as read.';}}
  openItem(item:NotificationItem){void this.markRead(item);if(item.action?.route){window.location.assign(item.action.route);}else this.open=false;}
  time(value:Date|string){return new Date(value).toLocaleString();}
- async connect(){if(this.stopped||!this.accessToken)return;try{const ticketResponse=await fetch('/api/notifications/realtime-ticket',{method:'POST',headers:{authorization:'Bearer '+this.accessToken}});if(!ticketResponse.ok)throw new Error('Ticket request failed');const data=await ticketResponse.json();if(typeof data.ticket!=='string'||!data.ticket)throw new Error('Ticket missing');const wsUrl=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/api/realtime?ticket='+encodeURIComponent(data.ticket);const socket=new WebSocket(wsUrl);this.socket=socket;socket.onmessage=(event)=>{try{const message=JSON.parse(event.data);if(message.type==='notification:new'){this.unread+=1;if(this.open)void this.load();}}catch{}};socket.onclose=()=>this.scheduleRetry();socket.onerror=()=>socket.close();}catch{this.scheduleRetry();}}
- scheduleRetry(){if(this.stopped||this.retry)return;this.retry=setTimeout(()=>{this.retry=undefined;void this.connect();},5000);}
- closeSocket(){if(this.retry){clearTimeout(this.retry);this.retry=undefined;}if(this.socket){this.socket.onclose=null;this.socket.close();this.socket=undefined;}}
+ private isCurrent(generation:number):boolean{return !this.stopped&&generation===this.connectionGeneration;}
+ async connect(){
+  if(this.stopped||!this.accessToken)return;
+  const generation=this.connectionGeneration;
+  try{
+   // A single-use ticket is fetched for every initial connection and every retry.
+   const ticketResponse=await fetch('/api/notifications/realtime-ticket',{method:'POST',headers:{authorization:'Bearer '+this.accessToken}});
+   if(!ticketResponse.ok)throw new Error('Ticket request failed');
+   const data=await ticketResponse.json();
+   // The component may have been destroyed or its auth/tenant input replaced while awaiting the ticket.
+   if(!this.isCurrent(generation))return;
+   if(typeof data.ticket!=='string'||!data.ticket)throw new Error('Ticket missing');
+   const wsUrl=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/api/realtime?ticket='+encodeURIComponent(data.ticket);
+   const socket=new WebSocket(wsUrl);
+   this.socket=socket;
+   socket.onopen=()=>{
+    if(!this.isCurrent(generation)){socket.close();return;}
+   };
+   socket.onmessage=(event)=>{
+    if(!this.isCurrent(generation))return;
+    try{const message=JSON.parse(event.data);if(message.type==='notification:new'){this.unread+=1;if(this.open)void this.load();}}catch{}
+   };
+   socket.onclose=()=>{
+    if(this.socket===socket)this.socket=undefined;
+    if(this.isCurrent(generation))this.scheduleRetry(generation);
+   };
+   socket.onerror=()=>socket.close();
+  }catch{
+   if(this.isCurrent(generation))this.scheduleRetry(generation);
+  }
+ }
+ private scheduleRetry(generation:number){
+  if(!this.isCurrent(generation)||this.retry)return;
+  this.retry=setTimeout(()=>{this.retry=undefined;if(this.isCurrent(generation))void this.connect();},5000);
+ }
+ private stopConnection(){
+  this.stopped=true;
+  this.connectionGeneration++;
+  if(this.retry){clearTimeout(this.retry);this.retry=undefined;}
+  const socket=this.socket;
+  this.socket=undefined;
+  if(socket){
+   socket.onclose=null;
+   socket.onerror=null;
+   if(socket.readyState===WebSocket.CONNECTING){
+    // A CONNECTING socket cannot be relied on to close immediately in every browser.
+    socket.onopen=()=>socket.close();
+   }else if(socket.readyState===WebSocket.OPEN){
+    socket.close(1000,'Notification component stopped');
+   }
+  }
+ }
 }
