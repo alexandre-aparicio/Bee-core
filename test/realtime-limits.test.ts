@@ -39,10 +39,14 @@ test("realtime connections enforce independent IP and user limits", () => {
   const otherUser = limiter.tryAcquire("192.0.2.10", "user-b");
   assert.ok(otherUser);
   assert.equal(limiter.tryAcquire("192.0.2.10", "user-c"), null, "per-IP limit must apply");
-  assert.ok(limiter.tryAcquire("192.0.2.11", "user-c"), "a different IP has an independent IP quota");
+  const otherIp = limiter.tryAcquire("192.0.2.11", "user-c");
+  assert.ok(otherIp, "a different IP has an independent IP quota");
+  otherIp();
   first();
   first();
-  assert.ok(limiter.tryAcquire("192.0.2.10", "user-a"), "release must be idempotent and free both quotas");
+  const reacquired = limiter.tryAcquire("192.0.2.10", "user-a");
+  assert.ok(reacquired, "release must be idempotent and free both quotas");
+  reacquired();
   otherUser!();
 });
 
