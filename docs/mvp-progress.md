@@ -465,3 +465,10 @@ PR #59 has been integrated into `main` at `dc1e16e94f63965a807ca57771fdc6c2b5dc4
 - Owner/admin can manage mailboxes and send; manager can read/send; member is read-only. Server-side tenant context remains authoritative.
 - MIME decoding, attachments, OAuth2, robust protocol parsing, IMAP UID cursor tracking, retries/queues and provider compatibility tests remain outstanding.
 - Build, automated CI, live SMTP/IMAP/POP3 provider tests and a dedicated security review must pass before production use. No GitHub Actions runs or commit statuses were available for the refreshed PR head or merge commit at integration time. Do not treat this feature as validated until backend/Angular/Compose CI, live provider tests and security review pass.
+
+
+## VPS build feedback — tenant mail request-body typing (2026-11-22)
+
+- The user's Docker build reached the backend TypeScript compilation and failed in `src/plugins/mail/mail.plugin.ts` because Fastify request bodies for the create-account, update-account and send-mail handlers were inferred as `{}`. This produced missing-property diagnostics for mailbox fields and message fields, plus string-indexing errors in the account update handler.
+- Added explicit request-body record types and local casts for those three handlers. The route handlers retain their existing runtime validation, tenant checks, permissions and persistence behavior; this change only makes the unvalidated incoming JSON shape explicit to TypeScript.
+- Fix committed on `fix/mail-plugin-request-body-types`. No local build, tests, Docker build or VPS verification were run from this GitHub-only environment. A successful CI run and a fresh VPS `docker compose up -d --build` are still required before considering the compile failure resolved.
