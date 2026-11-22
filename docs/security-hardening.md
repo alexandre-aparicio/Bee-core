@@ -40,6 +40,8 @@ The dependency migration and lockfile regeneration require executing the Angular
 
 The backend work on `security/hardening-92` addresses the remaining refresh-session and realtime resource-exhaustion gaps:
 
+The initial hardening baseline (bounded ticket stores, shared connection quotas, refresh-reuse detection and platform MFA guard) is already present on `main` at `f60bc0c4342b93a106d41b09abacd78558beba74`. This branch was synchronized with that main head and contains the follow-up refinements below; it remains unmerged.
+
 - Refresh rotation stores up to 4,096 previously rotated token hashes on the session-family record. Reuse of any retained hash revokes that session family, invalidates access tokens bound to its session ID, clears the dashboard refresh cookie and returns HTTP 401. The event is written as `auth.refresh.reuse` with a denied outcome.
 - The history limit is fail-closed: once the history reaches 4,096 entries, the session is revoked and `auth.refresh.limit` is audited instead of silently dropping older hashes.
 - Both template stream-ticket and notification realtime-ticket stores have a 5,000-entry cap, a 30-second lifetime, single-use consumption and indexed-heap expiry cleanup. Cleanup does not scan the full ticket Map on each request; heap operations are logarithmic.
