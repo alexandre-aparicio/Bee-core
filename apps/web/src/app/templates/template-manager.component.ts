@@ -73,7 +73,7 @@ import type { BeeTemplateTarget } from './template.types';
       <div class="bee-template-manager__catalog">
           <strong>Available template packages</strong>
           <p>Install a trusted template package before selecting it. Each template owns its predefined visual identity and supported appearance modes.</p>
-          @if (!engine.canManageTemplates) { <p class="bee-template-manager__message">Package installation and removal require the tenant admin role. The catalog is shown for reference.</p> }
+          @if (!engine.canManageTemplates) { <p class="bee-template-manager__message">Template options are available to tenant administrators and platform superadministrators.</p> }
           @for (item of engine.catalog(target === 'all' ? undefined : target); track item.id) {
             <div class="bee-template-package">
               <div>
