@@ -166,7 +166,7 @@ export const authPlugin:BeePlugin={
    const tenantId=current.session.tenantId??current.user.tenantId??defaultTenantId;
    const membership=await db.collection("memberships").findOne({userId:current.user.id,tenantId,status:"active"});
    const role=String(membership?.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
-   await auditAuthEvent({tenantId,actorId:current.user.id,action:"auth.login",outcome:"success",metadata:{client:"dashboard",mfa:"enrolled"}});
+   await auditAuthEvent({tenantId,actorId:current.user.id,action:"auth.mfa.enrolled",outcome:"success",metadata:{client:"dashboard"}});
    return {success:true,accessToken:issue({...current.user,roles}, "dashboard",tenantId,current.session.id,current.session.expiresAt),expiresIn:1200,platformRole:"superadmin",recoveryCodes};
   });
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
