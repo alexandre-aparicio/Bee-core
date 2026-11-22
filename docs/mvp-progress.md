@@ -491,3 +491,18 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Updated the superadmin navigation allow-list in `apps/web/src/app/app.component.ts` to include the existing `settings` menu entry. The previous filter explicitly removed Settings even though `settingsNavigationItems` already grants superadmins all eight Settings sections.
 - The change is limited to frontend menu visibility; it does not broaden backend authorization or change the permissions of other roles.
 - Based on current `main` commit `881138bef1c377c71d22f4d7105bfe0d38acdb53`. No Angular build, automated tests, browser verification or VPS deployment test was run in this GitHub-only environment.
+
+
+## Session, MFA and realtime resource hardening — 2026-11-22
+
+Work is in progress on `security/hardening-92`, based on the current `main` lineage. This branch now includes:
+
+- Refresh-token replay detection using retained hashes on each refresh-session family. A replay revokes the family, makes its session-bound access tokens unusable, clears the dashboard cookie and records `auth.refresh.reuse`. A 4,096-rotation ceiling revokes and audits the session rather than discarding older replay hashes.
+- Bounded, single-use 30-second ticket stores (5,000 entries each) for `/templates/public-stream-ticket`, `/templates/stream-ticket` and `/notifications/realtime-ticket`, with indexed-heap expiry cleanup instead of a full Map scan per request.
+- Shared SSE/WebSocket connection quotas per Fastify process: 20 per IP, 5 per authenticated user and 1,000 aggregate connections. Connection slots are released on disconnect, error and shutdown.
+- Superadmins without active MFA enrollment cannot use tenant/business routes. Platform-admin routes require an encrypted MFA enrollment and verification within 15 minutes; MFA denials and sensitive platform mutations are audited.
+- Added tests for ticket capacity/expiry/churn, per-IP/per-user/global connection quotas, refresh-token replay and history exhaustion, superadmin MFA enrollment/freshness/auditing, SSE per-user limits, and a public ticket flood/RSS bound.
+
+**Validation is still pending.** These code and test changes have been written to GitHub, but no local TypeScript check, test suite, MongoDB integration run or load test has been executed from this environment. Do not mark the acceptance criteria complete until `npm run check` and `MONGODB_TEST_URI=... npm test` pass locally.
+
+Residual deployment considerations: set `TRUST_PROXY` only to the immediate trusted proxy's private address/CIDR for real client-IP quotas; current ticket stores and connection counters are per process (not cluster-wide); and audit persistence helpers report write failures to logs but do not fail closed. See `docs/security-hardening.md` for the exact verification commands and operational constraints.
