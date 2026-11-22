@@ -5,7 +5,8 @@
   "scripts": {
     "start": "ng serve --host 0.0.0.0",
     "build": "ng build",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "audit:production": "npm audit --omit=dev"
   },
   "dependencies": {
     "@angular/common": "19.2.15",
