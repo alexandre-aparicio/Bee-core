@@ -44,7 +44,7 @@ The backend work on `security/hardening-92` addresses the remaining refresh-sess
 - The history limit is fail-closed: once the history reaches 4,096 entries, the session is revoked and `auth.refresh.limit` is audited instead of silently dropping older hashes.
 - Both template stream-ticket and notification realtime-ticket stores have a 5,000-entry cap, a 30-second lifetime, single-use consumption and indexed-heap expiry cleanup. Cleanup does not scan the full ticket Map on each request; heap operations are logarithmic.
 - SSE and WebSocket transports share one per-Fastify-server limiter: 20 concurrent connections per IP, 5 per authenticated user and 1,000 total. Tickets are bound to the issuing IP; counters are released on close, error and shutdown.
-- Superadministrators without an enrolled encrypted MFA secret are denied tenant/business routes. The MFA setup and confirmation routes remain available for enrollment. Platform administration checks both active enrollment and MFA verification within the previous 15 minutes; MFA denials and existing sensitive platform mutations are audited.
+- Superadministrators without an enrolled encrypted MFA secret or an MFA-verified session are denied tenant/business routes. The MFA setup and confirmation routes remain available for enrollment. Platform administration checks active enrollment and MFA verification within the previous 15 minutes; MFA denials and existing sensitive platform mutations are audited.
 
 ### Local verification
 
