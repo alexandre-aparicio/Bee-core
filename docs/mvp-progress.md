@@ -484,3 +484,10 @@ PR #59 has been integrated into `main` at `dc1e16e94f63965a807ca57771fdc6c2b5dc4
 ## Frontend dependency security hardening (2026-11-22)
 
 Work is tracked on `security/hardening-92`, which was fast-forwarded to the then-current `main` before these branch-only changes. Added `npm run audit:production` in `apps/web/package.json` and documented the remediation acceptance gate in `docs/security-hardening.md`. This is process hardening only: Angular remains pinned to 19.2.15 and the lockfile has not been regenerated. No npm audit, production build, Playwright run or browser verification has been executed in this environment. Therefore the frontend dependency-security item remains **open** and is not counted as completed progress.
+
+
+## Superadmin Settings navigation fix (2026-11-22)
+
+- Updated the superadmin navigation allow-list in `apps/web/src/app/app.component.ts` to include the existing `settings` menu entry. The previous filter explicitly removed Settings even though `settingsNavigationItems` already grants superadmins all eight Settings sections.
+- The change is limited to frontend menu visibility; it does not broaden backend authorization or change the permissions of other roles.
+- Based on current `main` commit `881138bef1c377c71d22f4d7105bfe0d38acdb53`. No Angular build, automated tests, browser verification or VPS deployment test was run in this GitHub-only environment.
