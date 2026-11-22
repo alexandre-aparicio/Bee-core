@@ -11,7 +11,7 @@ on:
       - "apps/web/Dockerfile"
       - "src/**"
   push:
-    branches: [main]
+    branches: [main, fix/compose-mongodb-authenticated-backup]
     paths:
       - "docker-compose.yml"
       - "docker-compose.prod.yml"
@@ -36,6 +36,11 @@ jobs:
           sed -i 's|^AUTH_ADMIN_EMAIL=.*|AUTH_ADMIN_EMAIL=ci-admin@example.test|' .env
           sed -i 's|^AUTH_ADMIN_PASSWORD=.*|AUTH_ADMIN_PASSWORD=CI-Admin-Password-2026!|' .env
           sed -i 's|^BEE_MAIL_ENCRYPTION_KEY=.*|BEE_MAIL_ENCRYPTION_KEY='"$(openssl rand -hex 32)"'|' .env
+          sed -i 's|^AUTH_MFA_ENCRYPTION_KEY=.*|AUTH_MFA_ENCRYPTION_KEY='"$(openssl rand -base64 32)"'|' .env
+          sed -i 's|^MONGO_ROOT_PASSWORD=.*|MONGO_ROOT_PASSWORD='"$(openssl rand -hex 32)"'|' .env
+          sed -i 's|^MONGO_APP_PASSWORD=.*|MONGO_APP_PASSWORD='"$(openssl rand -hex 32)"'|' .env
+          sed -i 's|^BEE_BILLING_WEBHOOK_SECRET=.*|BEE_BILLING_WEBHOOK_SECRET='"$(openssl rand -hex 32)"'|' .env
+          sed -i 's|^PUBLIC_BASE_DOMAIN=.*|PUBLIC_BASE_DOMAIN=127.0.0.1|' .env
           sed -i 's|^BEE_WEB_PORT=.*|BEE_WEB_PORT=18080|' .env
           chmod 600 .env
 
@@ -69,22 +74,35 @@ jobs:
           docker volume ls --format '{{.Name}}' | grep 'bee_core_mongodb_data'
           docker volume ls --format '{{.Name}}' | grep 'bee_core_files'
 
-      - name: Verify authentication and MongoDB persistence across restart
+      - name: Verify authentication, refresh-cookie rotation and private-file persistence across restart
         run: |
-          login_response=$(curl -fsS -X POST http://127.0.0.1:18080/api/auth/login \
+          set -euo pipefail
+          cookie_jar="$RUNNER_TEMP/bee-cookies.txt"
+          login_response=$(curl -fsS -c "$cookie_jar" -X POST http://127.0.0.1:18080/api/auth/login \
             -H 'Content-Type: application/json' \
             -d '{"email":"ci-admin@example.test","password":"CI-Admin-Password-2026!","client":"dashboard"}')
-          refresh_token=$(printf '%s' "$login_response" | jq -er '.refreshToken')
-          test -n "$refresh_token"
+          access_token=$(printf '%s' "$login_response" | jq -er '.accessToken')
+          cookie_before=$(awk '$6 == "bee_refresh" {print $7}' "$cookie_jar")
+          test -n "$access_token"
+          test -n "$cookie_before"
+
+          printf 'Bee-Core private volume persistence probe\\n' > "$RUNNER_TEMP/bee-file-probe.txt"
+          file_response=$(curl -fsS -X POST http://127.0.0.1:18080/api/files \
+            -H "Authorization: Bearer $access_token" \
+            -H 'Content-Type: application/octet-stream' \
+            -H 'X-File-Content-Type: text/plain' \
+            -H 'X-File-Name: persistence-probe.txt' \
+            --data-binary @"$RUNNER_TEMP/bee-file-probe.txt")
+          file_id=$(printf '%s' "$file_response" | jq -er '.file.id')
 
           docker compose -f docker-compose.yml -f docker-compose.prod.yml restart mongodb
           for attempt in $(seq 1 30); do
-            if docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1; then
+            if docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval 'db.adminCommand("ping").ok' | grep -q 1; then
               break
             fi
             sleep 2
           done
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval 'db.adminCommand("ping").ok' | grep -q 1
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval 'db.adminCommand("ping").ok' | grep -q 1
 
           docker compose -f docker-compose.yml -f docker-compose.prod.yml restart bee-core
           for attempt in $(seq 1 60); do
@@ -94,18 +112,30 @@ jobs:
             sleep 2
           done
 
-          refreshed=$(curl -fsS -X POST http://127.0.0.1:18080/api/auth/refresh \
-            -H 'Content-Type: application/json' \
-            -d "$(jq -nc --arg token "$refresh_token" '{refreshToken:$token}')")
-          printf '%s' "$refreshed" | jq -e '.accessToken and .refreshToken' >/dev/null
+          refreshed=$(curl -fsS -b "$cookie_jar" -c "$cookie_jar" -X POST http://127.0.0.1:18080/api/auth/refresh \
+            -H 'Content-Type: application/json' -d '{}')
+          refreshed_access_token=$(printf '%s' "$refreshed" | jq -er '.accessToken')
+          cookie_after=$(awk '$6 == "bee_refresh" {print $7}' "$cookie_jar")
+          test -n "$refreshed_access_token"
+          test -n "$cookie_after"
+          test "$cookie_before" != "$cookie_after"
+          curl -fsS http://127.0.0.1:18080/api/files/"$file_id" \
+            -H "Authorization: Bearer $refreshed_access_token" \
+            -o "$RUNNER_TEMP/bee-file-probe-restored.txt"
+          cmp -s "$RUNNER_TEMP/bee-file-probe.txt" "$RUNNER_TEMP/bee-file-probe-restored.txt"
+          curl -fsS -X DELETE http://127.0.0.1:18080/api/files/"$file_id" \
+            -H "Authorization: Bearer $refreshed_access_token" >/dev/null
 
       - name: Verify MongoDB backup and restore round-trip
         run: |
           set -euo pipefail
-          db_name=$(grep '^MONGODB_DB=' .env | cut -d= -f2)
-          db_name=${db_name:-bee_core}
+          set -a
+          . ./.env
+          set +a
+          db_name=${MONGODB_DB:-bee_core}
           restore_db="${db_name}_restore_ci"
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval "db.getSiblingDB('${db_name}').backup_restore_probe.replaceOne({_id:'ci-roundtrip'},{_id:'ci-roundtrip',verified:true},{upsert:true})"
+          mongo_auth=(--username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin)
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet "${mongo_auth[@]}" --eval "db.getSiblingDB('${db_name}').backup_restore_probe.replaceOne({_id:'ci-roundtrip'},{_id:'ci-roundtrip',verified:true},{upsert:true})"
           mongodb_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)
           network=$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
           test -n "$network"
@@ -117,10 +147,29 @@ jobs:
           tools_dir="$RUNNER_TEMP/mongodb-database-tools-ubuntu2204-x86_64-${tools_version}/bin"
           test -x "$tools_dir/mongodump"
           test -x "$tools_dir/mongorestore"
-          docker run --rm --network "$network" -v "$RUNNER_TEMP/bee-backups:/backup" -v "$tools_dir:/tools:ro" ubuntu:22.04 /tools/mongodump --uri="mongodb://mongodb:27017/${db_name}" --archive=/backup/bee-core.archive --gzip
-          docker run --rm --network "$network" -v "$RUNNER_TEMP/bee-backups:/backup" -v "$tools_dir:/tools:ro" ubuntu:22.04 /tools/mongorestore --uri="mongodb://mongodb:27017/${restore_db}" --archive=/backup/bee-core.archive --gzip --nsInclude="${db_name}.*" --nsFrom="${db_name}.*" --nsTo="${restore_db}.*"
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval "const restored=db.getSiblingDB('${restore_db}'); const probe=restored.backup_restore_probe.findOne({_id:'ci-roundtrip'}); if(!probe || probe.verified !== true) throw new Error('Backup restore verification failed'); print('PASS MongoDB backup/restore round-trip');"
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --eval "db.getSiblingDB('${restore_db}').dropDatabase()"
+          docker run --rm --network "$network" -e MONGO_ROOT_USERNAME -e MONGO_ROOT_PASSWORD -e MONGODB_DB -v "$RUNNER_TEMP/bee-backups:/backup" -v "$tools_dir:/tools:ro" ubuntu:22.04 bash -euc '
+            /tools/mongodump --host mongodb:27017 --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --db "$MONGODB_DB" --archive=/backup/bee-core.archive --gzip
+          '
+          docker run --rm --network "$network" -e MONGO_ROOT_USERNAME -e MONGO_ROOT_PASSWORD -e MONGODB_DB -e RESTORE_DB="$restore_db" -v "$RUNNER_TEMP/bee-backups:/backup" -v "$tools_dir:/tools:ro" ubuntu:22.04 bash -euc '
+            /tools/mongorestore --host mongodb:27017 --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --archive=/backup/bee-core.archive --gzip --nsInclude="$MONGODB_DB.*" --nsFrom="$MONGODB_DB.*" --nsTo="$RESTORE_DB.*"
+          '
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet "${mongo_auth[@]}" --eval "const restored=db.getSiblingDB('${restore_db}'); const probe=restored.backup_restore_probe.findOne({_id:'ci-roundtrip'}); if(!probe || probe.verified !== true) throw new Error('Backup restore verification failed'); print('PASS authenticated MongoDB backup/restore round-trip');"
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet "${mongo_auth[@]}" --eval "db.getSiblingDB('${restore_db}').dropDatabase()"
+
+          backend_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q bee-core)
+          files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+          test -n "$files_volume"
+          restore_files_volume="bee-core-files-restore-${GITHUB_RUN_ID}"
+          docker run --rm -v "$files_volume:/source" ubuntu:22.04 bash -euc '
+            mkdir -p /source/.mvp-backup-probe
+            printf "bee-core-files-roundtrip\\n" > /source/.mvp-backup-probe/sentinel.txt
+          '
+          docker run --rm -v "$files_volume:/source:ro" -v "$RUNNER_TEMP/bee-backups:/backup" ubuntu:22.04 tar -czf /backup/bee-core-files.tar.gz -C /source .
+          docker volume create "$restore_files_volume" >/dev/null
+          docker run --rm -v "$restore_files_volume:/target" -v "$RUNNER_TEMP/bee-backups:/backup:ro" ubuntu:22.04 tar -xzf /backup/bee-core-files.tar.gz -C /target
+          docker run --rm -v "$files_volume:/source:ro" -v "$restore_files_volume:/restored:ro" ubuntu:22.04 bash -euc 'diff -r /source /restored'
+          docker run --rm -v "$files_volume:/source" ubuntu:22.04 rm -rf /source/.mvp-backup-probe
+          docker volume rm "$restore_files_volume"
 
       - name: Collect diagnostics on failure
         if: failure()
@@ -130,4 +179,6 @@ jobs:
 
       - name: Tear down isolated stack
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
+        run: |
+          docker volume rm -f "bee-core-files-restore-${GITHUB_RUN_ID}" >/dev/null 2>&1 || true
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
