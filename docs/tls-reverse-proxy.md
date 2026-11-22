@@ -104,8 +104,12 @@ limit is exceeded:
 - Public and authenticated template stream-ticket issuance: 30 requests/minute with a burst
   of 10.
 
-These controls protect the proxy entry points; they are not account-wide counters and are
-not shared between independent Nginx replicas. If Nginx is behind a CDN or load balancer,
+The platform-admin API prefix and notification realtime-ticket endpoint are also covered.
+The notification and template realtime handlers additionally enforce bounded single-use
+server tickets and per-IP/per-user concurrent connection quotas.
+
+These HTTP controls protect proxy entry points; they are not account-wide login counters and
+are not shared between independent Nginx replicas. If Nginx is behind a CDN or load balancer,
 configure its real-IP module with only the provider's trusted source ranges, or all users
 may appear to originate from the same proxy address. Do not enable broad forwarded-header
 trust as a workaround. Account-level abuse detection and distributed rate limiting remain
