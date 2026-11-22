@@ -202,8 +202,8 @@ test('tenant admin can install and activate a trusted dashboard template package
   await manager.getByRole('button', { name: 'Discard' }).click();
   await expect(page.locator('[data-bee-layout="dashboard.midnight"]')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--midnight').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
-  await manager.getByLabel('Dashboard').selectOption('glass');
-  await manager.getByRole('button', { name: 'Apply template changes' }).click();
+  await manager.getByLabel('Dashboard template').selectOption('glass');
+  await manager.getByRole('button', { name: 'Apply template' }).click();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
 });
 
