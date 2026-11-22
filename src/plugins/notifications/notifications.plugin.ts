@@ -15,7 +15,7 @@ export const notificationsPlugin:BeePlugin={
   await mongo.connect();const db:Db=mongo.db(String(ctx.config.mongoDbName??"bee_core"));
   const collection:Collection<NotificationRecord>=db.collection("notifications");
   await Promise.all([collection.createIndex({userId:1,tenantId:1,createdAt:-1},{name:"notifications_user_tenant_created"}),collection.createIndex({userId:1,tenantId:1,readAt:1},{name:"notifications_user_tenant_read"}),collection.createIndex({expiresAt:1},{expireAfterSeconds:0,sparse:true,name:"notifications_ttl"})]);
-  const tickets=new BoundedTicketStore<RealtimeTicket>(5_000,30_000);
+  const tickets=new BoundedTicketStore<RealtimeTicket>(5_000,Number(ctx.config.realtimeTicketTtlMs??30_000));
   const connectionLimiter=realtimeConnectionLimiterFor(ctx.server);
   const clients=new Set<SocketClient>();
   const authContext=async(req:any,reply:any)=>{try{await req.jwtVerify();const claims=req.user as TenantClaims;const c=await resolveTenantContext(db,claims,{},String(ctx.config.sessionIdSecret??""));if(!c||c.client!=="dashboard"){reply.code(401).send({error:"Valid dashboard session required"});return null;}return c;}catch{reply.code(401).send({error:"Unauthorized"});return null;}};
