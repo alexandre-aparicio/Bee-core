@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
+import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
@@ -23,10 +24,15 @@ test("company plan user quota reserves capacity for active members and pending i
     { id: "quota-owner", email: "owner@quota.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "quota-company", createdAt: now, updatedAt: now },
     { id: "quota-member", email: "member@quota.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], createdAt: now, updatedAt: now }
   ]);
+  await db.collection("memberships").insertMany([
+    { id: "quota-membership-owner", userId: "quota-owner", tenantId: "quota-company", role: "owner", status: "active", createdAt: now, updatedAt: now },
+    { id: "quota-membership-member", userId: "quota-member", tenantId: "quota-company", role: "member", status: "active", createdAt: now, updatedAt: now }
+  ]);
   await seedPluginCommerce(db);
   await db.collection("plugin_plans").updateOne({ id: "starter" }, { $set: { maxUsers: 2 } });
 
   const app = Fastify();
+  app.register(jwt, { secret: "01234567890123456789012345678901" });
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
   const ctx: BeeContext = {
     appName: "Bee user quota test",

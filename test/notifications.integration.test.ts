@@ -30,6 +30,11 @@ test("notifications API enforces tenant isolation and read lifecycle", { skip: !
     { id: "notify-user-beta", email: "beta@notify.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "notify-beta", createdAt: now, updatedAt: now }
   ]);
 
+  await db.collection("memberships").insertMany([
+    { id: "notify-membership-alpha", userId: "notify-user-alpha", tenantId: "notify-alpha", role: "owner", status: "active", createdAt: now, updatedAt: now },
+    { id: "notify-membership-beta", userId: "notify-user-beta", tenantId: "notify-beta", role: "owner", status: "active", createdAt: now, updatedAt: now }
+  ]);
+
   const app = Fastify();
   const events = new BeeEventBus();
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };

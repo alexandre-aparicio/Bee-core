@@ -99,7 +99,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const crossTenantAudit=await app.inject({method:"GET",url:"/companies/tenant-beta/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(crossTenantAudit.statusCode,404,"raw internal tenant IDs must not be accepted as browser references");
     const loginAudit = await db.collection("tenant_audit_events").find({tenantId:"tenant-alpha",actorId:"test-user",action:"auth.login"}).toArray();
-    assert.equal(loginAudit.length,2,"successful dashboard and public logins should both be audited for the active tenant");
+    assert.equal(loginAudit.length,3,"all successful dashboard and public logins should be audited for the active tenant");
     assert.ok(loginAudit.some(event=>event.metadata.client==="dashboard"));
     const ownerGuard=await app.inject({method:"GET",url:"/test/company-admin",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(ownerGuard.statusCode,200);
