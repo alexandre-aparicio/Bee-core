@@ -8,6 +8,7 @@ export interface BeeTemplateManifest {
   version: string;
   target: BeeTemplateTarget;
   description: string;
+  previewUrl: string;
   builtIn: boolean;
   layout: string;
   componentId: string;
