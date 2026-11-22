@@ -111,8 +111,12 @@ jobs:
           exit 1
       - name: Verify backend and frontend run without unnecessary privileges
         run: |
-          test -z "$(docker compose -f docker-compose.yml -f docker-compose.prod.yml port bee-core 3000)"
-          test "$(docker exec bee-core-web id -u)" = "101"
+          backend_ports=$(docker inspect bee-core --format '{{json .NetworkSettings.Ports}}')
+          echo "Backend port bindings: $backend_ports"
+          echo "$backend_ports" | jq -e '."3000/tcp" == null'
+          web_uid=$(docker exec bee-core-web id -u)
+          echo "Frontend runtime UID: $web_uid"
+          test "$web_uid" -eq 101
           if curl --silent --show-error --connect-timeout 2 http://127.0.0.1:3000/health; then
             echo "Backend unexpectedly reachable from host"
             exit 1
