@@ -79,7 +79,18 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"email":"ci-admin@example.test","password":"CI-Admin-Password-2026!","client":"dashboard"}')
           refresh_token=$(printf '%s' "$login_response" | jq -er '.refreshToken')
+          access_token=$(printf '%s' "$login_response" | jq -er '.accessToken')
           test -n "$refresh_token"
+          test -n "$access_token"
+
+          printf 'Bee-Core private volume persistence probe\\n' > "$RUNNER_TEMP/bee-file-probe.txt"
+          file_response=$(curl -fsS -X POST http://127.0.0.1:18080/api/files \
+            -H "Authorization: Bearer $access_token" \
+            -H 'Content-Type: application/octet-stream' \
+            -H 'X-File-Content-Type: text/plain' \
+            -H 'X-File-Name: persistence-probe.txt' \
+            --data-binary @"$RUNNER_TEMP/bee-file-probe.txt")
+          file_id=$(printf '%s' "$file_response" | jq -er '.file.id')
 
           docker compose -f docker-compose.yml -f docker-compose.prod.yml restart mongodb
           for attempt in $(seq 1 30); do
@@ -101,7 +112,14 @@ jobs:
           refreshed=$(curl -fsS -X POST http://127.0.0.1:18080/api/auth/refresh \
             -H 'Content-Type: application/json' \
             -d "$(jq -nc --arg token "$refresh_token" '{refreshToken:$token}')")
+          refreshed_access_token=$(printf '%s' "$refreshed" | jq -er '.accessToken')
           printf '%s' "$refreshed" | jq -e '.accessToken and .refreshToken' >/dev/null
+          curl -fsS http://127.0.0.1:18080/api/files/"$file_id" \
+            -H "Authorization: Bearer $refreshed_access_token" \
+            -o "$RUNNER_TEMP/bee-file-probe-restored.txt"
+          cmp -s "$RUNNER_TEMP/bee-file-probe.txt" "$RUNNER_TEMP/bee-file-probe-restored.txt"
+          curl -fsS -X DELETE http://127.0.0.1:18080/api/files/"$file_id" \
+            -H "Authorization: Bearer $refreshed_access_token" >/dev/null
 
       - name: Verify MongoDB backup and restore round-trip
         run: |
