@@ -151,6 +151,21 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet "${mongo_auth[@]}" --eval "const restored=db.getSiblingDB('${restore_db}'); const probe=restored.backup_restore_probe.findOne({_id:'ci-roundtrip'}); if(!probe || probe.verified !== true) throw new Error('Backup restore verification failed'); print('PASS authenticated MongoDB backup/restore round-trip');"
           docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet "${mongo_auth[@]}" --eval "db.getSiblingDB('${restore_db}').dropDatabase()"
 
+          backend_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q bee-core)
+          files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+          test -n "$files_volume"
+          restore_files_volume="bee-core-files-restore-${GITHUB_RUN_ID}"
+          docker run --rm -v "$files_volume:/source" ubuntu:22.04 bash -euc '
+            mkdir -p /source/.mvp-backup-probe
+            printf "bee-core-files-roundtrip\\n" > /source/.mvp-backup-probe/sentinel.txt
+          '
+          docker run --rm -v "$files_volume:/source:ro" -v "$RUNNER_TEMP/bee-backups:/backup" ubuntu:22.04 tar -czf /backup/bee-core-files.tar.gz -C /source .
+          docker volume create "$restore_files_volume" >/dev/null
+          docker run --rm -v "$restore_files_volume:/target" -v "$RUNNER_TEMP/bee-backups:/backup:ro" ubuntu:22.04 tar -xzf /backup/bee-core-files.tar.gz -C /target
+          docker run --rm -v "$files_volume:/source:ro" -v "$restore_files_volume:/restored:ro" ubuntu:22.04 bash -euc 'diff -r /source /restored'
+          docker run --rm -v "$files_volume:/source" ubuntu:22.04 rm -rf /source/.mvp-backup-probe
+          docker volume rm "$restore_files_volume"
+
       - name: Collect diagnostics on failure
         if: failure()
         run: |
@@ -159,4 +174,6 @@ jobs:
 
       - name: Tear down isolated stack
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v
+        run: |
+          docker volume rm -f "bee-core-files-restore-${GITHUB_RUN_ID}" >/dev/null 2>&1 || true
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v

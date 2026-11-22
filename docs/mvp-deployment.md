@@ -114,7 +114,20 @@ docker run --rm --network "$network" \
   'exec mongodump --host=mongodb:27017 --username="$MONGO_ROOT_USERNAME" --password="$MONGO_ROOT_PASSWORD" --authenticationDatabase=admin --db="$MONGODB_DB" --archive="/backup/$BACKUP_FILE" --gzip'
 ```
 
-Copy backups off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery. The root credentials are passed to the short-lived tools container through its environment; restrict access to the Docker host and .env.
+
+
+Back up the private file volume as well. The database stores file metadata while the binary content lives in the separate bee_core_files Docker volume; these two backups must be retained together. Pause application writes while taking the pair for a consistent recovery point:
+
+```bash
+set -euo pipefail
+backend_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q bee-core)
+files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+: "${files_volume:?Could not resolve the Bee-Core private file volume}"
+docker run --rm -v "$files_volume:/source:ro" -v "$PWD/backups:/backup" ubuntu:22.04 \
+  tar -czf "/backup/bee_core_files-$(date +%F).tar.gz" -C /source .
+```
+
+Copy both the MongoDB archive and file-volume archive off-server, encrypt them, and apply the same retention policy. A backup on the same VPS is not sufficient disaster recovery. The root credentials are passed to the short-lived tools container through its environment; restrict access to the Docker host and .env.
 
 ## Restore drill
 
@@ -144,7 +157,21 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb 
   --eval "db.getSiblingDB('$restore_db').dropDatabase()"
 ```
 
-Verify application-critical collections and records in the restored database before considering the drill successful. The CI workflow exercises an authenticated sentinel-record round-trip; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
+Restore the private file archive into a separate named volume during the same drill:
+
+```bash
+restore_files_volume="bee_core_files_restore"
+docker volume create "$restore_files_volume"
+docker run --rm -v "$restore_files_volume:/target" -v "$PWD/backups:/backup:ro" ubuntu:22.04 \
+  tar -xzf /backup/bee_core_files-YYYY-MM-DD.tar.gz -C /target
+backend_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q bee-core)
+files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+docker run --rm -v "$files_volume:/source:ro" -v "$restore_files_volume:/restored:ro" ubuntu:22.04 \
+  bash -euc 'diff -r /source /restored'
+docker volume rm "$restore_files_volume"
+```
+
+For an actual recovery, stop Bee-Core before replacing the live file volume and restore the database and file archive from the same recovery point. Verify application-critical collections and records plus representative downloaded files before reopening writes. The CI workflow exercises authenticated MongoDB and private-file-volume round-trips; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
 
 ## Update
 
