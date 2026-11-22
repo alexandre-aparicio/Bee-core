@@ -118,18 +118,22 @@ export class BoundedTicketStore<T> {
 export class RealtimeConnectionLimiter {
   private readonly byIp = new Map<string, number>();
   private readonly byUser = new Map<string, number>();
+  private activeConnections = 0;
 
-  constructor(readonly perIpLimit = 20, readonly perUserLimit = 5) {
+  constructor(readonly perIpLimit = 20, readonly perUserLimit = 5, readonly globalLimit = 1_000) {
     if (!Number.isSafeInteger(perIpLimit) || perIpLimit < 1) throw new Error("perIpLimit must be a positive safe integer");
     if (!Number.isSafeInteger(perUserLimit) || perUserLimit < 1) throw new Error("perUserLimit must be a positive safe integer");
+    if (!Number.isSafeInteger(globalLimit) || globalLimit < 1) throw new Error("globalLimit must be a positive safe integer");
   }
 
   tryAcquire(ip: string, userId?: string): (() => void) | null {
     const ipKey = ip.trim() || "unknown";
     const userKey = userId?.trim();
+    if (this.activeConnections >= this.globalLimit) return null;
     if ((this.byIp.get(ipKey) ?? 0) >= this.perIpLimit) return null;
     if (userKey && (this.byUser.get(userKey) ?? 0) >= this.perUserLimit) return null;
 
+    this.activeConnections++;
     this.byIp.set(ipKey, (this.byIp.get(ipKey) ?? 0) + 1);
     if (userKey) this.byUser.set(userKey, (this.byUser.get(userKey) ?? 0) + 1);
 
@@ -137,6 +141,7 @@ export class RealtimeConnectionLimiter {
     return () => {
       if (released) return;
       released = true;
+      this.activeConnections--;
       this.decrement(this.byIp, ipKey);
       if (userKey) this.decrement(this.byUser, userKey);
     };
@@ -156,7 +161,7 @@ const serverLimiters = new WeakMap<object, RealtimeConnectionLimiter>();
 export function realtimeConnectionLimiterFor(server: object): RealtimeConnectionLimiter {
   let limiter = serverLimiters.get(server);
   if (!limiter) {
-    limiter = new RealtimeConnectionLimiter(20, 5);
+    limiter = new RealtimeConnectionLimiter(20, 5, 1_000);
     serverLimiters.set(server, limiter);
   }
   return limiter;
