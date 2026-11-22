@@ -57,6 +57,32 @@ The bundled Nginx configuration adds a restrictive Content Security Policy:
 Nginx keeps a 1 MiB default request limit and raises the `/api/files` route to 11 MiB to allow a
 10 MiB upload plus multipart/form-data overhead.
 
+## Trusted proxy configuration
+
+Fastify does not trust `X-Forwarded-For` or `X-Forwarded-Proto` by default. The
+`TRUST_PROXY` environment variable controls this explicitly:
+- Leave it unset or set `TRUST_PROXY=false` for direct/local access.
+- For a proxied deployment, set it to the exact source IP or CIDR of the Nginx proxy as seen
+  by the API container. Multiple trusted entries may be comma-separated.
+- Avoid `TRUST_PROXY=true` unless the API is reachable exclusively from a trusted proxy and
+  every forwarded header is sanitized.
+
+Nginx overwrites `X-Forwarded-For` with its resolved client address rather than appending an
+untrusted client-supplied chain. If another trusted load balancer/CDN sits in front of Nginx,
+configure Nginx's real-IP module with only that provider's published source ranges before
+enabling proxy trust. For example, in the Nginx `http` context (replace the documentation
+range with the exact CIDR supplied by the provider):
+
+```nginx
+set_real_ip_from 192.0.2.0/24;
+real_ip_header X-Forwarded-For;
+real_ip_recursive on;
+```
+
+Then configure `TRUST_PROXY` with the Nginx proxy's source IP/CIDR on the Docker network.
+Do not trust all internet clients or arbitrary `X-Forwarded-For` values. The API must remain
+unpublished on host ports so clients cannot bypass the proxy boundary.
+
 ## Local verification checklist
 
 Run these checks against the local Compose deployment (not against GitHub Actions):
