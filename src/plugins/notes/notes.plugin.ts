@@ -1,5 +1,5 @@
 import type { BeePlugin } from "../../core/types.js";
-import { MongoClient, type Db, type Document } from "mongodb";
+import { type Db, type Document } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { requireAuth, requireTenantPermissions, type AuthenticatedRequest } from "../auth/auth.guard.js";
@@ -16,8 +16,6 @@ type Note = Document & {
   updatedAt: Date;
 };
 
-let mongoClient: MongoClient | undefined;
-
 export const notesPlugin: BeePlugin = {
   manifest: {
     name: "notes",
@@ -27,11 +25,8 @@ export const notesPlugin: BeePlugin = {
     frontend: { routes: [{ path: "/dashboard/notes", component: "bee-notes" }] }
   },
   async initialize(ctx) {
-    const mongoUri = String(ctx.config.mongoUri ?? "");
     const dbName = String(ctx.config.mongoDbName ?? "bee_core");
-    mongoClient = new MongoClient(mongoUri, { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
-    await mongoClient.connect();
-    const db: Db = mongoClient.db(dbName);
+    const db: Db = ctx.mongoClient.db(dbName);
     const sessionIdSecret = String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
     if (sessionIdSecret.length < 32) throw new Error("Notes: JWT_SECRET must contain at least 32 characters.");
     const collection = (tenantId: string) => new TenantCollection<Note>(db.collection<Note>("tenant_notes"), tenantId);
@@ -110,9 +105,5 @@ export const notesPlugin: BeePlugin = {
     });
 
     ctx.logger.info("Notes plugin initialized: routes are tenant-scoped and require an installed entitlement.");
-  },
-  async stop() {
-    await mongoClient?.close();
-    mongoClient = undefined;
   }
 };

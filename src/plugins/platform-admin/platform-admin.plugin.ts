@@ -6,7 +6,7 @@ declare module "fastify" {
  }
 }
 import bcrypt from "bcryptjs";
-import { MongoClient, type Db } from "mongodb";
+import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
 import { enqueuePluginInstallJob, enqueuePluginUninstallJob } from "../../core/plugin-install-jobs.js";
@@ -20,8 +20,7 @@ type Claims={sub?:string;sid?:string;client?:string;aud?:string;platformRole?:st
 export const platformAdminPlugin:BeePlugin={
  manifest:{name:"platform-admin",version:"0.1.0",description:"Platform-wide administration for the bootstrap superadministrator",dependencies:["auth","organizations","marketplace"]},
  async initialize(ctx){
-  const mongo=new MongoClient(String(ctx.config.mongoUri??""),{maxPoolSize:8,serverSelectionTimeoutMS:10000});
-  await mongo.connect();const db:Db=mongo.db(String(ctx.config.mongoDbName??"bee_core"));
+  const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
   const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Platform admin: JWT_SECRET must contain at least 32 characters.");
@@ -128,7 +127,6 @@ export const platformAdminPlugin:BeePlugin={
    await recordPlatformAudit({actorId:actor.id,action:"plugin.uninstall.requested",tenantId:company.id,resourceType:"plugin",resourceId:plugin.id,metadata:{jobId:queued.job.id}});
    return reply.code(202).send({success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:false,jobId:mask(req.platformSession!,queued.job.id,"job"),status:queued.job.status});
   });
-  ctx.server.addHook("onClose",async()=>mongo.close());
   ctx.logger.info("Platform admin plugin initialized",{platformRole:"superadmin"});
  }
 };

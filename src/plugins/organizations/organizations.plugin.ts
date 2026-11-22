@@ -1,5 +1,5 @@
 import type { BeePlugin } from "../../core/types.js";
-import { MongoClient, type Collection, type Db } from "mongodb";
+import { type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext, type TenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
@@ -13,15 +13,12 @@ type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"adm
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantRef?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string; slug?:string };
 type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
-let mongoClient:MongoClient|undefined;
 
 export const organizationsPlugin:BeePlugin={
  manifest:{name:"organizations",version:"0.1.0",description:"Company records, user memberships and active-company session context",dependencies:["auth"]},
  async initialize(ctx){
-  const mongoUri=String(ctx.config.mongoUri??""),dbName=String(ctx.config.mongoDbName??"bee_core");
-  mongoClient=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
-  await mongoClient.connect();
-  const db:Db=mongoClient.db(dbName);
+  const dbName=String(ctx.config.mongoDbName??"bee_core");
+  const db:Db=ctx.mongoClient.db(dbName);
   const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Organizations: JWT_SECRET must contain at least 32 characters.");
   const sessionOf=(auth:{tenantContext:TenantContext})=>({sessionId:auth.tenantContext.sessionId,expiresAt:auth.tenantContext.sessionExpiresAt});
@@ -392,5 +389,4 @@ export const organizationsPlugin:BeePlugin={
   });
   ctx.logger.info("Organizations plugin initialized: company memberships backfilled and indexed.");
  },
- async stop(){await mongoClient?.close();mongoClient=undefined;}
 };

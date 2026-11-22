@@ -1,5 +1,6 @@
 import type { BeeEventBus } from "./event-bus.js";
 import type { FastifyInstance } from "fastify";
+import type { MongoClient } from "mongodb";
 
 export type BeePluginStatus = "registered" | "initialized" | "started" | "stopped" | "failed";
 export type BeeAuthClient = "backend" | "dashboard" | "public";
@@ -19,6 +20,8 @@ export interface BeeContext {
   readonly logger: BeeLogger;
   readonly config: Readonly<Record<string, unknown>>;
   readonly server: FastifyInstance;
+  /** One process-wide MongoDB client shared by every plugin scope. */
+  readonly mongoClient: MongoClient;
 }
 
 export interface BeePlugin {

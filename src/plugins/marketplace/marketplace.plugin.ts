@@ -1,5 +1,5 @@
 import type { BeePlugin } from "../../core/types.js";
-import { MongoClient, type Collection } from "mongodb";
+import type { Collection } from "mongodb";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
@@ -19,7 +19,6 @@ import {
   seedPluginCommerce
 } from "../../core/plugin-entitlements.js";
 
-let mongoClient: MongoClient | undefined;
 let installWorkerTimer: ReturnType<typeof setInterval> | undefined;
 let installWorkerTask: Promise<void> | undefined;
 
@@ -31,9 +30,7 @@ export const marketplacePlugin: BeePlugin = {
     dependencies: ["auth", "organizations"]
   },
   async initialize(ctx) {
-    mongoClient = new MongoClient(String(ctx.config.mongoUri ?? ""), { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
-    await mongoClient.connect();
-    const db = mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
     const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
     if(sessionIdSecret.length<32)throw new Error("Marketplace: JWT_SECRET must contain at least 32 characters.");
     const sessionOf=(tenant:import("../../core/tenant-context.js").TenantContext)=>({sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt});
@@ -585,7 +582,5 @@ export const marketplacePlugin: BeePlugin = {
     installWorkerTimer = undefined;
     await installWorkerTask;
     installWorkerTask = undefined;
-    await mongoClient?.close();
-    mongoClient = undefined;
   }
 };

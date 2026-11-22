@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
+import { MongoClient } from "mongodb";
 import { BeePluginManager } from "../src/core/plugin-manager.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
@@ -14,7 +15,8 @@ const logger: BeeLogger = {
 function makeContext(server: ReturnType<typeof Fastify>): BeeContext {
   return {
     appName: "Bee-Core", version: "test", events: new BeeEventBus(), logger, server,
-    config: Object.freeze({ mongoUri: "mongodb://secret", mongoDbName: "test", authAdminPassword: "secret", publicBaseDomain: "test.local", fileStoragePath: "/tmp/files", jwtSecret: "hidden" })
+    mongoClient: new MongoClient("mongodb://localhost:27017"),
+    config: Object.freeze({ mongoDbName: "test", authAdminPassword: "secret", publicBaseDomain: "test.local", fileStoragePath: "/tmp/files", jwtSecret: "hidden" })
   };
 }
 
@@ -72,7 +74,7 @@ test("plugin config is frozen and secrets outside allowlist are omitted", async 
   manager.register({ manifest: { name: "files", version: "1" }, initialize(ctx) { config = ctx.config; } });
   await manager.mountAll(makeContext(server));
   assert.equal(Object.isFrozen(config), true);
-  assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName", "mongoUri"]);
+  assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName"]);
   assert.equal("jwtSecret" in (config ?? {}), false);
   assert.equal("authAdminPassword" in (config ?? {}), false);
   await server.close();
@@ -173,6 +175,23 @@ test("plugin config allowlists are matched case-insensitively", async () => {
   let config: Readonly<Record<string, unknown>> | undefined;
   manager.register({ manifest: { name: "FILES", version: "1" }, initialize(ctx) { config = ctx.config; } });
   await manager.mountAll(makeContext(server));
-  assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName", "mongoUri"]);
+  assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName"]);
+  await server.close();
+});
+
+test("reports a complete dependency cycle and leaves independent plugins runnable", async () => {
+  const server = Fastify(), manager = new BeePluginManager();
+  manager.register({ manifest: { name: "alpha", version: "1", dependencies: ["beta"] } });
+  manager.register({ manifest: { name: "beta", version: "1", dependencies: ["gamma"] } });
+  manager.register({ manifest: { name: "gamma", version: "1", dependencies: ["alpha"] } });
+  manager.register({ manifest: { name: "independent", version: "1" } });
+  await manager.mountAll(makeContext(server));
+  const states = manager.list();
+  for (const name of ["alpha", "beta", "gamma"]) {
+    const plugin = states.find(item => item.name === name);
+    assert.equal(plugin?.status, "failed");
+    assert.match(plugin?.error ?? "", /Circular plugin dependency detected/);
+  }
+  assert.equal(states.find(item => item.name === "independent")?.status, "started");
   await server.close();
 });

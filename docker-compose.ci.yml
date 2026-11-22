@@ -1,0 +1,6 @@
+services:
+  bee-core:
+    # Expose the API only to the GitHub Actions runner for integration checks.
+    # Production compose keeps the API private behind the web reverse proxy.
+    ports:
+      - "127.0.0.1:${BEE_CORE_PORT:-33000}:3000"

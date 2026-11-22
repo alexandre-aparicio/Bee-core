@@ -74,6 +74,11 @@ jobs:
         run: |
           cat > .env <<'EOF'
           JWT_SECRET=ci-only-secret-that-is-long-enough-for-bee-core-auth-tests-2026
+          AUTH_MFA_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          MONGO_ROOT_USERNAME=root
+          MONGO_ROOT_PASSWORD=ciRootPass2026
+          MONGO_APP_USERNAME=bee_core_app
+          MONGO_APP_PASSWORD=ciAppPass2026
           BEE_MAIL_ENCRYPTION_KEY=ci-only-mail-encryption-key-that-is-unique-for-tests-2026
           AUTH_ADMIN_EMAIL=ci-admin@bee-core.invalid
           AUTH_ADMIN_PASSWORD=CI-only-Password-2026!
@@ -82,7 +87,7 @@ jobs:
           BEE_WEB_PORT=38080
           EOF
       - name: Build and start MongoDB, API and Angular web
-        run: docker compose up --build -d
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up --build -d
       - name: Wait for services
         run: |
           for attempt in $(seq 1 60); do
@@ -91,8 +96,8 @@ jobs:
             fi
             sleep 3
           done
-          docker compose ps
-          docker compose logs --no-color
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color
           exit 1
       - name: Verify API, plugin registry, Angular and Nginx API proxy
         run: |
@@ -107,6 +112,7 @@ jobs:
             const response = await fetch(url);
             if (!response.ok) throw new Error(`${name} failed: HTTP ${response.status}`);
             const body = await response.text();
+            if (name === "API health" && JSON.parse(body).database !== "connected") throw new Error("MongoDB connection is not ready");
             if (name === "Angular web" && !body.includes("<bee-root")) throw new Error("Angular bee-root element missing from served HTML");
             if (name === "Plugin registry" && !body.includes("auth")) throw new Error("Auth plugin missing from registry");
             console.log(`PASS ${name} (${response.status})`);
@@ -116,6 +122,10 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           const base = "http://localhost:33000";
+          const cookieFrom = response => {
+            const header = response.headers.get("set-cookie") ?? "";
+            return header.split(";").map(part => part.trim()).find(part => part.startsWith("bee_refresh=")) ?? "";
+          };
           const login = await fetch(base + "/auth/login", {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -123,8 +133,9 @@ jobs:
           });
           if (!login.ok) throw new Error(`Admin login failed: HTTP ${login.status} ${await login.text()}`);
           const tokens = await login.json();
-          if (!tokens.accessToken || !tokens.refreshToken) throw new Error("Login did not return both tokens");
-          console.log("PASS admin login");
+          const initialCookie = cookieFrom(login);
+          if (!tokens.accessToken || !initialCookie) throw new Error("Dashboard login did not return an access token and HttpOnly refresh cookie");
+          console.log("PASS admin login and HttpOnly refresh cookie");
 
           const me = await fetch(base + "/auth/me", { headers: { authorization: `Bearer ${tokens.accessToken}` } });
           if (!me.ok || !(await me.json()).authenticated) throw new Error("Authenticated /auth/me failed");
@@ -144,32 +155,28 @@ jobs:
           if (persisted.selection?.public !== "editorial" || persisted.selection?.dashboard !== "paper") throw new Error("Template preferences were not persisted");
           console.log("PASS MongoDB template preference persistence");
 
-
           const refresh = await fetch(base + "/auth/refresh", {
-            method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ refreshToken: tokens.refreshToken })
+            method: "POST", headers: { cookie: initialCookie }
           });
-          if (!refresh.ok) throw new Error("Refresh-token rotation failed");
+          if (!refresh.ok) throw new Error(`Refresh-token rotation failed: HTTP ${refresh.status} ${await refresh.text()}`);
           const rotated = await refresh.json();
-          if (!rotated.refreshToken || rotated.refreshToken === tokens.refreshToken) throw new Error("Refresh token was not rotated");
+          const rotatedCookie = cookieFrom(refresh);
+          if (!rotated.accessToken || !rotatedCookie || rotatedCookie === initialCookie) throw new Error("Refresh cookie was not rotated");
           console.log("PASS refresh-token rotation");
 
           const replay = await fetch(base + "/auth/refresh", {
-            method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ refreshToken: tokens.refreshToken })
+            method: "POST", headers: { cookie: initialCookie }
           });
           if (replay.status !== 401) throw new Error(`Replayed refresh token should return 401, got ${replay.status}`);
           console.log("PASS refresh-token replay rejection");
 
           const logout = await fetch(base + "/auth/logout", {
             method: "POST",
-            headers: { "content-type": "application/json", authorization: `Bearer ${rotated.accessToken}` },
-            body: JSON.stringify({ refreshToken: rotated.refreshToken })
+            headers: { authorization: `Bearer ${rotated.accessToken}`, cookie: rotatedCookie }
           });
           if (!logout.ok) throw new Error("Logout failed");
           const afterLogout = await fetch(base + "/auth/refresh", {
-            method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ refreshToken: rotated.refreshToken })
+            method: "POST", headers: { cookie: rotatedCookie }
           });
           if (afterLogout.status !== 401) throw new Error("Logged-out refresh token was not revoked");
           console.log("PASS logout and refresh-session revocation");

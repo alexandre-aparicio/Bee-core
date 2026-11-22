@@ -1,5 +1,5 @@
 import type { BeePlugin } from "../../core/types.js";
-import { MongoClient, type Document } from "mongodb";
+import type { Document } from "mongodb";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -41,8 +41,6 @@ function matchesContentType(contentType: string, data: Buffer): boolean {
   }
   return false;
 }
-let mongoClient: MongoClient | undefined;
-
 export const filesPlugin: BeePlugin = {
   manifest: {
     name: "files",
@@ -51,12 +49,9 @@ export const filesPlugin: BeePlugin = {
     dependencies: ["auth", "organizations"]
   },
   async initialize(ctx) {
-    const mongoUri = String(ctx.config.mongoUri ?? "");
     const dbName = String(ctx.config.mongoDbName ?? "bee_core");
     const storageRoot = path.resolve(String(ctx.config.fileStoragePath ?? "/data/bee-files"));
-    mongoClient = new MongoClient(mongoUri, { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 });
-    await mongoClient.connect();
-    const db = mongoClient.db(dbName);
+    const db = ctx.mongoClient.db(dbName);
     const sessionIdSecret = String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
     if (sessionIdSecret.length < 32) throw new Error("Files: JWT_SECRET must contain at least 32 characters.");
     await seedPluginCommerce(db);
@@ -242,9 +237,5 @@ export const filesPlugin: BeePlugin = {
     });
 
     ctx.logger.info("Files plugin initialized: private tenant storage and scoped metadata ready.");
-  },
-  async stop() {
-    await mongoClient?.close();
-    mongoClient = undefined;
   }
 };

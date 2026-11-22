@@ -1,6 +1,6 @@
 import type { BeePlugin } from "../../core/types.js";
 import bcrypt from "bcryptjs";
-import { MongoClient, type Collection, type Db } from "mongodb";
+import { type Collection, type Db } from "mongodb";
 import { createHash, createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
 import { createTotpSecret, provisioningUri, verifyTotp } from "../../core/totp.js";
 import { resolveTenantContext } from "../../core/tenant-context.js";
@@ -37,10 +37,8 @@ const decryptMfaSecret=(value:string,key:Buffer):string=>{const [iv,tag,data]=va
 export const authPlugin:BeePlugin={
  manifest:{name:"auth",version:"0.3.0",description:"Persistent authentication for backend, dashboard and public frontend clients"},
  async initialize(ctx){
-  const mongoUri=String(ctx.config.mongoUri??""),dbName=String(ctx.config.mongoDbName??"bee_core");
-  if(!mongoUri)throw new Error("Auth: MONGODB_URI is required.");
-  const mongo=new MongoClient(mongoUri,{maxPoolSize:10,serverSelectionTimeoutMS:10000});
-  await mongo.connect(); const db:Db=mongo.db(dbName);
+  const dbName=String(ctx.config.mongoDbName??"bee_core");
+  const db:Db=ctx.mongoClient.db(dbName);
   const mfaEncryptionKey=mfaKeyFrom(ctx.config.authMfaEncryptionKey);
   const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Auth: JWT_SECRET must contain at least 32 characters for session-bound resource references.");
@@ -363,7 +361,7 @@ export const authPlugin:BeePlugin={
    raw.on("close",()=>{clearInterval(heartbeat);closeSubscriber();});
    return reply;
   });
-  ctx.server.addHook("onClose",async()=>{for(const subscribers of templateSubscribers.values())for(const subscriber of subscribers){subscriber.release();if(!subscriber.response.destroyed)subscriber.response.end();}templateSubscribers.clear();templateStreamTickets.clear();await mongo.close();});
+  ctx.server.addHook("onClose",async()=>{for(const subscribers of templateSubscribers.values())for(const subscriber of subscribers){subscriber.release();if(!subscriber.response.destroyed)subscriber.response.end();}templateSubscribers.clear();templateStreamTickets.clear();});
   ctx.logger.info("Auth plugin initialized",{clients:validClients,persistence:"mongodb",refreshRotation:true,platformSuperadminBootstrap:Boolean(adminEmail&&adminPassword)});
  }
 };
