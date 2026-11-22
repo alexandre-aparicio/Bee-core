@@ -148,3 +148,16 @@ export class RealtimeConnectionLimiter {
     else counter.delete(key);
   }
 }
+
+
+const serverLimiters = new WeakMap<object, RealtimeConnectionLimiter>();
+
+/** Share connection quotas across every realtime transport mounted on one Fastify server. */
+export function realtimeConnectionLimiterFor(server: object): RealtimeConnectionLimiter {
+  let limiter = serverLimiters.get(server);
+  if (!limiter) {
+    limiter = new RealtimeConnectionLimiter(20, 5);
+    serverLimiters.set(server, limiter);
+  }
+  return limiter;
+}
