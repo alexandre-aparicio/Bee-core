@@ -11,6 +11,7 @@ This document records implemented security controls and the remaining gaps befor
 - Custom company roles are persisted per tenant, owner-managed, permission-validated and resolved from active membership; role changes revoke affected refresh sessions (PR #17).
 - Tenant-scoped append-only audit writer validates metadata size/keys and creates tenant/time, actor/time and action/time indexes.
 - Successful login/logout audit events are integrated (PR #18).
+- Cross-company references to a non-active tenant are denied and recorded as `permission.denied` in the actor's active tenant only; the target tenant receives no denial event and its identifier is not copied into audit metadata. The MongoDB integration regression verifies HTTP 403 and zero target-tenant audit writes (PR #84).
 - Login performs a dummy bcrypt comparison for unknown users; Nginx applies login rate limiting and baseline security headers (PR #56).
 - Superadministrator TOTP MFA uses AES-256-GCM-encrypted secrets, replay prevention, and ten one-time hashed recovery codes. Platform administration requires MFA verification within the previous 15 minutes (security branch; not yet merged).
 - Dashboard access tokens remain in memory across the Angular app; refresh tokens are stored in rotating HttpOnly, SameSite=Strict cookies. Refresh lifetime is seven days with a 30-day absolute session cap; logout revokes the session (security branch; not yet merged).
