@@ -309,9 +309,9 @@ button.dash-nav:focus-visible{outline:2px solid var(--purple);outline-offset:2px
 .platform-admin__toolbar h2,.platform-admin__manage-head h2{margin:0;font:600 24px 'Space Grotesk',sans-serif;color:inherit}
 .platform-admin__toolbar p,.platform-admin__manage-head p{margin:6px 0 0;color:var(--muted);font-size:12px}
 .platform-admin__toolbar-actions{display:flex;align-items:center;gap:10px}
-.platform-admin__view-toggle{display:flex;padding:3px;border:1px solid var(--border);border-radius:10px;background:#ffffff06}
-.platform-admin__view-toggle button{width:34px;height:32px;border:0;border-radius:7px;background:transparent;color:var(--muted);font-size:17px;cursor:pointer}
-.platform-admin__view-toggle button.is-active{background:var(--purple);color:#fff}
+.platform-admin__view-toggle{display:flex;align-items:center;gap:5px;padding:5px;border:1px solid var(--border);border-radius:10px;background:#ffffff06}
+.platform-admin__view-toggle button{display:grid;place-items:center;width:34px;height:32px;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--muted);font-size:17px;cursor:pointer;transition:background .16s ease,border-color .16s ease,color .16s ease}
+.platform-admin__view-toggle button.is-active{border-color:var(--purple);background:var(--purple);color:#fff}
 .platform-admin__create-trigger,.platform-admin__manage-section>button,.platform-admin__modal-actions button{border:1px solid transparent;border-radius:9px;padding:10px 14px;background:var(--purple);color:#fff;font-size:11px;font-weight:650;cursor:pointer}
 .platform-admin__cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .platform-company-card{position:relative;min-width:0;padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--panel);box-shadow:0 12px 28px #0000000b}
