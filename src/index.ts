@@ -14,7 +14,9 @@ import { notificationsPlugin } from "./plugins/notifications/notifications.plugi
 import { mailPlugin } from "./plugins/mail/mail.plugin.js";
 import { platformAdminPlugin } from "./plugins/platform-admin/platform-admin.plugin.js";
 const logger:BeeLogger={info:(m,c)=>console.log("[INFO]",m,c??""),warn:(m,c)=>console.warn("[WARN]",m,c??""),error:(m,c)=>console.error("[ERROR]",m,c??"")};
-const events=new BeeEventBus(undefined,new Set(["bee.started","auth.login","notification.request"])),plugins=new BeePluginManager(),app=Fastify({logger:false});
+const trustProxyRaw=String(process.env.TRUST_PROXY??"").trim();
+const trustProxy=trustProxyRaw.toLowerCase()==="true"?true:trustProxyRaw.toLowerCase()==="false"||!trustProxyRaw?false:trustProxyRaw.split(",").map(value=>value.trim()).filter(Boolean);
+const events=new BeeEventBus(undefined,new Set(["bee.started","auth.login","notification.request"])),plugins=new BeePluginManager(),app=Fastify({logger:false,trustProxy});
 const jwtSecret=String(process.env.JWT_SECRET??"");
 if(jwtSecret.length<32)throw new Error("JWT_SECRET must contain at least 32 characters.");
 app.register(jwt,{secret:jwtSecret,sign:{algorithm:"HS256",expiresIn:"20m",iss:"bee-core",aud:"bee-core"},verify:{algorithms:["HS256"],allowedAud:"bee-core",allowedIss:"bee-core",requiredClaims:["exp","aud","iss"]}});
