@@ -27,6 +27,7 @@ export class BeePluginManager {
     files: ["mongoUri", "mongoDbName", "fileStoragePath", "sessionIdSecret"],
     marketplace: ["mongoUri", "mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
     notes: ["mongoUri", "mongoDbName", "sessionIdSecret"],
+    mail: ["mongoUri", "mongoDbName", "sessionIdSecret"],
     notifications: ["mongoUri", "mongoDbName", "sessionIdSecret"],
     "platform-admin": ["mongoUri", "mongoDbName", "sessionIdSecret"],
     hello: []

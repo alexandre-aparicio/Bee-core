@@ -33,6 +33,8 @@ services:
       AUTH_MFA_ENCRYPTION_KEY: ${AUTH_MFA_ENCRYPTION_KEY:?Set AUTH_MFA_ENCRYPTION_KEY in .env}
       MONGODB_URI: mongodb://${MONGO_APP_USERNAME:?Set MONGO_APP_USERNAME in .env}:${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env}@mongodb:27017/${MONGODB_DB:-bee_core}?authSource=${MONGODB_DB:-bee_core}
       MONGODB_DB: ${MONGODB_DB:-bee_core}
+      BEE_MAIL_ENCRYPTION_KEY: ${BEE_MAIL_ENCRYPTION_KEY:?Set BEE_MAIL_ENCRYPTION_KEY in .env}
+      BEE_MAIL_SYNC_INTERVAL_SECONDS: ${BEE_MAIL_SYNC_INTERVAL_SECONDS:-300}
       BEE_FILES_DIR: /data/bee-files
     volumes:
       - bee_core_files:/data/bee-files
