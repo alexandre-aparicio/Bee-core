@@ -92,33 +92,59 @@ docker volume ls | grep bee_core
 
 ## Backup
 
-Create a compressed logical backup using the official MongoDB Database Tools image. Run it on the private Compose network so MongoDB remains unpublished on the host:
+MongoDB authentication is enabled. Use the root account only for maintenance and backup/restore operations; the application itself uses a database-scoped application account. The example below reads the hex-only MongoDB credentials from .env and runs Database Tools on the private Compose network, so MongoDB remains unpublished on the host.
 
 ```bash
+set -euo pipefail
+set -a
+. ./.env
+set +a
+: "${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}"
+: "${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}"
+: "${MONGODB_DB:=bee_core}"
 mkdir -p backups
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
-docker run --rm --network "$network" -v "$PWD/backups:/backup" \
-  mongodb/mongodb-database-tools:100.12.2 \
-  mongodump --uri="mongodb://mongodb:27017/bee_core" \
-  --archive="/backup/bee_core-$(date +%F).archive" --gzip
+mongodb_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)
+network=$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
+test -n "$network"
+backup_file="bee_core-$(date +%F).archive"
+docker run --rm --network "$network" \
+  -e MONGO_ROOT_USERNAME -e MONGO_ROOT_PASSWORD -e MONGODB_DB -e BACKUP_FILE="$backup_file" \
+  -v "$PWD/backups:/backup" --entrypoint sh \
+  mongodb/mongodb-database-tools:100.12.2 -c \
+  'exec mongodump --host=mongodb:27017 --username="$MONGO_ROOT_USERNAME" --password="$MONGO_ROOT_PASSWORD" --authenticationDatabase=admin --db="$MONGODB_DB" --archive="/backup/$BACKUP_FILE" --gzip'
 ```
 
-Copy backups off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery.
+Copy backups off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery. The root credentials are passed to the short-lived tools container through its environment; restrict access to the Docker host and .env.
 
 ## Restore drill
 
 Restore into a separate database first; never overwrite the live database during a drill:
 
 ```bash
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
-docker run --rm --network "$network" -v "$PWD/backups:/backup" \
-  mongodb/mongodb-database-tools:100.12.2 \
-  mongorestore --uri="mongodb://mongodb:27017/bee_core_restore" \
-  --archive="/backup/bee_core-YYYY-MM-DD.archive" --gzip \
-  --nsInclude='bee_core.*' --nsFrom='bee_core.*' --nsTo='bee_core_restore.*'
+set -euo pipefail
+set -a
+. ./.env
+set +a
+: "${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}"
+: "${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}"
+: "${MONGODB_DB:=bee_core}"
+restore_db="${MONGODB_DB}_restore"
+network=$(docker inspect "$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
+docker run --rm --network "$network" \
+  -e MONGO_ROOT_USERNAME -e MONGO_ROOT_PASSWORD -e MONGODB_DB -e RESTORE_DB="$restore_db" \
+  -v "$PWD/backups:/backup" --entrypoint sh \
+  mongodb/mongodb-database-tools:100.12.2 -c \
+  'exec mongorestore --host=mongodb:27017 --username="$MONGO_ROOT_USERNAME" --password="$MONGO_ROOT_PASSWORD" --authenticationDatabase=admin --archive="/backup/bee_core-YYYY-MM-DD.archive" --gzip --nsInclude="$MONGODB_DB.*" --nsFrom="$MONGODB_DB.*" --nsTo="$RESTORE_DB.*"'
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet \
+  --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin \
+  --eval "const restored=db.getSiblingDB('$restore_db'); printjson(restored.getCollectionNames());"
+# After verifying the restored collections and records:
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet \
+  --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin \
+  --eval "db.getSiblingDB('$restore_db').dropDatabase()"
 ```
 
-Verify application-critical collections and records in the restored database before considering the drill successful. The CI workflow exercises a sentinel-record round-trip; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
+Verify application-critical collections and records in the restored database before considering the drill successful. The CI workflow exercises an authenticated sentinel-record round-trip; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
 
 ## Update
 
