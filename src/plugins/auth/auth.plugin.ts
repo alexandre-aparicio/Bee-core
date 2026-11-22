@@ -7,7 +7,7 @@ import { resolveTenantContext } from "../../core/tenant-context.js";
 import { maskTenantId, maskUserId, unmaskUserId } from "../../core/session-id.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
-import { BoundedTicketStore, RealtimeConnectionLimiter } from "../../core/realtime-limits.js";
+import { BoundedTicketStore, realtimeConnectionLimiterFor } from "../../core/realtime-limits.js";
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
@@ -52,7 +52,7 @@ export const authPlugin:BeePlugin={
   type TemplateStreamTicket={tenantId:string;ip:string;userId?:string;claims?:import("../../core/tenant-context.js").TenantClaims};
   type TemplateSubscriber={response:import("node:http").ServerResponse;ip:string;userId?:string;claims?:import("../../core/tenant-context.js").TenantClaims;release:()=>void};
   const templateStreamTickets=new BoundedTicketStore<TemplateStreamTicket>(5_000,30_000);
-  const templateConnections=new RealtimeConnectionLimiter(20,5);
+  const templateConnections=realtimeConnectionLimiterFor(ctx.server);
   const templateSubscribers=new Map<string,Set<TemplateSubscriber>>();
   const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.response.destroyed){clients.delete(client);client.release();continue;}client.response.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
