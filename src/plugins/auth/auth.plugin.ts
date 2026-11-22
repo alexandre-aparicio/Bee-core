@@ -24,6 +24,7 @@ const hashToken=(t:string)=>createHash("sha256").update(t).digest("hex");
 const makeRefreshToken=()=>randomBytes(48).toString("base64url");
 const refreshExpiry=()=>new Date(Date.now()+7*24*60*60*1000);
 const absoluteSessionExpiry=()=>new Date(Date.now()+30*24*60*60*1000);
+const MAX_REFRESH_TOKEN_HISTORY=4_096;
 const readCookie=(req:any,name:string):string=>{const header=String(req.headers?.cookie??"");for(const part of header.split(";")){const [key,...rest]=part.trim().split("=");if(key===name)return decodeURIComponent(rest.join("="));}return "";};
 const isSameOrigin=(req:any):boolean=>{const origin=String(req.headers?.origin??"");if(!origin)return true;try{return new URL(origin).host===String(req.headers?.host??"");}catch{return false;}};
 const writeRefreshCookie=(reply:any,token:string,secure:boolean)=>reply.header("Set-Cookie",`bee_refresh=${encodeURIComponent(token)}; Path=/api/auth; HttpOnly; SameSite=Strict; Max-Age=604800${secure?"; Secure":""}`);
@@ -173,7 +174,7 @@ export const authPlugin:BeePlugin={
    if(!isSameOrigin(req))return reply.code(403).send({error:"Cross-origin refresh request rejected"});
    const raw=String(req.body?.refreshToken??(readCookie(req,"bee_refresh")||""));if(raw.length<40)return reply.code(401).send({error:"Refresh session required"});
    const now=new Date(),rawHash=hashToken(raw),next=makeRefreshToken(),secureCookie=String(ctx.config.environment??"")!=="development";
-   const session=await sessions.findOneAndUpdate({tokenHash:rawHash,revokedAt:null,expiresAt:{$gt:now},absoluteExpiresAt:{$gt:now}},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()},$push:{usedTokenHashes:{$each:[rawHash],$slice:-4096}}},{returnDocument:"after"});
+   const session=await sessions.findOneAndUpdate({tokenHash:rawHash,revokedAt:null,expiresAt:{$gt:now},absoluteExpiresAt:{$gt:now},usedTokenHashes:{$not:{$size:MAX_REFRESH_TOKEN_HISTORY}}},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()},$push:{usedTokenHashes:{$each:[rawHash],$slice:-MAX_REFRESH_TOKEN_HISTORY}}},{returnDocument:"after"});
    if(!session){
     const reused=await sessions.findOne({usedTokenHashes:rawHash});
     if(reused){
@@ -182,6 +183,13 @@ export const authPlugin:BeePlugin={
      if(revoked.modifiedCount&&reused.tenantId)await auditAuthEvent({tenantId:reused.tenantId,actorId:reused.userId,action:"auth.refresh.reuse",outcome:"denied",metadata:{client:reused.client,reason:"rotated_token_reuse"}});
      if(reused.client==="dashboard")clearRefreshCookie(reply,secureCookie);
      return reply.code(401).send({error:"Refresh token reuse detected; session revoked"});
+    }
+    const exhausted=await sessions.findOne({tokenHash:rawHash,revokedAt:null});
+    if(exhausted){
+     const revoked=await sessions.updateOne({id:exhausted.id,revokedAt:null},{$set:{revokedAt:new Date()}});
+     if(revoked.modifiedCount&&exhausted.tenantId)await auditAuthEvent({tenantId:exhausted.tenantId,actorId:exhausted.userId,action:"auth.refresh.limit",outcome:"denied",metadata:{client:exhausted.client,reason:"rotation_history_capacity"}});
+     if(exhausted.client==="dashboard")clearRefreshCookie(reply,secureCookie);
+     return reply.code(401).send({error:"Refresh session rotation limit reached; sign in again"});
     }
     return reply.code(401).send({error:"Invalid or expired refresh token"});
    }
