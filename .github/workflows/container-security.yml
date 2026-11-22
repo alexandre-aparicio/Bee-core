@@ -1,0 +1,99 @@
+name: Bee-Core container security smoke and secret history scan
+
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - "apps/web/Dockerfile"
+      - "apps/web/nginx.conf"
+      - "docker-compose*.yml"
+      - "docs/security-mvp-status.md"
+      - "scripts/security-container-smoke.mjs"
+      - ".github/workflows/container-security.yml"
+      - "src/**"
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "apps/web/Dockerfile"
+      - "apps/web/nginx.conf"
+      - "docker-compose*.yml"
+      - "docs/security-mvp-status.md"
+      - "scripts/security-container-smoke.mjs"
+      - ".github/workflows/container-security.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Gitleaks tree and full history
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan repository and complete Git history
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  compose-smoke:
+    name: Production Compose security smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate isolated test environment
+        run: |
+          cat > .env <<EOF
+          BEE_WEB_PORT=38080
+          TRUST_PROXY=false
+          PUBLIC_BASE_DOMAIN=localhost
+          MONGODB_DB=bee_core_smoke
+          JWT_SECRET=$(openssl rand -hex 48)
+          AUTH_ADMIN_EMAIL=smoke-admin@example.test
+          AUTH_ADMIN_PASSWORD=$(openssl rand -base64 36 | tr -d '\n')
+          AUTH_MFA_ENCRYPTION_KEY=$(openssl rand -base64 32)
+          MONGO_ROOT_USERNAME=smoke_root
+          MONGO_ROOT_PASSWORD=$(openssl rand -hex 32)
+          MONGO_APP_USERNAME=bee_core_smoke
+          MONGO_APP_PASSWORD=$(openssl rand -hex 32)
+          BEE_MAIL_ENCRYPTION_KEY=$(openssl rand -hex 32)
+          EOF
+          chmod 600 .env
+      - name: Validate production Compose configuration
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+      - name: Build and start production stack
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+      - name: Wait for web and API health
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:38080/ >/dev/null && docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T bee-core node -e "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color
+          exit 1
+      - name: Verify backend is not published to the host
+        run: |
+          test -z "$(docker compose -f docker-compose.yml -f docker-compose.prod.yml port bee-core 3000)"
+          if curl --silent --show-error --connect-timeout 2 http://127.0.0.1:3000/health; then
+            echo "Backend unexpectedly reachable from host"
+            exit 1
+          fi
+      - name: Run authentication, MFA, upload, rate-limit and header smoke
+        run: node scripts/security-container-smoke.mjs
+        env:
+          BEE_SMOKE_ORIGIN: http://127.0.0.1:38080
+          AUTH_ADMIN_EMAIL: smoke-admin@example.test
+          AUTH_ADMIN_PASSWORD: ${{ env.AUTH_ADMIN_PASSWORD }}
+      - name: Compose diagnostics
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml ps && docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color
+      - name: Stop stack and remove test volumes
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v

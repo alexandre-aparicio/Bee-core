@@ -60,7 +60,7 @@ services:
       bee-core:
         condition: service_healthy
     ports:
-      - "${BEE_WEB_PORT:-8080}:80"
+      - "${BEE_WEB_PORT:-8080}:8080"
 
 volumes:
   bee_core_mongodb_data:

@@ -4,7 +4,9 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
-FROM nginx:alpine
-COPY --from=build /web/dist/browser /usr/share/nginx/html
+
+FROM nginxinc/nginx-unprivileged:1.27-alpine
+COPY --from=build --chown=101:101 /web/dist/browser /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+USER 101
+EXPOSE 8080
