@@ -47,7 +47,7 @@ import type { BeeTemplateTarget } from './template.types';
 
       <div class="bee-template-manager__catalog">
           <strong>Available template packages</strong>
-          <p>Install a trusted template package before selecting it. Each template owns its predefined visual identity and supported appearance modes.</p>
+          <p>Install a trusted template package before selecting it. Each template includes a visual preview of its layout.</p>
           @if (!engine.canManageTemplates) { <p class="bee-template-manager__message">Template options are available to tenant administrators and platform superadministrators.</p> }
           @for (item of engine.catalog(target === 'all' ? undefined : target); track item.id) {
             <div class="bee-template-package">
@@ -72,6 +72,15 @@ import type { BeeTemplateTarget } from './template.types';
 
     </section>
   `,
+  styles: [`
+    .bee-template-manager__fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .bee-template-card{min-width:0;padding:13px;border:1px solid var(--border,#8885);border-radius:12px}
+    .bee-template-card h3{font-size:13px;margin:0}.bee-template-card p{font-size:10px;opacity:.6;margin:3px 0 12px}
+    .bee-template-card label{display:grid;gap:6px;font-size:10px;font-weight:600}
+    .bee-template-card select{width:100%;padding:8px;border:1px solid var(--border,#8885);border-radius:8px;background:transparent;color:inherit}
+    .bee-template-card img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;margin-top:10px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--bg,#8881)}
+    @media(max-width:640px){.bee-template-manager__fields{grid-template-columns:1fr}}
+  `]
 })
 export class BeeTemplateManagerComponent {
   @Input() target: 'dashboard' | 'public' | 'all' = 'all';
