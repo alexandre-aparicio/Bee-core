@@ -82,3 +82,29 @@ test("dependency order is resolved before mounting regardless of registration or
   assert.equal(manager.list().every(plugin => plugin.status === "started"), true);
   await server.close();
 });
+
+test("topological ordering handles transitive dependencies and keeps ready siblings stable", async () => {
+  const server = Fastify(), manager = new BeePluginManager(), order: string[] = [];
+  manager.register({ manifest: { name: "leaf", version: "1", dependencies: ["middle"] }, start() { order.push("leaf"); } });
+  manager.register({ manifest: { name: "middle", version: "1", dependencies: ["base"] }, start() { order.push("middle"); } });
+  manager.register({ manifest: { name: "sibling", version: "1" }, start() { order.push("sibling"); } });
+  manager.register({ manifest: { name: "base", version: "1" }, start() { order.push("base"); } });
+  await manager.mountAll(context(server));
+  assert.deepEqual(order, ["sibling", "base", "middle", "leaf"]);
+  await manager.stopAll(context(server));
+  await server.close();
+});
+
+test("stopAll continues through multiple plugins after an earlier stop hook throws", async () => {
+  const server = Fastify(), manager = new BeePluginManager(), stopped: string[] = [];
+  manager.register({ manifest: { name: "first", version: "1" }, stop() { stopped.push("first"); } });
+  manager.register({ manifest: { name: "middle", version: "1" }, stop() { stopped.push("middle"); } });
+  manager.register({ manifest: { name: "last", version: "1" }, stop() { stopped.push("last"); throw new Error("shutdown failure"); } });
+  await manager.mountAll(context(server));
+  await manager.stopAll(context(server));
+  assert.deepEqual(stopped, ["last", "middle", "first"]);
+  assert.equal(manager.list().find(plugin => plugin.name === "last")?.status, "failed");
+  assert.equal(manager.list().find(plugin => plugin.name === "middle")?.status, "stopped");
+  assert.equal(manager.list().find(plugin => plugin.name === "first")?.status, "stopped");
+  await server.close();
+});

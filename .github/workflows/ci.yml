@@ -124,8 +124,7 @@ jobs:
           const base = "http://localhost:33000";
           const cookieFrom = response => {
             const header = response.headers.get("set-cookie") ?? "";
-            const match = header.match(/(?:^|[,;]\\s*)bee_refresh=([^;]+)/);
-            return match ? `bee_refresh=${match[1]}` : "";
+            return header.split(";").map(part => part.trim()).find(part => part.startsWith("bee_refresh=")) ?? "";
           };
           const login = await fetch(base + "/auth/login", {
             method: "POST",
