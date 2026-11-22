@@ -51,7 +51,7 @@ export async function resolveTenantContext(
   }
 
   const now = new Date();
-  const session = await db.collection<{ id:string; userId:string; tenantId:string; client?:string; expiresAt:Date; revokedAt:Date|null }>("refresh_sessions").findOne({
+  const session = await db.collection<{ id:string; userId:string; tenantId:string; client?:string; expiresAt:Date; revokedAt:Date|null; mfaVerifiedAt?:Date }>("refresh_sessions").findOne({
     id: claims.sid,
     revokedAt: null,
     expiresAt: { $gt: now }
@@ -70,7 +70,7 @@ export async function resolveTenantContext(
   if (!user || !Array.isArray(user.allowedClients) || !user.allowedClients.includes(claims.client)) return null;
   // A superadministrator may authenticate to enroll MFA, but cannot use any
   // tenant/business route until an encrypted MFA secret is active.
-  if (user.platformRole === "superadmin" && !user.mfaSecretEnc) return null;
+  if (user.platformRole === "superadmin" && (!user.mfaSecretEnc || !session.mfaVerifiedAt)) return null;
   if (!tenantId || tenantId !== session.tenantId) return null;
 
   const membership = await db.collection<{ role: MembershipRole; customRoleId?: string; status: string }>("memberships").findOne({
