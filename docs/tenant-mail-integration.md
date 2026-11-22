@@ -17,13 +17,12 @@ The mail workspace is tenant-scoped. Each tenant owns its mailbox configuration,
 | Service | Connection mode | Common port |
 | --- | --- | ---:|
 | IMAP | Implicit TLS | 993 |
-| IMAP | STARTTLS/plain mode, provider dependent | 143 |
 | POP3 | Implicit TLS | 995 |
 | POP3 | Plain mode | 110 |
 | SMTP | Implicit TLS | 465 |
 | SMTP | STARTTLS | 587 |
 
-SMTP STARTTLS is attempted for port 587 when the SMTP secure checkbox is disabled. The secure checkbox selects implicit TLS. Avoid plaintext ports in production.
+Incoming IMAP and POP3 currently use implicit TLS only (IMAP 993, POP3 995); incoming STARTTLS on 143/110 is not implemented. SMTP STARTTLS is attempted on port 587 when the SMTP secure checkbox is disabled. The secure checkbox selects implicit TLS. Plaintext connections are rejected.
 
 ## Dashboard
 
