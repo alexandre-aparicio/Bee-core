@@ -362,7 +362,7 @@ export const authPlugin:BeePlugin={
    try{
     reply.hijack();
     raw.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-cache, no-transform","connection":"keep-alive","x-accel-buffering":"no"});
-    raw.write("event: template-update\\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)})+"\\n\\n");
+    raw.write("event: template-update\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)})+"\n\n");
     if(raw.destroyed){closeSubscriber();return reply;}
     heartbeat=setInterval(async()=>{
      if(raw.destroyed){if(heartbeat)clearInterval(heartbeat);closeSubscriber();return;}
@@ -370,7 +370,7 @@ export const authPlugin:BeePlugin={
       try{const current=await resolveTenantContext(db,record.claims,{},sessionIdSecret);if(!current){if(heartbeat)clearInterval(heartbeat);raw.end();closeSubscriber();return;}}
       catch{if(heartbeat)clearInterval(heartbeat);raw.end();closeSubscriber();return;}
      }
-     if(!raw.destroyed)raw.write(": keep-alive\\n\\n");
+     if(!raw.destroyed)raw.write(": keep-alive\n\n");
     },5_000);
    }catch(error){if(heartbeat)clearInterval(heartbeat);closeSubscriber();throw error;}
    return reply;
