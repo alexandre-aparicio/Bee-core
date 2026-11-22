@@ -70,10 +70,10 @@ import type { BeeTemplateTarget } from './template.types';
         </div>
       }
 
-      @if (engine.canManageTemplates) {
-        <div class="bee-template-manager__catalog">
+      <div class="bee-template-manager__catalog">
           <strong>Available template packages</strong>
           <p>Install a trusted template package before selecting it. Each template owns its predefined visual identity and supported appearance modes.</p>
+          @if (!engine.canManageTemplates) { <p class="bee-template-manager__message">Package installation and removal require the tenant admin role. The catalog is shown for reference.</p> }
           @for (item of engine.catalog(target === 'all' ? undefined : target); track item.id) {
             <div class="bee-template-package">
               <div>
@@ -82,11 +82,11 @@ import type { BeeTemplateTarget } from './template.types';
                 <span>{{item.description}}</span>
               </div>
               @if (engine.isInstalled(item.id)) {
-                <button type="button" [disabled]="installingId === item.id || isActive(item.id,item.target)" (click)="uninstall(item.id)">
+                <button type="button" [disabled]="!engine.canManageTemplates || installingId === item.id || isActive(item.id,item.target)" (click)="uninstall(item.id)">
                   {{installingId === item.id ? 'Working…' : isActive(item.id,item.target) ? 'Active' : 'Uninstall'}}
                 </button>
               } @else {
-                <button type="button" [disabled]="installingId === item.id" (click)="install(item.id)">
+                <button type="button" [disabled]="!engine.canManageTemplates || installingId === item.id" (click)="install(item.id)">
                   {{installingId === item.id ? 'Installing…' : 'Install'}}
                 </button>
               }
@@ -94,7 +94,6 @@ import type { BeeTemplateTarget } from './template.types';
           }
           @if (packageMessage) { <span class="bee-template-manager__message">{{packageMessage}}</span> }
         </div>
-      }
 
       <p>Template packages define layout and a controlled palette. Users do not choose arbitrary colors. Dashboard light/dark appearance is a mode of the selected template, not a separate color editor. Business plugins remain independent and contribute features through registered slots.</p>
     </section>
