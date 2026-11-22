@@ -311,7 +311,7 @@ export class AppComponent implements OnInit {
       {id:'notifications',label:'Notifications',icon:'♧',group:'WORKSPACE'},
       {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
     ];
-    if (this.isPlatformAdmin) return base.filter(item => ['dashboard','activity','mail','notifications'].includes(item.id));
+    if (this.isPlatformAdmin) return base.filter(item => ['dashboard','activity','mail','notifications','settings'].includes(item.id));
     const role = (this.activeCompanyRole || '').toLowerCase();
     if (role === 'manager') return base;
     if (role === 'owner' || role === 'admin') return base;
