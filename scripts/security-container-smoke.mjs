@@ -41,6 +41,8 @@ const setup=await json(api+"/auth/mfa/setup",{method:"POST",headers:{...headers,
 check(setup.response.ok && setup.data.secret,"MFA setup");
 const confirmed=await json(api+"/auth/mfa/confirm",{method:"POST",headers:{...headers,authorization:"Bearer "+initial.data.accessToken},body:JSON.stringify({code:totp(setup.data.secret)})});
 check(confirmed.response.ok && Array.isArray(confirmed.data.recoveryCodes) && confirmed.data.recoveryCodes.length===10,"MFA confirmation and recovery codes");
+// Confirmation consumes the current TOTP step; wait for a fresh step to prove replay protection.
+await new Promise(resolve=>setTimeout(resolve,31000-(Date.now()%30000)));
 const mfaLogin=await json(api+"/auth/login",{method:"POST",headers,body:JSON.stringify({email,password,client:"dashboard",mfaCode:totp(setup.data.secret)})});
 check(mfaLogin.response.ok && mfaLogin.data.accessToken,"MFA-protected login");
 refreshCookie=cookie(mfaLogin.response);
