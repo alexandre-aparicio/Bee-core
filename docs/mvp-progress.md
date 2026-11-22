@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — repository main now includes tenant subdomain routing through `fd19a01021d3a04433f650af491bcfb439a8a5db`. Template business-model clarification and removal of the color-picker UI are being recorded in subsequent commits. No tests or CI were run for the latest template changes, per user instruction.
+Updated: 2026-11-22 — repository main now includes tenant subdomain routing through `fd19a01021d3a04433f650af491bcfb439a8a5db`. Template business-model clarification and removal of the color-picker UI are being recorded in subsequent commits. No tests or CI were run for the latest template changes, per user instruction.
 
 ## How progress is measured
 
@@ -8,6 +8,39 @@ The percentages below measure distinct product capabilities, not the number of p
 
 - **MVP capability implementation: 92.15% (92% rounded).** Re-audited against the Docker-installable MVP 0.1 acceptance boundary, not the entire commercial SaaS roadmap. The earlier score incorrectly treated deferred commercial features (payment-provider checkout, arbitrary third-party archive distribution and remote Angular bundles) as incomplete MVP capabilities even though the current trusted, statically bundled plugin model already delivers the MVP workflows. This score counts implemented and tested MVP capabilities once; remaining production and SaaS work is reported separately below.
 - **Release readiness: 72% (provisional; unchanged).** This is deliberately lower because production hardening, full tenant-route review, encrypted off-site backup operations, TLS/monitoring and some release gates remain incomplete.
+
+## MVP 0.1.0 acceptance checklist — snapshot 2026-11-22
+
+The target is a reproducible Docker-installable MVP, not a security-certified public production service. An implementation checkbox means the code or workflow exists; it does not mean the current main commit has passed CI.
+
+### Implemented foundations
+
+- [x] Production Compose overlay publishes the web entry point only and keeps API/MongoDB private.
+- [x] MongoDB root authentication and a database-scoped application user; persistent MongoDB and private-file volumes.
+- [x] Backend health check, Nginx API proxy and isolated Compose production profile.
+- [x] Tenant-context authorization, TenantCollection, notes/marketplace cross-tenant IDOR regression tests and persisted custom company roles.
+- [x] Append-only tenant audit writer and integration for authentication, invitations, roles, membership changes, plugin lifecycle and permission denials.
+- [x] Durable tenant-scoped plugin install/update/uninstall jobs, lease recovery, dependency/entitlement rechecks, bounded retries and migration compensation.
+- [x] Subscription/purchase entitlement transitions use compare-and-set updates and are covered by duplicate/concurrent-delivery integration cases.
+
+### Required release verification
+
+- [ ] Backend typecheck, build, MongoDB integration tests and production dependency audit pass on the exact release candidate.
+- [ ] Angular production build and browser acceptance tests pass on the exact release candidate.
+- [ ] Production Compose workflow passes on the exact release candidate, including host-port isolation, clean stack startup, API/web health, MongoDB persistence and private-file volume upload/download across service restarts.
+- [ ] Clean installation from empty Docker volumes is repeated using only the documented .env and Compose commands.
+- [ ] Authenticated MongoDB backup plus private-file-volume backup/restore round-trip pass. The current main backup commands do not authenticate to MongoDB; this deployment change corrects the authenticated dump/restore and private-file volume round-trip. Do not mark this gate complete until the production Compose workflow passes.
+- [ ] Cross-company organization access denials are recorded only in the actor's active tenant; regression implementation is in PR #74 and needs CI.
+- [ ] Current-head backend, Angular and Compose checks are green. The latest PR #6 and PR #7 commits currently have no retrievable check runs; historical PR results are not a substitute for current-head validation.
+- [ ] The release checklist, install/backup/restore instructions and known limitations are reconciled with the exact release candidate.
+
+### Explicitly outside a production-safe claim
+
+- Provider-signed billing webhooks, timestamp/replay protection and payment reconciliation remain incomplete; the current webhook uses a shared static Bearer secret.
+- Cryptographic publisher signature/digest verification for downloadable third-party packages is not implemented; executable plugins are trusted code bundled with the runtime.
+- Full route, file/media, webhook and background-job tenant audit remains open.
+- TLS/firewall application, encrypted off-site backup retention, monitoring and operational restore drills must be completed before public production use.
+
 
 ## Capability breakdown (current `main`)
 
