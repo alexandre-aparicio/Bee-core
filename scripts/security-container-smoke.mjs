@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 const origin = process.env.BEE_SMOKE_ORIGIN ?? "http://127.0.0.1:38080";
 const api = origin + "/api";
