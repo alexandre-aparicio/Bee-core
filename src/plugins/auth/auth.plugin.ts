@@ -329,7 +329,7 @@ export const authPlugin:BeePlugin={
    return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),tokens,customized:true};
   });
   ctx.server.post("/templates/public-stream-ticket",async(req,reply)=>{
-   const host=String(req.hostname??"").toLowerCase().replace(/:\\d+$/,"");
+   const host=String(req.hostname??"").toLowerCase().replace(/:\d+$/,"");
    const tenant=await tenants.findOne({domains:host});
    const tenantId=tenant?.id??defaultTenantId;
    const issued=templateStreamTickets.issue({tenantId,ip:req.ip});
