@@ -23,6 +23,7 @@ export class BeeTemplateEngine {
   themeTokens: Record<string, string> = { ...DEFAULT_THEME_TOKENS };
   private accessToken: string | null = null;
   private userRoles: string[] = [];
+  private platformRole: string | null = null;
   private tenantScope: string | null = null;
 
   constructor() {
@@ -40,11 +41,12 @@ export class BeeTemplateEngine {
 
   get hasAuthenticatedSession(): boolean { return this.authToken() !== null; }
 
-  get canManageTemplates(): boolean { return this.userRoles.includes('admin'); }
+  get canManageTemplates(): boolean { return this.userRoles.includes('admin') || this.platformRole === 'superadmin'; }
 
-  setAuthSession(session: { accessToken?: string; tenantId?: string; user?: { roles?: string[]; tenantId?: string } } | null): void {
+  setAuthSession(session: { accessToken?: string; tenantId?: string; user?: { roles?: string[]; platformRole?: string; tenantId?: string } } | null): void {
     this.accessToken = typeof session?.accessToken === 'string' ? session.accessToken : null;
     this.userRoles = Array.isArray(session?.user?.roles) ? session.user.roles : [];
+    this.platformRole = session?.user?.platformRole ?? null;
     this.tenantScope = session?.user?.tenantId || session?.tenantId || null;
     if (this.accessToken) void this.restoreRemoteSelection();
     else {
