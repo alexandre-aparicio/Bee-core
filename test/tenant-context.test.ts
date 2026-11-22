@@ -86,7 +86,9 @@ test("tenant context requires a valid session, active membership and company", {
     await db.collection("users").updateOne({id:"user-one"},{$set:{platformRole:"superadmin"}});
     assert.equal(await resolveTenantContext(db,claims,{},secret),null,"a superadmin without active MFA must not use tenant/business routes");
     await db.collection("users").updateOne({id:"user-one"},{$set:{mfaSecretEnc:"encrypted-mfa-secret"}});
-    assert.ok(await resolveTenantContext(db,claims,{},secret),"an enrolled superadmin may use tenant routes after MFA setup");
+    assert.equal(await resolveTenantContext(db,claims,{},secret),null,"an enrolled account must still prove MFA on each session");
+    await db.collection("refresh_sessions").updateOne({id:"session-one"},{$set:{mfaVerifiedAt:new Date()}});
+    assert.ok(await resolveTenantContext(db,claims,{},secret),"an enrolled superadmin with an MFA-verified session may use tenant routes");
     await db.collection("users").updateOne({id:"user-one"},{$unset:{platformRole:"",mfaSecretEnc:""}});
 
     await db.collection("tenants").updateOne({ id: "company-one" }, { $set: { status: "suspended" } });
