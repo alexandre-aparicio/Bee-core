@@ -93,3 +93,24 @@ Run these checks against the local Compose deployment (not against GitHub Action
    reach the API.
 4. Open the app in headless Chromium and check the console for CSP violations and runtime errors.
 5. Upload a real 10 MiB file through the UI and verify the resulting API response and stored file.
+
+## Request throttling at the web edge
+
+The bundled Nginx proxy applies per-client-IP request limits and returns HTTP 429 when a
+limit is exceeded:
+- Login: 5 requests/minute with a burst of 5.
+- Refresh: 10 requests/minute with a burst of 5.
+- MFA setup and confirmation: 3 requests/minute with small bursts.
+- Public and authenticated template stream-ticket issuance: 30 requests/minute with a burst
+  of 10.
+
+These controls protect the proxy entry points; they are not account-wide counters and are
+not shared between independent Nginx replicas. If Nginx is behind a CDN or load balancer,
+configure its real-IP module with only the provider's trusted source ranges, or all users
+may appear to originate from the same proxy address. Do not enable broad forwarded-header
+trust as a workaround. Account-level abuse detection and distributed rate limiting remain
+separate deployment requirements for a multi-replica environment.
+
+A Node test verifies that the protected locations, independent zones, 429 response status,
+and private backend exposure remain present. It is a configuration regression test, not a
+substitute for running nginx -t, Compose, HTTP load tests, or browser verification.
