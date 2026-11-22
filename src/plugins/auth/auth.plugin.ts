@@ -180,14 +180,14 @@ export const authPlugin:BeePlugin={
     if(reused){
      const revokedAt=new Date();
      const revoked=await sessions.updateOne({id:reused.id,revokedAt:null},{$set:{revokedAt}});
-     if(revoked.modifiedCount&&reused.tenantId)await auditAuthEvent({tenantId:reused.tenantId,actorId:reused.userId,action:"auth.refresh.reuse",outcome:"denied",metadata:{client:reused.client,reason:"rotated_token_reuse"}});
+     if(revoked.modifiedCount)await auditAuthEvent({tenantId:reused.tenantId??defaultTenantId,actorId:reused.userId,action:"auth.refresh.reuse",outcome:"denied",metadata:{client:reused.client,reason:"rotated_token_reuse"}});
      if(reused.client==="dashboard")clearRefreshCookie(reply,secureCookie);
      return reply.code(401).send({error:"Refresh token reuse detected; session revoked"});
     }
     const exhausted=await sessions.findOne({tokenHash:rawHash,revokedAt:null});
     if(exhausted){
      const revoked=await sessions.updateOne({id:exhausted.id,revokedAt:null},{$set:{revokedAt:new Date()}});
-     if(revoked.modifiedCount&&exhausted.tenantId)await auditAuthEvent({tenantId:exhausted.tenantId,actorId:exhausted.userId,action:"auth.refresh.limit",outcome:"denied",metadata:{client:exhausted.client,reason:"rotation_history_capacity"}});
+     if(revoked.modifiedCount)await auditAuthEvent({tenantId:exhausted.tenantId??defaultTenantId,actorId:exhausted.userId,action:"auth.refresh.limit",outcome:"denied",metadata:{client:exhausted.client,reason:"rotation_history_capacity"}});
      if(exhausted.client==="dashboard")clearRefreshCookie(reply,secureCookie);
      return reply.code(401).send({error:"Refresh session rotation limit reached; sign in again"});
     }
