@@ -12,7 +12,6 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
  <section class="platform-admin">
    @if (!managedTenantId) {
      <div class="platform-admin__toolbar">
-       <div><h2>Tenants</h2><p>Manage every tenant registered on Bee-Core</p></div>
        <div class="platform-admin__toolbar-actions">
          <div class="platform-admin__view-toggle" aria-label="Company display">
            <button type="button" [class.is-active]="viewMode==='cards'" [attr.aria-pressed]="viewMode==='cards'" (click)="viewMode='cards'" title="Card view">▦</button>
