@@ -68,8 +68,8 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
      }
    } @else {
      <div class="platform-admin__manage-head">
-       <button type="button" class="platform-admin__back" (click)="backToList.emit()">← Tenants</button>
        <div><span class="platform-admin__eyebrow">SETTINGS / TENANTS</span><h2>{{managedCompany?.name || 'Company management'}}</h2><p>Manage this tenant and its platform-level configuration</p></div>
+       <button type="button" class="platform-admin__back" (click)="backToList.emit()">All Tenants</button>
      </div>
      @if(error){<p class="platform-admin__error">{{error}}</p>}
      @if(managedCompany){
