@@ -14,7 +14,7 @@ import { getTrustedPluginPackage, isPluginInstalled } from "../../core/plugin-en
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
 type Company={id:string;name:string;slug?:string;createdAt:Date;status:"active"|"suspended"};
-type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
+type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
 type Membership={id:string;userId:string;tenantId:string;role:"owner"|"admin"|"manager"|"member";status:"active";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string;platformRole?:string};
 export const platformAdminPlugin:BeePlugin={
@@ -40,12 +40,19 @@ export const platformAdminPlugin:BeePlugin={
     if(claims.aud!=="bee-core"||claims.client!=="dashboard"||!claims.sub||!claims.sid)return reply.code(401).send({error:"Platform admin session required"}),null;
     const session=await sessions.findOne({id:claims.sid,client:"dashboard",revokedAt:null,expiresAt:{$gt:new Date()}});
     if(!session)return reply.code(403).send({error:"Platform superadministrator required"}),null;
-    if(!session.mfaVerifiedAt||Date.now()-session.mfaVerifiedAt.getTime()>15*60*1000)return reply.code(403).send({error:"Recent MFA verification required"}),null;
     const sessionContext={sessionId:session.id,expiresAt:session.expiresAt};
     let userId="";try{userId=unmaskResourceId(String(claims.sub),"user",sessionContext,sessionIdSecret);}catch{return reply.code(401).send({error:"Invalid session subject"}),null;}
     if(userId!==session.userId)return reply.code(401).send({error:"Invalid session subject"}),null;
     const user=await users.findOne({id:userId,enabled:true,platformRole:"superadmin"});
     if(!user)return reply.code(403).send({error:"Platform superadministrator required"}),null;
+    if(!user.mfaSecretEnc){
+     await recordPlatformAudit({actorId:user.id,action:"security.mfa_required",resourceType:"security",metadata:{reason:"mfa_not_enrolled"}});
+     return reply.code(403).send({error:"Active MFA enrollment required"}),null;
+    }
+    if(!session.mfaVerifiedAt||Date.now()-session.mfaVerifiedAt.getTime()>15*60*1000){
+     await recordPlatformAudit({actorId:user.id,action:"security.mfa_recent_required",resourceType:"security",metadata:{reason:"mfa_verification_stale"}});
+     return reply.code(403).send({error:"Recent MFA verification required"}),null;
+    }
     try {
      if(req.params?.companyId)req.params.companyId=unmaskResourceId(String(req.params.companyId),"tenant",sessionContext,sessionIdSecret);
      if(req.params?.pluginId)req.params.pluginId=unmaskResourceId(String(req.params.pluginId),"plugin",sessionContext,sessionIdSecret);
