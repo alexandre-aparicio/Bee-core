@@ -94,6 +94,11 @@ import type { BeeTemplateTarget } from './template.types';
     </section>
   `,
   styles: [`
+    .bee-template-manager__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+    .bee-template-manager__eyebrow{display:block;font-size:10px;font-weight:700;letter-spacing:.16em;opacity:.58}
+    .bee-template-manager__heading strong{display:block;font-size:17px;font-weight:600;line-height:1.35;margin:2px 0 5px}
+    .bee-template-manager__heading p{font-size:12px;line-height:1.55;opacity:.68;margin:0}
+    .bee-template-manager__status{border:1px solid var(--border,#8885);border-radius:30px;padding:6px 9px;font-size:10px;white-space:nowrap;opacity:.7}
     .bee-template-manager__fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
     .bee-template-card{min-width:0;padding:13px;border:1px solid var(--border,#8885);border-radius:12px}
     .bee-template-card h3{font-size:13px;margin:0}.bee-template-card p{font-size:10px;opacity:.6;margin:3px 0 12px}
