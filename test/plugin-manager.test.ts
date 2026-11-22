@@ -108,3 +108,15 @@ test("stopAll continues through multiple plugins after an earlier stop hook thro
   assert.equal(manager.list().find(plugin => plugin.name === "first")?.status, "stopped");
   await server.close();
 });
+
+test("all plugin scopes receive the exact same core MongoClient instance", async () => {
+  const server = Fastify(), manager = new BeePluginManager();
+  const rootContext = context(server);
+  const received: unknown[] = [];
+  manager.register({ manifest: { name: "first", version: "1" }, initialize(ctx) { received.push(ctx.mongoClient); } });
+  manager.register({ manifest: { name: "second", version: "1" }, initialize(ctx) { received.push(ctx.mongoClient); } });
+  await manager.mountAll(rootContext);
+  assert.equal(received.length, 2);
+  assert.ok(received.every(client => client === rootContext.mongoClient));
+  await server.close();
+});
