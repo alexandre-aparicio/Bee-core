@@ -458,10 +458,10 @@ Current status at PR merge: the implementation is integrated in main for manual 
 
 ## Tenant mail integration — PR #59 (refreshed against current main)
 
-The tenant mail feature is being ported onto the current `main` foundation rather than merging its stale branch wholesale. It adds tenant-scoped mailbox configuration and message storage, SMTP send, IMAP/POP3 retrieval, scheduled synchronization, role permissions and the dashboard workspace across Glass, Midnight and Paper templates. Existing current-main notifications, messages, Settings, authentication and security changes are preserved.
+PR #59 has been integrated into `main` at `dc1e16e94f63965a807ca57771fdc6c2b5dc49cd`. The feature branch was refreshed onto the current `main` first; the integration preserves the current notifications, messages, Settings, authentication and security work. It adds tenant-scoped mailbox configuration and message storage, SMTP send, IMAP/POP3 retrieval, scheduled synchronization, role permissions and the dashboard workspace across Glass, Midnight and Paper templates. Existing current-main notifications, messages, Settings, authentication and security changes are preserved.
 
 - Mailbox credentials use a dedicated AES-256-GCM key (`BEE_MAIL_ENCRYPTION_KEY`); production Compose and the production CI profile receive the key explicitly.
 - Incoming IMAP/POP3 requires TLS. SMTP requires implicit TLS or STARTTLS on port 587; plaintext authentication paths are rejected.
 - Owner/admin can manage mailboxes and send; manager can read/send; member is read-only. Server-side tenant context remains authoritative.
 - MIME decoding, attachments, OAuth2, robust protocol parsing, IMAP UID cursor tracking, retries/queues and provider compatibility tests remain outstanding.
-- Build, automated CI, live SMTP/IMAP/POP3 provider tests and a dedicated security review must pass before production use. Do not treat this feature as validated until the refreshed PR checks complete.
+- Build, automated CI, live SMTP/IMAP/POP3 provider tests and a dedicated security review must pass before production use. No GitHub Actions runs or commit statuses were available for the refreshed PR head or merge commit at integration time. Do not treat this feature as validated until backend/Angular/Compose CI, live provider tests and security review pass.
