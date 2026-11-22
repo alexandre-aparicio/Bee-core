@@ -55,6 +55,10 @@ npm start
 
 Users and refresh sessions are stored in MongoDB collections `users` and `refresh_sessions`. Refresh tokens are SHA-256 hashed, rotated on refresh, and TTL-indexed for expiration cleanup. See [docs/auth.md](docs/auth.md).
 
+## Connected devices
+
+Bee-Core's proposed QR-based device pairing, scoped device authorization, mobile companion, location and POS integration roadmap is documented in [Connected Devices](docs/connected-devices.md). This is a planned capability, not part of the implemented MVP.
+
 ## Plugin contract
 
 A plugin exports a manifest and lifecycle hooks. See [src/plugins/hello.plugin.ts](src/plugins/hello.plugin.ts).
