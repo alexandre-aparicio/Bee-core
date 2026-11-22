@@ -47,7 +47,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Generate isolated test environment
         run: |
-          ADMIN_PASSWORD=$(openssl rand -base64 36 | tr -d '\n')
+          ADMIN_PASSWORD=$(openssl rand -hex 32)
+          echo "::add-mask::$ADMIN_PASSWORD"
           echo "AUTH_ADMIN_PASSWORD=$ADMIN_PASSWORD" >> "$GITHUB_ENV"
           cat > .env <<EOF
           BEE_WEB_PORT=38080
@@ -83,7 +84,7 @@ jobs:
       - name: Verify backend and frontend run without unnecessary privileges
         run: |
           test -z "$(docker compose -f docker-compose.yml -f docker-compose.prod.yml port bee-core 3000)"
-          test "$(docker inspect bee-core-web --format '{{.Config.User}}')" = "101"
+          test "$(docker exec bee-core-web id -u)" = "101"
           if curl --silent --show-error --connect-timeout 2 http://127.0.0.1:3000/health; then
             echo "Backend unexpectedly reachable from host"
             exit 1
