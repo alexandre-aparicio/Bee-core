@@ -1,6 +1,6 @@
 import type { BeePlugin } from "../../core/types.js";
 import { MongoClient, type Db, type Collection } from "mongodb";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { resolveTenantContext, type TenantClaims } from "../../core/tenant-context.js";
 import { BoundedTicketStore, RealtimeConnectionLimiter } from "../../core/realtime-limits.js";
 
