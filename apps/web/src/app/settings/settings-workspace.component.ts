@@ -29,7 +29,7 @@ type SettingGroup = { title: string; description: string; fields: string[]; note
           </article>
           <article class="settings-workspace__card">
             <div class="settings-workspace__card-heading"><span class="settings-workspace__icon">◈</span><div><h2>Appearance</h2><p>Themes, branding, typography and global visual preferences.</p></div></div>
-            @if (scope === 'tenant') {<bee-template-manager target="all"></bee-template-manager>} @else {<div class="settings-workspace__unavailable">Global appearance settings are not available. The existing template manager is tenant-scoped and is intentionally kept separate.</div>}
+            <bee-template-manager target="all"></bee-template-manager>
           </article>
           <article class="settings-workspace__card">
             <div class="settings-workspace__card-heading"><span class="settings-workspace__icon">⚙</span><div><h2>Platform Defaults</h2><p>Default workspace behavior and platform-wide starting preferences.</p></div></div>
