@@ -112,10 +112,14 @@ jobs:
             console.log(`PASS ${name} (${response.status})`);
           }
           NODE
-      - name: Verify real authentication and refresh-token rotation
+      - name: Verify real authentication and refresh-cookie rotation
         run: |
           node --input-type=module <<'NODE'
           const base = "http://localhost:33000";
+          const cookieFrom = response => {
+            const cookie = (response.headers.get("set-cookie") || "").split(";")[0].trim();
+            return cookie.startsWith("bee_refresh=") ? cookie : "";
+          };
           const login = await fetch(base + "/auth/login", {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -123,8 +127,11 @@ jobs:
           });
           if (!login.ok) throw new Error(`Admin login failed: HTTP ${login.status} ${await login.text()}`);
           const tokens = await login.json();
-          if (!tokens.accessToken || !tokens.refreshToken) throw new Error("Login did not return both tokens");
-          console.log("PASS admin login");
+          const loginCookie = cookieFrom(login);
+          const loginSetCookie = login.headers.get("set-cookie") || "";
+          if (!tokens.accessToken || !loginCookie) throw new Error("Dashboard login must return an access token and HttpOnly refresh cookie");
+          if (!/HttpOnly/i.test(loginSetCookie) || !/SameSite=Strict/i.test(loginSetCookie) || !/Path=\/api\/auth/i.test(loginSetCookie)) throw new Error("Refresh cookie security attributes are missing");
+          console.log("PASS dashboard login and HttpOnly refresh cookie");
 
           const me = await fetch(base + "/auth/me", { headers: { authorization: `Bearer ${tokens.accessToken}` } });
           if (!me.ok || !(await me.json()).authenticated) throw new Error("Authenticated /auth/me failed");
@@ -144,34 +151,37 @@ jobs:
           if (persisted.selection?.public !== "editorial" || persisted.selection?.dashboard !== "paper") throw new Error("Template preferences were not persisted");
           console.log("PASS MongoDB template preference persistence");
 
-
           const refresh = await fetch(base + "/auth/refresh", {
-            method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ refreshToken: tokens.refreshToken })
+            method: "POST",
+            headers: { "content-type": "application/json", cookie: loginCookie },
+            body: "{}"
           });
-          if (!refresh.ok) throw new Error("Refresh-token rotation failed");
+          if (!refresh.ok) throw new Error("Refresh-cookie rotation failed");
           const rotated = await refresh.json();
-          if (!rotated.refreshToken || rotated.refreshToken === tokens.refreshToken) throw new Error("Refresh token was not rotated");
-          console.log("PASS refresh-token rotation");
+          const rotatedCookie = cookieFrom(refresh);
+          if (!rotated.accessToken || !rotatedCookie || rotatedCookie === loginCookie) throw new Error("Dashboard refresh cookie was not rotated");
+          console.log("PASS HttpOnly refresh-cookie rotation");
 
           const replay = await fetch(base + "/auth/refresh", {
-            method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ refreshToken: tokens.refreshToken })
+            method: "POST",
+            headers: { "content-type": "application/json", cookie: loginCookie },
+            body: "{}"
           });
-          if (replay.status !== 401) throw new Error(`Replayed refresh token should return 401, got ${replay.status}`);
-          console.log("PASS refresh-token replay rejection");
+          if (replay.status !== 401) throw new Error(`Replayed refresh cookie should return 401, got ${replay.status}`);
+          console.log("PASS refresh-cookie replay rejection");
 
           const logout = await fetch(base + "/auth/logout", {
             method: "POST",
-            headers: { "content-type": "application/json", authorization: `Bearer ${rotated.accessToken}` },
-            body: JSON.stringify({ refreshToken: rotated.refreshToken })
+            headers: { authorization: `Bearer ${rotated.accessToken}`, cookie: rotatedCookie, "content-type": "application/json" },
+            body: "{}"
           });
           if (!logout.ok) throw new Error("Logout failed");
           const afterLogout = await fetch(base + "/auth/refresh", {
-            method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ refreshToken: rotated.refreshToken })
+            method: "POST",
+            headers: { "content-type": "application/json", cookie: rotatedCookie },
+            body: "{}"
           });
-          if (afterLogout.status !== 401) throw new Error("Logged-out refresh token was not revoked");
+          if (afterLogout.status !== 401) throw new Error("Logged-out refresh cookie was not revoked");
           console.log("PASS logout and refresh-session revocation");
           NODE
       - name: Docker Compose diagnostics
