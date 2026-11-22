@@ -78,10 +78,16 @@ test("JWT verification enforces algorithm, issuer, audience and required expirat
       assert.throws(() => app.jwt.verify(`${header}.${payload}.${altered}`));
     });
 
-    await t.test("rejects a token missing required claims", () => {
-      const token = signedToken({ sub: "security-test-user", iss: "bee-core", aud: "bee-core" });
-      assert.throws(() => app.jwt.verify(token));
-    });
+    for (const [claim, payload] of [
+      ["exp", { sub: "security-test-user", iss: "bee-core", aud: "bee-core" }],
+      ["aud", { sub: "security-test-user", iss: "bee-core", exp: Math.floor(Date.now() / 1000) + 60 }],
+      ["iss", { sub: "security-test-user", aud: "bee-core", exp: Math.floor(Date.now() / 1000) + 60 }],
+    ] as const) {
+      await t.test(`rejects a token missing required ${claim} claim`, () => {
+        const token = signedToken(payload);
+        assert.throws(() => app.jwt.verify(token));
+      });
+    }
 
     await t.test("rejects a signed array payload instead of a claims object", () => {
       const token = signedToken(["security-test-user", "platformRole:superadmin"]);
