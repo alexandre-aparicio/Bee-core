@@ -77,6 +77,10 @@ Only trusted, reviewed packages are executable. Do not execute arbitrary uploade
 8. Suspend: disable execution when entitlement expires or is revoked; preserve company data and show a clear status.
 9. Uninstall: require explicit confirmation, resolve dependents, define data-retention/export policy, and never silently erase tenant data.
 
+## Connected devices and companion applications
+
+The proposed device-pairing, device registry, scoped capabilities, mobile companion, location and POS workflows are specified in [docs/connected-devices.md](connected-devices.md). This is a future platform capability and is not included in the verified MVP score. Delivery should follow the phases and security/privacy acceptance criteria in that document.
+
 ## Implementation phases and acceptance gates
 
 ### Phase 0 — Existing foundation and architecture
