@@ -2,7 +2,28 @@ import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/
 import { CommonModule } from '@angular/common';
 type NotificationItem={id:string;title:string;message:string;category:string;priority:string;readAt:Date|null;createdAt:Date;action?:{label:string;route:string}};
 @Component({selector:'bee-notification-center',standalone:true,imports:[CommonModule],template:`<div class="bee-notify"><button class="bee-notify-trigger" type="button" (click)="toggle()" aria-label="Notifications"><span>♧</span>@if(unread>0){<i>{{unread>99?'99+':unread}}</i>}</button>@if(open){<section class="bee-notify-panel"><header><strong>Notifications</strong><button type="button" (click)="markAll()" [disabled]="unread===0">Mark all read</button></header><div class="bee-notify-list">@if(error){<p class="bee-notify-error">{{error}}</p>}@if(loading){<p class="bee-notify-empty">Loading…</p>}@else if(items.length===0){<p class="bee-notify-empty">You're all caught up.</p>}@for(item of items;track item.id){<article [class.unread]="!item.readAt"><button class="bee-notify-item" type="button" (click)="openItem(item)"><span class="bee-notify-dot">{{item.category==='security'?'◈':item.category==='plugins'?'▣':'●'}}</span><span class="bee-notify-text"><b>{{item.title}}</b><span>{{item.message}}</span><small>{{time(item.createdAt)}}</small></span></button></article>}</div><footer><button type="button" (click)="load()">Refresh</button></footer></section>}</div>`,
-styles:[`.bee-notify{position:relative;display:inline-flex}.bee-notify-trigger{position:relative;border:1px solid var(--border,#d7deeb);background:var(--panel,#fff);color:inherit;border-radius:10px;padding:9px 12px;cursor:pointer;font-size:18px}.bee-notify-trigger i{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:99px;background:#635bff;color:white;font:700 10px/18px system-ui;text-align:center}.bee-notify-panel{position:absolute;z-index:1000;right:0;top:calc(100% + 10px);width:min(370px,calc(100vw - 24px));max-height:480px;background:var(--panel,#fff);color:var(--text,#182338);border:1px solid var(--border,#d7deeb);border-radius:16px;box-shadow:0 20px 55px #0a18352b;overflow:hidden}.bee-notify-panel header,.bee-notify-panel footer{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;border-bottom:1px solid var(--border,#d7deeb)}.bee-notify-panel header button,.bee-notify-panel footer button{background:transparent;border:0;color:inherit;cursor:pointer;font-size:12px}.bee-notify-panel header button:disabled{opacity:.45}.bee-notify-list{overflow:auto;max-height:385px}.bee-notify-item{display:flex;gap:10px;width:100%;text-align:left;border:0;background:transparent;color:inherit;padding:13px 15px;cursor:pointer}.bee-notify-item:hover{background:#7e91b015}.bee-notify-list article{border-bottom:1px solid var(--border,#d7deeb)}.bee-notify-list article.unread{background:#7165ff0b}.bee-notify-dot{flex:none;color:#635bff}.bee-notify-text{display:flex;flex-direction:column;gap:4px;min-width:0}.bee-notify-text b{font-size:13px}.bee-notify-text span{font-size:12px;line-height:1.5;opacity:.78}.bee-notify-text small{font-size:10px;opacity:.6}.bee-notify-empty{padding:24px;text-align:center;opacity:.6;font-size:13px}.bee-notify-error{padding:12px 15px;color:#dc2626;font-size:12px}`]
+styles:[`
+.bee-notify{position:relative;display:inline-flex;align-items:center;color:inherit}
+.bee-notify-trigger{position:relative;display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--border,#8885);background:var(--panel,#8881);color:inherit;border-radius:10px;padding:0;cursor:pointer;font-size:17px}
+.bee-notify-trigger i{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:99px;background:var(--purple,#8c72ff);color:white;font:700 10px/18px Arial,sans-serif;text-align:center}
+.bee-notify-panel{position:absolute;z-index:1000;right:0;top:calc(100% + 10px);width:min(370px,calc(100vw - 24px));max-height:480px;background:var(--panel,#8881);color:inherit;border:1px solid var(--border,#8885);border-radius:16px;box-shadow:0 20px 55px #0a18352b;overflow:hidden}
+.bee-notify-panel header,.bee-notify-panel footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border,#8885)}
+.bee-notify-panel header strong{font-size:14px;font-weight:600}
+.bee-notify-panel header button,.bee-notify-panel footer button{background:transparent;border:0;color:inherit;cursor:pointer;font:600 11px Arial,sans-serif}
+.bee-notify-panel header button:disabled{opacity:.4;cursor:not-allowed}
+.bee-notify-list{overflow:auto;max-height:385px}
+.bee-notify-item{display:flex;align-items:flex-start;gap:11px;width:100%;text-align:left;border:0;background:transparent;color:inherit;padding:13px 15px;cursor:pointer}
+.bee-notify-item:hover{background:color-mix(in srgb,var(--purple,#8c72ff) 6%,transparent)}
+.bee-notify-list article{border-bottom:1px solid var(--border,#8885)}
+.bee-notify-list article.unread{background:color-mix(in srgb,var(--purple,#8c72ff) 6%,transparent)}
+.bee-notify-dot{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border-radius:9px;background:var(--purple,#777);color:white;font-size:13px}
+.bee-notify-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.bee-notify-text b{font-size:12px;line-height:1.4;font-weight:600}
+.bee-notify-text span{font-size:11px;line-height:1.5;opacity:.72}
+.bee-notify-text small{font-size:10px;opacity:.58}
+.bee-notify-empty{padding:24px;text-align:center;opacity:.65;font-size:12px}
+.bee-notify-error{padding:12px 15px;color:#dc6262;font-size:11px}
+`]
 })
 export class BeeNotificationCenterComponent implements OnChanges,OnDestroy{
  @Input() accessToken='';@Input() tenantId='';
