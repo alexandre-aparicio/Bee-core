@@ -224,7 +224,7 @@ export class AppComponent implements OnInit {
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
     dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization',
-    activity: '/dashboard/activity', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
+    activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans-licensing',
     'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
@@ -307,14 +307,15 @@ export class AppComponent implements OnInit {
       {id:'dashboard',label:'Dashboard',icon:'▦',group:'WORKSPACE'},
       {id:'organization',label:'Organization',icon:'♙',group:'WORKSPACE'},
       {id:'activity',label:'Activity',icon:'◷',group:'WORKSPACE'},
+      {id:'mail',label:'Mail',icon:'✉',group:'WORKSPACE'},
       {id:'notifications',label:'Notifications',icon:'♧',group:'WORKSPACE'},
       {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
     ];
-    if (this.isPlatformAdmin) return [base[0], base[2], base[3]];
+    if (this.isPlatformAdmin) return base.filter(item => ['dashboard','activity','mail','notifications'].includes(item.id));
     const role = (this.activeCompanyRole || '').toLowerCase();
     if (role === 'manager') return base;
     if (role === 'owner' || role === 'admin') return base;
-    return base.filter(item => ['dashboard','organization','notifications','settings'].includes(item.id));
+    return base.filter(item => ['dashboard','organization','mail','notifications','settings'].includes(item.id));
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void {
