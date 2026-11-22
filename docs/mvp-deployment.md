@@ -100,6 +100,8 @@ The API health endpoint is available internally at `http://bee-core:3000/health`
 - MongoDB data: Docker volume `bee_core_mongodb_data`
 - Private file data: Docker volume `bee_core_files`
 
+The backend image creates `/data/bee-files` with ownership for the non-root `node` user before Docker initializes a new named volume. Existing file volumes created by older images keep their original ownership; back them up and inspect permissions before upgrading if uploads fail after deployment.
+
 List volumes:
 
 ```bash
