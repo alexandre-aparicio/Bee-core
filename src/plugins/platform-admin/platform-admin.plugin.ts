@@ -9,6 +9,8 @@ declare module "fastify" {
 import bcrypt from "bcryptjs";
 import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
 import { enqueuePluginInstallJob, enqueuePluginUninstallJob } from "../../core/plugin-install-jobs.js";
 import { getTrustedPluginPackage, isPluginInstalled } from "../../core/plugin-entitlements.js";
@@ -89,6 +91,48 @@ export const platformAdminPlugin:BeePlugin={
     updatedAt:new Date(),updatedBy:actorId
    };
   };
+  const identityAssetRoot=path.resolve(String(ctx.config.fileStoragePath??"/data/bee-files"),"platform-identity");
+  const allowedIdentityImageTypes=new Set(["image/png","image/jpeg","image/webp","image/gif","image/x-icon"]);
+  const identityImageMatches=(type:string,data:Buffer):boolean=>{
+   if(type==="image/png")return data.length>=8&&data.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+   if(type==="image/jpeg")return data.length>=3&&data[0]===0xff&&data[1]===0xd8&&data[2]===0xff;
+   if(type==="image/webp")return data.length>=12&&data.toString("ascii",0,4)==="RIFF"&&data.toString("ascii",8,12)==="WEBP";
+   if(type==="image/gif")return data.length>=6&&["GIF87a","GIF89a"].includes(data.toString("ascii",0,6));
+   if(type==="image/x-icon")return data.length>=4&&data[0]===0&&data[1]===0&&data[2]===1&&data[3]===0;
+   return false;
+  };
+  ctx.server.post("/platform/identity/assets/:assetKey",async(req:any,reply:any)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const keys=new Set(["primaryLogoUrl","secondaryLogoUrl","brandMarkUrl","faviconUrl","appleTouchIconUrl","socialImageUrl","loginLogoUrl"]);
+   if(!keys.has(String(req.params.assetKey)))return reply.code(404).send({error:"Unknown platform identity asset"});
+   const body=req.body;
+   if(!Buffer.isBuffer(body)||body.length===0)return reply.code(400).send({error:"Send a non-empty image body"});
+   if(body.length>5*1024*1024)return reply.code(413).send({error:"Maximum image size is 5 MB"});
+   const contentType=String(req.headers["x-file-content-type"]??"").split(";")[0].trim().toLowerCase();
+   if(!allowedIdentityImageTypes.has(contentType))return reply.code(415).send({error:"Image type is not allowed"});
+   if(!identityImageMatches(contentType,body))return reply.code(400).send({error:"Image content does not match its declared type"});
+   const extension=contentType==="image/jpeg"?"jpg":contentType==="image/x-icon"?"ico":contentType.split("/")[1];
+   const id=randomUUID()+"."+extension;
+   await mkdir(identityAssetRoot,{recursive:true});
+   await writeFile(path.join(identityAssetRoot,id),body,{flag:"wx",mode:0o644});
+   const host=String(req.headers["x-forwarded-host"]??req.headers.host??"").split(",")[0].trim();
+   if(!host)return reply.code(500).send({error:"Could not determine the public platform host"});
+   const url="https://"+host+"/api/public/platform-identity/assets/"+id;
+   await recordPlatformAudit({actorId:actor.id,action:"platform.identity.asset_uploaded",resourceType:"platform_identity_asset",resourceId:id,metadata:{assetKey:req.params.assetKey,contentType,size:body.length}});
+   return reply.code(201).send({url});
+  });
+  ctx.server.get("/public/platform-identity/assets/:fileName",async(req:any,reply:any)=>{
+   const fileName=String(req.params.fileName??"");
+   if(!/^[0-9a-f-]{36}\.(?:png|jpg|webp|gif|ico)$/i.test(fileName))return reply.code(404).send({error:"Asset not found"});
+   try{
+    const data=await readFile(path.join(identityAssetRoot,fileName));
+    const ext=fileName.split(".").pop();
+    const type=ext==="jpg"?"image/jpeg":ext==="ico"?"image/x-icon":"image/"+ext;
+    reply.header("content-type",type);reply.header("content-length",String(data.length));reply.header("cache-control","public, max-age=31536000, immutable");reply.header("x-content-type-options","nosniff");
+    return reply.send(data);
+   }catch{return reply.code(404).send({error:"Asset not found"});}
+  });
+
   ctx.server.get("/public/platform-identity",async()=>{
    const identity=await readIdentity();
    return {brand:identity.brand,assets:identity.assets,seo:identity.seo};

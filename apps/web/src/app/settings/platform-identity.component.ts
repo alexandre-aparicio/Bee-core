@@ -54,11 +54,19 @@ const EMPTY_IDENTITY: PlatformIdentity = {
             <div class="identity__section-title"><div><h3>Brand assets</h3><p>Provide public HTTPS URLs for the image files. Asset uploads can be connected to the Files service in a later step.</p></div></div>
             <div class="identity__asset-grid">
               @for(asset of assetFields;track asset.key){
-                <label class="identity__asset">
-                  <span>{{asset.label}}</span><small>{{asset.hint}}</small>
-                  <input [name]="asset.key" type="url" [(ngModel)]="data.assets[asset.key]" [disabled]="!editable" placeholder="https://cdn.example.com/asset.png">
-                  @if(data.assets[asset.key]){<div class="identity__asset-preview"><img [src]="data.assets[asset.key]" [alt]="asset.label + ' preview'" (error)="failedPreviews[asset.key]=true" (load)="failedPreviews[asset.key]=false"><span [hidden]="!failedPreviews[asset.key]">Preview unavailable</span></div>}
-                </label>
+                <div class="identity__asset">
+                  <div class="identity__asset-copy"><span>{{asset.label}}</span><small>{{asset.hint}}</small></div>
+                  <div class="identity__asset-control">
+                    <label class="identity__upload" [class.is-uploading]="uploadingAssets[asset.key]">
+                      <input [name]="asset.key + 'Upload'" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/x-icon" [disabled]="!editable || uploadingAssets[asset.key]" (change)="uploadAsset(asset.key,$event)">
+                      <span>{{uploadingAssets[asset.key] ? 'Uploading…' : data.assets[asset.key] ? 'Replace image' : 'Upload image'}}</span>
+                    </label>
+                    <div class="identity__asset-preview">
+                      @if(data.assets[asset.key]){<img [src]="data.assets[asset.key]" [alt]="asset.label + ' preview'" (error)="failedPreviews[asset.key]=true" (load)="failedPreviews[asset.key]=false"><span [hidden]="!failedPreviews[asset.key]">Preview unavailable</span>}
+                      @else {<span>No image selected</span>}
+                    </div>
+                  </div>
+                </div>
               }
             </div>
           </div>
@@ -108,7 +116,7 @@ const EMPTY_IDENTITY: PlatformIdentity = {
     .identity__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:19px 20px 15px}.identity__eyebrow{font:700 9px Arial,sans-serif;letter-spacing:.16em;opacity:.55}.identity__heading h2{font-size:17px;margin:6px 0}.identity__heading p,.identity__section-title p,.identity__social p{font-size:11px;line-height:1.5;opacity:.65;margin:0}.identity__scope{border:1px solid var(--border,#8885);border-radius:30px;padding:6px 9px;font-size:10px;white-space:nowrap;opacity:.7}
     .identity__tabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--border,#8885);overflow-x:auto}.identity__tabs button{flex:1;min-width:max-content;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;font:600 11px Arial,sans-serif;opacity:.62;cursor:pointer}.identity__tabs button span{font-size:9px;opacity:.55}.identity__tabs button.is-active{border-bottom-color:var(--purple,#8c72ff);opacity:1;color:var(--purple,#8c72ff)}
     .identity__panel{padding:19px 20px;min-width:0}.identity__section-title{display:flex;justify-content:space-between;gap:12px;margin-bottom:16px}.identity__section-title h3,.identity__social h3{font-size:14px;margin:0 0 5px}.identity__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.identity__brand-grid{grid-template-columns:repeat(12,minmax(0,1fr))}.identity__brand-grid>label:nth-child(-n+3){grid-column:span 4}.identity__brand-grid>label:nth-child(4){grid-column:1/-1}.identity__brand-grid>label:nth-child(n+5){grid-column:span 3}.identity__grid label,.identity__asset{display:grid;gap:6px;min-width:0;font:600 11px Arial,sans-serif}.identity__wide{grid-column:1/-1}.identity input:not([type=checkbox]),.identity textarea,.identity select{width:100%;box-sizing:border-box;min-width:0;padding:9px 10px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--bg,#8881);color:inherit;font:12px Arial,sans-serif}.identity textarea{resize:vertical}.identity input:disabled,.identity textarea:disabled,.identity select:disabled{opacity:.65}.identity label small{font-size:9px;opacity:.55;font-weight:400}
-    .identity__asset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.identity__asset{padding:12px;border:1px solid var(--border,#8885);border-radius:10px;background:var(--bg,#8881)}.identity__asset>small{font-size:9px;opacity:.6;font-weight:400}.identity__asset-preview{display:flex;align-items:center;justify-content:center;min-height:64px;max-height:100px;padding:8px;border:1px dashed var(--border,#8885);border-radius:7px}.identity__asset-preview img{max-width:100%;max-height:78px;object-fit:contain}.identity__asset-preview span{font-size:10px;opacity:.6}
+    .identity__asset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.identity__asset{display:grid;gap:10px;min-width:0;padding:12px;border:1px solid var(--border,#8885);border-radius:10px;background:var(--bg,#8881)}.identity__asset-copy{display:grid;gap:5px}.identity__asset-copy>small{font-size:9px;opacity:.6;font-weight:400}.identity__asset-control{display:grid;grid-template-columns:minmax(110px,1fr) minmax(90px,112px);align-items:center;gap:10px}.identity__upload{position:relative;display:flex;align-items:center;justify-content:center;min-height:38px;padding:0 10px;border:1px solid var(--purple,#8c72ff);border-radius:8px;color:var(--purple,#8c72ff);font:600 10px Arial,sans-serif;cursor:pointer;overflow:hidden}.identity__upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.identity__upload.is-uploading{opacity:.6;cursor:wait}.identity__asset-preview{display:flex;align-items:center;justify-content:center;width:100%;height:76px;box-sizing:border-box;padding:6px;border:1px dashed var(--border,#8885);border-radius:7px;overflow:hidden}.identity__asset-preview img{max-width:100%;max-height:100%;object-fit:contain}.identity__asset-preview span{font-size:9px;opacity:.55;text-align:center}
     .identity__robots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}.identity__toggle{display:flex;align-items:flex-start;gap:9px;padding:12px;border:1px solid var(--border,#8885);border-radius:9px}.identity__toggle input{margin-top:2px;accent-color:var(--purple,#8c72ff)}.identity__toggle span{display:grid;gap:4px}.identity__toggle b{font-size:11px}.identity__toggle small{font-size:9px;line-height:1.4;opacity:.6}
     .identity__social{margin-top:17px;padding-top:16px;border-top:1px solid var(--border,#8885)}.identity__social>p{margin-bottom:12px}.identity__snippet{display:grid;gap:5px;margin-top:18px;padding:13px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--bg,#8881)}.identity__snippet>span{font:700 9px Arial,sans-serif;letter-spacing:.12em;opacity:.5}.identity__snippet>b{font:14px Arial,sans-serif;color:var(--cyan,#69e5d4)}.identity__snippet>small{font-size:10px;color:#4a9b69}.identity__snippet>p{font:11px/1.45 Arial,sans-serif;opacity:.7;margin:0}
     .identity__footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid var(--border,#8885)}.identity__feedback{font-size:10px;opacity:.65}.identity__feedback.is-error,.identity__message--error{color:#e06b6b}.identity__save{padding:9px 14px;border:1px solid var(--purple,#8c72ff);border-radius:8px;background:var(--purple,#8c72ff);color:white;font:600 11px Arial,sans-serif;cursor:pointer}.identity__save:disabled{opacity:.5;cursor:wait}.identity__message{padding:22px;font-size:12px;opacity:.7}
@@ -120,7 +128,7 @@ export class PlatformIdentityComponent implements OnChanges {
   @Input() editable = false;
   tab:IdentityTab='brand';
   data:PlatformIdentity=structuredClone(EMPTY_IDENTITY);
-  loading=true;saving=false;saveError=false;error='';saveMessage='';keywordsText='';failedPreviews:Record<string,boolean>={};
+  loading=true;saving=false;saveError=false;error='';saveMessage='';keywordsText='';failedPreviews:Record<string,boolean>={};uploadingAssets:Partial<Record<keyof PlatformIdentity['assets'],boolean>>={};
   readonly assetFields:Array<{key:keyof PlatformIdentity['assets'];label:string;hint:string}>= [
     {key:'primaryLogoUrl',label:'Primary horizontal logo',hint:'Main logo for public website headers.'},
     {key:'secondaryLogoUrl',label:'Alternative logo',hint:'Variant for contrasting or dark backgrounds.'},
@@ -152,6 +160,26 @@ export class PlatformIdentityComponent implements OnChanges {
       this.keywordsText=this.data.seo.keywords.join(', ');
     }catch(error){this.error=error instanceof Error?error.message:'Could not load platform identity.';}
     finally{this.loading=false;}
+  }
+  async uploadAsset(key:keyof PlatformIdentity['assets'],event:Event):Promise<void>{
+    const input=event.target as HTMLInputElement;
+    const file=input.files?.[0];
+    if(!file||!this.editable||!this.accessToken)return;
+    input.value='';
+    if(!['image/png','image/jpeg','image/webp','image/gif','image/x-icon'].includes(file.type)){
+      this.saveError=true;this.saveMessage='Use a PNG, JPEG, WebP, GIF or ICO image.';return;
+    }
+    if(file.size>5*1024*1024){this.saveError=true;this.saveMessage='The maximum image size is 5 MB.';return;}
+    this.uploadingAssets[key]=true;this.saveError=false;this.saveMessage='';
+    try{
+      const response=await fetch('/api/platform/identity/assets/'+key,{method:'POST',headers:{...this.headers(),'content-type':'application/octet-stream','x-file-content-type':file.type,'x-file-name':encodeURIComponent(file.name)},body:file});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error||'Image upload failed.');
+      this.data.assets[key]=result.url;
+      this.failedPreviews[key]=false;
+      this.saveMessage='Image uploaded. Save identity to publish the change.';
+    }catch(error){this.saveError=true;this.saveMessage=error instanceof Error?error.message:'Image upload failed.';}
+    finally{this.uploadingAssets[key]=false;}
   }
   async save():Promise<void>{
     if(!this.editable||!this.accessToken||this.saving)return;
