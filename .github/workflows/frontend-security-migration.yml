@@ -1,5 +1,6 @@
 name: Frontend security migration (manual)
 # Keep generated migration changes in the same reviewed branch.
+# Normalize generated whitespace before diff validation.
 
 on:
   push:
