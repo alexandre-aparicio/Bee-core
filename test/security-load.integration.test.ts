@@ -26,7 +26,8 @@ test("public stream-ticket flood stays bounded and returns 429 at capacity", { s
       mongoUri: uri!,
       mongoDbName: dbName,
       authAdminEmail: "",
-      authAdminPassword: ""
+      authAdminPassword: "",
+      realtimeTicketTtlMs: 300_000
     }
   };
 
@@ -37,8 +38,8 @@ test("public stream-ticket flood stays bounded and returns 429 at capacity", { s
     let accepted = 0;
     let rejected = 0;
 
-    for (let batch = 0; batch < 6; batch++) {
-      const responses = await Promise.all(Array.from({ length: 1_000 }, () =>
+    for (let batch = 0; batch < 24; batch++) {
+      const responses = await Promise.all(Array.from({ length: 250 }, () =>
         app.inject({ method: "POST", url: "/templates/public-stream-ticket", headers: { host: "load.example.test" } })
       ));
       for (const response of responses) {
