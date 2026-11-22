@@ -77,51 +77,117 @@ export const marketplacePlugin: BeePlugin = {
         if (!plan || !status || !["trial", "active", "past_due", "cancelled"].includes(status)) {
           return reply.code(400).send({ error: "Valid planId and subscription status are required" });
         }
+        const periodEnd = body.expiresAt ? new Date(body.expiresAt) : null;
+        if (periodEnd && Number.isNaN(periodEnd.getTime())) return reply.code(400).send({ error: "Invalid subscription expiry date" });
         const subscriptions = new TenantCollection<import("../../core/plugin-entitlements.js").TenantSubscription>(
           db.collection("tenant_subscriptions"),
           tenantId
         );
         const current = await getTenantSubscription(db, tenantId);
-        const periodEnd = body.expiresAt ? new Date(body.expiresAt) : null;
-        if (periodEnd && Number.isNaN(periodEnd.getTime())) return reply.code(400).send({ error: "Invalid subscription expiry date" });
-        await subscriptions.updateOne(
-          { id: current.id },
-          { $set: { planId: plan.id, status, currentPeriodEnd: periodEnd, updatedAt: new Date() } }
-        );
-        await ctx.events.emit("subscription.updated", { tenantId, planId: plan.id, status });
-        return { success: true, event: body.event };
+        const currentPeriodEnd = current.currentPeriodEnd?.getTime() ?? null;
+        const nextPeriodEnd = periodEnd?.getTime() ?? null;
+        const changed = current.planId !== plan.id || current.status !== status || currentPeriodEnd !== nextPeriodEnd;
+        if (changed) {
+          const result = await subscriptions.updateOne(
+            { id: current.id },
+            { $set: { planId: plan.id, status, currentPeriodEnd: periodEnd, updatedAt: new Date() } }
+          );
+          if (!result.matchedCount) return reply.code(409).send({ error: "Subscription changed concurrently; retry the event" });
+          await auditMarketplaceEvent({
+            tenantId,
+            actorId: "billing-webhook",
+            action: "subscription.updated",
+            outcome: "success",
+            resourceType: "subscription",
+            resourceId: tenantId,
+            metadata: { planId: plan.id, status, currentPeriodEnd: periodEnd?.toISOString() ?? null }
+          });
+          await ctx.events.emit("subscription.updated", { tenantId, planId: plan.id, status });
+        }
+        return { success: true, event: body.event, changed };
       }
 
       if (body.event === "plugin.purchase" || body.event === "plugin.revoke") {
-        const pluginId = String(body.pluginId ?? "");
-        const providerReference = String(body.providerReference ?? "");
+        const pluginId = String(body.pluginId ?? "").trim();
+        const providerReference = String(body.providerReference ?? "").trim();
         const definition = getTrustedPluginPackage(pluginId);
-        if (!definition || !definition.purchasable || !providerReference) {
-          return reply.code(400).send({ error: "A purchasable plugin and providerReference are required" });
+        if (!definition || !definition.purchasable || !providerReference || providerReference.length > 200 || /[\u0000-\u001f\u007f]/.test(providerReference)) {
+          return reply.code(400).send({ error: "A purchasable plugin and a valid providerReference (1-200 characters) are required" });
         }
         type Purchase = import("mongodb").Document & {
           id: string; tenantId: string; pluginId: string; providerReference: string;
-          status: "active" | "revoked"; purchasedAt: Date; expiresAt: Date | null;
+          status: "active" | "revoked" | "expired"; purchasedAt: Date; expiresAt: Date | null;
         };
         const purchases = new TenantCollection<Purchase>(db.collection<Purchase>("plugin_purchases"), tenantId);
         const current = await purchases.findOne({ providerReference });
+        if (current && current.pluginId !== pluginId) {
+          return reply.code(409).send({ error: "Provider reference is already bound to a different plugin" });
+        }
+
+        let changed = false;
         if (body.event === "plugin.purchase") {
           const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
           if (expiresAt && Number.isNaN(expiresAt.getTime())) return reply.code(400).send({ error: "Invalid purchase expiry date" });
-          if (current) {
-            await purchases.updateOne({ providerReference }, { $set: { pluginId, status: "active", expiresAt } });
-          } else {
-            await purchases.insertOne({
-              id: randomUUID(), pluginId, providerReference, status: "active",
-              purchasedAt: new Date(), expiresAt
+          const sameExpiry = (current?.expiresAt?.getTime() ?? null) === (expiresAt?.getTime() ?? null);
+          if (!current) {
+            try {
+              await purchases.insertOne({
+                id: randomUUID(), pluginId, providerReference, status: "active",
+                purchasedAt: new Date(), expiresAt
+              });
+              changed = true;
+            } catch (error) {
+              if ((error as { code?: number }).code !== 11000) throw error;
+              const raced = await purchases.findOne({ providerReference });
+              if (!raced || raced.pluginId !== pluginId) {
+                return reply.code(409).send({ error: "Provider reference is already bound to a different plugin" });
+              }
+              const racedExpiry = raced.expiresAt?.getTime() ?? null;
+              if (raced.status !== "active" || racedExpiry !== (expiresAt?.getTime() ?? null)) {
+                const update = await purchases.updateOne({ providerReference, pluginId }, { $set: { status: "active", expiresAt } });
+                if (!update.matchedCount) return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
+                changed = true;
+              }
+            }
+          } else if (current.status !== "active" || !sameExpiry) {
+            const update = await purchases.updateOne({ providerReference, pluginId }, { $set: { status: "active", expiresAt } });
+            if (!update.matchedCount) return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
+            changed = true;
+          }
+          if (changed) {
+            await auditMarketplaceEvent({
+              tenantId,
+              actorId: "billing-webhook",
+              action: "plugin.entitlement_granted",
+              outcome: "success",
+              resourceType: "plugin_purchase",
+              resourceId: providerReference,
+              metadata: { pluginId, providerReference, expiresAt: expiresAt?.toISOString() ?? null }
             });
+            await ctx.events.emit("plugin.entitlement.updated", { tenantId, pluginId, event: body.event });
           }
         } else {
           if (!current) return reply.code(404).send({ error: "Purchase reference not found" });
-          await purchases.updateOne({ providerReference }, { $set: { status: "revoked" } });
+          if (current.pluginId !== pluginId) {
+            return reply.code(409).send({ error: "Provider reference is bound to a different plugin" });
+          }
+          if (current.status !== "revoked") {
+            const update = await purchases.updateOne({ providerReference, pluginId }, { $set: { status: "revoked" } });
+            if (!update.matchedCount) return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
+            changed = true;
+            await auditMarketplaceEvent({
+              tenantId,
+              actorId: "billing-webhook",
+              action: "plugin.entitlement_revoked",
+              outcome: "success",
+              resourceType: "plugin_purchase",
+              resourceId: providerReference,
+              metadata: { pluginId, providerReference }
+            });
+            await ctx.events.emit("plugin.entitlement.updated", { tenantId, pluginId, event: body.event });
+          }
         }
-        await ctx.events.emit("plugin.entitlement.updated", { tenantId, pluginId, event: body.event });
-        return { success: true, event: body.event };
+        return { success: true, event: body.event, changed };
       }
 
       return reply.code(400).send({ error: "Unsupported entitlement event" });
