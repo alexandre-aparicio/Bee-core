@@ -104,7 +104,7 @@ export const platformAdminPlugin:BeePlugin={
    const identity=normalizeIdentity(req.body,actor.id);
    await identityCollection.updateOne({key:"global"},{$set:identity}, {upsert:true});
    await recordPlatformAudit({actorId:actor.id,action:"platform.identity.updated",resourceType:"platform_identity",metadata:{updatedAt:identity.updatedAt.toISOString()}});
-   const {_id,...safe}=identity as PlatformIdentity & {_id?:unknown};
+   const {_id,...safe}=identity as PlatformIdentityDocument & {_id?:unknown};
    return {success:true,identity:safe};
   });
   ctx.server.get("/platform/audit-events",async(req,reply)=>{
