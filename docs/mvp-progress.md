@@ -434,3 +434,16 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Backend dependency: the current API has no persisted global/tenant Settings service for platform identity/defaults, integrations/SMTP, billing plans/subscriptions, security policy/retention, infrastructure operations or localization. Those controls are intentionally marked unavailable; there are no fake save buttons or claims of persistence.
 - Added a Playwright smoke scenario covering the General three-card layout, the eight Super Administrator destinations, canonical route paths and the single Settings-only Plugins entry. The test source was not executed.
 - Validation: no build, tests, GitHub Actions, workflows or VPS checks were run, per request. Angular compile and live role/route/rendering checks remain unverified.
+
+
+## Notifications and messaging workspace — validation branch (2026-11-22)
+
+- Continued only on `feature/notifications-menu-inbox`; `main` was re-read before reconciliation and remains unchanged at `c5cc9c5`.
+- Reconciled the feature branch with the current main snapshot using a two-parent merge commit (`7f6faea`). The feature branch is now 30 commits ahead and 0 behind at that point; subsequent feature-only fixes and tests advance it further. The dashboard merge retained the current Settings work while applying the Notifications submenu and workspace.
+- Integrated the notification bell, notification center and Messages preview into Midnight, Glass and Paper. Added the Nginx WebSocket proxy location `/api/realtime`.
+- Backend notifications plugin stores records in MongoDB and scopes list/count/read/delete operations by the authenticated user and tenant. Realtime tickets are single-use, expire after 30 seconds, expired tickets are pruned, and the WebSocket handshake revalidates the persisted dashboard session, user, membership and tenant status.
+- Hardened notification action routes against protocol-relative, whitespace and backslash-based external redirects. The notification bell now reports API/mutation errors rather than silently treating failed requests as successful.
+- Added `test/notifications.integration.test.ts` covering authentication, tenant isolation, login notifications, safe/unsafe action routes, unread counts, idempotent read, cross-tenant mutation rejection, mark-all-read and realtime-ticket issuance.
+- Messages is still a visual preview with sample conversations only. There is no messages API, persistent conversation store, delivery pipeline, SMTP sender, POP3/IMAP receiver or real-time message transport. The UI now labels this explicitly; it must not be treated as a working inbox.
+- Validation state: GitHub PR #65 is open and currently reports `mergeable: true`; the branch is 0 commits behind main. GitHub Actions currently reports zero workflow runs and the commit has no status checks. The new integration test has been committed but has **not** been executed. No Angular build, backend test run, Playwright run, Docker build or VPS verification is claimed.
+- Latest branch commit at the time of this note: `d119095`. All changes remain isolated to this feature branch; do not merge into main without explicit approval.
