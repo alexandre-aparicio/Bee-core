@@ -69,6 +69,12 @@ jobs:
       - name: Production dependency security audit
         run: npm run audit:production
 
+      - name: Normalize whitespace in generated Angular migrations
+        run: |
+          while IFS= read -r -d '' file; do
+            sed -i 's/[[:space:]]\\+$//' "$file"
+          done < <(git diff --name-only -z -- apps/web)
+
       - name: Check patch formatting
         run: git diff --check
 
@@ -86,7 +92,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/web/package.json apps/web/package-lock.json apps/web/Dockerfile
+          git add apps/web
           if git diff --cached --quiet; then
             echo "No migration changes to commit."
             exit 0
