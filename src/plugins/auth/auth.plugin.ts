@@ -353,22 +353,26 @@ export const authPlugin:BeePlugin={
    const release=templateConnections.tryAcquire(record.ip,record.userId);
    if(!release)return reply.code(429).send({error:"Realtime connection limit reached"});
    const raw=reply.raw;
-   reply.hijack();
-   raw.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-cache, no-transform","connection":"keep-alive","x-accel-buffering":"no"});
-   raw.write("event: template-update\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)})+"\n\n");
    const subscriber:TemplateSubscriber={response:raw,ip:record.ip,...(record.userId?{userId:record.userId}:{}),...(record.claims?{claims:record.claims}:{}),release};
    const clients=templateSubscribers.get(record.tenantId)??new Set<TemplateSubscriber>();
    clients.add(subscriber);templateSubscribers.set(record.tenantId,clients);
    const closeSubscriber=()=>{clients.delete(subscriber);if(!clients.size)templateSubscribers.delete(record.tenantId);release();};
-   const heartbeat=setInterval(async()=>{
-    if(raw.destroyed){clearInterval(heartbeat);closeSubscriber();return;}
-    if(record.claims){
-     try{const current=await resolveTenantContext(db,record.claims,{},sessionIdSecret);if(!current){clearInterval(heartbeat);raw.end();closeSubscriber();return;}}
-     catch{clearInterval(heartbeat);raw.end();closeSubscriber();return;}
-    }
-    if(!raw.destroyed)raw.write(": keep-alive\n\n");
-   },5_000);
-   raw.on("close",()=>{clearInterval(heartbeat);closeSubscriber();});
+   let heartbeat:ReturnType<typeof setInterval>|undefined;
+   raw.once("close",()=>{if(heartbeat)clearInterval(heartbeat);closeSubscriber();});
+   try{
+    reply.hijack();
+    raw.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-cache, no-transform","connection":"keep-alive","x-accel-buffering":"no"});
+    raw.write("event: template-update\\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)})+"\\n\\n");
+    if(raw.destroyed){closeSubscriber();return reply;}
+    heartbeat=setInterval(async()=>{
+     if(raw.destroyed){if(heartbeat)clearInterval(heartbeat);closeSubscriber();return;}
+     if(record.claims){
+      try{const current=await resolveTenantContext(db,record.claims,{},sessionIdSecret);if(!current){if(heartbeat)clearInterval(heartbeat);raw.end();closeSubscriber();return;}}
+      catch{if(heartbeat)clearInterval(heartbeat);raw.end();closeSubscriber();return;}
+     }
+     if(!raw.destroyed)raw.write(": keep-alive\\n\\n");
+    },5_000);
+   }catch(error){if(heartbeat)clearInterval(heartbeat);closeSubscriber();throw error;}
    return reply;
   });
   ctx.server.addHook("onClose",async()=>{for(const subscribers of templateSubscribers.values())for(const subscriber of subscribers){subscriber.release();if(!subscriber.response.destroyed)subscriber.response.end();}templateSubscribers.clear();templateStreamTickets.clear();await mongo.close();});
