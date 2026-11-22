@@ -49,11 +49,9 @@ const refresh=await json(api+"/auth/refresh",{method:"POST",headers:{origin,cook
 check(refresh.response.ok && refresh.data.accessToken,"refresh rotation");
 const rotatedCookie=cookie(refresh.response);
 check(Boolean(rotatedCookie) && rotatedCookie!==refreshCookie,"refresh cookie rotated");
-const logout=await json(api+"/auth/logout",{method:"POST",headers:{...headers,authorization:"Bearer "+refresh.data.accessToken,cookie:rotatedCookie},body:"{}"});
-check(logout.response.ok,"logout");
-const revoked=await json(api+"/auth/refresh",{method:"POST",headers:{origin,cookie:rotatedCookie}});
-check(revoked.response.status===401,"revoked refresh token rejected");
 
+
+const tenMiB=Buffer.alloc(10*1024*1024,0x61);
 const tenMiB=Buffer.alloc(10*1024*1024,0x61);
 const upload=await fetch(api+"/files",{method:"POST",headers:{authorization:"Bearer "+accessToken,"content-type":"application/octet-stream","x-file-content-type":"text/plain","x-file-name":"smoke-10mib.txt"},body:tenMiB});
 check(upload.status===201,"10 MiB upload accepted");
@@ -74,4 +72,8 @@ for(let i=0;i<24;i++){
   if(attempt.status!==401) throw new Error("Unexpected login rate-limit probe status: "+attempt.status);
 }
 check(rateLimited,"login rate limit returns HTTP 429");
+const logout=await json(api+"/auth/logout",{method:"POST",headers:{...headers,authorization:"Bearer "+refresh.data.accessToken,cookie:rotatedCookie},body:"{}"});
+check(logout.response.ok,"logout");
+const revoked=await json(api+"/auth/refresh",{method:"POST",headers:{origin,cookie:rotatedCookie}});
+check(revoked.response.status===401,"revoked refresh token rejected");
 console.log("All container security smoke checks passed.");

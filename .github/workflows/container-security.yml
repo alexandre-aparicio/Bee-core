@@ -47,6 +47,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Generate isolated test environment
         run: |
+          ADMIN_PASSWORD=$(openssl rand -base64 36 | tr -d '\n')
+          echo "AUTH_ADMIN_PASSWORD=$ADMIN_PASSWORD" >> "$GITHUB_ENV"
           cat > .env <<EOF
           BEE_WEB_PORT=38080
           TRUST_PROXY=false
@@ -54,7 +56,7 @@ jobs:
           MONGODB_DB=bee_core_smoke
           JWT_SECRET=$(openssl rand -hex 48)
           AUTH_ADMIN_EMAIL=smoke-admin@example.test
-          AUTH_ADMIN_PASSWORD=$(openssl rand -base64 36 | tr -d '\n')
+          AUTH_ADMIN_PASSWORD=$ADMIN_PASSWORD
           AUTH_MFA_ENCRYPTION_KEY=$(openssl rand -base64 32)
           MONGO_ROOT_USERNAME=smoke_root
           MONGO_ROOT_PASSWORD=$(openssl rand -hex 32)
@@ -78,9 +80,10 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
           docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --no-color
           exit 1
-      - name: Verify backend is not published to the host
+      - name: Verify backend and frontend run without unnecessary privileges
         run: |
           test -z "$(docker compose -f docker-compose.yml -f docker-compose.prod.yml port bee-core 3000)"
+          test "$(docker inspect bee-core-web --format '{{.Config.User}}')" = "101"
           if curl --silent --show-error --connect-timeout 2 http://127.0.0.1:3000/health; then
             echo "Backend unexpectedly reachable from host"
             exit 1
