@@ -14,7 +14,7 @@ on:
       - ".env*.example"
       - ".github/workflows/ci.yml"
   push:
-    branches: [main, security/hardening-92]
+    branches: [main, security/hardening-92, security/audit-inactive-company-access]
     paths:
       - "src/**"
       - "test/**"
