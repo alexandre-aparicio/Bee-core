@@ -5,6 +5,7 @@ export const GLASS_MANIFEST: BeeTemplateManifest = {
   "name": "Glass",
   "version": "1.0.0",
   "target": "dashboard",
+  "previewUrl": "/assets/templates/glass/preview.svg",
   "description": "Soft glass workspace with cool blue and violet accents.",
   "builtIn": false,
   "layout": "dashboard.glass",

@@ -18,7 +18,38 @@
               "zone.js"
             ],
             "tsConfig": "tsconfig.app.json",
-            "assets": [],
+            "assets": [
+              {
+                "glob": "preview.svg",
+                "input": "src/app/templates/packages/aurora/assets",
+                "output": "assets/templates/aurora"
+              },
+              {
+                "glob": "preview.svg",
+                "input": "src/app/templates/packages/editorial/assets",
+                "output": "assets/templates/editorial"
+              },
+              {
+                "glob": "preview.svg",
+                "input": "src/app/templates/packages/glass/assets",
+                "output": "assets/templates/glass"
+              },
+              {
+                "glob": "preview.svg",
+                "input": "src/app/templates/packages/midnight/assets",
+                "output": "assets/templates/midnight"
+              },
+              {
+                "glob": "preview.svg",
+                "input": "src/app/templates/packages/paper/assets",
+                "output": "assets/templates/paper"
+              },
+              {
+                "glob": "preview.svg",
+                "input": "src/app/templates/packages/studio/assets",
+                "output": "assets/templates/studio"
+              }
+            ],
             "scripts": [
               "src/assets/qrcode.min.js"
             ],

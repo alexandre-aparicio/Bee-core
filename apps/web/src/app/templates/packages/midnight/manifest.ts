@@ -5,6 +5,7 @@ export const MIDNIGHT_MANIFEST: BeeTemplateManifest = {
   "name": "Midnight",
   "version": "1.0.0",
   "target": "dashboard",
+  "previewUrl": "/assets/templates/midnight/preview.svg",
   "description": "Dark workspace with high-contrast panels.",
   "builtIn": true,
   "layout": "dashboard.midnight",

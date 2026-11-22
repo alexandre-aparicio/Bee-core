@@ -5,6 +5,7 @@ export const EDITORIAL_MANIFEST: BeeTemplateManifest = {
   "name": "Editorial",
   "version": "1.0.0",
   "target": "public",
+  "previewUrl": "/assets/templates/editorial/preview.svg",
   "description": "Light, content-first public experience.",
   "builtIn": true,
   "layout": "public.editorial",

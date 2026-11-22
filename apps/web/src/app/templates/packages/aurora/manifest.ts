@@ -5,6 +5,7 @@ export const AURORA_MANIFEST: BeeTemplateManifest = {
   "name": "Aurora",
   "version": "1.0.0",
   "target": "public",
+  "previewUrl": "/assets/templates/aurora/preview.svg",
   "description": "Dark, expressive public experience.",
   "builtIn": true,
   "layout": "public.aurora",

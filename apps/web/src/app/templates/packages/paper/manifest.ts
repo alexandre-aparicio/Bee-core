@@ -5,6 +5,7 @@ export const PAPER_MANIFEST: BeeTemplateManifest = {
   "name": "Paper",
   "version": "1.0.0",
   "target": "dashboard",
+  "previewUrl": "/assets/templates/paper/preview.svg",
   "description": "Light workspace for long working sessions.",
   "builtIn": true,
   "layout": "dashboard.paper",
