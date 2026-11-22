@@ -4,7 +4,7 @@ name: Frontend security migration (manual)
 
 on:
   push:
-    branches: [security/hardening-92, fix/frontend-security-migration-bootstrap]
+    branches: [security/hardening-92, fix/frontend-security-migration-bootstrap, ci/web-e2e-api-proxy]
     paths:
       - .github/workflows/frontend-security-migration.yml
   workflow_dispatch:
@@ -19,9 +19,19 @@ concurrency:
 jobs:
   migrate-and-verify:
     name: Angular 19 → 20 → 21 → 22
-    if: github.ref == 'refs/heads/security/hardening-92' || github.ref == 'refs/heads/fix/frontend-security-migration-bootstrap'
+    if: github.ref == 'refs/heads/security/hardening-92' || github.ref == 'refs/heads/fix/frontend-security-migration-bootstrap' || github.ref == 'refs/heads/ci/web-e2e-api-proxy'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    services:
+      mongodb:
+        image: mongo:8
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: apps/web
@@ -34,7 +44,7 @@ jobs:
 
       - name: Verify target branch
         run: |
-          test "${GITHUB_REF_NAME}" = "security/hardening-92" || test "${GITHUB_REF_NAME}" = "fix/frontend-security-migration-bootstrap"
+          test "${GITHUB_REF_NAME}" = "security/hardening-92" || test "${GITHUB_REF_NAME}" = "fix/frontend-security-migration-bootstrap" || test "${GITHUB_REF_NAME}" = "ci/web-e2e-api-proxy"
           test "$(git branch --show-current)" = "${GITHUB_REF_NAME}"
 
       - name: Set up supported Node.js
@@ -88,8 +98,45 @@ jobs:
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
 
+      - name: Install backend dependencies from lockfile
+        working-directory: .
+        run: npm ci
+
+      - name: Build backend API
+        working-directory: .
+        run: npm run build
+
+      - name: Start Mongo-backed API for browser acceptance
+        working-directory: .
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/bee_core_ci
+          MONGODB_DB: bee_core_ci
+          JWT_SECRET: ci-only-secret-that-is-long-enough-for-bee-core-auth-tests-2026
+          AUTH_ADMIN_EMAIL: ci-admin@example.test
+          AUTH_ADMIN_PASSWORD: CI-Admin-Password-2026!
+          AUTH_MFA_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          BEE_MAIL_ENCRYPTION_KEY: ci-only-mail-encryption-key-for-browser-tests-2026
+          PUBLIC_BASE_DOMAIN: 127.0.0.1
+        run: |
+          nohup npm start > "$RUNNER_TEMP/bee-core-api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/bee-core-api.pid"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/health >/dev/null; then
+              echo "Mongo-backed Bee-Core API is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/bee-core-api.log"
+          exit 1
+
       - name: Run frontend browser acceptance tests
         run: npm run test:e2e
+
+      - name: Collect API diagnostics on failure
+        if: failure()
+        working-directory: .
+        run: cat "$RUNNER_TEMP/bee-core-api.log" || true
 
       - name: Commit verified migration on the security branch
         working-directory: .
