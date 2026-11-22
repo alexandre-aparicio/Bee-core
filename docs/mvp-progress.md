@@ -454,3 +454,7 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Corrected the source by restoring actual TypeScript template-literal delimiters for both the notification-center HTML template and its inline CSS. The missing-export and dashboard `imports` diagnostics were downstream effects of this parse failure, not separate missing components.
 - The same build reported three NG8107 optional-chain warnings in `platform-admin.component.ts`; they are warnings and are not the cause of this build failure. They are not changed in this fix.
 - Fix is isolated on branch `fix/notification-center-template-literals` from main `bc603db3d91b104b8d1502cab4b4ad5c95986b3c`; no build or tests have been run by this environment. VPS rebuild is required to verify compilation.
+
+## Frontend dependency security hardening (2026-11-22)
+
+Work is tracked on `security/hardening-92`, which was fast-forwarded to the then-current `main` before these branch-only changes. Added `npm run audit:production` in `apps/web/package.json` and documented the remediation acceptance gate in `docs/security-hardening.md`. This is process hardening only: Angular remains pinned to 19.2.15 and the lockfile has not been regenerated. No npm audit, production build, Playwright run or browser verification has been executed in this environment. Therefore the frontend dependency-security item remains **open** and is not counted as completed progress.
