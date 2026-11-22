@@ -20,6 +20,13 @@ test("authentication and stream-ticket endpoints have independent IP rate limits
   assert.match(nginx, /location = \/api\/notifications\/realtime-ticket[\s\S]*?limit_req zone=stream_ticket/);
   assert.match(nginx, /location \^~ \/api\/platform\/[\s\S]*?limit_req zone=platform_admin/);
   assert.match(nginx, /limit_req_status 429/);
+  assert.match(nginx, /script-src 'self'/);
+  assert.doesNotMatch(nginx, /script-src[^;]*unsafe-inline/);
+  assert.match(nginx, /Cross-Origin-Opener-Policy "same-origin"/);
+  assert.match(nginx, /Cross-Origin-Resource-Policy "same-origin"/);
+  assert.match(nginx, /client_max_body_size 11m/);
+  assert.match(nginx, /X-Forwarded-For \$remote_addr/);
+  assert.doesNotMatch(nginx, /\$proxy_add_x_forwarded_for/);
 });
 
 test("backend remains private to the Docker network", () => {
