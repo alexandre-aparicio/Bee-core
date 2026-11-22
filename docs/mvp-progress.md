@@ -495,7 +495,7 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 
 ## Session, MFA and realtime resource hardening — 2026-11-22
 
-Work is in progress on `security/hardening-92`, based on the current `main` lineage. This branch now includes:
+Work is in progress on `security/hardening-92`, based on the current `main` lineage. The initial hardening baseline (bounded ticket stores, shared connection quotas, refresh-reuse detection and platform MFA guard) is already present on `main` at `f60bc0c4342b93a106d41b09abacd78558beba74`. This branch was synchronized with that main head and contains the follow-up refinements below; it remains unmerged. This branch now includes:
 
 - Refresh-token replay detection using retained hashes on each refresh-session family. A replay revokes the family, makes its session-bound access tokens unusable, clears the dashboard cookie and records `auth.refresh.reuse`. A 4,096-rotation ceiling revokes and audits the session rather than discarding older replay hashes.
 - Bounded, single-use 30-second ticket stores (5,000 entries each) for `/templates/public-stream-ticket`, `/templates/stream-ticket` and `/notifications/realtime-ticket`, with indexed-heap expiry cleanup instead of a full Map scan per request.
