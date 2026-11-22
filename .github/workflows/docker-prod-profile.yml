@@ -9,6 +9,7 @@ on:
       - ".github/workflows/docker-prod-profile.yml"
       - "Dockerfile"
       - "apps/web/Dockerfile"
+      - "src/**"
   push:
     branches: [main]
     paths:
@@ -34,6 +35,7 @@ jobs:
           sed -i 's|^JWT_SECRET=.*|JWT_SECRET='"$(openssl rand -hex 48)"'|' .env
           sed -i 's|^AUTH_ADMIN_EMAIL=.*|AUTH_ADMIN_EMAIL=ci-admin@example.test|' .env
           sed -i 's|^AUTH_ADMIN_PASSWORD=.*|AUTH_ADMIN_PASSWORD=CI-Admin-Password-2026!|' .env
+          sed -i 's|^BEE_MAIL_ENCRYPTION_KEY=.*|BEE_MAIL_ENCRYPTION_KEY='"$(openssl rand -hex 32)"'|' .env
           sed -i 's|^BEE_WEB_PORT=.*|BEE_WEB_PORT=18080|' .env
           chmod 600 .env
 
