@@ -1,6 +1,10 @@
 name: Frontend security migration (manual)
 
 on:
+  push:
+    branches: [security/hardening-92]
+    paths:
+      - .github/workflows/frontend-security-migration.yml
   workflow_dispatch:
 
 permissions:
