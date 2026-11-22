@@ -84,15 +84,23 @@ export const marketplacePlugin: BeePlugin = {
           tenantId
         );
         const current = await getTenantSubscription(db, tenantId);
-        const currentPeriodEnd = current.currentPeriodEnd?.getTime() ?? null;
+        const previousPeriodEnd = current.currentPeriodEnd ?? null;
+        const currentPeriodEnd = previousPeriodEnd?.getTime() ?? null;
         const nextPeriodEnd = periodEnd?.getTime() ?? null;
         const changed = current.planId !== plan.id || current.status !== status || currentPeriodEnd !== nextPeriodEnd;
         if (changed) {
           const result = await subscriptions.updateOne(
-            { id: current.id },
+            { id: current.id, planId: current.planId, status: current.status, currentPeriodEnd: previousPeriodEnd },
             { $set: { planId: plan.id, status, currentPeriodEnd: periodEnd, updatedAt: new Date() } }
           );
-          if (!result.matchedCount) return reply.code(409).send({ error: "Subscription changed concurrently; retry the event" });
+          if (!result.matchedCount) {
+            const latest = await getTenantSubscription(db, tenantId);
+            const latestPeriodEnd = latest.currentPeriodEnd?.getTime() ?? null;
+            if (latest.planId === plan.id && latest.status === status && latestPeriodEnd === nextPeriodEnd) {
+              return { success: true, event: body.event, changed: false };
+            }
+            return reply.code(409).send({ error: "Subscription changed concurrently; retry the event" });
+          }
           await auditMarketplaceEvent({
             tenantId,
             actorId: "billing-webhook",
@@ -144,15 +152,33 @@ export const marketplacePlugin: BeePlugin = {
               }
               const racedExpiry = raced.expiresAt?.getTime() ?? null;
               if (raced.status !== "active" || racedExpiry !== (expiresAt?.getTime() ?? null)) {
-                const update = await purchases.updateOne({ providerReference, pluginId }, { $set: { status: "active", expiresAt } });
-                if (!update.matchedCount) return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
-                changed = true;
+                const update = await purchases.updateOne(
+                  { providerReference, pluginId, status: raced.status, expiresAt: raced.expiresAt ?? null },
+                  { $set: { status: "active", expiresAt } }
+                );
+                if (update.matchedCount) {
+                  changed = true;
+                } else {
+                  const latest = await purchases.findOne({ providerReference });
+                  if (!latest || latest.pluginId !== pluginId || latest.status !== "active" || (latest.expiresAt?.getTime() ?? null) !== (expiresAt?.getTime() ?? null)) {
+                    return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
+                  }
+                }
               }
             }
           } else if (current.status !== "active" || !sameExpiry) {
-            const update = await purchases.updateOne({ providerReference, pluginId }, { $set: { status: "active", expiresAt } });
-            if (!update.matchedCount) return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
-            changed = true;
+            const update = await purchases.updateOne(
+              { providerReference, pluginId, status: current.status, expiresAt: current.expiresAt ?? null },
+              { $set: { status: "active", expiresAt } }
+            );
+            if (update.matchedCount) {
+              changed = true;
+            } else {
+              const latest = await purchases.findOne({ providerReference });
+              if (!latest || latest.pluginId !== pluginId || latest.status !== "active" || (latest.expiresAt?.getTime() ?? null) !== (expiresAt?.getTime() ?? null)) {
+                return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
+              }
+            }
           }
           if (changed) {
             await auditMarketplaceEvent({
@@ -172,19 +198,30 @@ export const marketplacePlugin: BeePlugin = {
             return reply.code(409).send({ error: "Provider reference is bound to a different plugin" });
           }
           if (current.status !== "revoked") {
-            const update = await purchases.updateOne({ providerReference, pluginId }, { $set: { status: "revoked" } });
-            if (!update.matchedCount) return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
-            changed = true;
-            await auditMarketplaceEvent({
-              tenantId,
-              actorId: "billing-webhook",
-              action: "plugin.entitlement_revoked",
-              outcome: "success",
-              resourceType: "plugin_purchase",
-              resourceId: providerReference,
-              metadata: { pluginId, providerReference }
-            });
-            await ctx.events.emit("plugin.entitlement.updated", { tenantId, pluginId, event: body.event });
+            const update = await purchases.updateOne(
+              { providerReference, pluginId, status: current.status },
+              { $set: { status: "revoked" } }
+            );
+            if (update.matchedCount) {
+              changed = true;
+            } else {
+              const latest = await purchases.findOne({ providerReference });
+              if (!latest || latest.pluginId !== pluginId || latest.status !== "revoked") {
+                return reply.code(409).send({ error: "Purchase changed concurrently; retry the event" });
+              }
+            }
+            if (changed) {
+              await auditMarketplaceEvent({
+                tenantId,
+                actorId: "billing-webhook",
+                action: "plugin.entitlement_revoked",
+                outcome: "success",
+                resourceType: "plugin_purchase",
+                resourceId: providerReference,
+                metadata: { pluginId, providerReference }
+              });
+              await ctx.events.emit("plugin.entitlement.updated", { tenantId, pluginId, event: body.event });
+            }
           }
         }
         return { success: true, event: body.event, changed };
