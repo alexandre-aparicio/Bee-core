@@ -7,11 +7,12 @@ import { resolveTenantContext } from "../../core/tenant-context.js";
 import { maskTenantId, maskUserId, unmaskUserId } from "../../core/session-id.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
+import { BoundedTicketStore, RealtimeConnectionLimiter } from "../../core/realtime-limits.js";
 
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
 type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; platformRole?: "superadmin"; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; mfaSecretEnc?:string; mfaPendingSecretEnc?:string; mfaPendingExpiresAt?:Date; mfaLastStep?:number; mfaRecoveryHashes?:string[]; createdAt:Date; updatedAt:Date };
-type RefreshSession = { id:string; userId:string; tokenHash:string; client:ClientType; tenantId?:string; expiresAt:Date; absoluteExpiresAt?:Date; revokedAt:Date|null; mfaVerifiedAt?:Date; createdAt:Date };
+type RefreshSession = { id:string; userId:string; tokenHash:string; usedTokenHashes?:string[]; client:ClientType; tenantId?:string; expiresAt:Date; absoluteExpiresAt?:Date; revokedAt:Date|null; mfaVerifiedAt?:Date; createdAt:Date };
 type LoginBody = { email?:string; password?:string; client?:ClientType; mfaCode?:string };
 type RefreshBody = { refreshToken?:string };
 type JwtPayload = { sub:string; email:string; roles:Role[]; platformRole?:"superadmin"; tenantRef:string; client:ClientType; aud:"bee-core"; iss:"bee-core"; sid:string };
@@ -48,8 +49,11 @@ export const authPlugin:BeePlugin={
   const auditAuthEvent=async(event:{tenantId:string;actorId:string;action:TenantAuditEvent["action"];outcome:TenantAuditEvent["outcome"];metadata?:TenantAuditEvent["metadata"]})=>{try{await appendTenantAuditEvent(auditEvents,{tenantId:event.tenantId,actorId:event.actorId,action:event.action,outcome:event.outcome,metadata:event.metadata,id:randomUUID(),occurredAt:new Date()});}catch(error){ctx.logger.error("Auth audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
   const users:Collection<UserRecord>=db.collection("users"),sessions:Collection<RefreshSession>=db.collection("refresh_sessions");
   const templatePreferences=db.collection<{tenantId?:string;userId?:string;public:string;dashboard:string;themeTokens?:Record<string,string>;installedTemplates?:string[];updatedAt:Date}>("template_preferences");
-  const templateStreamTickets=new Map<string,{tenantId:string;expiresAt:number;claims?:import("../../core/tenant-context.js").TenantClaims}>();
-  const templateSubscribers=new Map<string,Set<{response:import("node:http").ServerResponse;claims?:import("../../core/tenant-context.js").TenantClaims}>>();
+  type TemplateStreamTicket={tenantId:string;ip:string;userId?:string;claims?:import("../../core/tenant-context.js").TenantClaims};
+  type TemplateSubscriber={response:import("node:http").ServerResponse;ip:string;userId?:string;claims?:import("../../core/tenant-context.js").TenantClaims;release:()=>void};
+  const templateStreamTickets=new BoundedTicketStore<TemplateStreamTicket>(5_000,30_000);
+  const templateConnections=new RealtimeConnectionLimiter(20,5);
+  const templateSubscribers=new Map<string,Set<TemplateSubscriber>>();
   const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.response.destroyed){clients.delete(client);continue;}client.response.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
   const tenants=db.collection<{id:string;name:string;slug?:string;domains?:string[];createdAt:Date}>("tenants");
@@ -58,6 +62,7 @@ export const authPlugin:BeePlugin={
    users.createIndex({id:1},{unique:true,name:"users_id_unique"}),
    sessions.createIndex({tokenHash:1},{unique:true,name:"refresh_token_hash_unique"}),
    sessions.createIndex({userId:1},{name:"refresh_sessions_user"}),
+   sessions.createIndex({usedTokenHashes:1},{name:"refresh_sessions_used_token_hash"}),
    sessions.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"refresh_sessions_ttl"}),
    tenants.createIndex({id:1},{unique:true,name:"tenants_id_unique"}),
    tenants.createIndex({domains:1},{unique:true,sparse:true,name:"tenants_domains_unique"})
@@ -167,8 +172,19 @@ export const authPlugin:BeePlugin={
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
    if(!isSameOrigin(req))return reply.code(403).send({error:"Cross-origin refresh request rejected"});
    const raw=String(req.body?.refreshToken??(readCookie(req,"bee_refresh")||""));if(raw.length<40)return reply.code(401).send({error:"Refresh session required"});
-   const now=new Date(),next=makeRefreshToken(),session=await sessions.findOneAndUpdate({tokenHash:hashToken(raw),revokedAt:null,expiresAt:{$gt:now},absoluteExpiresAt:{$gt:now}},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()}},{returnDocument:"after"});
-   if(!session)return reply.code(401).send({error:"Invalid or expired refresh token"});
+   const now=new Date(),rawHash=hashToken(raw),next=makeRefreshToken(),secureCookie=String(ctx.config.environment??"")!=="development";
+   const session=await sessions.findOneAndUpdate({tokenHash:rawHash,revokedAt:null,expiresAt:{$gt:now},absoluteExpiresAt:{$gt:now}},{$set:{tokenHash:hashToken(next),expiresAt:refreshExpiry()},$push:{usedTokenHashes:{$each:[rawHash],$slice:-4096}}},{returnDocument:"after"});
+   if(!session){
+    const reused=await sessions.findOne({usedTokenHashes:rawHash});
+    if(reused){
+     const revokedAt=new Date();
+     const revoked=await sessions.updateOne({id:reused.id,revokedAt:null},{$set:{revokedAt}});
+     if(revoked.modifiedCount&&reused.tenantId)await auditAuthEvent({tenantId:reused.tenantId,actorId:reused.userId,action:"auth.refresh.reuse",outcome:"denied",metadata:{client:reused.client,reason:"rotated_token_reuse"}});
+     if(reused.client==="dashboard")clearRefreshCookie(reply,secureCookie);
+     return reply.code(401).send({error:"Refresh token reuse detected; session revoked"});
+    }
+    return reply.code(401).send({error:"Invalid or expired refresh token"});
+   }
    const u=await users.findOne({id:session.userId,enabled:true});
    if(!u||!u.allowedClients.includes(session.client)){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Invalid or expired refresh token"});}
    const activeTenantId=session.tenantId??u.tenantId??defaultTenantId;
@@ -176,7 +192,6 @@ export const authPlugin:BeePlugin={
    if(!membership){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Company membership is no longer active"});}
    const role=String(membership.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
    const accessToken=issue({...u,roles},session.client,activeTenantId,session.id,session.expiresAt);
-   const secureCookie=String(ctx.config.environment??"")!=="development";
    if(session.client==="dashboard"){writeRefreshCookie(reply,next,secureCookie);return {accessToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,client:session.client,tenantId:maskTenantId(activeTenantId,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret),user:publicUser({...u,roles},session.id,session.expiresAt,sessionIdSecret),...(u.platformRole?{platformRole:u.platformRole}:{})};}
    return {accessToken,refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,client:session.client,tenantId:maskTenantId(activeTenantId,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret),user:publicUser({...u,roles},session.id,session.expiresAt,sessionIdSecret),...(u.platformRole?{platformRole:u.platformRole}:{})};
   });
@@ -305,41 +320,38 @@ export const authPlugin:BeePlugin={
    broadcastTemplateUpdate(tenantId,{type:"theme",tokens,customized:true});
    return {tenantId:maskTenantId(tenantId,{sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt},sessionIdSecret),tokens,customized:true};
   });
-  ctx.server.post("/templates/public-stream-ticket",async(req)=>{
-   const host=String(req.hostname??"").toLowerCase().replace(/:\d+$/,"");
+  ctx.server.post("/templates/public-stream-ticket",async(req,reply)=>{
+   const host=String(req.hostname??"").toLowerCase().replace(/:\\d+$/,"");
    const tenant=await tenants.findOne({domains:host});
    const tenantId=tenant?.id??defaultTenantId;
-   const now=Date.now();
-   for(const [key,value] of templateStreamTickets){if(value.expiresAt<now)templateStreamTickets.delete(key);}
-   const ticket=randomBytes(24).toString("base64url");
-   templateStreamTickets.set(ticket,{tenantId,expiresAt:now+30_000});
-   return {ticket,expiresIn:30};
+   const issued=templateStreamTickets.issue({tenantId,ip:req.ip});
+   if(!issued)return reply.code(429).send({error:"Too many pending stream tickets"});
+   return issued;
   });
   ctx.server.post("/templates/stream-ticket",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
    const tenantId=tenantContext.tenantId;
    const claims=req.user as import("../../core/tenant-context.js").TenantClaims;
    if(claims.client!=="dashboard")return reply.code(403).send({error:"Dashboard client required"});
-   const now=Date.now();
-   for(const [key,value] of templateStreamTickets){if(value.expiresAt<now)templateStreamTickets.delete(key);}
-   const ticket=randomBytes(24).toString("base64url");
-   templateStreamTickets.set(ticket,{tenantId,expiresAt:now+30_000,claims:req.user as import("../../core/tenant-context.js").TenantClaims});
-   return {ticket,expiresIn:30};
+   const issued=templateStreamTickets.issue({tenantId,ip:req.ip,userId:tenantContext.userId,claims:req.user as import("../../core/tenant-context.js").TenantClaims});
+   if(!issued)return reply.code(429).send({error:"Too many pending stream tickets"});
+   return issued;
   });
   ctx.server.get<{Querystring:{ticket?:string}}>("/templates/events",async(req,reply)=>{
    const ticket=String(req.query.ticket??"");
-   const record=templateStreamTickets.get(ticket);
-   templateStreamTickets.delete(ticket);
-   if(!record||record.expiresAt<Date.now())return reply.code(401).send({error:"Invalid stream ticket"});
+   const record=templateStreamTickets.consume(ticket);
+   if(!record||record.ip!==req.ip)return reply.code(401).send({error:"Invalid stream ticket"});
    const saved=await templatePreferences.findOne({tenantId:record.tenantId});
+   const release=templateConnections.tryAcquire(record.ip,record.userId);
+   if(!release)return reply.code(429).send({error:"Realtime connection limit reached"});
    const raw=reply.raw;
    reply.hijack();
    raw.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-cache, no-transform","connection":"keep-alive","x-accel-buffering":"no"});
    raw.write("event: template-update\ndata: "+JSON.stringify({type:"snapshot",selection:{public:saved?.public??templateDefaults.public,dashboard:saved?.dashboard??templateDefaults.dashboard},tokens:{...defaultThemeTokens,...(saved?.themeTokens??{})},customized:Boolean(saved?.themeTokens),installedTemplates:getInstalledTemplates(saved)})+"\n\n");
-   const subscriber={response:raw,...(record.claims?{claims:record.claims}:{})};
-   const clients=templateSubscribers.get(record.tenantId)??new Set<typeof subscriber>();
+   const subscriber:TemplateSubscriber={response:raw,ip:record.ip,...(record.userId?{userId:record.userId}:{}),...(record.claims?{claims:record.claims}:{}),release};
+   const clients=templateSubscribers.get(record.tenantId)??new Set<TemplateSubscriber>();
    clients.add(subscriber);templateSubscribers.set(record.tenantId,clients);
-   const closeSubscriber=()=>{clients.delete(subscriber);if(!clients.size)templateSubscribers.delete(record.tenantId);};
+   const closeSubscriber=()=>{clients.delete(subscriber);if(!clients.size)templateSubscribers.delete(record.tenantId);release();};
    const heartbeat=setInterval(async()=>{
     if(raw.destroyed){clearInterval(heartbeat);closeSubscriber();return;}
     if(record.claims){
