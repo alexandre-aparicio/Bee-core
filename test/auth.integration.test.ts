@@ -459,6 +459,19 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const sseLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(sseLogin.statusCode,200);
     const sseToken=sseLogin.json().accessToken as string;
+    const activeStreams:Response[]=[];
+    for(let i=0;i<5;i++){
+      const streamTicket=await app.inject({method:"POST",url:"/templates/stream-ticket",headers:{authorization:"Bearer "+sseToken}});
+      assert.equal(streamTicket.statusCode,200);
+      const streamResponse=await fetch(listenAddress+"/templates/events?ticket="+streamTicket.json().ticket);
+      assert.equal(streamResponse.status,200);
+      activeStreams.push(streamResponse);
+    }
+    const overflowTicket=await app.inject({method:"POST",url:"/templates/stream-ticket",headers:{authorization:"Bearer "+sseToken}});
+    assert.equal(overflowTicket.statusCode,200);
+    const overflowStream=await fetch(listenAddress+"/templates/events?ticket="+overflowTicket.json().ticket);
+    assert.equal(overflowStream.status,429,"SSE connections must be capped per authenticated user");
+    await Promise.all(activeStreams.map(response=>response.body?.cancel()));
     const sseTicket=await app.inject({method:"POST",url:"/templates/stream-ticket",headers:{authorization:"Bearer "+sseToken}});
     assert.equal(sseTicket.statusCode,200);
     const revocationResponse=await fetch(listenAddress+"/templates/events?ticket="+sseTicket.json().ticket);
