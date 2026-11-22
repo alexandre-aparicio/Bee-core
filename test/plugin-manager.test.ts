@@ -12,7 +12,7 @@ function context(server: ReturnType<typeof Fastify>): BeeContext {
   return {
     appName: "Bee-Core", version: "test", events: new BeeEventBus(), logger, server,
     mongoClient: new MongoClient("mongodb://localhost:27017"),
-    config: Object.freeze({ mongoDbName: "testdb", authAdminEmail: "admin@test", authAdminPassword: "private", fileStoragePath: "/files", publicBaseDomain: "test.local", jwtSecret: "secret" })
+    config: Object.freeze({ mongoDbName: "testdb", authAdminEmail: "admin@test", authAdminPassword: "private", fileStoragePath: "/files", publicBaseDomain: "test.local", jwtSecret: "test-jwt-secret-with-at-least-32-characters" })
   };
 }
 
@@ -39,8 +39,8 @@ test("plugin scopes isolate routes and filter config keys", async () => {
   manager.register(files);
   await manager.mountAll(context(server));
 
-  assert.deepEqual(Object.keys(authConfig ?? {}).sort(), ["authAdminEmail", "authAdminPassword", "mongoDbName", "mongoUri", "publicBaseDomain", "sessionIdSecret"]);
-  assert.deepEqual(Object.keys(filesConfig ?? {}).sort(), ["fileStoragePath", "mongoDbName", "mongoUri", "sessionIdSecret"]);
+  assert.deepEqual(Object.keys(authConfig ?? {}).sort(), ["authAdminEmail", "authAdminPassword", "mongoDbName", "publicBaseDomain", "sessionIdSecret"]);
+  assert.deepEqual(Object.keys(filesConfig ?? {}).sort(), ["fileStoragePath", "mongoDbName", "sessionIdSecret"]);
   assert.equal("authAdminPassword" in (filesConfig ?? {}), false);
   assert.ok(typeof authConfig?.sessionIdSecret === "string" && String(authConfig.sessionIdSecret).length === 64, "auth must receive a dedicated derived session-reference secret");
   assert.equal(authConfig?.sessionIdSecret, filesConfig?.sessionIdSecret, "plugins must share the same derived key to resolve session-bound references");

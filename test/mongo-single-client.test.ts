@@ -17,9 +17,9 @@ const runtimeFiles = [
 test("the core owns the only MongoClient and every data plugin reuses it", () => {
   const sources = runtimeFiles.map(path => readFileSync(new URL(path, import.meta.url), "utf8"));
   const [core, ...plugins] = sources;
-  assert.equal((core.match(/new MongoClient\\s*\\(/g) ?? []).length, 1);
-  assert.equal(plugins.reduce((count, source) => count + (source.match(/new MongoClient\\s*\\(/g) ?? []).length, 0), 0);
+  assert.equal(core.split("new MongoClient(").length - 1, 1);
+  assert.equal(plugins.reduce((count, source) => count + source.split("new MongoClient(").length - 1, 0), 0);
   assert.ok(plugins.every(source => source.includes("ctx.mongoClient.db(")));
-  assert.match(core, /await mongoClient\\.connect\\(\\)/);
-  assert.match(core, /onClose[\\s\\S]*?mongoClient\\.close\\(\\)/);
+  assert.ok(core.includes("await mongoClient.connect()"));
+  assert.ok(core.includes("app.addHook(\"onClose\"") && core.includes("mongoClient.close()"));
 });

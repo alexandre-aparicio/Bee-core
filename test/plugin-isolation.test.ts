@@ -74,7 +74,7 @@ test("plugin config is frozen and secrets outside allowlist are omitted", async 
   manager.register({ manifest: { name: "files", version: "1" }, initialize(ctx) { config = ctx.config; } });
   await manager.mountAll(makeContext(server));
   assert.equal(Object.isFrozen(config), true);
-  assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName", "mongoUri"]);
+  assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName"]);
   assert.equal("jwtSecret" in (config ?? {}), false);
   assert.equal("authAdminPassword" in (config ?? {}), false);
   await server.close();

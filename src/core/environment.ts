@@ -54,6 +54,6 @@ export function validateEnvironment(env: NodeJS.ProcessEnv = process.env): BeeEn
     }
   }
 
-  if (errors.length) throw new Error(`Invalid Bee-Core environment configuration:\\n- ${errors.join("\\n- ")}`);
+  if (errors.length) throw new Error(`Invalid Bee-Core environment configuration:\n- ${errors.join("\n- ")}`);
   return { environment, jwtSecret, mongoUri, mongoDbName, authMfaEncryptionKey };
 }
