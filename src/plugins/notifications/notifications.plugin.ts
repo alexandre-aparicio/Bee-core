@@ -2,7 +2,7 @@ import type { BeePlugin } from "../../core/types.js";
 import { MongoClient, type Db, type Collection } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { resolveTenantContext, type TenantClaims } from "../../core/tenant-context.js";
-import { BoundedTicketStore, RealtimeConnectionLimiter } from "../../core/realtime-limits.js";
+import { BoundedTicketStore, realtimeConnectionLimiterFor } from "../../core/realtime-limits.js";
 
 type NotificationRecord = { id:string; tenantId:string; userId:string; scope:"tenant"|"global"; type:string; category:string; priority:"low"|"normal"|"high"; title:string; message:string; action?:{label:string;route:string}; metadata?:Record<string,unknown>; readAt:Date|null; createdAt:Date; expiresAt?:Date };
 type RealtimeTicket = { userId:string; tenantId:string; sessionId:string; ip:string };
@@ -16,7 +16,7 @@ export const notificationsPlugin:BeePlugin={
   const collection:Collection<NotificationRecord>=db.collection("notifications");
   await Promise.all([collection.createIndex({userId:1,tenantId:1,createdAt:-1},{name:"notifications_user_tenant_created"}),collection.createIndex({userId:1,tenantId:1,readAt:1},{name:"notifications_user_tenant_read"}),collection.createIndex({expiresAt:1},{expireAfterSeconds:0,sparse:true,name:"notifications_ttl"})]);
   const tickets=new BoundedTicketStore<RealtimeTicket>(5_000,30_000);
-  const connectionLimiter=new RealtimeConnectionLimiter(20,5);
+  const connectionLimiter=realtimeConnectionLimiterFor(ctx.server);
   const clients=new Set<SocketClient>();
   const authContext=async(req:any,reply:any)=>{try{await req.jwtVerify();const claims=req.user as TenantClaims;const c=await resolveTenantContext(db,claims,{},String(ctx.config.sessionIdSecret??""));if(!c||c.client!=="dashboard"){reply.code(401).send({error:"Valid dashboard session required"});return null;}return c;}catch{reply.code(401).send({error:"Unauthorized"});return null;}};
   const sendToUser=(userId:string,tenantId:string,record:NotificationRecord)=>{const payload=JSON.stringify({type:"notification:new",notification:record});for(const client of clients){if(client.userId===userId&&client.tenantId===tenantId&&client.socket.readyState===1)client.socket.send(payload);}};
