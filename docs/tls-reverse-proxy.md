@@ -27,3 +27,43 @@ The backend marks dashboard refresh cookies `Secure` whenever `NODE_ENV=producti
 5. Confirm no public listener is reachable for MongoDB or the backend API.
 
 TLS certificate provisioning and reverse-proxy configuration are deployment-environment responsibilities; this repository does not provision a public certificate automatically.
+
+
+## Backend network isolation and browser security headers
+
+The base `docker-compose.yml` publishes only the web/Nginx container. The API service declares
+`expose: 3000` for Docker-network communication and has no host `ports` mapping. The web
+container reaches it by the Compose service name `bee-core:3000`; clients must use the web
+proxy and must not connect directly to the API. The production override keeps the same
+private-network-only API exposure.
+
+For local development, use the web entry point (port 8080 by default). Do not restore a
+`3000:3000` mapping. If temporary direct debugging is unavoidable, use a separate local-only
+override bound explicitly to `127.0.0.1:3000`, and remove it before deployment.
+
+The bundled Nginx configuration adds a restrictive Content Security Policy:
+- `script-src 'self'` does not permit inline scripts or `eval`.
+- `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'none'` and `form-action 'self'`
+  constrain plugin content, base URL changes, framing and form submission.
+- `connect-src` permits same-origin API requests and same-origin WebSocket upgrades.
+- `style-src 'self' 'unsafe-inline'` is the only deliberate exception. Angular component
+  styling and runtime style bindings can emit style attributes/elements; allowing inline styles
+  avoids breaking those UI paths while scripts remain restricted. Replace this exception with
+  nonce/hash-based styling only after a browser audit proves every generated style is covered.
+- COOP is `same-origin` and CORP is `same-origin`; external resources are intentionally not
+  loadable as subresources. Revisit these policies if a future integration requires cross-origin
+  popups or assets.
+
+Nginx keeps a 1 MiB default request limit and raises the `/api/files` route to 11 MiB to allow a
+10 MiB upload plus multipart/form-data overhead.
+
+## Local verification checklist
+
+Run these checks against the local Compose deployment (not against GitHub Actions):
+
+1. `docker compose config` and confirm `bee-core` has `expose: 3000` and no host port mapping.
+2. `curl -I http://127.0.0.1:8080/` and inspect CSP, COOP and CORP headers.
+3. Confirm `curl http://127.0.0.1:3000/health` fails from the host while the web proxy can still
+   reach the API.
+4. Open the app in headless Chromium and check the console for CSP violations and runtime errors.
+5. Upload a real 10 MiB file through the UI and verify the resulting API response and stored file.
