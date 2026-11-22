@@ -175,7 +175,7 @@ test("plugin config allowlists are matched case-insensitively", async () => {
   let config: Readonly<Record<string, unknown>> | undefined;
   manager.register({ manifest: { name: "FILES", version: "1" }, initialize(ctx) { config = ctx.config; } });
   await manager.mountAll(makeContext(server));
-  assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName", "mongoUri"]);
+  assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName"]);
   await server.close();
 });
 
