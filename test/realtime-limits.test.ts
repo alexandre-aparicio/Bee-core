@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BoundedTicketStore, RealtimeConnectionLimiter } from "../src/core/realtime-limits.js";
+import { BoundedTicketStore, RealtimeConnectionLimiter, realtimeConnectionLimiterFor } from "../src/core/realtime-limits.js";
 
 test("bounded tickets expire, are single-use and never exceed capacity", () => {
   let now = 100;
@@ -55,4 +55,12 @@ test("realtime connections also enforce an aggregate server limit", () => {
   first();
   assert.ok(limiter.tryAcquire("192.0.2.3", "user-c"), "releasing a connection must free global capacity");
   second();
+});
+
+test("all realtime transports share the limiter for one Fastify server", () => {
+  const server = {};
+  const first = realtimeConnectionLimiterFor(server);
+  const second = realtimeConnectionLimiterFor(server);
+  assert.equal(first, second);
+  assert.notEqual(first, realtimeConnectionLimiterFor({}), "different server instances must not share quotas");
 });
