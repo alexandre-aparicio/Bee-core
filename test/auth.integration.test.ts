@@ -441,6 +441,15 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:reusedSession!.tenantId,actorId:"test-user",action:"auth.refresh.reuse",outcome:"denied","metadata.reason":"rotated_token_reuse"}),"refresh-token reuse must be recorded in tenant audit history");
     const accessAfterReuse=await app.inject({method:"GET",url:"/auth/me",headers:{authorization:"Bearer "+refreshed.accessToken}});
     assert.equal(accessAfterReuse.statusCode,401,"access tokens from a compromised refresh-token family must stop working immediately");
+    const rotationLimitLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
+    assert.equal(rotationLimitLogin.statusCode,200);
+    const rotationLimitCookie=String(rotationLimitLogin.headers["set-cookie"]??"").split(";")[0];
+    const rotationLimitClaims=JSON.parse(Buffer.from(rotationLimitLogin.json().accessToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    await db.collection("refresh_sessions").updateOne({id:rotationLimitClaims.sid},{$set:{usedTokenHashes:Array.from({length:4096},(_,index)=>"history-"+index)}});
+    const rotationLimit=await app.inject({method:"POST",url:"/auth/refresh",headers:{cookie:rotationLimitCookie},payload:{}});
+    assert.equal(rotationLimit.statusCode,401,"the bounded replay history must revoke rather than discard older token hashes");
+    assert.ok((await db.collection("refresh_sessions").findOne({id:rotationLimitClaims.sid}))?.revokedAt);
+    assert.ok(await db.collection("tenant_audit_events").findOne({actorId:"test-user",action:"auth.refresh.limit",outcome:"denied"}),"refresh history exhaustion must be audited");
     const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(removeBetaMember.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
