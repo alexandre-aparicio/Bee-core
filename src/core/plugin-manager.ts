@@ -22,14 +22,14 @@ export class BeePluginManager {
   }
 
   private readonly configAccess: Record<string, readonly string[]> = {
-    auth: ["mongoUri", "mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "authMfaEncryptionKey", "publicBaseDomain", "sessionIdSecret"],
-    organizations: ["mongoUri", "mongoDbName", "publicBaseDomain", "sessionIdSecret"],
-    files: ["mongoUri", "mongoDbName", "fileStoragePath", "sessionIdSecret"],
-    marketplace: ["mongoUri", "mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
-    notes: ["mongoUri", "mongoDbName", "sessionIdSecret"],
-    mail: ["mongoUri", "mongoDbName", "sessionIdSecret"],
-    notifications: ["mongoUri", "mongoDbName", "sessionIdSecret"],
-    "platform-admin": ["mongoUri", "mongoDbName", "sessionIdSecret"],
+    auth: ["mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "authMfaEncryptionKey", "publicBaseDomain", "sessionIdSecret"],
+    organizations: ["mongoDbName", "publicBaseDomain", "sessionIdSecret"],
+    files: ["mongoDbName", "fileStoragePath", "sessionIdSecret"],
+    marketplace: ["mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
+    notes: ["mongoDbName", "sessionIdSecret"],
+    mail: ["mongoDbName", "sessionIdSecret"],
+    notifications: ["mongoDbName", "sessionIdSecret"],
+    "platform-admin": ["mongoDbName", "sessionIdSecret"],
     hello: []
   };
 
@@ -60,43 +60,106 @@ export class BeePluginManager {
   }
 
   private orderedPlugins(): ManagedPlugin[] {
-    const ordered: ManagedPlugin[] = [];
-    const visiting = new Set<ManagedPlugin>();
-    const visited = new Set<ManagedPlugin>();
-    const visit = (managed: ManagedPlugin): void => {
-      if (visited.has(managed) || managed.status !== "registered") return;
-      if (visiting.has(managed)) {
-        managed.status = "failed";
-        managed.error = new Error("Circular plugin dependency detected");
-        return;
-      }
-      visiting.add(managed);
+    const registered = [...this.plugins.values()].filter(item => item.status === "registered");
+    const byName = new Map([...this.plugins.entries()].map(([name, item]) => [name.toLowerCase(), item]));
+
+    for (const managed of registered) {
       for (const dependencyName of managed.plugin.manifest.dependencies ?? []) {
-        const dependency = this.getDependency(dependencyName);
-        if (!dependency) {
+        if (!byName.has(dependencyName.toLowerCase())) {
           managed.status = "failed";
-          managed.error = new Error(`Missing plugin dependency: ${dependencyName}`);
-          break;
-        }
-        if (visiting.has(dependency)) {
-          managed.status = "failed";
-          managed.error = new Error(`Circular plugin dependency: ${dependencyName}`);
-          dependency.status = "failed";
-          dependency.error = new Error(`Circular plugin dependency involving ${managed.plugin.manifest.name}`);
-          continue;
-        }
-        visit(dependency);
-        if (dependency.status === "failed") {
-          managed.status = "failed";
-          managed.error = new Error(`Dependency '${dependencyName}' failed`);
+          managed.error = new Error(`Missing plugin dependency '${dependencyName}' required by '${managed.plugin.manifest.name}'.`);
           break;
         }
       }
-      visiting.delete(managed);
-      visited.add(managed);
-      if (managed.status === "registered") ordered.push(managed);
+    }
+    const propagateDependencyFailures = (): void => {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const managed of registered) {
+          if (managed.status !== "registered") continue;
+          for (const dependencyName of managed.plugin.manifest.dependencies ?? []) {
+            const dependency = byName.get(dependencyName.toLowerCase());
+            if (!dependency || dependency.status === "failed") {
+              managed.status = "failed";
+              managed.error = new Error(`Dependency '${dependencyName}' required by '${managed.plugin.manifest.name}' is unavailable.`);
+              changed = true;
+              break;
+            }
+          }
+        }
+      }
     };
-    for (const managed of this.plugins.values()) visit(managed);
+    propagateDependencyFailures();
+
+    // Kahn's algorithm gives a stable topological order.
+    const candidates = registered.filter(item => item.status === "registered");
+    const candidateSet = new Set(candidates);
+    const indegree = new Map<ManagedPlugin, number>();
+    const dependents = new Map<ManagedPlugin, ManagedPlugin[]>();
+    for (const item of candidates) {
+      const dependencies = (item.plugin.manifest.dependencies ?? [])
+        .map(name => byName.get(name.toLowerCase()))
+        .filter((dependency): dependency is ManagedPlugin => Boolean(dependency && candidateSet.has(dependency)));
+      indegree.set(item, dependencies.length);
+      for (const dependency of dependencies) {
+        const list = dependents.get(dependency) ?? [];
+        list.push(item);
+        dependents.set(dependency, list);
+      }
+    }
+    const queue = candidates.filter(item => indegree.get(item) === 0);
+    const ordered: ManagedPlugin[] = [];
+    while (queue.length) {
+      const current = queue.shift()!;
+      ordered.push(current);
+      for (const dependent of dependents.get(current) ?? []) {
+        const next = (indegree.get(dependent) ?? 1) - 1;
+        indegree.set(dependent, next);
+        if (next === 0) queue.push(dependent);
+      }
+    }
+
+    const remaining = new Set(candidates.filter(item => !ordered.includes(item)));
+    const visitState = new Map<ManagedPlugin, 0 | 1 | 2>();
+    const stack: ManagedPlugin[] = [];
+    const markCycle = (item: ManagedPlugin): boolean => {
+      visitState.set(item, 1);
+      stack.push(item);
+      for (const name of item.plugin.manifest.dependencies ?? []) {
+        const dependency = byName.get(name.toLowerCase());
+        if (!dependency || !remaining.has(dependency)) continue;
+        const state = visitState.get(dependency) ?? 0;
+        if (state === 0 && markCycle(dependency)) return true;
+        if (state === 1) {
+          const cycle = [...stack.slice(stack.indexOf(dependency)), dependency];
+          const description = cycle.map(entry => entry.plugin.manifest.name).join(" -> ");
+          for (const member of cycle.slice(0, -1)) {
+            member.status = "failed";
+            member.error = new Error(`Circular plugin dependency detected: ${description}`);
+          }
+          return true;
+        }
+      }
+      stack.pop();
+      visitState.set(item, 2);
+      return false;
+    };
+    for (const item of remaining) {
+      if ((visitState.get(item) ?? 0) === 0) markCycle(item);
+    }
+
+    for (const item of remaining) {
+      if (item.status !== "registered") continue;
+      const failedDependency = (item.plugin.manifest.dependencies ?? [])
+        .map(name => ({ name, dependency: byName.get(name.toLowerCase()) }))
+        .find(entry => !entry.dependency || entry.dependency.status === "failed");
+      item.status = "failed";
+      item.error = new Error(failedDependency
+        ? `Dependency '${failedDependency.name}' required by '${item.plugin.manifest.name}' is unavailable because of a dependency failure.`
+        : `Plugin '${item.plugin.manifest.name}' could not be ordered; check its dependency graph for a cycle.`);
+    }
+    propagateDependencyFailures();
     return ordered;
   }
 

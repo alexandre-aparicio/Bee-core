@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
+import { MongoClient } from "mongodb";
 import { BeePluginManager } from "../src/core/plugin-manager.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeePlugin, BeeLogger } from "../src/core/types.js";
@@ -10,7 +11,8 @@ const logger: BeeLogger = { info: () => {}, warn: () => {}, error: () => {} };
 function context(server: ReturnType<typeof Fastify>): BeeContext {
   return {
     appName: "Bee-Core", version: "test", events: new BeeEventBus(), logger, server,
-    config: Object.freeze({ mongoUri: "mongodb://secret", mongoDbName: "testdb", authAdminEmail: "admin@test", authAdminPassword: "private", fileStoragePath: "/files", publicBaseDomain: "test.local", jwtSecret: "secret" })
+    mongoClient: new MongoClient("mongodb://localhost:27017"),
+    config: Object.freeze({ mongoDbName: "testdb", authAdminEmail: "admin@test", authAdminPassword: "private", fileStoragePath: "/files", publicBaseDomain: "test.local", jwtSecret: "secret" })
   };
 }
 
