@@ -45,3 +45,14 @@ test("realtime connections enforce independent IP and user limits", () => {
   assert.ok(limiter.tryAcquire("192.0.2.10", "user-a"), "release must be idempotent and free both quotas");
   otherUser!();
 });
+
+test("realtime connections also enforce an aggregate server limit", () => {
+  const limiter = new RealtimeConnectionLimiter(10, 10, 2);
+  const first = limiter.tryAcquire("192.0.2.1", "user-a");
+  const second = limiter.tryAcquire("192.0.2.2", "user-b");
+  assert.ok(first && second);
+  assert.equal(limiter.tryAcquire("192.0.2.3", "user-c"), null, "many distinct IPs must not bypass the global cap");
+  first();
+  assert.ok(limiter.tryAcquire("192.0.2.3", "user-c"), "releasing a connection must free global capacity");
+  second();
+});
