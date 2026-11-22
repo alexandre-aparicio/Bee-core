@@ -498,3 +498,14 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - The deployed public document contained a generated stylesheet link with `media="print" onload="this.media='all'"`. The inline `onload` handler was blocked by the existing strict `script-src 'self'` policy; the browser DOM inspection identified this exact element.
 - Updated `apps/web/angular.json` production optimization to keep script/style/font optimization enabled while setting `styles.inlineCritical: false`. This disables Angular's critical-CSS inlining transformation that generated the inline event handler; stylesheets remain external same-origin assets and load normally without an inline handler.
 - The fix is committed directly to `main` at `7eeeaca67c2d88a55149212defb5e6c4c65e07d3`. The build and deployed HTML have not yet been verified in this GitHub-only environment. Rebuild the web image and confirm the served HTML has no `onload` attribute before considering the CSP console error resolved.
+
+
+
+## GitHub Actions test workflows removed (2026-11-22)
+
+- Removed all four workflow files from the default `main` branch: `.github/workflows/ci.yml`, `docker-prod-profile.yml`, `frontend-security-migration.yml` and `web-ci.yml`. The `.github/workflows` directory is therefore empty/absent on `main`; pushes and pull requests targeting the default branch will no longer trigger these repository workflows.
+- Also removed all five workflow files (`ci.yml`, `docker-prod-profile.yml`, `frontend-security-migration.yml`, `web-ci.yml` and `container-security.yml`) from the active PR #84 branch `security/container-hardening-evidence-93`; neither the default branch nor that active PR branch retains workflow YAML.
+- The application test files, test scripts, type-check/build commands and security checks in the source repository were deliberately retained. They can still be run manually on the VPS; this change disables GitHub Actions automation, not the tests themselves.
+- The currently running GitHub Actions run #45011257135 was still in progress when inspected. The available GitHub connection does not expose a cancel-run action, so this change does not claim that the already-started run was cancelled. It may finish; removal prevents subsequent runs from those deleted workflow definitions.
+- No tests, builds or deployments were executed as part of this workflow cleanup. Historical completed/failed/cancelled runs remain visible in GitHub Actions history; deleting workflow YAML does not erase past runs.
+- Commits: main workflow deletions `87e2d21`, `33bd008`, `ef4f655`, `344ce00`; PR #84 branch workflow deletion `7f9693d`.
