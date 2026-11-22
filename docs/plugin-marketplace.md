@@ -34,6 +34,10 @@ Installation state and lifecycle jobs are company-scoped. The worker activates o
 - `plugin.purchase`: grant an individual plugin purchase using a unique provider reference;
 - `plugin.revoke`: revoke that purchase.
 
+Webhook event handling is idempotent for an unchanged subscription or purchase state. A provider reference is bound to the plugin recorded by its first purchase event; a later grant or revoke naming a different plugin is rejected with HTTP 409. Purchase references are length/control-character validated. Subscription changes and actual plugin entitlement grants/revocations append tenant audit events using the system actor `billing-webhook`; duplicate no-op deliveries do not create duplicate transition events. Compare-and-set updates make concurrent duplicate subscription, purchase and revocation deliveries idempotent: only the winning state transition emits an audit event, a matching concurrent delivery becomes a no-op, and a conflicting state change returns HTTP 409 for provider retry.
+
+The current webhook credential is a shared static Bearer secret with constant-time comparison. Provider-specific signed payload verification, timestamp/replay-window validation, provider event-ID deduplication and payment reconciliation are not implemented; treat this as a trusted integration boundary, not a hardened public billing endpoint.
+
 This is a webhook contract, not a complete billing product. Checkout, invoices, payment retries, refunds, taxes, customer portal and provider-specific reconciliation are not implemented yet.
 
 ## Reference plugin: Notes

@@ -93,14 +93,38 @@ test("company plans and purchases control plugin visibility, installation and ac
       payload
     });
 
-    const betaUpgrade = await webhook({
-      event: "subscription.updated",
+    const betaPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const betaUpgradePayload = {
+      event: "subscription.updated" as const,
       tenantId: "market-beta",
       planId: "pro",
-      status: "active",
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    });
+      status: "active" as const,
+      expiresAt: betaPeriodEnd
+    };
+    const betaUpgrade = await webhook(betaUpgradePayload);
     assert.equal(betaUpgrade.statusCode, 200);
+    assert.equal(betaUpgrade.json().changed, true);
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({
+      tenantId: "market-beta", actorId: "billing-webhook", action: "subscription.updated", resourceId: "market-beta"
+    }), 1, "subscription changes must be tenant-audited");
+    const duplicateBetaUpgrade = await webhook(betaUpgradePayload);
+    assert.equal(duplicateBetaUpgrade.statusCode, 200);
+    assert.equal(duplicateBetaUpgrade.json().changed, false);
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({
+      tenantId: "market-beta", actorId: "billing-webhook", action: "subscription.updated", resourceId: "market-beta"
+    }), 1, "duplicate subscription webhooks must not duplicate audit events");
+    const betaConcurrentPeriodEnd = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString();
+    const betaConcurrentPayload = { ...betaUpgradePayload, expiresAt: betaConcurrentPeriodEnd };
+    const concurrentSubscriptionDeliveries = await Promise.all([
+      webhook(betaConcurrentPayload),
+      webhook(betaConcurrentPayload)
+    ]);
+    assert.ok(concurrentSubscriptionDeliveries.every(response => response.statusCode === 200));
+    assert.equal(concurrentSubscriptionDeliveries.filter(response => response.json().changed === true).length, 1, "only one concurrent duplicate subscription delivery may apply a state transition");
+    assert.equal(concurrentSubscriptionDeliveries.filter(response => response.json().changed === false).length, 1, "the losing concurrent delivery must become a no-op");
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({
+      tenantId: "market-beta", actorId: "billing-webhook", action: "subscription.updated", resourceId: "market-beta"
+    }), 2, "concurrent duplicate subscription webhooks must append one audit event for the transition");
 
     const alphaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCatalog.statusCode, 200);
@@ -220,11 +244,46 @@ test("company plans and purchases control plugin visibility, installation and ac
       providerReference: "alpha-invalid-date", expiresAt: "not-a-date"
     });
     assert.equal(invalidExpiryPurchase.statusCode, 400);
+    const oversizedProviderReference = await webhook({
+      event: "plugin.purchase", tenantId: "market-alpha", pluginId: "notes",
+      providerReference: "x".repeat(201)
+    });
+    assert.equal(oversizedProviderReference.statusCode, 400);
     const unknownTenantWebhook = await webhook({
       event: "plugin.purchase", tenantId: "no-such-company", pluginId: "notes",
       providerReference: "unknown-tenant-purchase"
     });
     assert.equal(unknownTenantWebhook.statusCode, 400);
+
+    // A provider reference is permanently bound to the plugin recorded by the first event.
+    await db.collection("plugin_purchases").insertOne({
+      id: "alpha-legacy-purchase",
+      tenantId: "market-alpha",
+      pluginId: "legacy-plugin",
+      providerReference: "alpha-bound-to-legacy",
+      status: "active",
+      purchasedAt: now,
+      expiresAt: null
+    });
+    const rebindPurchase = await webhook({
+      event: "plugin.purchase",
+      tenantId: "market-alpha",
+      pluginId: "notes",
+      providerReference: "alpha-bound-to-legacy"
+    });
+    assert.equal(rebindPurchase.statusCode, 409);
+    const rebindState = await db.collection("plugin_purchases").findOne({ tenantId: "market-alpha", providerReference: "alpha-bound-to-legacy" });
+    assert.equal(rebindState?.pluginId, "legacy-plugin");
+    assert.equal(rebindState?.status, "active");
+    const mismatchedRevoke = await webhook({
+      event: "plugin.revoke",
+      tenantId: "market-alpha",
+      pluginId: "notes",
+      providerReference: "alpha-bound-to-legacy"
+    });
+    assert.equal(mismatchedRevoke.statusCode, 409);
+    const mismatchedRevokeState = await db.collection("plugin_purchases").findOne({ tenantId: "market-alpha", providerReference: "alpha-bound-to-legacy" });
+    assert.equal(mismatchedRevokeState?.status, "active", "a mismatched plugin event must not revoke another plugin's purchase");
 
     const alphaPurchase = await webhook({
       event: "plugin.purchase",
@@ -233,6 +292,46 @@ test("company plans and purchases control plugin visibility, installation and ac
       providerReference: "alpha-notes-001"
     });
     assert.equal(alphaPurchase.statusCode, 200);
+    assert.equal(alphaPurchase.json().changed, true);
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({
+      tenantId: "market-alpha", actorId: "billing-webhook", action: "plugin.entitlement_granted", resourceId: "alpha-notes-001"
+    }), 1, "plugin entitlement grants must be tenant-audited");
+    const duplicateAlphaPurchase = await webhook({
+      event: "plugin.purchase",
+      tenantId: "market-alpha",
+      pluginId: "notes",
+      providerReference: "alpha-notes-001"
+    });
+    assert.equal(duplicateAlphaPurchase.statusCode, 200);
+    assert.equal(duplicateAlphaPurchase.json().changed, false);
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({
+      tenantId: "market-alpha", actorId: "billing-webhook", action: "plugin.entitlement_granted", resourceId: "alpha-notes-001"
+    }), 1, "duplicate purchase webhooks must not duplicate audit events");
+    const concurrentPurchasePayload = {
+      event: "plugin.purchase" as const,
+      tenantId: "market-alpha",
+      pluginId: "notes",
+      providerReference: "alpha-concurrent-purchase-001"
+    };
+    const concurrentPurchaseDeliveries = await Promise.all([
+      webhook(concurrentPurchasePayload),
+      webhook(concurrentPurchasePayload)
+    ]);
+    assert.ok(concurrentPurchaseDeliveries.every(response => response.statusCode === 200));
+    assert.equal(concurrentPurchaseDeliveries.filter(response => response.json().changed === true).length, 1, "a concurrent first purchase must create exactly one entitlement transition");
+    assert.equal(concurrentPurchaseDeliveries.filter(response => response.json().changed === false).length, 1);
+    assert.equal(await db.collection("plugin_purchases").countDocuments({ tenantId: "market-alpha", providerReference: "alpha-concurrent-purchase-001" }), 1, "provider-reference uniqueness must prevent duplicate purchase rows");
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({
+      tenantId: "market-alpha", actorId: "billing-webhook", action: "plugin.entitlement_granted", resourceId: "alpha-concurrent-purchase-001"
+    }), 1, "concurrent duplicate purchase webhooks must append one grant event");
+    const cleanupConcurrentPurchase = await webhook({
+      event: "plugin.revoke",
+      tenantId: "market-alpha",
+      pluginId: "notes",
+      providerReference: "alpha-concurrent-purchase-001"
+    });
+    assert.equal(cleanupConcurrentPurchase.statusCode, 200);
+    assert.equal(cleanupConcurrentPurchase.json().changed, true);
     const alphaPurchasedCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; name: string; entitled: boolean; accessSource: string }) => plugin.name.toLowerCase() === "notes" && plugin.entitled && plugin.accessSource === "purchase"));
     const alphaNotesInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(alphaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + alphaToken } });
@@ -298,13 +397,25 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(alphaNoteAfterForeignMutations.json().note.title, "Alpha private");
     assert.equal(alphaNoteAfterForeignMutations.json().note.content, "This belongs to Alpha");
 
-    const revokePurchase = await webhook({
-      event: "plugin.revoke",
+    const revokePayload = {
+      event: "plugin.revoke" as const,
       tenantId: "market-alpha",
       pluginId: "notes",
       providerReference: "alpha-notes-001"
-    });
-    assert.equal(revokePurchase.statusCode, 200);
+    };
+    const concurrentRevocations = await Promise.all([webhook(revokePayload), webhook(revokePayload)]);
+    assert.ok(concurrentRevocations.every(response => response.statusCode === 200));
+    assert.equal(concurrentRevocations.filter(response => response.json().changed === true).length, 1, "only one concurrent duplicate revocation may apply a state transition");
+    assert.equal(concurrentRevocations.filter(response => response.json().changed === false).length, 1, "the losing concurrent revocation must become a no-op");
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({
+      tenantId: "market-alpha", actorId: "billing-webhook", action: "plugin.entitlement_revoked", resourceId: "alpha-notes-001"
+    }), 1, "concurrent revocation deliveries must append one tenant audit event");
+    const duplicateRevoke = await webhook(revokePayload);
+    assert.equal(duplicateRevoke.statusCode, 200);
+    assert.equal(duplicateRevoke.json().changed, false);
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({
+      tenantId: "market-alpha", actorId: "billing-webhook", action: "plugin.entitlement_revoked", resourceId: "alpha-notes-001"
+    }), 1, "duplicate revocation webhooks must not duplicate audit events");
     const alphaAfterRevoke = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaAfterRevoke.statusCode, 403);
     assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-alpha" }), 1);
