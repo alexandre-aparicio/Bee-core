@@ -367,3 +367,6 @@ button.dash-nav:focus-visible{outline:2px solid var(--purple);outline-offset:2px
 .platform-admin__modal-actions .platform-admin__cancel{border-color:var(--border);background:transparent;color:inherit}
 .platform-admin__modal-actions button:disabled{opacity:.55;cursor:wait}
 @media(max-width:650px){.platform-admin__toolbar,.platform-admin__manage-head{align-items:flex-start;flex-direction:column}.platform-admin__toolbar-actions{width:100%;justify-content:space-between}.platform-admin__manage-section{align-items:flex-start;flex-direction:column}}
+
+/* Settings workspace must use the full available width. */
+html body .settings-page.settings-page{display:block;width:100%;max-width:none;min-width:0;box-sizing:border-box}
