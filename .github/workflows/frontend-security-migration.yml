@@ -73,7 +73,7 @@ jobs:
       - name: Normalize whitespace in generated Angular migrations
         run: |
           while IFS= read -r -d '' file; do
-            sed -i 's/[[:space:]]\\+$//' "$file"
+            sed -i 's/[[:space:]]*$//' "$file"
           done < <(git diff --name-only -z -- apps/web)
 
       - name: Check patch formatting
