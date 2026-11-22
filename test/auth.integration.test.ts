@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
+import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -27,6 +28,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   await db.collection("template_preferences").createIndex({userId:1},{unique:true,name:"template_preferences_user_unique"});
   await db.collection("template_preferences").insertOne({userId:"legacy-user",public:"editorial",dashboard:"paper",updatedAt:new Date()});
   const app = Fastify();
+  app.register(jwt,{secret:"01234567890123456789012345678901"});
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
   const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, fileStoragePath, authAdminEmail: "", authAdminPassword: "" } };
   const resolveReference = async (token:string, reference:string, type:SessionResourceType):Promise<string> => {
@@ -434,6 +436,11 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(refreshed.refreshToken,undefined);
     const replay = await app.inject({ method: "POST", url: "/auth/refresh", headers:{cookie:initialRefreshCookie}, payload: {} });
     assert.equal(replay.statusCode, 401);
+    const reusedSession=await db.collection("refresh_sessions").findOne({id:initialClaims.sid});
+    assert.ok(reusedSession?.revokedAt,"reusing a rotated refresh token must revoke its complete session family");
+    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:reusedSession!.tenantId,actorId:"test-user",action:"auth.refresh.reuse",outcome:"denied","metadata.reason":"rotated_token_reuse"}),"refresh-token reuse must be recorded in tenant audit history");
+    const accessAfterReuse=await app.inject({method:"GET",url:"/auth/me",headers:{authorization:"Bearer "+refreshed.accessToken}});
+    assert.equal(accessAfterReuse.statusCode,401,"access tokens from a compromised refresh-token family must stop working immediately");
     const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(removeBetaMember.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
@@ -452,6 +459,19 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const sseLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(sseLogin.statusCode,200);
     const sseToken=sseLogin.json().accessToken as string;
+    const activeStreams:Response[]=[];
+    for(let i=0;i<5;i++){
+      const streamTicket=await app.inject({method:"POST",url:"/templates/stream-ticket",headers:{authorization:"Bearer "+sseToken}});
+      assert.equal(streamTicket.statusCode,200);
+      const streamResponse=await fetch(listenAddress+"/templates/events?ticket="+streamTicket.json().ticket);
+      assert.equal(streamResponse.status,200);
+      activeStreams.push(streamResponse);
+    }
+    const overflowTicket=await app.inject({method:"POST",url:"/templates/stream-ticket",headers:{authorization:"Bearer "+sseToken}});
+    assert.equal(overflowTicket.statusCode,200);
+    const overflowStream=await fetch(listenAddress+"/templates/events?ticket="+overflowTicket.json().ticket);
+    assert.equal(overflowStream.status,429,"SSE connections must be capped per authenticated user");
+    await Promise.all(activeStreams.map(response=>response.body?.cancel()));
     const sseTicket=await app.inject({method:"POST",url:"/templates/stream-ticket",headers:{authorization:"Bearer "+sseToken}});
     assert.equal(sseTicket.statusCode,200);
     const revocationResponse=await fetch(listenAddress+"/templates/events?ticket="+sseTicket.json().ticket);
