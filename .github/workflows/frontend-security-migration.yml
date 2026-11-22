@@ -52,13 +52,13 @@ jobs:
           npm exec -- ng version
 
       - name: Apply Angular 20 migrations
-        run: CI=true npm exec -- ng update @angular/core@20 @angular/cli@20
+        run: CI=true npm exec -- ng update @angular/core@20 @angular/cli@20 --allow-dirty
 
       - name: Apply Angular 21 migrations
-        run: CI=true npm exec -- ng update @angular/core@21 @angular/cli@21
+        run: CI=true npm exec -- ng update @angular/core@21 @angular/cli@21 --allow-dirty
 
       - name: Apply Angular 22 migrations
-        run: CI=true npm exec -- ng update @angular/core@22 @angular/cli@22
+        run: CI=true npm exec -- ng update @angular/core@22 @angular/cli@22 --allow-dirty
 
       - name: Pin Docker build Node.js to the Angular 22 minimum
         run: sed -i '1s#node:22-alpine#node:22.22.3-alpine#' Dockerfile
