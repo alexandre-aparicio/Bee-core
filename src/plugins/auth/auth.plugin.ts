@@ -91,6 +91,7 @@ export const authPlugin:BeePlugin={
   const dummyPasswordHash=await bcrypt.hash(randomBytes(32).toString("hex"),12);
   ctx.server.post<{Body:LoginBody}>("/auth/login",async(req,reply)=>{
    const requestId=String(req.id??"unknown");
+   reply.header("X-Request-ID",requestId);
    let stage="request_received";
    let clientLabel="unknown";
    const diagnostic=(outcome:"started"|"rejected"|"failed"|"success",details:Record<string,unknown>={})=>{
