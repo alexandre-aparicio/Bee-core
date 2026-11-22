@@ -77,14 +77,18 @@ jobs:
       - name: Verify authentication, refresh-cookie rotation and private-file persistence across restart
         run: |
           set -euo pipefail
-          cookie_jar="$RUNNER_TEMP/bee-cookies.txt"
-          login_response=$(curl -fsS -c "$cookie_jar" -X POST http://127.0.0.1:18080/api/auth/login \
+          login_headers="$RUNNER_TEMP/bee-login-headers.txt"
+          refresh_headers="$RUNNER_TEMP/bee-refresh-headers.txt"
+          login_response=$(curl -fsS -D "$login_headers" -X POST http://127.0.0.1:18080/api/auth/login \
             -H 'Content-Type: application/json' \
             -d '{"email":"ci-admin@example.test","password":"CI-Admin-Password-2026!","client":"dashboard"}')
           access_token=$(printf '%s' "$login_response" | jq -er '.accessToken')
-          cookie_before=$(awk '$6 == "bee_refresh" {print $7}' "$cookie_jar")
+          cookie_before=$(awk 'tolower($0) ~ /^set-cookie: bee_refresh=/ { sub(/\\r$/, ""); sub(/^[^:]*: /, ""); split($0,parts,";"); sub(/^bee_refresh=/,"",parts[1]); print parts[1] }' "$login_headers")
           test -n "$access_token"
           test -n "$cookie_before"
+          grep -qi '^Set-Cookie: bee_refresh=.*;.*HttpOnly' "$login_headers"
+          grep -qi '^Set-Cookie: bee_refresh=.*;.*SameSite=Strict' "$login_headers"
+          grep -qi '^Set-Cookie: bee_refresh=.*;.*Secure' "$login_headers"
 
           printf 'Bee-Core private volume persistence probe\\n' > "$RUNNER_TEMP/bee-file-probe.txt"
           file_response=$(curl -fsS -X POST http://127.0.0.1:18080/api/files \
@@ -112,10 +116,10 @@ jobs:
             sleep 2
           done
 
-          refreshed=$(curl -fsS -b "$cookie_jar" -c "$cookie_jar" -X POST http://127.0.0.1:18080/api/auth/refresh \
-            -H 'Content-Type: application/json' -d '{}')
+          refreshed=$(curl -fsS -D "$refresh_headers" -X POST http://127.0.0.1:18080/api/auth/refresh \
+            -H "Cookie: bee_refresh=$cookie_before" -H 'Content-Type: application/json' -d '{}')
           refreshed_access_token=$(printf '%s' "$refreshed" | jq -er '.accessToken')
-          cookie_after=$(awk '$6 == "bee_refresh" {print $7}' "$cookie_jar")
+          cookie_after=$(awk 'tolower($0) ~ /^set-cookie: bee_refresh=/ { sub(/\\r$/, ""); sub(/^[^:]*: /, ""); split($0,parts,";"); sub(/^bee_refresh=/,"",parts[1]); print parts[1] }' "$refresh_headers")
           test -n "$refreshed_access_token"
           test -n "$cookie_after"
           test "$cookie_before" != "$cookie_after"
