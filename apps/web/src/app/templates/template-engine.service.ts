@@ -146,7 +146,7 @@ export class BeeTemplateEngine {
     if (existing) {
       if (existing.builtIn || existing.target !== manifest.target) throw new Error(`Template '${manifest.id}' is already registered`);
     }
-    this.registry.set(manifest.id, { ...manifest, previewUrl: manifest.previewUrl || `/api/templates/previews/${manifest.id}.svg`, slots: [...manifest.slots] });
+    this.registry.set(manifest.id, { ...manifest, slots: [...manifest.slots] });
   }
 
   activate(target: BeeTemplateTarget, templateId: string): void {

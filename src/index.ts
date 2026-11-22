@@ -46,12 +46,6 @@ app.register(jwt, {
 app.register(websocket);
 
 
-const templatePreview=(id:string):string=>{
- const palettes:Record<string,string[]>={aurora:["#17152f","#29254d","#a78bfa","#f5f3ff"],editorial:["#f3eee5","#ded1c0","#b45e43","#29251f"],studio:["#f8f7f4","#e9ddd1","#ef805f","#292929"],midnight:["#090d18","#171f32","#8c72ff","#e8eaf5"],paper:["#f4f5f7","#ffffff","#64748b","#1e293b"],glass:["#dce8f8","#ffffff","#7776d8","#293451"]};
- const p=palettes[id];if(!p)return "";return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600"><rect width="960" height="600" fill="${p[0]}"/><rect width="190" height="600" fill="${p[1]}"/><circle cx="38" cy="36" r="13" fill="${p[2]}"/><rect x="65" y="29" width="95" height="12" rx="5" fill="${p[3]}" opacity=".8"/><rect x="225" y="36" width="300" height="22" rx="6" fill="${p[3]}" opacity=".8"/><rect x="225" y="100" width="205" height="105" rx="12" fill="${p[1]}"/><rect x="450" y="100" width="205" height="105" rx="12" fill="${p[1]}"/><rect x="675" y="100" width="245" height="105" rx="12" fill="${p[1]}"/><rect x="225" y="225" width="430" height="285" rx="14" fill="${p[1]}"/><rect x="675" y="225" width="245" height="285" rx="14" fill="${p[1]}"/><path d="M250 445 L325 375 L400 415 L480 315 L555 350 L635 270" fill="none" stroke="${p[2]}" stroke-width="7"/></svg>`;
-};
-app.get("/templates/previews/:id.svg",async(request,reply)=>{const {id}=request.params as {id:string};const svg=templatePreview(id);if(!svg)return reply.code(404).send({error:"Template preview not found"});return reply.type("image/svg+xml; charset=utf-8").header("Cache-Control","public, max-age=86400").send(svg);});
-
 const ctx: BeeContext = {
   appName: "Bee-Core",
   version: "0.3.1",
