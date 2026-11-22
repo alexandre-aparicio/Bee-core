@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
+import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -37,6 +38,7 @@ test("private files and images are isolated by active company", { skip: !uri }, 
   ]);
 
   const app = Fastify();
+  app.register(jwt, { secret: "01234567890123456789012345678901" });
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
   const ctx: BeeContext = {
     appName: "Bee files test",
@@ -44,6 +46,7 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     events: new BeeEventBus(),
     logger,
     server: app,
+    mongoClient: client,
     config: {
       jwtSecret: "01234567890123456789012345678901",
       mongoUri: uri!,

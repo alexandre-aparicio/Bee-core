@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
+import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
@@ -46,7 +47,13 @@ test("company plans and purchases control plugin visibility, installation and ac
     { id: "market-owner-beta", email: "owner@market-beta.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "market-beta", createdAt: now, updatedAt: now }
   ]);
 
+  await db.collection("memberships").insertMany([
+    { id: "market-membership-alpha", userId: "market-owner-alpha", tenantId: "market-alpha", role: "owner", status: "active", createdAt: now, updatedAt: now },
+    { id: "market-membership-beta", userId: "market-owner-beta", tenantId: "market-beta", role: "owner", status: "active", createdAt: now, updatedAt: now }
+  ]);
+
   const app = Fastify();
+  app.register(jwt, { secret: "01234567890123456789012345678901" });
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
   const ctx: BeeContext = {
     appName: "Bee marketplace test",
@@ -54,6 +61,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     events: new BeeEventBus(),
     logger,
     server: app,
+    mongoClient: client,
     config: {
       jwtSecret: "01234567890123456789012345678901",
       mongoUri: uri!,

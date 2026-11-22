@@ -30,7 +30,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   const app = Fastify();
   app.register(jwt,{secret:"01234567890123456789012345678901"});
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
-  const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, fileStoragePath, authAdminEmail: "", authAdminPassword: "" } };
+  const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, mongoClient: client, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, fileStoragePath, authAdminEmail: "", authAdminPassword: "" } };
   const resolveReference = async (token:string, reference:string, type:SessionResourceType):Promise<string> => {
     const claims=JSON.parse(Buffer.from(token.split(".")[1],"base64url").toString("utf8")) as {sid:string};
     const session=await db.collection("refresh_sessions").findOne({id:claims.sid});
@@ -99,7 +99,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const crossTenantAudit=await app.inject({method:"GET",url:"/companies/tenant-beta/audit-events",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(crossTenantAudit.statusCode,404,"raw internal tenant IDs must not be accepted as browser references");
     const loginAudit = await db.collection("tenant_audit_events").find({tenantId:"tenant-alpha",actorId:"test-user",action:"auth.login"}).toArray();
-    assert.equal(loginAudit.length,2,"successful dashboard and public logins should both be audited for the active tenant");
+    assert.equal(loginAudit.length,3,"all successful dashboard and public logins should be audited for the active tenant");
     assert.ok(loginAudit.some(event=>event.metadata.client==="dashboard"));
     const ownerGuard=await app.inject({method:"GET",url:"/test/company-admin",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(ownerGuard.statusCode,200);

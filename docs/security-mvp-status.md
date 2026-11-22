@@ -1,48 +1,76 @@
-# Security MVP progress
+# Bee-Core security MVP status
 
-This document records implemented security controls and the remaining gaps before public deployment.
+**Snapshot:** 2026-11-22  
+**Scope:** repository controls and evidence visible in this branch. This is an engineering status report, not a penetration-test attestation or a claim that production infrastructure is secure.
 
-## Implemented on main and current security branch
+## Implemented in the repository
 
-- Tenant context derives from a verified JWT/session and active membership.
-- Notes routes scope record access to the active tenant.
-- Tenant collection helpers stamp and constrain tenant reads/writes/deletes.
-- MongoDB integration tests cover cross-company note read/update/delete IDOR attempts and preserve the owning tenant's data.
-- Custom company roles are persisted per tenant, owner-managed, permission-validated and resolved from active membership; role changes revoke affected refresh sessions (PR #17).
-- Tenant-scoped append-only audit writer validates metadata size/keys and creates tenant/time, actor/time and action/time indexes.
-- Successful login/logout audit events are integrated (PR #18).
-- Login performs a dummy bcrypt comparison for unknown users; Nginx applies login rate limiting and baseline security headers (PR #56).
-- Superadministrator TOTP MFA uses AES-256-GCM-encrypted secrets, replay prevention, and ten one-time hashed recovery codes. Platform administration requires MFA verification within the previous 15 minutes (security branch; not yet merged).
-- Dashboard access tokens remain in memory across the Angular app; refresh tokens are stored in rotating HttpOnly, SameSite=Strict cookies. Refresh lifetime is seven days with a 30-day absolute session cap; logout revokes the session (security branch; not yet merged).
-- Direct membership creation returns a uniform response for unknown, disabled, already-active and over-limit addresses to reduce email enumeration (security branch; not yet merged).
-- MongoDB root authentication and a database-scoped application user are configured in Compose, with an initialization script and a documented migration procedure for existing volumes (security branch; not yet merged).
-- Production reverse-proxy TLS requirements are documented; Nginx emits HSTS only when the upstream reports HTTPS (security branch; not yet merged).
-- TOTP unit tests were added but have not yet been executed.
-- Invitation creation/acceptance/cancellation, custom role create/update/delete, membership role changes/suspension, plugin install/uninstall and company/marketplace permission denials are integrated (PR #20), with MongoDB integration assertions.
-- Subscription changes and plugin entitlement grant/revocation events are tenant-audited; compare-and-set updates make concurrent duplicate webhook deliveries produce at most one transition/audit event, while conflicting state changes return 409. Provider references are bound to a single plugin per tenant and mismatched grant/revoke events are rejected (proposed PR: webhook entitlement hardening).
+### Identity and sessions
+- JWT access tokens are signed with HS256, issuer/audience validation and a 20-minute lifetime.
+- Dashboard refresh sessions use rotating refresh tokens in HttpOnly, SameSite=Strict cookies; refresh reuse is rejected and revokes the affected session.
+- Logout revokes the refresh session. The access token remains valid until its short expiry unless the protected operation also checks session state.
+- Superadministrator MFA uses AES-256-GCM encrypted TOTP secrets, replay protection and one-time hashed recovery codes. Privileged platform actions require recent MFA verification.
+- Startup environment validation rejects missing/weak JWT and MFA keys, missing Mongo credentials and known example/placeholder secrets in production.
 
-## Audit coverage integrated in PR #20
+### Tenant and data boundaries
+- Tenant context is derived from verified session claims and active membership.
+- Tenant collection helpers scope data operations by tenant.
+- File storage uses tenant-specific directories, opaque session-bound references and tenant storage quotas.
+- Integration tests cover cross-tenant file access and other tenant-scoped operations. Test coverage is not equivalent to a complete route-by-route security review.
 
-- Invitation create/accept/cancel.
-- Custom role create/update/delete.
-- Membership role changes and suspension.
-- Successful plugin install/uninstall.
-- Permission denials for company permissions and marketplace read/install operations.
-- MongoDB integration assertions for the recorded events.
+### Network and HTTP controls
+- The backend is exposed only on the Compose network in the production profile; the web reverse proxy is the public-facing service.
+- Nginx applies per-IP rate limits to login, refresh, MFA and selected ticket/platform-admin routes and returns HTTP 429 when limits are exceeded.
+- Nginx supplies CSP, frame/content-type/referrer/permissions policies, COOP and CORP headers. HSTS is emitted only when the proxy sees HTTPS.
+- The file upload location permits up to 11 MiB at the proxy to accommodate the 10 MiB application limit and request overhead.
+- The proxy overwrites forwarded client-IP headers rather than trusting an incoming X-Forwarded-For chain.
 
-PR #20 is merged as `1c96e8100d2145f518a0232d300122c866551c1b`. Its PR-head backend/MongoDB and Docker full-stack checks passed. The dedicated Angular workflow was not triggered because no Angular source changed; Angular was still built and exercised by the full-stack workflow. Post-merge `main` checks are the final validation gate.
+### Database and runtime
+- Compose configures MongoDB root authentication and a database-scoped application user.
+- The core owns one shared MongoClient and closes it through application shutdown.
+- Plugin startup is dependency ordered; missing dependencies/cycles are explicit errors and plugin shutdown continues after an individual stop failure.
 
-## Not complete
+## Container changes in this branch — pending execution evidence
 
-- Audit query/export UI/API and retention controls.
-- Full route-by-route tenant isolation review, including files/media, SSE and background/async entrypoints.
-- MFA implementation is present on the current security branch but still needs backend type-checking, automated test execution and staging verification before merge.
-- The current lockfile still pins `@fastify/jwt@9.1.0` and `fast-jwt@5.0.6`; dependency advisory remediation and a regenerated lockfile remain pending. Do not treat the dependency audit as resolved.
-- Existing MongoDB volumes must have the root and application users created manually before the authenticated Compose configuration is applied; follow `docs/mongodb-authentication.md` and take a verified backup first.
-- Password recovery, email verification and immediate access-token revocation.
-- Provider-signed billing webhooks and payment reconciliation.
-- Actual certificate provisioning and reverse-proxy configuration, firewall policy, encrypted off-site backups, restore drills and monitoring. TLS configuration at the hosting reverse proxy still needs to be applied and verified.
+- Backend image uses a build stage and a production stage with `npm ci --omit=dev`, runs as `node`, and declares a Docker HEALTHCHECK.
+- Frontend uses `nginxinc/nginx-unprivileged`, runs as UID 101 and listens on 8080.
+- The production Compose profile keeps MongoDB and the API unpublished on host ports.
+- CI workflows are configured to build the Compose stack, exercise authentication/session revocation, upload boundaries, response headers, rate limiting and run the repository's tenant-isolation integration tests.
+- Gitleaks is configured to scan the checked-out tree and full Git history. A configured workflow is not evidence of a clean scan until its run completes successfully.
 
-## Test expectation
+## Outstanding application work
 
-MongoDB integration tests in GitHub Actions must execute (not skip) with the CI MongoDB service. Passing checks prove only the cases explicitly covered; they do not replace a complete security review.
+- Complete route-by-route tenant-isolation review, including asynchronous/background work, file/media access and realtime/SSE paths.
+- Audit query/export API or UI and retention controls.
+- Password recovery and email verification.
+- Immediate access-token revocation (today the access-token lifetime bounds the remaining exposure after refresh-session revocation).
+- Independent security review of authorization boundaries, rate-limit behavior and operational failure modes.
+- Review provider-signed billing webhooks and payment reconciliation before enabling real billing flows.
+
+## External infrastructure and operational dependencies
+
+These cannot be completed by repository code alone and must be configured and evidenced in the deployment environment:
+
+| Area | Required external work | Evidence required |
+|---|---|---|
+| TLS | Provision and renew a real certificate at the public reverse proxy; restrict origin access and verify HTTPS end-to-end | Valid certificate chain, redirect/HSTS checks and external TLS scan |
+| Secrets | Replace all examples with unique production secrets; store them in a secret manager or protected deployment environment; define rotation and recovery procedures | Secret inventory/rotation record; no secrets in repository, image layers or logs |
+| Backups | Encrypted off-site MongoDB and file-volume backups, retention policy and access separation | Successful scheduled backup plus a witnessed restore drill |
+| Network | Host firewall/security groups, SSH hardening and only required public ports | External port scan and firewall rules |
+| Monitoring | Centralized logs, alerting for auth abuse, failed backups, disk pressure and service health | Tested alerts and operational runbook |
+| Penetration test | Independent, authorized test against the deployed staging/production-equivalent system | Dated report, remediation tracking and retest |
+
+## Verification record and acceptance status
+
+No local Docker daemon, VPS shell or local Git checkout is available to this GitHub-only workflow. Consequently, this branch must not be described as locally executed or as having a clean local `git status`.
+
+The following evidence must come from successful CI runs on the exact PR head:
+- `docker compose build` and production-profile startup with an isolated generated `.env`.
+- Login, MFA enrollment/verification, refresh rotation, logout and rejection of the revoked refresh token.
+- 10 MiB upload accepted and 11 MiB upload rejected at the proxy.
+- HTTP 429 after exceeding the configured proxy limit.
+- Tenant-isolation integration tests against MongoDB.
+- Expected security headers and proof that the API has no host-published port.
+- Gitleaks scan of the full Git history and working tree.
+
+A CI pass proves only the scripted cases. It does not prove real TLS, secret-management practices, off-site backups, successful disaster recovery or resistance to an independent penetration test.

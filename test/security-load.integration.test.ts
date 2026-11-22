@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
+import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
@@ -14,6 +15,7 @@ test("public stream-ticket flood stays bounded and returns 429 at capacity", { s
   await client.connect();
   const db = client.db(dbName);
   const app = Fastify();
+  app.register(jwt, { secret: "01234567890123456789012345678901" });
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
   const ctx: BeeContext = {
     appName: "Bee security load test",
@@ -21,6 +23,7 @@ test("public stream-ticket flood stays bounded and returns 429 at capacity", { s
     events: new BeeEventBus(),
     logger,
     server: app,
+    mongoClient: client,
     config: {
       jwtSecret: "01234567890123456789012345678901",
       mongoUri: uri!,

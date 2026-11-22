@@ -14,5 +14,5 @@ services:
   web:
     # Dedicated host port for Nginx Proxy Manager; never bind public 80/443 here.
     ports:
-      - "${BEE_WEB_PORT:-3011}:80"
+      - "${BEE_WEB_PORT:-3011}:8080"
     restart: unless-stopped
