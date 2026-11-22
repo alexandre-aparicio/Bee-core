@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 type IdentityTab = 'brand' | 'assets' | 'seo';
@@ -115,7 +115,7 @@ const EMPTY_IDENTITY: PlatformIdentity = {
     @media(max-width:760px){.identity__heading{padding:15px;flex-direction:column}.identity__panel{padding:15px}.identity__grid,.identity__asset-grid,.identity__robots{grid-template-columns:1fr}.identity__wide{grid-column:auto}.identity__tabs{padding:0 7px}.identity__tabs button{padding:11px 8px;font-size:10px}}
   `]
 })
-export class PlatformIdentityComponent implements OnInit {
+export class PlatformIdentityComponent implements OnChanges {
   @Input() accessToken = '';
   @Input() editable = false;
   tab:IdentityTab='brand';
@@ -130,14 +130,23 @@ export class PlatformIdentityComponent implements OnInit {
     {key:'socialImageUrl',label:'Default social sharing image',hint:'Recommended 1200×630 image.'},
     {key:'loginLogoUrl',label:'Login logo',hint:'Logo displayed on authentication screens.'}
   ];
-  async ngOnInit():Promise<void>{await this.load();}
+  ngOnChanges(_changes:SimpleChanges):void{
+    // The dashboard can create this settings view before its auth state finishes loading.
+    // Wait for the bearer token, then load again as soon as Angular updates the input.
+    if(this.editable&&!this.accessToken){
+      this.loading=false;
+      this.error='Waiting for an authenticated platform session…';
+      return;
+    }
+    void this.load();
+  }
   private headers():HeadersInit{return this.accessToken?{authorization:'Bearer '+this.accessToken}:{};}
   async load():Promise<void>{
     this.loading=true;this.error='';
     try{
       const endpoint=this.editable?'/api/platform/identity':'/api/public/platform-identity';
       const response=await fetch(endpoint,{headers:this.headers()});
-      if(!response.ok)throw new Error(response.status===403?'Platform administrator access is required.':'Could not load platform identity.');
+      if(!response.ok)throw new Error(response.status===401?'Your platform session is missing or expired. Please sign in again.':response.status===403?'Platform administrator access is required, or recent MFA verification is needed.':`Could not load platform identity (HTTP ${response.status}).`);
       const value=await response.json() as Partial<PlatformIdentity>;
       this.data={brand:{...EMPTY_IDENTITY.brand,...value.brand},assets:{...EMPTY_IDENTITY.assets,...value.assets},seo:{...EMPTY_IDENTITY.seo,...value.seo}};
       this.keywordsText=this.data.seo.keywords.join(', ');
