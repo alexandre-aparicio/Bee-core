@@ -21,6 +21,7 @@ test("public stream-ticket flood stays bounded and returns 429 at capacity", { s
     events: new BeeEventBus(),
     logger,
     server: app,
+    mongoClient: client,
     config: {
       jwtSecret: "01234567890123456789012345678901",
       mongoUri: uri!,

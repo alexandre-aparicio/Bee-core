@@ -34,6 +34,7 @@ test("company plan user quota reserves capacity for active members and pending i
     events: new BeeEventBus(),
     logger,
     server: app,
+    mongoClient: client,
     config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, authAdminEmail: "", authAdminPassword: "" }
   };
 

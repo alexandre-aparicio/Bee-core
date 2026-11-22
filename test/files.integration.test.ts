@@ -44,6 +44,7 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     events: new BeeEventBus(),
     logger,
     server: app,
+    mongoClient: client,
     config: {
       jwtSecret: "01234567890123456789012345678901",
       mongoUri: uri!,

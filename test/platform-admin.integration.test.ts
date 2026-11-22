@@ -25,7 +25,7 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
  const dbName="bee_platform_test_"+Date.now(),client=new MongoClient(uri!);await client.connect();const db=client.db(dbName);
  const app=Fastify(),logger:BeeLogger={info(){},warn(){},error(){}};
  app.register(jwt,{secret:jwtSecret});
- const ctx:BeeContext={appName:"Platform test",version:"test",events:new BeeEventBus(),logger,server:app,config:{jwtSecret,mongoUri:uri!,mongoDbName:dbName,authAdminEmail:"platform@example.test",authAdminPassword:"Platform-test-12345",authMfaEncryptionKey:Buffer.alloc(32).toString("base64")}};
+ const ctx:BeeContext={appName:"Platform test",version:"test",events:new BeeEventBus(),logger,server:app,mongoClient:client,config:{jwtSecret,mongoUri:uri!,mongoDbName:dbName,authAdminEmail:"platform@example.test",authAdminPassword:"Platform-test-12345",authMfaEncryptionKey:Buffer.alloc(32).toString("base64")}};
  try{
   await authPlugin.initialize?.(ctx);await organizationsPlugin.initialize?.(ctx);await platformAdminPlugin.initialize?.(ctx);await app.ready();
   const rootLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"platform@example.test",password:"Platform-test-12345",client:"dashboard"}});

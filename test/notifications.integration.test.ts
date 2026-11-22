@@ -39,6 +39,7 @@ test("notifications API enforces tenant isolation and read lifecycle", { skip: !
     events,
     logger,
     server: app,
+    mongoClient: client,
     config: { jwtSecret, sessionIdSecret: jwtSecret, mongoUri: uri!, mongoDbName: dbName }
   };
 

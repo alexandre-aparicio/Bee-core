@@ -30,7 +30,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
   const app = Fastify();
   app.register(jwt,{secret:"01234567890123456789012345678901"});
   const logger: BeeLogger = { info(){}, warn(){}, error(){} };
-  const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, fileStoragePath, authAdminEmail: "", authAdminPassword: "" } };
+  const ctx: BeeContext = { appName: "Bee test", version: "test", events: new BeeEventBus(), logger, server: app, mongoClient: client, config: { jwtSecret: "01234567890123456789012345678901", mongoUri: uri!, mongoDbName: dbName, fileStoragePath, authAdminEmail: "", authAdminPassword: "" } };
   const resolveReference = async (token:string, reference:string, type:SessionResourceType):Promise<string> => {
     const claims=JSON.parse(Buffer.from(token.split(".")[1],"base64url").toString("utf8")) as {sid:string};
     const session=await db.collection("refresh_sessions").findOne({id:claims.sid});

@@ -54,6 +54,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     events: new BeeEventBus(),
     logger,
     server: app,
+    mongoClient: client,
     config: {
       jwtSecret: "01234567890123456789012345678901",
       mongoUri: uri!,
