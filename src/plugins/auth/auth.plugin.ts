@@ -90,42 +90,69 @@ export const authPlugin:BeePlugin={
   const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId"|"platformRole">,client:ClientType,tenantId:string,sessionId:string,expiresAt:Date):string=>{const payload:JwtPayload={sub:maskUserId(u.id,{sessionId,expiresAt},sessionIdSecret),email:u.email,roles:u.roles,...(u.platformRole?{platformRole:u.platformRole}:{}),tenantRef:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret),client,aud:"bee-core",iss:"bee-core",sid:sessionId};return ctx.server.jwt.sign(payload);};
   const dummyPasswordHash=await bcrypt.hash(randomBytes(32).toString("hex"),12);
   ctx.server.post<{Body:LoginBody}>("/auth/login",async(req,reply)=>{
-   const email=String(req.body?.email??"").trim().toLowerCase(),password=String(req.body?.password??""),client=clientFrom(req.body?.client);
-   if(!email||!password||!client)return reply.code(400).send({error:"email, password and valid client required"});
-   const u=await users.findOne({email,enabled:true});
-   // Always perform a bcrypt comparison to reduce account-enumeration timing differences.
-   const passwordMatches=await bcrypt.compare(password,u?.passwordHash??dummyPasswordHash);
-   if(!u||!passwordMatches)return reply.code(401).send({error:"Invalid credentials"});
-   if(!u.allowedClients.includes(client))return reply.code(403).send({error:"Client access denied"});
-   let mfaVerifiedAt:Date|undefined;
-   if(u.platformRole==="superadmin"&&u.mfaSecretEnc){
-    const code=String(req.body?.mfaCode??"");
-    if(!mfaEncryptionKey)return reply.code(503).send({error:"Superadministrator MFA encryption is not configured"});
-    let secret:string;try{secret=decryptMfaSecret(u.mfaSecretEnc,mfaEncryptionKey);}catch(error){ctx.logger.error("Could not decrypt superadministrator MFA secret",{userId:u.id,error});return reply.code(503).send({error:"MFA configuration unavailable"});}
-    const step=verifyTotp(secret,code);
-    if(step!==null){
-     const consumed=await users.updateOne({id:u.id,mfaSecretEnc:u.mfaSecretEnc,$or:[{mfaLastStep:{$lt:step}},{mfaLastStep:{$exists:false}}]},{$set:{mfaLastStep:step}});
-     if(!consumed.modifiedCount)return reply.code(401).send({error:"Authenticator code has already been used",mfaRequired:true});
-    }else{
-     const recoveryHash=hashToken(code.trim().toUpperCase());
-     const consumed=await users.updateOne({id:u.id,mfaRecoveryHashes:recoveryHash},{$pull:{mfaRecoveryHashes:recoveryHash}});
-     if(!consumed.modifiedCount)return reply.code(401).send({error:"A valid authenticator or unused recovery code is required",mfaRequired:true});
-     ctx.logger.info("Superadministrator used a one-time MFA recovery code",{userId:u.id});
+   const requestId=String(req.id??"unknown");
+   let stage="request_received";
+   let clientLabel="unknown";
+   const diagnostic=(outcome:"started"|"rejected"|"failed"|"success",details:Record<string,unknown>={})=>{
+    const context={requestId,client:clientLabel,stage,outcome,...details};
+    if(outcome==="failed")ctx.logger.error("Login diagnostic",context);
+    else if(outcome==="rejected")ctx.logger.warn("Login diagnostic",context);
+    else ctx.logger.info("Login diagnostic",context);
+   };
+   try{
+    stage="validate_request";
+    const email=String(req.body?.email??"").trim().toLowerCase(),password=String(req.body?.password??""),client=clientFrom(req.body?.client);
+    clientLabel=client??"invalid";
+    diagnostic("started");
+    if(!email||!password||!client){diagnostic("rejected",{statusCode:400,reason:"invalid_request"});return reply.code(400).send({error:"email, password and valid client required"});}
+    stage="user_lookup";
+    const u=await users.findOne({email,enabled:true});
+    stage="password_verification";
+    // Always perform a bcrypt comparison to reduce account-enumeration timing differences.
+    const passwordMatches=await bcrypt.compare(password,u?.passwordHash??dummyPasswordHash);
+    if(!u||!passwordMatches){diagnostic("rejected",{statusCode:401,reason:"invalid_credentials",accountFound:Boolean(u)});return reply.code(401).send({error:"Invalid credentials"});}
+    stage="client_authorization";
+    if(!u.allowedClients.includes(client)){diagnostic("rejected",{statusCode:403,reason:"client_not_allowed"});return reply.code(403).send({error:"Client access denied"});}
+    let mfaVerifiedAt:Date|undefined;
+    if(u.platformRole==="superadmin"&&u.mfaSecretEnc){
+     stage="mfa_validation";
+     const code=String(req.body?.mfaCode??"");
+     if(!mfaEncryptionKey){diagnostic("failed",{statusCode:503,reason:"mfa_encryption_not_configured"});return reply.code(503).send({error:"Superadministrator MFA encryption is not configured"});}
+     let secret:string;try{secret=decryptMfaSecret(u.mfaSecretEnc,mfaEncryptionKey);}catch(error){ctx.logger.error("Could not decrypt superadministrator MFA secret",{requestId,userId:u.id,errorName:error instanceof Error?error.name:"UnknownError"});diagnostic("failed",{statusCode:503,reason:"mfa_secret_decryption_failed"});return reply.code(503).send({error:"MFA configuration unavailable"});}
+     const step=verifyTotp(secret,code);
+     if(step!==null){
+      const consumed=await users.updateOne({id:u.id,mfaSecretEnc:u.mfaSecretEnc,$or:[{mfaLastStep:{$lt:step}},{mfaLastStep:{$exists:false}}]},{$set:{mfaLastStep:step}});
+      if(!consumed.modifiedCount){diagnostic("rejected",{statusCode:401,reason:"mfa_code_replayed"});return reply.code(401).send({error:"Authenticator code has already been used",mfaRequired:true});}
+     }else{
+      const recoveryHash=hashToken(code.trim().toUpperCase());
+      const consumed=await users.updateOne({id:u.id,mfaRecoveryHashes:recoveryHash},{$pull:{mfaRecoveryHashes:recoveryHash}});
+      if(!consumed.modifiedCount){diagnostic("rejected",{statusCode:401,reason:"mfa_code_invalid"});return reply.code(401).send({error:"A valid authenticator or unused recovery code is required",mfaRequired:true});}
+      ctx.logger.info("Superadministrator used a one-time MFA recovery code",{requestId,userId:u.id});
+     }
+     mfaVerifiedAt=new Date();
     }
-    mfaVerifiedAt=new Date();
+    stage="tenant_resolution";
+    if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
+    const tenantId=u.tenantId??defaultTenantId;
+    stage="membership_lookup";
+    const membership=await db.collection("memberships").findOne({userId:u.id,tenantId,status:"active"});
+    if(!membership){diagnostic("rejected",{statusCode:403,reason:"active_membership_missing"});return reply.code(403).send({error:"No active company membership"});}
+    const membershipRole=String(membership.role??"member"),effectiveRoles:Role[]=membershipRole==="owner"||membershipRole==="admin"?["admin"]:["user"];
+    stage="session_creation";
+    const sessionId=randomUUID(),expiresAt=refreshExpiry(),absoluteExpiresAt=absoluteSessionExpiry(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId,expiresAt),refreshToken=makeRefreshToken();
+    await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt,absoluteExpiresAt,revokedAt:null,...(mfaVerifiedAt?{mfaVerifiedAt}:{}),createdAt:new Date()});
+    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
+    await auditAuthEvent({tenantId,actorId:u.id,action:"auth.login",outcome:"success",metadata:{client}});
+    const secureCookie=String(ctx.config.environment??"")!=="development";
+    if(client==="dashboard")writeRefreshCookie(reply,refreshToken,secureCookie);
+    stage="completed";
+    diagnostic("success",{statusCode:200});
+    return {accessToken,...(client==="dashboard"?{}:{refreshToken}),tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,user:publicUser({...u,roles:effectiveRoles},sessionId,expiresAt,sessionIdSecret),client,tenantId:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret),...(u.platformRole?{platformRole:u.platformRole}:{}),...(u.platformRole==="superadmin"&&!u.mfaSecretEnc?{mfaSetupRequired:true}:{})};
+   }catch(error){
+    diagnostic("failed",{statusCode:500,reason:"unexpected_login_error",errorName:error instanceof Error?error.name:"UnknownError",errorCode:typeof error==="object"&&error!==null&&"code" in error?String((error as {code:unknown}).code):undefined});
+    if(reply.sent)return;
+    return reply.code(500).send({error:"Login could not be completed"});
    }
-   if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
-   const tenantId=u.tenantId??defaultTenantId;
-   const membership=await db.collection("memberships").findOne({userId:u.id,tenantId,status:"active"});
-   if(!membership)return reply.code(403).send({error:"No active company membership"});
-   const membershipRole=String(membership.role??"member"),effectiveRoles:Role[]=membershipRole==="owner"||membershipRole==="admin"?["admin"]:["user"];
-   const sessionId=randomUUID(),expiresAt=refreshExpiry(),absoluteExpiresAt=absoluteSessionExpiry(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId,expiresAt),refreshToken=makeRefreshToken();
-   await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt,absoluteExpiresAt,revokedAt:null,...(mfaVerifiedAt?{mfaVerifiedAt}:{}),createdAt:new Date()});
-   await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
-   await auditAuthEvent({tenantId,actorId:u.id,action:"auth.login",outcome:"success",metadata:{client}});
-   const secureCookie=String(ctx.config.environment??"")!=="development";
-   if(client==="dashboard")writeRefreshCookie(reply,refreshToken,secureCookie);
-   return {accessToken,...(client==="dashboard"?{}:{refreshToken}),tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,user:publicUser({...u,roles:effectiveRoles},sessionId,expiresAt,sessionIdSecret),client,tenantId:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret), ...(u.platformRole?{platformRole:u.platformRole}:{}),...(u.platformRole==="superadmin"&&!u.mfaSecretEnc?{mfaSetupRequired:true}:{})};
   });
   const resolveMfaAdmin=async(req:any,reply:any):Promise<{user:UserRecord;session:RefreshSession}|null>=>{
    try{await req.jwtVerify();}catch{return reply.code(401).send({error:"Unauthorized"}),null;}
