@@ -480,3 +480,7 @@ PR #59 has been integrated into `main` at `dc1e16e94f63965a807ca57771fdc6c2b5dc4
 - Replaced that literal escape sequence with an actual line break before `async testAccount()`. No runtime behavior was changed.
 - The three NG8107 diagnostics in `platform-admin.component.ts` are warnings only and are not the cause of this build failure; they are left unchanged.
 - This correction is isolated on `fix/mail-workspace-literal-newline`. No Angular build, tests, Docker build or VPS verification were run here; the user's next rebuild is required to confirm the fix.
+
+## Frontend dependency security hardening (2026-11-22)
+
+Work is tracked on `security/hardening-92`, which was fast-forwarded to the then-current `main` before these branch-only changes. Added `npm run audit:production` in `apps/web/package.json` and documented the remediation acceptance gate in `docs/security-hardening.md`. This is process hardening only: Angular remains pinned to 19.2.15 and the lockfile has not been regenerated. No npm audit, production build, Playwright run or browser verification has been executed in this environment. Therefore the frontend dependency-security item remains **open** and is not counted as completed progress.
