@@ -7,7 +7,7 @@ export interface BeeEnvironmentConfig {
 }
 
 const isExampleValue = (value: string): boolean =>
-  /(?:replace[_ -]?with|change[_ -]?me|changeme|example|placeholder|your[_ -]|password123|secret123|^(?:password|admin|secret|test)$/i.test(value);
+  /(?:replace[_ -]?with|change[_ -]?me|changeme|example|placeholder|your[_ -]|password123|secret123)|^(?:password|admin|secret|test)$/i.test(value);
 
 export function validateEnvironment(env: NodeJS.ProcessEnv = process.env): BeeEnvironmentConfig {
   const errors: string[] = [];
