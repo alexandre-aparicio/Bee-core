@@ -121,6 +121,7 @@ export class AppComponent implements OnInit {
   finishMfaSetup(): void { this.mfaRecoveryCodes = []; this.mfaQrDataUrl = ''; window.location.assign('/dashboard'); }
   async loadPublicTenant(): Promise<void> {
     this.publicTenantLoading = true;
+    await this.loadPublicPlatformIdentity();
     this.publicTenantNotFound = false;
     this.publicTenantError = '';
     try {
@@ -143,6 +144,53 @@ export class AppComponent implements OnInit {
       this.publicTenantNotFound = true;
     } finally {
       this.publicTenantLoading = false;
+    }
+  }
+
+  private async loadPublicPlatformIdentity(): Promise<void> {
+    try {
+      const response = await fetch(this.api + '/public/platform-identity');
+      if (!response.ok) return;
+      const identity = await response.json();
+      const brand = identity.brand || {};
+      const assets = identity.assets || {};
+      const seo = identity.seo || {};
+      const title = seo.title || brand.pageTitle || brand.platformName || 'Bee-Core';
+      document.title = title;
+      const setMeta = (key: string, value: string, attribute: 'name' | 'property' = 'name'): void => {
+        if (typeof value !== 'string' || !value.trim()) return;
+        let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${key}"]`);
+        if (!element) { element = document.createElement('meta'); element.setAttribute(attribute, key); document.head.appendChild(element); }
+        element.content = value.trim();
+      };
+      const setLink = (rel: string, href: string, sizes?: string): void => {
+        if (typeof href !== 'string' || !href.trim()) return;
+        let element = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+        if (!element) { element = document.createElement('link'); element.rel = rel; document.head.appendChild(element); }
+        element.href = href.trim();
+        if (sizes) element.setAttribute('sizes', sizes);
+      };
+      setMeta('description', seo.description || brand.description || '');
+      setMeta('keywords', Array.isArray(seo.keywords) ? seo.keywords.join(', ') : '');
+      setMeta('robots', `${seo.robotsIndex === false ? 'noindex' : 'index'},${seo.robotsFollow === false ? 'nofollow' : 'follow'}`);
+      setMeta('og:type', 'website', 'property');
+      setMeta('og:title', seo.openGraphTitle || title, 'property');
+      setMeta('og:description', seo.openGraphDescription || seo.description || brand.description || '', 'property');
+      setMeta('og:url', seo.canonicalUrl || brand.websiteUrl || window.location.href, 'property');
+      setMeta('og:image', seo.openGraphImageUrl || assets.socialImageUrl || '', 'property');
+      setMeta('twitter:card', seo.twitterCard || 'summary_large_image');
+      setMeta('twitter:title', seo.twitterTitle || seo.openGraphTitle || title);
+      setMeta('twitter:description', seo.twitterDescription || seo.description || brand.description || '');
+      setMeta('twitter:image', seo.twitterImageUrl || seo.openGraphImageUrl || assets.socialImageUrl || '');
+      if (seo.canonicalUrl || brand.websiteUrl) {
+        let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+        if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); }
+        canonical.href = seo.canonicalUrl || brand.websiteUrl;
+      }
+      setLink('icon', assets.faviconUrl || '');
+      setLink('apple-touch-icon', assets.appleTouchIconUrl || '', '180x180');
+    } catch {
+      // Public identity metadata is an enhancement; the website remains available with document defaults.
     }
   }
 
