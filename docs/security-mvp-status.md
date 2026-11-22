@@ -12,12 +12,12 @@ This document records implemented security controls and the remaining gaps befor
 - Tenant-scoped append-only audit writer validates metadata size/keys and creates tenant/time, actor/time and action/time indexes.
 - Successful login/logout audit events are integrated (PR #18).
 - Login performs a dummy bcrypt comparison for unknown users; Nginx applies login rate limiting and baseline security headers (PR #56).
-- Superadministrator TOTP MFA uses AES-256-GCM-encrypted secrets, replay prevention, and ten one-time hashed recovery codes. Platform administration requires MFA verification within the previous 15 minutes (security branch; not yet merged).
-- Dashboard access tokens remain in memory across the Angular app; refresh tokens are stored in rotating HttpOnly, SameSite=Strict cookies. Refresh lifetime is seven days with a 30-day absolute session cap; logout revokes the session (security branch; not yet merged).
-- Direct membership creation returns a uniform response for unknown, disabled, already-active and over-limit addresses to reduce email enumeration (security branch; not yet merged).
-- MongoDB root authentication and a database-scoped application user are configured in Compose, with an initialization script and a documented migration procedure for existing volumes (security branch; not yet merged).
-- Production reverse-proxy TLS requirements are documented; Nginx emits HSTS only when the upstream reports HTTPS (security branch; not yet merged).
-- TOTP unit tests were added but have not yet been executed.
+- Superadministrator TOTP MFA uses AES-256-GCM-encrypted secrets, replay prevention, and ten one-time hashed recovery codes. Platform administration requires MFA verification within the previous 15 minutes (PR #57, merged to main).
+- Dashboard access tokens remain in memory across the Angular app; refresh tokens are stored in rotating HttpOnly, SameSite=Strict cookies. Refresh lifetime is seven days with a 30-day absolute session cap; logout revokes the session (PR #57, merged to main).
+- Direct membership creation returns a uniform response for unknown, disabled, already-active and over-limit addresses to reduce email enumeration (PR #57, merged to main).
+- MongoDB root authentication and a database-scoped application user are configured in Compose, with an initialization script and a documented migration procedure for existing volumes (PR #57, merged to main).
+- Production reverse-proxy TLS requirements are documented; Nginx emits HSTS only when the upstream reports HTTPS (PR #57, merged to main).
+- TOTP unit tests are included on main; a current-main CI execution and staging verification are still required.
 - Invitation creation/acceptance/cancellation, custom role create/update/delete, membership role changes/suspension, plugin install/uninstall and company/marketplace permission denials are integrated (PR #20), with MongoDB integration assertions.
 - Subscription changes and plugin entitlement grant/revocation events are tenant-audited; compare-and-set updates make concurrent duplicate webhook deliveries produce at most one transition/audit event, while conflicting state changes return 409. Provider references are bound to a single plugin per tenant and mismatched grant/revoke events are rejected (proposed PR: webhook entitlement hardening).
 
@@ -36,8 +36,8 @@ PR #20 is merged as `1c96e8100d2145f518a0232d300122c866551c1b`. Its PR-head back
 
 - Audit query/export UI/API and retention controls.
 - Full route-by-route tenant isolation review, including files/media, SSE and background/async entrypoints.
-- MFA implementation is present on the current security branch but still needs backend type-checking, automated test execution and staging verification before merge.
-- The current lockfile still pins `@fastify/jwt@9.1.0` and `fast-jwt@5.0.6`; dependency advisory remediation and a regenerated lockfile remain pending. Do not treat the dependency audit as resolved.
+- MFA implementation is merged on main (PR #57); a current-main CI execution and staging verification are still required before relying on the rollout.
+- The main lockfile resolves `@fastify/jwt@10.2.8` and `fast-jwt@6.3.5`; a fresh backend `npm audit --omit=dev` result for the current main head is not available, so do not treat the dependency audit as cleared until the backend workflow passes.
 - Existing MongoDB volumes must have the root and application users created manually before the authenticated Compose configuration is applied; follow `docs/mongodb-authentication.md` and take a verified backup first.
 - Password recovery, email verification and immediate access-token revocation.
 - Provider-signed billing webhooks and payment reconciliation.

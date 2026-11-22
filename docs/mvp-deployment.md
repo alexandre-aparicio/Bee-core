@@ -21,13 +21,29 @@ cd Bee-core
 cp .env.production.example .env
 ```
 
-Generate a secret, then set it in `.env`:
+Generate fresh values for every required secret. This command replaces the example placeholders:
 
 ```bash
-openssl rand -hex 48
+set -euo pipefail
+JWT_SECRET=$(openssl rand -hex 48)
+AUTH_MFA_ENCRYPTION_KEY=$(openssl rand -base64 32)
+MONGO_ROOT_PASSWORD=$(openssl rand -hex 32)
+MONGO_APP_PASSWORD=$(openssl rand -hex 32)
+BEE_MAIL_ENCRYPTION_KEY=$(openssl rand -hex 32)
+sed -i \
+  -e "s|^JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|" \
+  -e "s|^AUTH_MFA_ENCRYPTION_KEY=.*|AUTH_MFA_ENCRYPTION_KEY=$AUTH_MFA_ENCRYPTION_KEY|" \
+  -e "s|^MONGO_ROOT_PASSWORD=.*|MONGO_ROOT_PASSWORD=$MONGO_ROOT_PASSWORD|" \
+  -e "s|^MONGO_APP_PASSWORD=.*|MONGO_APP_PASSWORD=$MONGO_APP_PASSWORD|" \
+  -e "s|^BEE_MAIL_ENCRYPTION_KEY=.*|BEE_MAIL_ENCRYPTION_KEY=$BEE_MAIL_ENCRYPTION_KEY|" \
+  .env
 ```
 
-Set a unique admin email/password. Bootstrap password must be at least 12 characters. Keep `.env` private and do not commit it.
+Edit `.env` and set a unique admin email, a password of at least 12 characters, and the intended `PUBLIC_BASE_DOMAIN`. If you enable billing webhooks, set `BEE_BILLING_WEBHOOK_SECRET` to a separate high-entropy secret. Keep `.env` private and do not commit it:
+
+```bash
+chmod 600 .env
+```
 
 Check that the default web port is not already occupied:
 
@@ -84,6 +100,8 @@ The API health endpoint is available internally at `http://bee-core:3000/health`
 - MongoDB data: Docker volume `bee_core_mongodb_data`
 - Private file data: Docker volume `bee_core_files`
 
+The backend image creates `/data/bee-files` with ownership for the non-root `node` user before Docker initializes a new named volume. Existing file volumes created by older images keep their original ownership; back them up and inspect permissions before upgrading if uploads fail after deployment.
+
 List volumes:
 
 ```bash
@@ -92,33 +110,86 @@ docker volume ls | grep bee_core
 
 ## Backup
 
-Create a compressed logical backup using the official MongoDB Database Tools image. Run it on the private Compose network so MongoDB remains unpublished on the host:
+MongoDB authentication is enabled. Use the root account only for maintenance and backup/restore operations; the application itself uses a database-scoped application account. The example below reads the hex-only MongoDB credentials from .env and runs Database Tools on the private Compose network, so MongoDB remains unpublished on the host.
 
 ```bash
+set -euo pipefail
+set -a
+. ./.env
+set +a
+: "${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}"
+: "${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}"
+: "${MONGODB_DB:=bee_core}"
 mkdir -p backups
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
-docker run --rm --network "$network" -v "$PWD/backups:/backup" \
-  mongodb/mongodb-database-tools:100.12.2 \
-  mongodump --uri="mongodb://mongodb:27017/bee_core" \
-  --archive="/backup/bee_core-$(date +%F).archive" --gzip
+mongodb_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)
+network=$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
+test -n "$network"
+backup_file="bee_core-$(date +%F).archive"
+docker run --rm --network "$network" \
+  -e MONGO_ROOT_USERNAME -e MONGO_ROOT_PASSWORD -e MONGODB_DB -e BACKUP_FILE="$backup_file" \
+  -v "$PWD/backups:/backup" --entrypoint sh \
+  mongodb/mongodb-database-tools:100.12.2 -c \
+  'exec mongodump --host=mongodb:27017 --username="$MONGO_ROOT_USERNAME" --password="$MONGO_ROOT_PASSWORD" --authenticationDatabase=admin --db="$MONGODB_DB" --archive="/backup/$BACKUP_FILE" --gzip'
 ```
 
-Copy backups off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery.
+
+
+Back up the private file volume as well. The database stores file metadata while the binary content lives in the separate bee_core_files Docker volume; these two backups must be retained together. Pause application writes while taking the pair for a consistent recovery point:
+
+```bash
+set -euo pipefail
+backend_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q bee-core)
+files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+: "${files_volume:?Could not resolve the Bee-Core private file volume}"
+docker run --rm -v "$files_volume:/source:ro" -v "$PWD/backups:/backup" ubuntu:22.04 \
+  tar -czf "/backup/bee_core_files-$(date +%F).tar.gz" -C /source .
+```
+
+Copy both the MongoDB archive and file-volume archive off-server, encrypt them, and apply the same retention policy. A backup on the same VPS is not sufficient disaster recovery. The root credentials are passed to the short-lived tools container through its environment; restrict access to the Docker host and .env.
 
 ## Restore drill
 
 Restore into a separate database first; never overwrite the live database during a drill:
 
 ```bash
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
-docker run --rm --network "$network" -v "$PWD/backups:/backup" \
-  mongodb/mongodb-database-tools:100.12.2 \
-  mongorestore --uri="mongodb://mongodb:27017/bee_core_restore" \
-  --archive="/backup/bee_core-YYYY-MM-DD.archive" --gzip \
-  --nsInclude='bee_core.*' --nsFrom='bee_core.*' --nsTo='bee_core_restore.*'
+set -euo pipefail
+set -a
+. ./.env
+set +a
+: "${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}"
+: "${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}"
+: "${MONGODB_DB:=bee_core}"
+restore_db="${MONGODB_DB}_restore"
+network=$(docker inspect "$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
+docker run --rm --network "$network" \
+  -e MONGO_ROOT_USERNAME -e MONGO_ROOT_PASSWORD -e MONGODB_DB -e RESTORE_DB="$restore_db" \
+  -v "$PWD/backups:/backup" --entrypoint sh \
+  mongodb/mongodb-database-tools:100.12.2 -c \
+  'exec mongorestore --host=mongodb:27017 --username="$MONGO_ROOT_USERNAME" --password="$MONGO_ROOT_PASSWORD" --authenticationDatabase=admin --archive="/backup/bee_core-YYYY-MM-DD.archive" --gzip --nsInclude="$MONGODB_DB.*" --nsFrom="$MONGODB_DB.*" --nsTo="$RESTORE_DB.*"'
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet \
+  --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin \
+  --eval "const restored=db.getSiblingDB('$restore_db'); printjson(restored.getCollectionNames());"
+# After verifying the restored collections and records:
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet \
+  --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin \
+  --eval "db.getSiblingDB('$restore_db').dropDatabase()"
 ```
 
-Verify application-critical collections and records in the restored database before considering the drill successful. The CI workflow exercises a sentinel-record round-trip; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
+Restore the private file archive into a separate named volume during the same drill:
+
+```bash
+restore_files_volume="bee_core_files_restore"
+docker volume create "$restore_files_volume"
+docker run --rm -v "$restore_files_volume:/target" -v "$PWD/backups:/backup:ro" ubuntu:22.04 \
+  tar -xzf /backup/bee_core_files-YYYY-MM-DD.tar.gz -C /target
+backend_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q bee-core)
+files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+docker run --rm -v "$files_volume:/source:ro" -v "$restore_files_volume:/restored:ro" ubuntu:22.04 \
+  bash -euc 'diff -r /source /restored'
+docker volume rm "$restore_files_volume"
+```
+
+For an actual recovery, stop Bee-Core before replacing the live file volume and restore the database and file archive from the same recovery point. Verify application-critical collections and records plus representative downloaded files before reopening writes. The CI workflow exercises authenticated MongoDB and private-file-volume round-trips; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
 
 ## Update
 

@@ -22,8 +22,7 @@ Quick start:
 git clone https://github.com/alexandre-aparicio/Bee-core.git
 cd Bee-core
 cp .env.production.example .env
-openssl rand -hex 48
-# Put the generated value in JWT_SECRET and set unique admin credentials in .env
+# Generate every required secret and set admin credentials as described in docs/mvp-deployment.md
 chmod 600 .env
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
