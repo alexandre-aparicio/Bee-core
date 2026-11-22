@@ -18,45 +18,20 @@ import type { BeeTemplateTarget } from './template.types';
         <span class="bee-template-manager__status">Preview before applying</span>
       </div>
 
-      <div class="bee-template-manager__mode-controls">
-        @if (target !== 'dashboard') {
-          <div class="bee-template-mode">
-            <span>Website · {{engine.getActive('public').name}}</span>
-            <div role="group" aria-label="Website appearance mode">
-              <button type="button" [class.active]="mode('public') === 'light'" (click)="setMode('public','light')">☀ Light</button>
-              <button type="button" [class.active]="mode('public') === 'dark'" (click)="setMode('public','dark')">☾ Dark</button>
-            </div>
-          </div>
-        }
-        @if (target !== 'public') {
-          <div class="bee-template-mode">
-            <span>Dashboard · {{engine.getActive('dashboard').name}}</span>
-            <div role="group" aria-label="Dashboard appearance mode">
-              <button type="button" [class.active]="mode('dashboard') === 'light'" (click)="setMode('dashboard','light')">☀ Light</button>
-              <button type="button" [class.active]="mode('dashboard') === 'dark'" (click)="setMode('dashboard','dark')">☾ Dark</button>
-            </div>
-          </div>
-        }
-      </div>
-
       <div class="bee-template-manager__fields">
-        @if (target !== 'dashboard') {
-          <label>Website template
-            <select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates"
-              [ngModel]="engine.getSelection().public"
-              (ngModelChange)="selectTemplate('public', $event)">
-              <option *ngFor="let item of engine.list('public')" [value]="item.id">{{ item.name }}</option>
-            </select>
-          </label>
-        }
         @if (target !== 'public') {
-          <label>Dashboard template
-            <select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates"
-              [ngModel]="engine.getSelection().dashboard"
-              (ngModelChange)="selectTemplate('dashboard', $event)">
-              <option *ngFor="let item of engine.list('dashboard')" [value]="item.id">{{ item.name }}</option>
-            </select>
-          </label>
+          <article class="bee-template-card">
+            <h3>01 · Dashboard</h3><p>Private workspace</p>
+            <label>Dashboard template<select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates" [ngModel]="engine.getSelection().dashboard" (ngModelChange)="selectTemplate('dashboard',$event)">@for(item of engine.list('dashboard');track item.id){<option [value]="item.id">{{item.name}}</option>}</select></label>
+            <img [src]="engine.getActive('dashboard').previewUrl" [alt]="engine.getActive('dashboard').name + ' dashboard preview'">
+          </article>
+        }
+        @if (target !== 'dashboard') {
+          <article class="bee-template-card">
+            <h3>02 · Public Website</h3><p>Customer-facing experience</p>
+            <label>Public website template<select [disabled]="engine.hasAuthenticatedSession && !engine.canManageTemplates" [ngModel]="engine.getSelection().public" (ngModelChange)="selectTemplate('public',$event)">@for(item of engine.list('public');track item.id){<option [value]="item.id">{{item.name}}</option>}</select></label>
+            <img [src]="engine.getActive('public').previewUrl" [alt]="engine.getActive('public').name + ' website preview'">
+          </article>
         }
       </div>
 
@@ -95,7 +70,6 @@ import type { BeeTemplateTarget } from './template.types';
           @if (packageMessage) { <span class="bee-template-manager__message">{{packageMessage}}</span> }
         </div>
 
-      <p>Template packages define layout and a controlled palette. Users do not choose arbitrary colors. Dashboard light/dark appearance is a mode of the selected template, not a separate color editor. Business plugins remain independent and contribute features through registered slots.</p>
     </section>
   `,
 })
@@ -138,8 +112,6 @@ export class BeeTemplateManagerComponent {
     }
   }
 
-  mode(target: BeeTemplateTarget): 'light' | 'dark' { return this.engine.getMode(target); }
-  setMode(target: BeeTemplateTarget, mode: 'light' | 'dark'): void { this.engine.setMode(target, mode); }
 
   discardPreview(): void { this.engine.cancelPreview(); }
   publishPreview(): void { this.engine.commitPreview(); }
