@@ -10,12 +10,15 @@ test("authentication and stream-ticket endpoints have independent IP rate limits
   assert.match(nginx, /zone=auth_refresh:10m rate=10r\/m/);
   assert.match(nginx, /zone=auth_mfa:10m rate=3r\/m/);
   assert.match(nginx, /zone=stream_ticket:10m rate=30r\/m/);
+  assert.match(nginx, /zone=platform_admin:10m rate=120r\/m/);
   assert.match(nginx, /location = \/api\/auth\/login[\s\S]*?limit_req zone=auth_login/);
   assert.match(nginx, /location = \/api\/auth\/refresh[\s\S]*?limit_req zone=auth_refresh/);
   assert.match(nginx, /location = \/api\/auth\/mfa\/setup[\s\S]*?limit_req zone=auth_mfa/);
   assert.match(nginx, /location = \/api\/auth\/mfa\/confirm[\s\S]*?limit_req zone=auth_mfa/);
   assert.match(nginx, /location = \/api\/templates\/public-stream-ticket[\s\S]*?limit_req zone=stream_ticket/);
   assert.match(nginx, /location = \/api\/templates\/stream-ticket[\s\S]*?limit_req zone=stream_ticket/);
+  assert.match(nginx, /location = \/api\/notifications\/realtime-ticket[\s\S]*?limit_req zone=stream_ticket/);
+  assert.match(nginx, /location \^~ \/api\/platform\/[\s\S]*?limit_req zone=platform_admin/);
   assert.match(nginx, /limit_req_status 429/);
 });
 
