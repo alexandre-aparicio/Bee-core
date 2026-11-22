@@ -454,3 +454,14 @@ Current status at PR merge: the implementation is integrated in main for manual 
 - Corrected the source by restoring actual TypeScript template-literal delimiters for both the notification-center HTML template and its inline CSS. The missing-export and dashboard `imports` diagnostics were downstream effects of this parse failure, not separate missing components.
 - The same build reported three NG8107 optional-chain warnings in `platform-admin.component.ts`; they are warnings and are not the cause of this build failure. They are not changed in this fix.
 - Fix is isolated on branch `fix/notification-center-template-literals` from main `bc603db3d91b104b8d1502cab4b4ad5c95986b3c`; no build or tests have been run by this environment. VPS rebuild is required to verify compilation.
+
+
+## Tenant mail integration — PR #59 (refreshed against current main)
+
+The tenant mail feature is being ported onto the current `main` foundation rather than merging its stale branch wholesale. It adds tenant-scoped mailbox configuration and message storage, SMTP send, IMAP/POP3 retrieval, scheduled synchronization, role permissions and the dashboard workspace across Glass, Midnight and Paper templates. Existing current-main notifications, messages, Settings, authentication and security changes are preserved.
+
+- Mailbox credentials use a dedicated AES-256-GCM key (`BEE_MAIL_ENCRYPTION_KEY`); production Compose and the production CI profile receive the key explicitly.
+- Incoming IMAP/POP3 requires TLS. SMTP requires implicit TLS or STARTTLS on port 587; plaintext authentication paths are rejected.
+- Owner/admin can manage mailboxes and send; manager can read/send; member is read-only. Server-side tenant context remains authoritative.
+- MIME decoding, attachments, OAuth2, robust protocol parsing, IMAP UID cursor tracking, retries/queues and provider compatibility tests remain outstanding.
+- Build, automated CI, live SMTP/IMAP/POP3 provider tests and a dedicated security review must pass before production use. Do not treat this feature as validated until the refreshed PR checks complete.
