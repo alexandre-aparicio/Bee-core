@@ -11,7 +11,7 @@ on:
       - "apps/web/Dockerfile"
       - "src/**"
   push:
-    branches: [main]
+    branches: [main, security/audit-inactive-company-access]
     paths:
       - "docker-compose.yml"
       - "docker-compose.prod.yml"
