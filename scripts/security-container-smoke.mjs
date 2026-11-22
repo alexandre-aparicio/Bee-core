@@ -52,7 +52,6 @@ check(Boolean(rotatedCookie) && rotatedCookie!==refreshCookie,"refresh cookie ro
 
 
 const tenMiB=Buffer.alloc(10*1024*1024,0x61);
-const tenMiB=Buffer.alloc(10*1024*1024,0x61);
 const upload=await fetch(api+"/files",{method:"POST",headers:{authorization:"Bearer "+accessToken,"content-type":"application/octet-stream","x-file-content-type":"text/plain","x-file-name":"smoke-10mib.txt"},body:tenMiB});
 check(upload.status===201,"10 MiB upload accepted");
 const elevenMiB=Buffer.alloc(11*1024*1024,0x61);
