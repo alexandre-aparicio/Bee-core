@@ -54,7 +54,7 @@ export const authPlugin:BeePlugin={
   const templateStreamTickets=new BoundedTicketStore<TemplateStreamTicket>(5_000,30_000);
   const templateConnections=new RealtimeConnectionLimiter(20,5);
   const templateSubscribers=new Map<string,Set<TemplateSubscriber>>();
-  const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.response.destroyed){clients.delete(client);continue;}client.response.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
+  const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.response.destroyed){clients.delete(client);client.release();continue;}client.response.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
   const tenants=db.collection<{id:string;name:string;slug?:string;domains?:string[];createdAt:Date}>("tenants");
   await Promise.all([
