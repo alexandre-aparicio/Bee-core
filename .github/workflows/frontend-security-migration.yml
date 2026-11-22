@@ -72,13 +72,15 @@ jobs:
         run: npm run audit:production
 
       - name: Normalize whitespace in generated Angular migrations
+        working-directory: .
         run: |
           while IFS= read -r -d '' file; do
             sed -i 's/[[:space:]]*$//' "$file"
           done < <(git diff --name-only -z -- apps/web)
 
       - name: Check patch formatting
-        run: git diff --check
+        working-directory: .
+        run: git diff --check -- apps/web
 
       - name: Build Angular production bundle
         run: npm run build
