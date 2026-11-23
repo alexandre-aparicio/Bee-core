@@ -1,6 +1,6 @@
 import { createHmac, createCipheriv, createDecipheriv } from "node:crypto";
 
-export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job" | "audit-event";
+export type SessionResourceType = "tenant" | "plugin" | "user" | "membership" | "role" | "invitation" | "file" | "note" | "job" | "audit-event" | "folder" | "document";
 export type SessionIdContext = { sessionId: string; expiresAt: Date };
 
 const RESOURCE_TYPE_CODES: Record<SessionResourceType, number> = {
@@ -14,6 +14,8 @@ const RESOURCE_TYPE_CODES: Record<SessionResourceType, number> = {
   note: 8,
   job: 9,
   "audit-event": 10,
+  folder: 11,
+  document: 12,
 };
 const CODE_RESOURCE_TYPES = new Map<number, SessionResourceType>(
   Object.entries(RESOURCE_TYPE_CODES).map(([type, code]) => [code, type as SessionResourceType]),
