@@ -9,7 +9,8 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type T
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, maskTenantId, unmaskResourceId, unmaskTenantId } from "../../core/session-id.js";
 
-type Company = { id:string; name:string; slug?:string; kind?:"super"|"tenant"; domains?:string[]; settings?:{defaultLanguage?:"en"|"es"}; createdAt:Date; status?:"active"|"suspended" };
+type CompanyProfile={legalName?:string;taxId?:string;email?:string;phone?:string;website?:string;addressLine1?:string;addressLine2?:string;city?:string;region?:string;postalCode?:string;country?:string;industry?:string;description?:string};
+type Company = { id:string; name:string; slug?:string; kind?:"super"|"tenant"; domains?:string[]; profile?:CompanyProfile; settings?:{defaultLanguage?:"en"|"es"}; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; restrictionRoleIds?:string[]; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantRef?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string; slug?:string };
@@ -400,6 +401,30 @@ export const organizationsPlugin:BeePlugin={
    const hasMore=rows.length>limit;
    const events=rows.slice(0,limit).map(({id,actorId,action:recordAction,outcome,resourceType,resourceId,metadata,occurredAt})=>({id:mask(auth,id,"audit-event"),actorId:mask(auth,actorId,"user"),action:recordAction,outcome,resourceType,resourceId:resourceId?mask(auth,resourceId,resourceType==="plugin"?"plugin":resourceType==="role"?"role":resourceType==="invitation"?"invitation":resourceType==="membership"?"membership":resourceType==="user"?"user":resourceType==="tenant"?"tenant":resourceType==="file"?"file":resourceType==="note"?"note":resourceType==="job"?"job":"audit-event"):undefined,metadata:maskAuditMetadata(auth,metadata),occurredAt}));
    return {events,page,limit,hasMore};
+  });
+  ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/profile",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const actor=await requireCompanyPermission(auth,req.params.companyId,"members.read",reply);if(!actor)return;
+   const company=await companies.findOne({id:req.params.companyId});
+   if(!company)return reply.code(404).send({error:"Company not found"});
+   return {name:company.name,profile:company.profile??{}};
+  });
+  ctx.server.patch<{Params:{companyId:string};Body:{name?:string;profile?:CompanyProfile}&CompanyProfile}>("/companies/:companyId/profile",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const actor=await requireCompanyPermission(auth,req.params.companyId,"members.manage",reply);if(!actor)return;
+   const company=await companies.findOne({id:req.params.companyId});
+   if(!company)return reply.code(404).send({error:"Company not found"});
+   const bodyProfile=req.body?.profile??req.body;
+   const nextName=String(req.body?.name??company.name).trim();
+   if(nextName.length<2||nextName.length>120)return reply.code(400).send({error:"Company name must contain between 2 and 120 characters"});
+   if(nextName!==company.name&&await companies.findOne({name:nextName,id:{$ne:company.id}},{projection:{_id:1}}))return reply.code(409).send({error:"A company with this name already exists"});
+   const fields: (keyof CompanyProfile)[]=["legalName","taxId","email","phone","website","addressLine1","addressLine2","city","region","postalCode","country","industry","description"];
+   const profile:CompanyProfile={...(company.profile??{})};
+   for(const field of fields){const value=bodyProfile?.[field];if(value!==undefined)profile[field]=String(value??"").trim().slice(0,field==="description"?1000:field==="addressLine1"||field==="addressLine2"?180:field==="website"?240:field==="email"?160:field==="legalName"?160:120);}
+   if(profile.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email))return reply.code(400).send({error:"Enter a valid company email address"});
+   if(profile.website){try{const parsed=new URL(profile.website);if(!["http:","https:"].includes(parsed.protocol))throw new Error();}catch{return reply.code(400).send({error:"Website must be a valid http or https URL"});}}
+   await companies.updateOne({id:company.id},{$set:{profile}});
+   return {profile};
   });
   ctx.server.get("/companies",async(req,reply)=>{
    const auth=await authenticate(req,reply,{allowSuspendedCompany:true});if(!auth)return;

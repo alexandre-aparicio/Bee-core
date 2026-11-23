@@ -683,3 +683,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Integrates resource ACL decisions into private Files listing, download and deletion. Plugins can use the shared evaluator and pass typed ancestor resource references so folder-level grants and restrictions cascade to descendant files and folders.
 - Cross-tenant team sharing is not supported; external collaboration must be an explicit future capability.
 - Validation: not executed; backend typecheck/tests and Angular production build remain required before merge.
+
+
+## Organization → Company profile workspace (2026-11-23)
+
+- Added a tenant-scoped Company profile screen to Organization → Company, using the shared settings-page layout and theme tokens so it renders across Glass, Midnight and Paper.
+- Company profile fields: editable company display name, legal name, tax/VAT identifier, business email and phone, website, industry, company description, address lines, city, region, postal code and country.
+- Persisted tenant-specific profile data on the existing tenant record through authenticated GET/PATCH `/companies/:companyId/profile`. Read access requires `members.read`; editing requires `members.manage`. Backend trims and length-limits fields, validates email and HTTP(S) website URLs, and scopes writes to the active organization.
+- Members without Owner/Admin editing authority see a read-only profile. Added English and Spanish catalog labels.
+- Configuration overlap reviewed: platform identity/branding and themes remain in Settings → General/Appearance; localization remains in Settings → Localization. Company profile does not duplicate those settings.
+- Validation: source changes only. No Angular build, backend typecheck, tests, browser checks, Docker/CI or VPS validation executed.
