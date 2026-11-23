@@ -100,6 +100,30 @@ export const authPlugin:BeePlugin={
    const passwordMatches=await bcrypt.compare(password,u?.passwordHash??dummyPasswordHash);
    if(!u||!passwordMatches)return reply.code(401).send({error:"Invalid credentials"});
    if(!u.allowedClients.includes(client))return reply.code(403).send({error:"Client access denied"});
+   if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
+   const tenantId=u.tenantId??defaultTenantId;
+   const membership=await db.collection("memberships").findOne({userId:u.id,tenantId,status:"active"});
+   if(!membership)return reply.code(403).send({error:"No active company membership"});
+   const tenant=await tenants.findOne({id:tenantId});
+   const isSuperAdmin=membership.role==="super_admin"&&tenant?.kind==="super";
+   if(membership.role==="super_admin"&&!isSuperAdmin)return reply.code(403).send({error:"Super Admin membership is only valid in the Super Organization"});
+   let mfaVerifiedAt:Date|undefined;
+   if(isSuperAdmin&&u.mfaSecretEnc){
+    const code=String(req.body?.mfaCode??"");
+    if(!mfaEncryptionKey)return reply.code(503).send({error:"Superadministrator MFA encryption is not configured"});
+    let secret:string;try{secret=decryptMfaSecret(u.mfaSecretEnc,mfaEncryptionKey);}catch(error){ctx.logger.error("Could not decrypt superadministrator MFA secret",{userId:u.id,error});return reply.code(503).send({error:"MFA configuration unavailable"});}
+    const step=verifyTotp(secret,code);
+    if(step!==null){
+     const consumed=await users.updateOne({id:u.id,mfaSecretEnc:u.mfaSecretEnc,$or:[{mfaLastStep:{$lt:step}},{mfaLastStep:{$exists:false}}]},{$set:{mfaLastStep:step}});
+     if(!consumed.modifiedCount)return reply.code(401).send({error:"Authenticator code has already been used",mfaRequired:true});
+    }else{
+     const recoveryHash=hashToken(code.trim().toUpperCase());
+     const consumed=await users.updateOne({id:u.id,mfaRecoveryHashes:recoveryHash},{$pull:{mfaRecoveryHashes:recoveryHash}});
+     if(!consumed.modifiedCount)return reply.code(401).send({error:"A valid authenticator or unused recovery code is required",mfaRequired:true});
+     ctx.logger.info("Superadministrator used a one-time MFA recovery code",{userId:u.id});
+    }
+    mfaVerifiedAt=new Date();
+   }
    const membershipRole=String(membership.role??"member"),effectiveRoles:Role[]=isSuperAdmin||membershipRole==="owner"||membershipRole==="admin"?["admin"]:["user"];
    const sessionId=randomUUID(),expiresAt=refreshExpiry(),absoluteExpiresAt=absoluteSessionExpiry(),accessToken=issue({...u,roles:effectiveRoles,...(isSuperAdmin?{platformRole:"superadmin" as const}:{})},client,tenantId,sessionId,expiresAt),refreshToken=makeRefreshToken();
    await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt,absoluteExpiresAt,revokedAt:null,...(mfaVerifiedAt?{mfaVerifiedAt}:{}),createdAt:new Date()});
