@@ -679,7 +679,7 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 
 - Adds tenant-owned teams with optional parent teams and membership restricted to active tenant memberships.
 - Adds explicit team-to-plugin assignments, accepted only for plugins installed in the active tenant; installation does not automatically expose every team.
-- Adds resource policies with team grants and individual user exceptions. Explicit user denials override grants from every team; tenant permission checks remain mandatory. Team, membership, application-assignment and resource-policy mutations are tenant-audited.
+- Adds resource policies with team grants and individual user exceptions. Explicit user denials override grants from every team; tenant permission checks remain mandatory. An empty saved policy denies all resource-level access; deleting the policy explicitly restores the plugin's tenant-level default. Team, membership, application-assignment and resource-policy mutations are tenant-audited.
 - Integrates resource ACL decisions into private Files listing, download and deletion. Plugins can use the shared evaluator and pass typed ancestor resource references so folder-level grants and restrictions cascade to descendant files and folders.
 - Cross-tenant team sharing is not supported; external collaboration must be an explicit future capability.
 - Validation: not executed; backend typecheck/tests and Angular production build remain required before merge.

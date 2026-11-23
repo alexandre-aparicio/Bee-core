@@ -134,10 +134,17 @@ export const teamsPlugin:BeePlugin = {
    const userIds=userOverrides.map(item=>item.userId);
    if(userIds.length&&await db.collection("memberships").countDocuments({tenantId:tenant.tenantId,status:"active",userId:{$in:userIds}})!==new Set(userIds).size)return reply.code(400).send({error:"All overridden users must be active members of this organization"});
    const key={tenantId:tenant.tenantId,pluginId,resourceType,resourceId};
-   if(!teamGrants.length&&!userOverrides.length){await policies.deleteOne(key);return {success:true,policy:null};}
    const policy:ResourceAccessPolicy={...key,teamGrants,userOverrides,updatedAt:new Date(),updatedBy:tenant.userId};
    await policies.updateOne(key,{$set:policy}, {upsert:true});
    await audit(tenant.tenantId,tenant.userId,"resource.access.updated","resource",resourceId,{pluginId,resourceType,teamGrantCount:teamGrants.length,userOverrideCount:userOverrides.length});return {success:true,policy:{teamGrants,userOverrides:userOverrides.map(item=>({...item,userId:maskUser(tenant,item.userId)}))}};
+  });
+  ctx.server.delete<{Params:{companyId:string;pluginId:string;resourceType:string;resourceId:string}}>("/companies/:companyId/resource-access/:pluginId/:resourceType/:resourceId",async(req,reply)=>{
+   const tenant=await authenticate(req,reply);if(!tenant||!companyScope(tenant,req.params.companyId,reply)||!canManage(tenant,reply))return;
+   const pluginId=clean(req.params.pluginId,80).toLowerCase(),resourceType=clean(req.params.resourceType,80).toLowerCase(),resourceId=clean(req.params.resourceId,160);
+   if(!await isPluginInstalled(db,tenant.tenantId,pluginId))return reply.code(400).send({error:"Application is not installed for this organization"});
+   await policies.deleteOne({tenantId:tenant.tenantId,pluginId,resourceType,resourceId});
+   await audit(tenant.tenantId,tenant.userId,"resource.access.reset","resource",resourceId,{pluginId,resourceType});
+   return {success:true};
   });
   ctx.logger.info("Teams plugin initialized: tenant teams, app assignments and resource ACLs ready.");
  }

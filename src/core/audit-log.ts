@@ -5,7 +5,7 @@ export const AUDIT_ACTIONS = [
   "auth.login", "auth.logout", "auth.refresh.reuse", "auth.mfa.enrolled",
   "member.invited", "member.added", "member.role_changed", "member.removed", "member.suspended", "member.activated", "invitation.cancelled",
   "role.created", "role.updated", "role.deleted",
-  "team.created", "team.updated", "team.deleted", "team.members.updated", "team.applications.updated", "resource.access.updated",
+  "team.created", "team.updated", "team.deleted", "team.members.updated", "team.applications.updated", "resource.access.updated", "resource.access.reset",
   "permission.denied",
   "plugin.installed", "plugin.updated", "plugin.uninstalled",
   "plugin.entitlement_granted", "plugin.entitlement_revoked", "subscription.updated"
