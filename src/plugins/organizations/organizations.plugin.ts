@@ -3,7 +3,7 @@ import { type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext, type TenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
-import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, normalizeRestrictionPermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
+import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, normalizeRestrictionPermissions, type CustomRolePolicy } from "../../core/role-policy.js";
 import { CORE_PERMISSION_CATALOG } from "../../core/permission-catalog.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type TenantAuditEvent } from "../../core/audit-log.js";
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
@@ -405,12 +405,7 @@ export const organizationsPlugin:BeePlugin={
    const tenantId=auth.tenantContext.tenantId;
    const membership=await memberships.findOne({userId:auth.user!.id,tenantId,status:"active"});
    if(!membership)return reply.code(403).send({error:"Active company membership required"});
-   if(membership.role==="custom"&&membership.customRoleId){
-    const custom=await customRoles.findOne({id:membership.customRoleId,tenantId});
-    if(!custom)return reply.code(403).send({error:"Assigned custom role is unavailable"});
-    return {tenantId:mask(auth,tenantId,"tenant"),role:membership.role,customRoleId:mask(auth,membership.customRoleId,"role"),permissions:permissionsForCustomRole(custom,await getTenantAssignablePermissions())};
-   }
-   return {tenantId:mask(auth,tenantId,"tenant"),role:membership.role,permissions:rolePermissions[membership.role as keyof typeof rolePermissions]};
+   return {tenantId:mask(auth,tenantId,"tenant"),role:membership.role,customRoleId:membership.customRoleId?mask(auth,membership.customRoleId,"role"):null,restrictionRoleIds:(membership.restrictionRoleIds??[]).map(id=>mask(auth,id,"role")),permissions:auth.tenantContext.permissions};
   });
   ctx.server.get("/companies/active",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
