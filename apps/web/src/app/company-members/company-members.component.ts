@@ -100,13 +100,20 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   customRoleDescriptionInput = "";
   customRoleEditingId = "";
   customRolePermissionOptions = [
-    {key:"members.read",label:"Read members",selected:true},
-    {key:"plugins.read",label:"View plugins",selected:true},
-    {key:"plugins.install",label:"Install plugins",selected:false},
-    {key:"files.read",label:"Read files",selected:false},
-    {key:"files.write",label:"Manage files",selected:false},
-    {key:"notes.read",label:"Read notes",selected:false},
-    {key:"notes.write",label:"Manage notes",selected:false}
+    {key:"members.read",label:"View members",group:"Organization",description:"List members and inspect membership details.",selected:true},
+    {key:"members.invite",label:"Invite members",group:"Organization",description:"Create and cancel invitations.",selected:false},
+    {key:"members.manage",label:"Manage memberships",group:"Organization",description:"Change membership roles and suspend members.",selected:false},
+    {key:"plugins.read",label:"View plugins",group:"Plugins",description:"Browse available plugins.",selected:true},
+    {key:"plugins.install",label:"Install plugins",group:"Plugins",description:"Install or activate available plugins.",selected:false},
+    {key:"plugins.manage",label:"Manage plugins",group:"Plugins",description:"Change plugin configuration and lifecycle.",selected:false},
+    {key:"billing.manage",label:"Manage billing",group:"Billing",description:"Manage plans, subscriptions and billing settings.",selected:false},
+    {key:"files.read",label:"View files",group:"Files",description:"List and download organization files.",selected:false},
+    {key:"files.write",label:"Manage files",group:"Files",description:"Upload and modify organization files.",selected:false},
+    {key:"notes.read",label:"View notes",group:"Notes",description:"Read organization notes.",selected:false},
+    {key:"notes.write",label:"Manage notes",group:"Notes",description:"Create and modify organization notes.",selected:false},
+    {key:"mail.read",label:"Read mail",group:"Mail",description:"Read connected mailbox messages.",selected:false},
+    {key:"mail.send",label:"Send mail",group:"Mail",description:"Send messages through connected mailboxes.",selected:false},
+    {key:"mail.manage",label:"Manage mailboxes",group:"Mail",description:"Configure and manage organization mailboxes.",selected:false}
   ];
   inviteEmail = "";
   inviteRole: "guest" | "member" | "manager" | "admin" = "member";
