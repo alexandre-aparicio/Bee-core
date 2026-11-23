@@ -1,5 +1,6 @@
 export const ORGANIZATION_EN = {
   "users.eyebrow": "ORGANIZATION / ACCESS",
+  "users.overview": "Membership overview",
   "users.title": "Users",
   "users.description": "Manage who belongs to this organization, what they can access and pending invitations.",
   "users.refresh": "Refresh",
@@ -14,7 +15,7 @@ export const ORGANIZATION_EN = {
   "users.awaitingAcceptance": "Awaiting acceptance",
   "users.directory": "Member directory",
   "users.directoryDescription": "People with access to the active organization.",
-  "users.search": "Search by name or email…",
+  "users.search": "Search by email or role…",
   "users.filterStatus": "Filter members by status",
   "users.allStatuses": "All statuses",
   "users.active": "Active",
@@ -86,6 +87,7 @@ export const ORGANIZATION_EN = {
 } as const;
 export const ORGANIZATION_ES = {
   "users.eyebrow": "ORGANIZACIÓN / ACCESOS",
+  "users.overview": "Resumen de miembros",
   "users.title": "Usuarios",
   "users.description": "Gestiona quién pertenece a esta organización, a qué puede acceder y las invitaciones pendientes.",
   "users.refresh": "Actualizar",
@@ -100,7 +102,7 @@ export const ORGANIZATION_ES = {
   "users.awaitingAcceptance": "Pendientes de aceptación",
   "users.directory": "Directorio de miembros",
   "users.directoryDescription": "Personas con acceso a la organización activa.",
-  "users.search": "Buscar por nombre o email…",
+  "users.search": "Buscar por email o rol…",
   "users.filterStatus": "Filtrar miembros por estado",
   "users.allStatuses": "Todos los estados",
   "users.active": "Activo",
