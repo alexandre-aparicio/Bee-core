@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { filesPlugin } from "../src/plugins/files/files.plugin.js";
+import { unmaskResourceId } from "../src/core/session-id.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
@@ -57,6 +58,13 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     }
   };
 
+  const resolveFileReference = async (token:string, reference:string):Promise<string> => {
+    const claims=JSON.parse(Buffer.from(token.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const session=await db.collection("refresh_sessions").findOne({id:claims.sid});
+    assert.ok(session,"file reference must belong to a persisted session");
+    return unmaskResourceId(reference,"file",{sessionId:session.id,expiresAt:session.expiresAt},String(ctx.config.jwtSecret));
+  };
+ 
   try {
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
@@ -115,8 +123,15 @@ test("private files and images are isolated by active company", { skip: !uri }, 
 
     const alphaList = await app.inject({ method: "GET", url: "/files", headers: { authorization: "Bearer " + alphaToken } });
     const betaList = await app.inject({ method: "GET", url: "/files", headers: { authorization: "Bearer " + betaMemberToken } });
-    assert.deepEqual(alphaList.json().files.map((file: { id: string }) => [file.id]), [[alphaFileId]]);
-    assert.deepEqual(betaList.json().files.map((file: { id: string }) => [file.id]), [[betaFileId]]);
+    assert.equal(alphaList.statusCode,200);
+    assert.equal(betaList.statusCode,200);
+    // Opaque file references are session-bound; compare internal IDs resolved under each session.
+    const alphaInternalFileId=await resolveFileReference(alphaToken,alphaFileId);
+    const betaInternalFileId=await resolveFileReference(betaManagerToken,betaFileId);
+    const alphaListedIds=await Promise.all(alphaList.json().files.map((file:{id:string})=>resolveFileReference(alphaToken,file.id)));
+    const betaListedIds=await Promise.all(betaList.json().files.map((file:{id:string})=>resolveFileReference(betaMemberToken,file.id)));
+    assert.deepEqual(alphaListedIds,[alphaInternalFileId]);
+    assert.deepEqual(betaListedIds,[betaInternalFileId]);
 
     const crossSessionRead = await app.inject({ method: "GET", url: "/files/" + alphaFileId, headers: { authorization: "Bearer " + alphaSecondSessionToken } });
     assert.equal(crossSessionRead.statusCode, 404, "a file reference must not resolve in another session of the same user");
