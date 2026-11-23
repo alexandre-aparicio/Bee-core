@@ -1,0 +1,75 @@
+name: Bee-Core Angular CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bee-core-angular-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  angular-build-e2e:
+    name: Angular production build and browser smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install dependencies reproducibly
+        run: npm ci
+      - name: Angular production build
+        run: npm run build
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Run browser smoke tests
+        run: npm run test:e2e
+
+  angular-dependency-audit:
+    name: Angular dependency security audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install dependencies reproducibly
+        run: npm ci
+      - name: Audit full and production dependency trees
+        run: |
+          set +e
+          npm audit
+          full_status=$?
+          npm audit --omit=dev
+          production_status=$?
+          set -e
+          echo "Full dependency audit exit: $full_status"
+          echo "Production dependency audit exit: $production_status"
+          if [ "$full_status" -ne 0 ] || [ "$production_status" -ne 0 ]; then
+            echo "Dependency audit remains a release blocker; build/e2e job runs independently."
+            exit 1
+          fi
