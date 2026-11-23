@@ -7,7 +7,7 @@ import type { Folder, BeeDocument } from "./documents.service.js";
 /** Documents endpoint operation handlers. They receive Core and repository services
  * through dependency injection; route mounting is kept in the controller. */
 export function createDocumentsHandlers(deps:any) {
- const {db,secret,storage,repository,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,MAX_DEPTH,clean,validPublicId,normalizeTags}=deps;
+ const {db,secret,storage,repository,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,isEnabled,MAX_DEPTH,clean,validPublicId,normalizeTags}=deps;
  return {
   shareTargets: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
@@ -206,7 +206,7 @@ export function createDocumentsHandlers(deps:any) {
   },
   publicDownload: async(req:any,reply:any)=>{
    const publicId=validPublicId(req.params.publicId);if(!publicId)return reply.code(404).send({error:"Document not found"});
-   const item=await repository.documentCollection.findOne({publicId,visibility:"public",publishedAt:{$ne:null}});if(!item)return reply.code(404).send({error:"Document not found"});
+   const item=await repository.documentCollection.findOne({publicId,visibility:"public",publishedAt:{$ne:null}});if(!item||!await isEnabled(item.tenantId))return reply.code(404).send({error:"Document not found"});
    const file=await storage.getMetadata(item.tenantId,item.fileId);if(!file)return reply.code(404).send({error:"Document content not found"});
    let data:Buffer;try{data=await storage.read(item.tenantId,file);}catch{return reply.code(404).send({error:"Document content not found"});}
    reply.header("content-type",file.contentType);reply.header("content-length",String(data.length));
