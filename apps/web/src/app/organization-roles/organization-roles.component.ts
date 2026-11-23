@@ -34,7 +34,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
     <section class="org-roles__permission-group" *ngFor="let group of groups"><h4>{{group}}</h4>
      <article class="org-roles__permission-card" *ngFor="let item of inGroup(group)">
       <div class="org-roles__permission-copy"><strong>{{item.label}}</strong><small>{{item.action}} · {{item.description}}</small><code>{{item.key}}</code></div>
-      <span class="org-roles__permission-state" [class.is-protected]="!item.assignable">{{item.assignable?'Available for role configuration':'System protected'}}</span>
+      <span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable by custom roles':'Restriction only / protected'}}</span>
      </article>
     </section>
    </div>
@@ -135,6 +135,7 @@ export class OrganizationRolesComponent implements OnChanges{
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
  get groups():string[]{return [...new Set(this.permissions.map(p=>p.group))];}
  inGroup(group:string):PermissionOption[]{return this.permissions.filter(p=>p.group===group);}
+ canGrant(item:PermissionOption):boolean{return item.customRoleAssignable&&this.tenantAssignablePermissions.includes(item.key);}
  updateMode(mode:"grant"|"restriction"):void{const previous=this.mode;this.mode=mode;const allowed=new Set<string>(this.tenantAssignablePermissions);for(const p of this.permissions)p.assignable=mode==="restriction"||(p.customRoleAssignable&&allowed.has(p.key));if(!this.editingId&&previous!==mode){for(const p of this.permissions)p.selected=mode==="grant"&&["members.read","plugins.read"].includes(p.key)&&p.assignable;}}
  ngOnChanges(changes:SimpleChanges):void{if(changes["tenantId"]||changes["role"]||changes["accessToken"]){this.reset();void this.load();}}
  trackRole(_i:number,item:CustomRole):string{return item.id;}
