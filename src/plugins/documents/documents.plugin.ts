@@ -67,9 +67,11 @@ export const documentsPlugin:BeePlugin={
     storage.getMetadata(tenant.tenantId,item.fileId),
     db.collection<{id:string;email:string}>("users").findOne({id:item.createdBy},{projection:{id:1,email:1}})
    ]);
+   const parents=await ancestors(tenant.tenantId,item.folderId);
+   const canMove=await canAccess(tenant,"document",item.id,"write",parents);
    return {
     id:ref(item.id,"document",tenant),title:item.title,description:item.description,tags:item.tags,
-    folderId:item.folderId?ref(item.folderId,"folder",tenant):null,visibility:item.visibility,publishedAt:item.publishedAt,
+    folderId:item.folderId?ref(item.folderId,"folder",tenant):null,canMove,visibility:item.visibility,publishedAt:item.publishedAt,
     publicUrl:item.visibility==="public"&&item.publicId?"/api/public/documents/"+item.publicId:null,
     downloadUrl:"/api/documents/"+ref(item.id,"document",tenant)+"/download",
     originalName:file?.originalName??item.title,fileContentType:file?.contentType??"application/octet-stream",
@@ -137,8 +139,22 @@ export const documentsPlugin:BeePlugin={
   });
   ctx.server.get("/documents/folders",async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
-   const rows=await folders(tenant.tenantId).find({}).sort({name:1}).limit(500).toArray();const visible=[];
-   for(const folder of rows){const parents=await ancestors(tenant.tenantId,folder.parentId);if(await canAccess(tenant,"folder",folder.id,"read",parents))visible.push({id:ref(folder.id,"folder",tenant),name:folder.name,parentId:folder.parentId?ref(folder.parentId,"folder",tenant):null,canManageShares:folder.createdBy===tenant.userId,createdAt:folder.createdAt,updatedAt:folder.updatedAt});}
+   const rows=await folders(tenant.tenantId).find({}).sort({name:1}).limit(500).toArray();
+   const visible:any[]=[];const countByFolder=new Map<string,number>();
+   const documentRows=await docs(tenant.tenantId).find({folderId:{$ne:null}}).toArray();
+   for(const item of documentRows){
+    const parents=await ancestors(tenant.tenantId,item.folderId);
+    if(!await canAccess(tenant,"document",item.id,"read",parents))continue;
+    for(const parent of parents)countByFolder.set(parent.id,(countByFolder.get(parent.id)??0)+1);
+   }
+   for(const folder of rows){
+    const parents=await ancestors(tenant.tenantId,folder.parentId);
+    if(await canAccess(tenant,"folder",folder.id,"read",parents)){
+     visible.push({id:ref(folder.id,"folder",tenant),name:folder.name,parentId:folder.parentId?ref(folder.parentId,"folder",tenant):null,
+      canManageShares:folder.createdBy===tenant.userId,canMove:await canAccess(tenant,"folder",folder.id,"write",parents),
+      documentCount:countByFolder.get(folder.id)??0,createdAt:folder.createdAt,updatedAt:folder.updatedAt});
+    }
+   }
    return {folders:visible};
   });
   ctx.server.post<{Body:{name?:unknown;parentId?:unknown}}>("/documents/folders",async(req,reply)=>{
@@ -151,6 +167,55 @@ export const documentsPlugin:BeePlugin={
    const now=new Date();const row:Folder={id:randomUUID(),tenantId:tenant.tenantId,name,parentId,createdBy:tenant.userId,createdAt:now,updatedAt:now};
    await folders(tenant.tenantId).insertOne(row);
    return reply.code(201).send({folder:{id:ref(row.id,"folder",tenant),name,parentId:parentId?ref(parentId,"folder",tenant):null,createdAt:now}});
+  });
+  ctx.server.patch<{Params:{documentId:string};Body:{folderId?:unknown}}>("/documents/:documentId/location",async(req,reply)=>{
+   const tenant=await authenticate(req,reply);if(!tenant)return;
+   if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
+   let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
+   const item=await docs(tenant.tenantId).findOne({id});if(!item)return reply.code(404).send({error:"Document not found"});
+   const currentParents=await ancestors(tenant.tenantId,item.folderId);
+   if(!await canAccess(tenant,"document",id,"write",currentParents))return reply.code(404).send({error:"Document not found"});
+   if(!Object.prototype.hasOwnProperty.call(req.body??{},"folderId"))return reply.code(400).send({error:"folderId is required"});
+   let folderId:string|null=null;let targetParents:Folder[]=[];
+   if(req.body.folderId!==null){
+    try{folderId=unref(String(req.body.folderId),"folder",tenant);targetParents=await ancestors(tenant.tenantId,folderId);}
+    catch{return reply.code(404).send({error:"Destination folder not found"});}
+    if(!await canAccess(tenant,"folder",folderId,"write",targetParents.slice(1)))return reply.code(404).send({error:"Destination folder not found"});
+   }
+   if(folderId===item.folderId)return {success:true,unchanged:true};
+   const now=new Date();await docs(tenant.tenantId).updateOne({id},{$set:{folderId,updatedAt:now}});
+   const updated=await docs(tenant.tenantId).findOne({id});
+   return {success:true,document:updated?await present(updated,tenant):null};
+  });
+  ctx.server.patch<{Params:{folderId:string};Body:{parentId?:unknown}}>("/documents/folders/:folderId/location",async(req,reply)=>{
+   const tenant=await authenticate(req,reply);if(!tenant)return;
+   if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
+   let id:string;try{id=unref(req.params.folderId,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
+   const folder=await folders(tenant.tenantId).findOne({id});if(!folder)return reply.code(404).send({error:"Folder not found"});
+   const currentParents=await ancestors(tenant.tenantId,folder.parentId);
+   if(!await canAccess(tenant,"folder",id,"write",currentParents))return reply.code(404).send({error:"Folder not found"});
+   if(!Object.prototype.hasOwnProperty.call(req.body??{},"parentId"))return reply.code(400).send({error:"parentId is required"});
+   let parentId:string|null=null;let targetParents:Folder[]=[];
+   if(req.body.parentId!==null){
+    try{parentId=unref(String(req.body.parentId),"folder",tenant);targetParents=await ancestors(tenant.tenantId,parentId);}
+    catch{return reply.code(404).send({error:"Destination folder not found"});}
+    if(targetParents.some(parent=>parent.id===id))return reply.code(400).send({error:"A folder cannot be moved into itself or one of its descendants"});
+    const allFolders=await folders(tenant.tenantId).find({}).toArray();
+    const childrenByParent=new Map<string,string[]>();
+    for(const child of allFolders){if(child.parentId){const siblings=childrenByParent.get(child.parentId)??[];siblings.push(child.id);childrenByParent.set(child.parentId,siblings);}}
+    const queue:Array<{folderId:string;depth:number}>=[{folderId:id,depth:0}];const visited=new Set<string>();let maxDescendantDepth=0;
+    while(queue.length){
+     const current=queue.shift()!;if(visited.has(current.folderId))return reply.code(400).send({error:"Invalid folder hierarchy"});
+     visited.add(current.folderId);maxDescendantDepth=Math.max(maxDescendantDepth,current.depth);
+     for(const childId of childrenByParent.get(current.folderId)??[])queue.push({folderId:childId,depth:current.depth+1});
+    }
+    if(targetParents.length+1+maxDescendantDepth>MAX_DEPTH)return reply.code(400).send({error:"Maximum folder depth exceeded"});
+    if(!await canAccess(tenant,"folder",parentId,"write",targetParents.slice(1)))return reply.code(404).send({error:"Destination folder not found"});
+   }
+   if(parentId===id)return reply.code(400).send({error:"A folder cannot be its own parent"});
+   if(parentId===folder.parentId)return {success:true,unchanged:true};
+   await folders(tenant.tenantId).updateOne({id},{$set:{parentId,updatedAt:new Date()}});
+   return {success:true};
   });
   ctx.server.get("/documents",async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
