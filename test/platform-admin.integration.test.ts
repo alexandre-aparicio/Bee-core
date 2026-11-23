@@ -64,6 +64,10 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.ok(rawCompany);
   const superOrganization=await db.collection("tenants").findOne({kind:"super"});
   assert.ok(superOrganization,"platform installation must be owned by the Super Organization");
+  const helloWorldBeforeInstall=platformPlugins.json().plugins.find((plugin:any)=>plugin.name==="Hola Mundo");
+  assert.equal(helloWorldBeforeInstall?.installed,false,"a package must not appear installed before its platform installation");
+  const activationBeforeGlobalInstall=await app.inject({method:"PUT",url:"/platform/companies/"+encodeURIComponent(companyId)+"/plugins/"+encodeURIComponent(helloWorldBeforeInstall.id),headers:rootHeaders,payload:{enabled:true}});
+  assert.equal(activationBeforeGlobalInstall.statusCode,409,"a tenant cannot activate a package that is not installed globally");
   await db.collection("tenant_plugin_installations").updateOne(
     {tenantId:superOrganization.id,pluginId:"hello-world"},
     {$set:{status:"installed",version:"0.1.0",installedAt:new Date(),updatedAt:new Date()},$setOnInsert:{id:"platform-hello-world-install",tenantId:superOrganization.id,pluginId:"hello-world"}},
