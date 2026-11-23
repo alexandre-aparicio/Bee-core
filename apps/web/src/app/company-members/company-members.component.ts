@@ -81,25 +81,6 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   members: CompanyMember[] = [];
   invitations: CompanyInvitation[] = [];
   customRoles: CustomRole[] = [];
-  customRoleNameInput = "";
-  customRoleDescriptionInput = "";
-  customRoleEditingId = "";
-  customRolePermissionOptions = [
-    {key:"members.read",label:"View members",group:"Organization",selected:true},
-    {key:"members.invite",label:"Invite members",group:"Organization",selected:false},
-    {key:"members.manage",label:"Manage memberships",group:"Organization",selected:false},
-    {key:"plugins.read",label:"View plugins",group:"Plugins",selected:true},
-    {key:"plugins.install",label:"Install plugins",group:"Plugins",selected:false},
-    {key:"plugins.manage",label:"Manage plugins",group:"Plugins",selected:false},
-    {key:"billing.manage",label:"Manage billing",group:"Billing",selected:false},
-    {key:"files.read",label:"View files",group:"Files",selected:false},
-    {key:"files.write",label:"Manage files",group:"Files",selected:false},
-    {key:"notes.read",label:"View notes",group:"Notes",selected:false},
-    {key:"notes.write",label:"Manage notes",group:"Notes",selected:false},
-    {key:"mail.read",label:"Read mail",group:"Mail",selected:false},
-    {key:"mail.send",label:"Send mail",group:"Mail",selected:false},
-    {key:"mail.manage",label:"Manage mailboxes",group:"Mail",selected:false}
-  ];
   inviteEmail = "";
   inviteRole: "guest" | "member" | "manager" | "admin" = "member";
   acceptanceToken = "";
@@ -126,7 +107,6 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
       this.error = "";
       this.message = "";
       this.acceptanceToken = "";
-      this.resetCustomRoleForm();
       if (this.canRead && this.tenantId) void this.load();
     }
   }
@@ -176,44 +156,12 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
         this.customRoles = roles.roles || [];
       } else {
         this.customRoles = [];
-        this.resetCustomRoleForm();
       }
     } catch (error) {
       if (isCurrentRequest()) this.error = error instanceof Error ? error.message : "Could not load company members";
     } finally {
       if (isCurrentRequest()) this.loading = false;
     }
-  }
-
-  resetCustomRoleForm():void {
-    this.customRoleEditingId="";this.customRoleNameInput="";this.customRoleDescriptionInput="";
-    for(const permission of this.customRolePermissionOptions)permission.selected=["members.read","plugins.read"].includes(permission.key);
-  }
-
-  editCustomRole(role:CustomRole):void {
-    this.customRoleEditingId=role.id;this.customRoleNameInput=role.name;this.customRoleDescriptionInput=role.description||"";
-    for(const permission of this.customRolePermissionOptions)permission.selected=role.permissions.includes(permission.key);
-  }
-
-  async saveCustomRole(event:Event):Promise<void> {
-    event.preventDefault();
-    if(!this.canManageCustomRoles||!this.customRoleNameInput.trim()||this.busyId)return;
-    this.busyId="custom-role";this.error="";this.message="";
-    const body={name:this.customRoleNameInput.trim(),description:this.customRoleDescriptionInput.trim(),permissions:this.customRolePermissionOptions.filter(item=>item.selected).map(item=>item.key)};
-    try {
-      if(this.customRoleEditingId)await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(this.customRoleEditingId),"PUT",body);
-      else await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles","POST",body);
-      this.message=this.customRoleEditingId?"Custom role updated.":"Custom role created.";this.resetCustomRoleForm();await this.load();
-    } catch(error) { this.error=error instanceof Error?error.message:"Could not save custom role"; }
-    finally { this.busyId=""; }
-  }
-
-  async deleteCustomRole(role:CustomRole):Promise<void> {
-    if(!this.canManageCustomRoles||this.busyId)return;
-    this.busyId=role.id;this.error="";this.message="";
-    try { await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(role.id),"DELETE");this.message="Custom role deleted.";await this.load(); }
-    catch(error) { this.error=error instanceof Error?error.message:"Could not delete custom role"; }
-    finally { this.busyId=""; }
   }
 
   async invite(event: Event): Promise<void> {
