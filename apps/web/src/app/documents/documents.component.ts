@@ -4,10 +4,6 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from "@angular/cdk/drag-drop";
 
-type Folder={id:string;name:string;parentId:string|null;canManageShares?:boolean;canMove?:boolean;documentCount?:number};
-type ShareTeam={id:string;name:string};
-type ShareUser={id:string;email:string};
-type Doc={id:string;title:string;description:string;tags:string[];visibility:"private"|"public";downloadUrl:string;publicUrl:string|null;folderId:string|null;canMove?:boolean;originalName:string;fileContentType:string;fileSize:number;uploadedBy:{email:string};uploadedAt:string;createdAt:string;updatedAt:string};
 type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 
 @Component({
