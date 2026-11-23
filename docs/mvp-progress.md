@@ -537,3 +537,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added regression coverage for catalogue uniqueness, built-in role coverage and rejection of unregistered privilege keys.
 - This first pass includes only permissions backed by current Core authorization checks. It does not invent Teams/Company CRUD permissions or claim record-level scopes (own, team, assigned) are implemented.
 - Validation: no tests, TypeScript build, Angular build, Docker build or VPS runtime validation have been executed here. Run backend npm test/build and Angular production build before deployment.
+
+
+## Platform and tenant Roles & Permissions — 2026-11-23
+
+- Added Settings → Roles & Permissions for the Super Admin, exposing the canonical Core permission catalogue, protected system-role boundaries and the global tenant-delegation policy.
+- Added authenticated platform endpoints to read/update the tenant-delegable permission set. Only capabilities marked delegable by the Core catalogue can be enabled; protected operations cannot be promoted into tenant custom roles.
+- Tenant role creation and updates now validate against the current platform policy. Runtime permission resolution filters custom-role permissions against that policy as well.
+- Revoking a capability globally removes it from persisted tenant custom-role records and prevents stale assignments from authorizing requests.
+- Company → Roles & Permissions remains scoped to the active tenant. Company → Users continues to manage invitations and memberships; Settings → Platform Users retains platform-wide user administration.
+- No tests, TypeScript builds, Angular builds, Docker builds or VPS runtime checks were executed for this extension. Treat validation as pending.
