@@ -9,6 +9,7 @@ import { hasPluginEntitlement, isPluginInstalled } from "../../core/plugin-entit
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { evaluateResourceAccess } from "../../core/resource-access.js";
 import { FilesStorageAdapter } from "./files-storage.adapter.js";
+import { documentsRoutes } from "./documents.routes.js";
 
 type Folder = Document & { id:string; tenantId:string; name:string; parentId:string|null; createdBy:string; createdAt:Date; updatedAt:Date };
 type BeeDocument = Document & { id:string; tenantId:string; fileId:string; folderId:string|null; title:string; description:string; tags:string[]; visibility:"private"|"public"; publicId:string|null; publishedAt:Date|null; createdBy:string; createdAt:Date; updatedAt:Date };
@@ -83,7 +84,7 @@ export const documentsPlugin:BeePlugin={
   const sharePolicy=async(tenant:TenantContext,folderId:string)=>policies.findOne({tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder",resourceId:folderId});
   const policies=db.collection<any>("resource_access_policies");
   const ownedFolder=async(tenant:TenantContext,folderId:string)=>folders(tenant.tenantId).findOne({id:folderId,createdBy:tenant.userId});
-  ctx.server.get("/documents/share-targets",async(req:any,reply:any)=>{
+  ctx.server.get(documentsRoutes.shareTargets,async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"members.read"))return reply.code(403).send({error:"Organization member read permission required"});
    const query=clean(req.query?.q,100).toLowerCase();
@@ -99,7 +100,7 @@ export const documentsPlugin:BeePlugin={
    const users=allUsers.filter(user=>!query||user.email.toLowerCase().includes(query)).slice(0,50);
    return {teams,users:users.map(user=>({id:userRef(user.id,tenant),email:user.email}))};
   });
-  ctx.server.get<{Params:{folderId:string}}>("/documents/folders/:folderId/shares",async(req:any,reply:any)=>{
+  ctx.server.get<{Params:{folderId:string}}>(documentsRoutes.folderShares,async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    let id:string;try{id=unref(req.params.folderId,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
    const folder=await ownedFolder(tenant,id);if(!folder)return reply.code(404).send({error:"Folder not found"});
@@ -112,7 +113,7 @@ export const documentsPlugin:BeePlugin={
    ]);
    return {teams:teamRows.map(team=>({id:team.id,name:team.name})),users:userRows.map(user=>({id:userRef(user.id,tenant),email:user.email}))};
   });
-  ctx.server.put<{Params:{folderId:string};Body:{teamIds?:unknown;userIds?:unknown}}>("/documents/folders/:folderId/shares",async(req:any,reply:any)=>{
+  ctx.server.put<{Params:{folderId:string};Body:{teamIds?:unknown;userIds?:unknown}}>(documentsRoutes.folderShares,async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    let id:string;try{id=unref(req.params.folderId,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
    const folder=await ownedFolder(tenant,id);if(!folder)return reply.code(404).send({error:"Folder not found"});
@@ -137,7 +138,7 @@ export const documentsPlugin:BeePlugin={
    await policies.updateOne(key,{$set:policy},{upsert:true});
    return {success:true,teamIds,userIds:userRefs};
   });
-  ctx.server.get("/documents/folders",async(req:any,reply:any)=>{
+  ctx.server.get(documentsRoutes.folders,async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    const rows=await folders(tenant.tenantId).find({}).sort({name:1}).limit(500).toArray();
    const visible:any[]=[];const countByFolder=new Map<string,number>();
@@ -157,7 +158,7 @@ export const documentsPlugin:BeePlugin={
    }
    return {folders:visible};
   });
-  ctx.server.post<{Body:{name?:unknown;parentId?:unknown}}>("/documents/folders",async(req,reply)=>{
+  ctx.server.post<{Body:{name?:unknown;parentId?:unknown}}>(documentsRoutes.folders,async(req,reply)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    const name=clean(req.body?.name,120);if(!name)return reply.code(400).send({error:"Folder name required"});
@@ -168,7 +169,7 @@ export const documentsPlugin:BeePlugin={
    await folders(tenant.tenantId).insertOne(row);
    return reply.code(201).send({folder:{id:ref(row.id,"folder",tenant),name,parentId:parentId?ref(parentId,"folder",tenant):null,createdAt:now}});
   });
-  ctx.server.patch<{Params:{documentId:string};Body:{folderId?:unknown}}>("/documents/:documentId/location",async(req,reply)=>{
+  ctx.server.patch<{Params:{documentId:string};Body:{folderId?:unknown}}>(documentsRoutes.documentFolderLocation,async(req,reply)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
@@ -187,7 +188,7 @@ export const documentsPlugin:BeePlugin={
    const updated=await docs(tenant.tenantId).findOne({id});
    return {success:true,document:updated?await present(updated,tenant):null};
   });
-  ctx.server.patch<{Params:{folderId:string};Body:{parentId?:unknown}}>("/documents/folders/:folderId/location",async(req,reply)=>{
+  ctx.server.patch<{Params:{folderId:string};Body:{parentId?:unknown}}>(documentsRoutes.folderLocation,async(req,reply)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let id:string;try{id=unref(req.params.folderId,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
@@ -217,7 +218,7 @@ export const documentsPlugin:BeePlugin={
    await folders(tenant.tenantId).updateOne({id},{$set:{parentId,updatedAt:new Date()}});
    return {success:true};
   });
-  ctx.server.get("/documents",async(req:any,reply:any)=>{
+  ctx.server.get(documentsRoutes.documents,async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    let folderId:string|null=null;const folderRef=clean(req.query?.folderId,2048);
    if(folderRef){try{folderId=unref(folderRef,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
@@ -226,7 +227,7 @@ export const documentsPlugin:BeePlugin={
    for(const item of rows){const parents=await ancestors(tenant.tenantId,item.folderId);if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(await present(item,tenant));}
    return {documents:visible};
   });
-  ctx.server.post<{Body:{fileId?:unknown;folderId?:unknown;title?:unknown;description?:unknown;tags?:unknown}}>("/documents",async(req,reply)=>{
+  ctx.server.post<{Body:{fileId?:unknown;folderId?:unknown;title?:unknown;description?:unknown;tags?:unknown}}>(documentsRoutes.documents,async(req,reply)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let fileId:string;try{fileId=unmaskResourceId(String(req.body?.fileId??""),"file",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);}catch{return reply.code(400).send({error:"A valid uploaded Files reference is required"});}
@@ -241,7 +242,7 @@ export const documentsPlugin:BeePlugin={
    const item:BeeDocument={id:randomUUID(),tenantId:tenant.tenantId,fileId,folderId,title,description:clean(req.body?.description,2000),tags,visibility:"private",publicId:null,publishedAt:null,createdBy:tenant.userId,createdAt:now,updatedAt:now};
    await docs(tenant.tenantId).insertOne(item);return reply.code(201).send({document:await present(item,tenant)});
   });
-  ctx.server.put<{Params:{documentId:string};Body:{published?:unknown}}>("/documents/:documentId/publication",async(req,reply)=>{
+  ctx.server.put<{Params:{documentId:string};Body:{published?:unknown}}>(documentsRoutes.publication,async(req,reply)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
@@ -252,7 +253,7 @@ export const documentsPlugin:BeePlugin={
    await docs(tenant.tenantId).updateOne({id},{$set:{visibility:published?"public":"private",publicId,publishedAt:published?(item.publishedAt??now):null,updatedAt:now}});
    const updated=await docs(tenant.tenantId).findOne({id});return {document:updated?await present(updated,tenant):null};
   });
-  ctx.server.get<{Params:{documentId:string}}>("/documents/:documentId/download",async(req,reply)=>{
+  ctx.server.get<{Params:{documentId:string}}>(documentsRoutes.download,async(req,reply)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
    const item=await docs(tenant.tenantId).findOne({id});if(!item)return reply.code(404).send({error:"Document not found"});
@@ -266,7 +267,7 @@ export const documentsPlugin:BeePlugin={
    reply.header("content-disposition","attachment; filename=\""+file.originalName.replace(/["\\\\\\r\\n]/g,"_")+"\"");
    reply.header("cache-control","private, no-store");reply.header("x-content-type-options","nosniff");return reply.send(data);
   });
-  ctx.server.get<{Params:{publicId:string}}>("/public/documents/:publicId",async(req,reply)=>{
+  ctx.server.get<{Params:{publicId:string}}>(documentsRoutes.publicDownload,async(req,reply)=>{
    const publicId=validPublicId(req.params.publicId);if(!publicId)return reply.code(404).send({error:"Document not found"});
    const item=await documentCollection.findOne({publicId,visibility:"public",publishedAt:{$ne:null}});if(!item)return reply.code(404).send({error:"Document not found"});
    const file=await storage.getMetadata(item.tenantId,item.fileId);if(!file)return reply.code(404).send({error:"Document content not found"});
