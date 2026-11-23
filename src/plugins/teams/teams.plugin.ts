@@ -116,7 +116,11 @@ export const teamsPlugin:BeePlugin = {
    const tenant=await authenticate(req,reply);if(!tenant||!companyScope(tenant,req.params.companyId,reply)||!canManage(tenant,reply))return;
    if(!await teams.findOne({id:req.params.teamId,tenantId:tenant.tenantId}))return reply.code(404).send({error:"Team not found"});
    let userIds:string[];
-   try{userIds=uniqueStrings(req.body?.userIds,500).map(id=>unmaskUser(tenant,id));}catch{return reply.code(400).send({error:"Invalid organization member reference"});}
+   // User IDs returned by the organizations API are encrypted, session-bound
+   // references and are longer than the 80-character limit used for ordinary
+   // labels/permissions. Never truncate them before authenticating the reference.
+   const memberReferences=Array.isArray(req.body?.userIds)?[...new Set(req.body.userIds.map((value:unknown)=>String(value??"").trim()).filter(Boolean))].slice(0,500):[];
+   try{userIds=memberReferences.map(id=>unmaskUser(tenant,id));}catch{return reply.code(400).send({error:"Invalid organization member reference"});}
    const valid=await db.collection("memberships").find({tenantId:tenant.tenantId,status:"active",userId:{$in:userIds}}).project({userId:1}).toArray();
    if(valid.length!==userIds.length)return reply.code(400).send({error:"Every team member must have an active membership in this organization"});
    await members.deleteMany({tenantId:tenant.tenantId,teamId:req.params.teamId});
