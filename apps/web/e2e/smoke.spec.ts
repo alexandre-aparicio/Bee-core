@@ -543,7 +543,7 @@ test('Settings plugins supports cards/list and only enables plugin details', asy
 });
 
 
-test('Settings exposes the eight role-authorized sections and General has exactly three cards', async ({ page }) => {
+test('Settings exposes the seven role-authorized sections and General has exactly three cards', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'platform-admin-token',
     platformRole: 'superadmin',
@@ -568,7 +568,6 @@ test('Settings exposes the eight role-authorized sections and General has exactl
   const expected = [
     ['Tenants', '/dashboard/settings/tenants'],
     ['Plugins', '/dashboard/settings/plugins'],
-    ['Integrations', '/dashboard/settings/integrations'],
     ['Plans & Licensing', '/dashboard/settings/plans-licensing'],
     ['Security', '/dashboard/settings/security'],
     ['Infrastructure', '/dashboard/settings/infrastructure'],
