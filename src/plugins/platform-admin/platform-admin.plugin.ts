@@ -13,7 +13,7 @@ import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
 import { enqueuePluginInstallJob, enqueuePluginUninstallJob } from "../../core/plugin-install-jobs.js";
-import { getTrustedPluginPackage, isPluginInstalled } from "../../core/plugin-entitlements.js";
+import { getTrustedPluginPackage, isPluginInstalled, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
@@ -230,14 +230,25 @@ export const platformAdminPlugin:BeePlugin={
    await recordPlatformAudit({actorId:actor.id,action:"company.status_changed",tenantId:req.params.companyId,resourceType:"tenant",resourceId:req.params.companyId,metadata:{status}});
    return {success:true,companyId:mask(req.platformSession!,req.params.companyId,"tenant"),status};
   });
+  ctx.server.get<{Params:{companyId:string}}>("/platform/companies/:companyId/users",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const company=await companies.findOne({id:req.params.companyId});
+   if(!company)return reply.code(404).send({error:"Company not found"});
+   const rows=await memberships.find({tenantId:company.id,status:{$in:["active","invited","suspended"]}}).sort({createdAt:1}).toArray();
+   const usersById=new Map((await users.find({id:{$in:rows.map(row=>row.userId)}},{projection:{id:1,email:1,enabled:1,createdAt:1}}).toArray()).map(user=>[user.id,user]));
+   return {tenantId:mask(req.platformSession!,company.id,"tenant"),users:rows.map(row=>{const user=usersById.get(row.userId);return {userId:mask(req.platformSession!,row.userId,"user"),email:user?.email??"Unknown user",role:row.role,status:!user?.enabled?"disabled":row.status,createdAt:row.createdAt};})};
+  });
   ctx.server.get<{Params:{companyId:string}}>("/platform/companies/:companyId/plugins",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const company=await companies.findOne({id:req.params.companyId});
    if(!company)return reply.code(404).send({error:"Company not found"});
-   const plugin=getTrustedPluginPackage("hello-world");
-   if(!plugin)return reply.code(404).send({error:"Plugin package not found"});
-   const installation=await db.collection("tenant_plugin_installations").findOne({tenantId:company.id,pluginId:plugin.id});
-   return {tenantId:mask(req.platformSession!,company.id,"tenant"),plugins:[{id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,installed:await isPluginInstalled(db,company.id,plugin.id),status:installation?.status??"uninstalled"}]};
+   const installations=await db.collection("tenant_plugin_installations").find({tenantId:company.id}).toArray();
+   const byPlugin=new Map(installations.map(item=>[String(item.pluginId),item]));
+   return {tenantId:mask(req.platformSession!,company.id,"tenant"),plugins:TRUSTED_PLUGIN_PACKAGES.map(plugin=>{
+    const installation=byPlugin.get(plugin.id);
+    const installed=installation?.status==="installed";
+    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:plugin.version,system:plugin.system,installed,status:installation?.status??"uninstalled"};
+   })};
   });
   ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{enabled?:boolean}}>("/platform/companies/:companyId/plugins/:pluginId",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;

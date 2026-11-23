@@ -73,20 +73,50 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
      </div>
      @if(error){<p class="platform-admin__error">{{error}}</p>}
      @if(managedCompany){
-       <div class="platform-admin__detail-grid">
+       <div class="platform-admin__tenant-summary">
          <article class="platform-admin__detail"><span>Company ID</span><strong>{{managedCompany.id}}</strong></article>
          <article class="platform-admin__detail"><span>Public subdomain</span><strong>{{managedCompany.slug || 'Not configured'}}</strong></article>
          <article class="platform-admin__detail"><span>Members</span><strong>{{managedCompany.membersCount ?? 0}}</strong></article>
          <article class="platform-admin__detail"><span>Status</span><strong class="platform-company-status" [class.is-suspended]="managedCompany.status==='suspended'">{{managedCompany.status}}</strong></article>
        </div>
-       <div class="platform-admin__manage-section">
-         <div><h3>Company status</h3><p>Control whether this company is active on the platform.</p></div>
-         <button type="button" (click)="toggle(managedCompany)" [disabled]="busy">{{managedCompany.status==='active'?'Suspend company':'Activate company'}}</button>
-       </div>
-       <div class="platform-admin__manage-section">
-         <div><h3>Plugins</h3><p>Platform-level plugin controls for this company.</p><small>Hola Mundo · {{pluginStates[managedCompany.id]?.status || 'unavailable'}}</small></div>
-         <button type="button" (click)="toggleHelloWorld(managedCompany)" [disabled]="busy || pluginBusyId===managedCompany.id || !pluginStates[managedCompany.id]">{{pluginStates[managedCompany.id]?.installed?'Deactivate':'Activate'}} Hola Mundo</button>
-       </div>
+       <nav class="platform-admin__tenant-tabs" role="tablist" aria-label="Tenant details">
+         <button type="button" role="tab" [class.is-active]="tenantTab==='general'" [attr.aria-selected]="tenantTab==='general'" (click)="tenantTab='general'">General</button>
+         <button type="button" role="tab" [class.is-active]="tenantTab==='users'" [attr.aria-selected]="tenantTab==='users'" (click)="tenantTab='users';loadTenantUsers()">Users <span>{{managedCompany.membersCount ?? 0}}</span></button>
+         <button type="button" role="tab" [class.is-active]="tenantTab==='plugins'" [attr.aria-selected]="tenantTab==='plugins'" (click)="tenantTab='plugins';loadTenantPlugins()">Plugins <span>{{tenantPlugins.length}}</span></button>
+       </nav>
+       @if(tenantTab==='general'){
+         <div class="platform-admin__tenant-tab-content">
+           <div class="platform-admin__manage-section">
+             <div><h3>Company status</h3><p>Control whether this company is active on the platform.</p></div>
+             <button type="button" (click)="toggle(managedCompany)" [disabled]="busy">{{managedCompany.status==='active'?'Suspend company':'Activate company'}}</button>
+           </div>
+           <article class="platform-admin__detail"><span>Tenant identity</span><strong>{{managedCompany.name}}</strong><small>{{managedCompany.slug || 'No public subdomain configured'}}</small></article>
+         </div>
+       } @else if(tenantTab==='users'){
+         <div class="platform-admin__tenant-tab-content">
+           @if(usersLoading){<div class="platform-admin__empty">Loading tenant users…</div>}
+           @else if(!tenantUsers.length){<div class="platform-admin__empty">No active or invited memberships found.</div>}
+           @else {<div class="platform-admin__tenant-list">
+             @for(user of tenantUsers;track user.userId){<article class="platform-admin__tenant-row">
+               <span class="platform-admin__tenant-avatar">{{(user.email||'?').charAt(0).toUpperCase()}}</span>
+               <div class="platform-admin__tenant-user"><strong>{{user.email}}</strong><small>{{user.status}}</small></div>
+               <span class="platform-admin__tenant-role">{{user.role}}</span>
+             </article>}
+           </div>}
+         </div>
+       } @else {
+         <div class="platform-admin__tenant-tab-content">
+           @if(tenantPluginsLoading){<div class="platform-admin__empty">Loading tenant plugins…</div>}
+           @else if(!tenantPlugins.length){<div class="platform-admin__empty">No plugin catalogue entries available.</div>}
+           @else {<div class="platform-admin__tenant-list">
+             @for(plugin of tenantPlugins;track plugin.id){<article class="platform-admin__tenant-plugin">
+               <div class="platform-admin__tenant-plugin-main"><span class="platform-admin__tenant-plugin-mark">⌘</span><div><strong>{{plugin.name}}</strong><small>{{plugin.description || plugin.id}} · v{{plugin.version}}</small></div></div>
+               <div class="platform-admin__tenant-plugin-status"><span class="platform-company-status" [class.is-suspended]="plugin.status!=='installed'">{{plugin.status}}</span><small>{{plugin.installed?'Installed':'Not installed'}}</small></div>
+               @if(!plugin.system){<button type="button" class="platform-admin__tenant-plugin-action" (click)="toggleTenantPlugin(managedCompany,plugin)" [disabled]="busy||pluginBusyId===managedCompany.id">{{plugin.installed?'Deactivate':'Activate'}}</button>}
+             </article>}
+           </div>}
+         </div>
+       }
      } @else {<div class="platform-admin__empty">The requested company could not be found.</div>}
    }
    @if(showCreateModal){
@@ -114,7 +144,7 @@ export class PlatformAdminComponent implements OnInit {
  @Output() backToList=new EventEmitter<void>();
  companies:PlatformCompany[]=[];
  pluginStates:Record<string,{id:string;installed:boolean;status:string;name:string}>={};
- pluginBusyId='';name='';slug='';ownerEmail='';ownerPassword='';busy=false;loading=false;error='';success='';
+ pluginBusyId='';name='';slug='';ownerEmail='';ownerPassword='';busy=false;loading=false;error='';success='';tenantTab:'general'|'users'|'plugins'='general';tenantUsers:Array<{userId:string;email:string;role:string;status:string;createdAt?:string}>=[];tenantPlugins:Array<{id:string;name:string;description:string;version:string;installed:boolean;status:string;system:boolean}>=[];usersLoading=false;tenantPluginsLoading=false;
  viewMode:'cards'|'list'='cards';showCreateModal=false;openMenuId='';
  get managedCompany():PlatformCompany|undefined{return this.companies.find(company=>company.id===this.managedTenantId);}
  ngOnInit(){void this.load();}
@@ -123,6 +153,9 @@ export class PlatformAdminComponent implements OnInit {
  closeCreate(){if(this.busy)return;this.showCreateModal=false;this.error='';}
  toggleMenu(id:string){this.openMenuId=this.openMenuId===id?'':id;}
  async load(){this.loading=true;this.error='';try{const r=await fetch('/api/platform/companies',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to list tenants');this.companies=d.companies??[];await Promise.all(this.companies.map(async company=>{try{const pr=await fetch('/api/platform/companies/'+encodeURIComponent(company.id)+'/plugins',{headers:this.headers()});const pd=await pr.json();if(pr.ok){const plugin=pd.plugins?.[0];if(plugin)this.pluginStates[company.id]={id:plugin.id,installed:!!plugin.installed,status:plugin.status,name:plugin.name};}}catch{}}));}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.loading=false;}}
+ async loadTenantUsers(){if(!this.managedTenantId||this.usersLoading)return;this.usersLoading=true;try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(this.managedTenantId)+'/users',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load users');this.tenantUsers=d.users??[];}catch(e){this.error=e instanceof Error?e.message:'Could not load tenant users';}finally{this.usersLoading=false;}}
+ async loadTenantPlugins(){if(!this.managedTenantId||this.tenantPluginsLoading)return;this.tenantPluginsLoading=true;try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(this.managedTenantId)+'/plugins',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load plugins');this.tenantPlugins=d.plugins??[];}catch(e){this.error=e instanceof Error?e.message:'Could not load tenant plugins';}finally{this.tenantPluginsLoading=false;}}
+ async toggleTenantPlugin(c:PlatformCompany,plugin:any){if(this.pluginBusyId)return;this.pluginBusyId=c.id;try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(c.id)+'/plugins/'+encodeURIComponent(plugin.id),{method:'PUT',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({enabled:!plugin.installed})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Plugin change failed');await this.loadTenantPlugins();}catch(e){this.error=e instanceof Error?e.message:'Plugin operation failed';}finally{this.pluginBusyId='';}}
  async create(){this.busy=true;this.error='';this.success='';try{const r=await fetch('/api/platform/companies',{method:'POST',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({name:this.name,slug:this.slug||undefined,ownerEmail:this.ownerEmail,ownerPassword:this.ownerPassword||undefined})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Creation failed');this.success='Tenant created successfully.';this.name='';this.slug='';this.ownerEmail='';this.ownerPassword='';this.showCreateModal=false;await this.load();}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.busy=false;}}
  async toggleHelloWorld(c:PlatformCompany){if(this.pluginBusyId)return;this.pluginBusyId=c.id;this.error='';try{const current=this.pluginStates[c.id];if(!current?.id)return;const r=await fetch('/api/platform/companies/'+encodeURIComponent(c.id)+'/plugins/'+encodeURIComponent(current.id),{method:'PUT',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({enabled:!current?.installed})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Plugin activation failed');this.pluginStates[c.id]={installed:!!d.enabled,status:d.status??(d.enabled?'installing':'uninstalling'),id:current.id,name:current.name};await this.load();}catch(e){this.error=e instanceof Error?e.message:'Plugin activation failed';}finally{this.pluginBusyId='';}}
  async toggle(c:PlatformCompany){this.busy=true;this.error='';try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(c.id),{method:'PATCH',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({status:c.status==='active'?'suspended':'active'})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Status change failed');await this.load();}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.busy=false;}}
