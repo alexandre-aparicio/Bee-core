@@ -89,7 +89,7 @@ export const documentsPlugin:BeePlugin={
    const folder=await ownedFolder(tenant,id);if(!folder)return reply.code(404).send({error:"Folder not found"});
    const policy=await sharePolicy(tenant,id);
    const teamIds=(policy?.teamGrants??[]).filter((grant:any)=>grant.permissions.includes("read")).map((grant:any)=>grant.teamId);
-   const userIds=(policy?.userOverrides??[]).filter((item:any)=>item.effect==="allow"&&item.permissions.includes("read")).map((item:any)=>item.userId);
+   const userIds=(policy?.userOverrides??[]).filter((item:any)=>item.effect==="allow"&&item.permissions.includes("read")&&item.userId!==tenant.userId).map((item:any)=>item.userId);
    const [teamRows,userRows]=await Promise.all([
     teamIds.length?db.collection<{id:string;name:string}>("company_teams").find({tenantId:tenant.tenantId,id:{$in:teamIds}}).toArray():[],
     userIds.length?db.collection<{id:string;email:string}>("users").find({id:{$in:userIds}},{projection:{id:1,email:1}}).toArray():[]
@@ -113,8 +113,8 @@ export const documentsPlugin:BeePlugin={
    if(new Set(assigned.map(item=>item.teamId)).size!==teamIds.length)return reply.code(400).send({error:"Every shared team must have Documents enabled"});
    const key={tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder",resourceId:id};
    const existing=await policies.findOne(key);
-   const retainedDenials=(existing?.userOverrides??[]).filter((item:any)=>item.effect==="deny");
-   const userOverrides=[...retainedDenials,...userIds.map(userId=>({userId,effect:"allow",permissions:["read"]}))];
+   const retainedDenials=(existing?.userOverrides??[]).filter((item:any)=>item.effect==="deny"&&item.userId!==tenant.userId);
+   const userOverrides=[{userId:tenant.userId,effect:"allow",permissions:["read","write","delete"]},...retainedDenials,...userIds.filter(userId=>userId!==tenant.userId).map(userId=>({userId,effect:"allow",permissions:["read"]}))];
    const policy={...key,teamGrants:teamIds.map(teamId=>({teamId,permissions:["read"]})),userOverrides,updatedAt:new Date(),updatedBy:tenant.userId};
    await policies.updateOne(key,{$set:policy},{upsert:true});
    return {success:true,teamIds,userIds:userRefs};
