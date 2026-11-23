@@ -666,3 +666,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - The navigation state now treats `mail` as a child of Notifications consistently with `notifications` and `messages`.
 - This is a small frontend state fix; no mail functionality or routing behavior changed.
 - Validation: source-level checks only; no Angular build, browser tests, CI or VPS runtime validation performed.
+
+
+## Organization members action menu and membership reactivation (2026-11-23)
+- Replaced the inline Suspend button in Organization → Users with a vertical three-dot action menu, matching the existing invitation menu pattern.
+- The menu includes disabled placeholder actions (Edit member and Reset password), plus Suspend for active members and Activate for suspended members.
+- Added an authenticated membership-status PATCH endpoint scoped to the active organization. It enforces organization-admin access, protected Owner/Super Admin boundaries, peer-Admin restrictions, status validation, and revokes active refresh sessions when suspending or reactivating.
+- Added `member.activated` to the tenant audit-action catalogue.
+- Validation: source-level implementation only; no TypeScript build, tests, browser smoke checks, Docker build or VPS runtime validation executed.
