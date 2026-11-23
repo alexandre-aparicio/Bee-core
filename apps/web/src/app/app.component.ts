@@ -351,7 +351,9 @@ export class AppComponent implements OnInit {
     }
   }
   get navigationItems(): Array<{id:string;label:string;icon:string;group:string}> {
-    const base = [
+    // One shared navigation structure for platform and tenant administrators.
+    // Privileged areas are restricted within Settings and by section access checks.
+    return [
       {id:'dashboard',label:'Dashboard',icon:'dashboard',group:'WORKSPACE'},
       {id:'organization',label:'Organization',icon:'organization',group:'WORKSPACE'},
       {id:'activity',label:'Activity',icon:'activity',group:'WORKSPACE'},
@@ -359,11 +361,6 @@ export class AppComponent implements OnInit {
       {id:'notifications',label:'Notifications',icon:'notifications',group:'WORKSPACE'},
       {id:'settings',label:'Settings',icon:'settings',group:'SYSTEM'}
     ];
-    if (this.isPlatformAdmin) return base.filter(item => ['dashboard','organization','activity','mail','notifications','settings'].includes(item.id));
-    const role = (this.activeCompanyRole || '').toLowerCase();
-    if (role === 'manager') return base;
-    if (role === 'owner' || role === 'admin') return base;
-    return base.filter(item => ['dashboard','organization','mail','notifications','settings'].includes(item.id));
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void {
