@@ -12,6 +12,7 @@ type MarketplacePlugin = {
   entitled: boolean;
   accessSource: "plan" | "purchase" | null;
   installed: boolean;
+  enabled: boolean;
   installedVersion: string | null;
 };
 
@@ -39,7 +40,7 @@ type MarketplacePlugin = {
               <span *ngIf="plugin.accessSource === 'plan'">Included in plan</span>
               <span *ngIf="plugin.accessSource === 'purchase'">Purchased add-on</span>
               <span *ngIf="!plugin.entitled">Not included</span>
-              <span *ngIf="plugin.installed" class="bee-marketplace__installed">{{isHelloWorld(plugin) ? "Active" : "Installed"}}</span>
+              <span *ngIf="plugin.installed" class="bee-marketplace__installed">{{plugin.enabled ? (isHelloWorld(plugin) ? "Active" : "Installed") : "Disabled"}}</span>
             </div>
           </div>
           <div class="bee-marketplace__actions">
@@ -93,7 +94,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not load company plugins");
       this.plugins = result.plugins || [];
-      this.activePluginsChange.emit(this.plugins.filter(plugin => plugin.entitled && plugin.installed).map(plugin => plugin.id));
+      this.activePluginsChange.emit(this.plugins.filter(plugin => plugin.entitled && plugin.installed && plugin.enabled !== false).map(plugin => plugin.id));
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not load company plugins";
       this.plugins = [];
