@@ -175,7 +175,7 @@ export const organizationsPlugin:BeePlugin={
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.deleted",outcome:"success",resourceType:"role",resourceId:req.params.roleId});
    return {success:true};
   });
-  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/invitations",async(req,reply)=>{
+  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"|"guest"}}>("/companies/:companyId/invitations",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
@@ -246,7 +246,7 @@ export const organizationsPlugin:BeePlugin={
    const emails=new Map(memberUsers.map(user=>[user.id,user.email]));
    return {memberships:rows.map(row=>({userId:mask(auth,row.userId,"user"),email:emails.get(row.userId)??null,role:row.role,customRoleId:row.customRoleId?mask(auth,row.customRoleId,"role"):null,status:row.status,createdAt:row.createdAt}))};
   });
-  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/memberships",async(req,reply)=>{
+  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"|"guest"}}>("/companies/:companyId/memberships",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
@@ -269,7 +269,7 @@ export const organizationsPlugin:BeePlugin={
    // Unknown, disabled, already-active and over-limit addresses receive the same response.
    return reply.code(202).send({success:true,message:"The membership request has been accepted for processing."});
   });
-  ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member";customRoleId?:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
+  ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member"|"guest";customRoleId?:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
