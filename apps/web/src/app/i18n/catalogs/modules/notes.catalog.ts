@@ -15,8 +15,7 @@ export const NOTES_EN = {
   "empty": "No notes yet for this company.",
   "create": "Create note",
   "save": "Save note",
-  "delete": "Delete note",
-  "empty": "No notes yet."
+  "delete": "Delete note"
 } as const;
 export const NOTES_ES = {
   "title": "Notas del equipo",
@@ -35,6 +34,5 @@ export const NOTES_ES = {
   "empty": "Todavía no hay notas para esta empresa.",
   "create": "Crear nota",
   "save": "Guardar nota",
-  "delete": "Eliminar nota",
-  "empty": "Todavía no hay notas."
+  "delete": "Eliminar nota"
 } as const;
