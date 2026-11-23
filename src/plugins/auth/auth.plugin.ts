@@ -66,7 +66,7 @@ export const authPlugin:BeePlugin={
    tenants.createIndex({domains:1},{unique:true,sparse:true,name:"tenants_domains_unique"})
   ]);
   await sessions.updateMany({absoluteExpiresAt:{$exists:false}},{$set:{absoluteExpiresAt:absoluteSessionExpiry()}});
-   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
+   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,kind:"tenant",createdAt:new Date()}},{upsert:true});
   await users.updateMany({$or:[{tenantId:{$exists:false}},{tenantId:""}]},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});
   const preferencesCollectionExists=await db.listCollections({name:"template_preferences"},{nameOnly:true}).hasNext();
   if(!preferencesCollectionExists){
