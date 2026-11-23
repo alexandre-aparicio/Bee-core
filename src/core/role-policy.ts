@@ -3,8 +3,12 @@ import type { CompanyRole } from "./tenant-context.js";
 export const CUSTOM_ROLE_PERMISSION_PATTERN = /^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*$/;
 export const MAX_CUSTOM_ROLE_PERMISSIONS = 100;
 export const CUSTOM_ROLE_ALLOWED_PERMISSIONS = [
-  "members.read", "plugins.read", "plugins.install",
-  "files.read", "files.write", "notes.read", "notes.write"
+  "members.read", "members.invite", "members.manage",
+  "plugins.read", "plugins.install", "plugins.manage",
+  "billing.manage",
+  "files.read", "files.write",
+  "notes.read", "notes.write",
+  "mail.read", "mail.send", "mail.manage"
 ] as const;
 
 export function normalizeTenantCustomRolePermissions(input: unknown): string[] {
