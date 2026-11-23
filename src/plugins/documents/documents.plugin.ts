@@ -19,9 +19,7 @@ export const documentsPlugin:BeePlugin={
   const storage=new FilesStorageAdapter(db,root);
   const repository=new DocumentsRepository(db);
   await repository.initializeIndexes();
-  const folderCollection=repository.folderCollection;
-  const documentCollection=repository.documentCollection;
-  const serviceDeps=createDocumentsServices({db,secret,storage,folderCollection,documentCollection,repository});
+  const serviceDeps=createDocumentsServices({db,secret,storage,repository});
   registerDocumentsRoutes(ctx,{...serviceDeps,repository});
   ctx.logger.info("Documents plugin initialized: tenant folders, document metadata, ACLs and public delivery ready.");
  }
