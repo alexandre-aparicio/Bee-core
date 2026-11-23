@@ -28,7 +28,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
       <div *ngIf="message" class="bee-users__notice bee-users__notice--success" role="status">{{message}}</div>
 
       <ng-container *ngIf="canRead; else noAccess">
-        <div class="bee-users__metrics" aria-label="Membership overview">
+        <div class="bee-users__metrics" [attr.aria-label]="t('users.overview')">
           <article class="bee-users__metric">
             <span>{{t('users.totalMembers')}}</span><strong>{{members.length}}</strong><small>{{t('users.inOrganization')}}</small>
           </article>
@@ -156,7 +156,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__button:disabled{opacity:.5;cursor:not-allowed}
     .bee-users__button--secondary{background:var(--panel);color:inherit}
     .bee-users__button--secondary:hover:not(:disabled){border-color:var(--purple);background:var(--bg)}
-    .bee-users__button--primary{background:var(--purple);border-color:var(--purple);color:var(--bg);width:100%}
+    .bee-users__button--primary{background:var(--purple);border-color:var(--purple);color:var(--bee-action-text);width:100%}
     .bee-users__button--primary:hover:not(:disabled){filter:brightness(1.08)}
     .bee-users__notice{padding:11px 14px;border:1px solid var(--border);border-radius:10px;font-size:12px;line-height:1.5}
     .bee-users__notice--error{border-color:var(--bee-status-danger);color:var(--bee-status-danger)}
@@ -203,7 +203,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__menu-wrap{position:relative;display:inline-flex}
     .bee-users__icon-button{display:grid;place-items:center;width:34px;height:34px;border:1px solid transparent;border-radius:8px;background:transparent;color:inherit;font-size:20px;line-height:1;cursor:pointer}
     .bee-users__icon-button:hover,.bee-users__icon-button[aria-expanded=true]{border-color:var(--border);background:var(--bg)}
-    .bee-users__menu{position:absolute;z-index:20;top:calc(100% + 5px);right:0;display:grid;min-width:170px;padding:5px;border:1px solid var(--border);border-radius:10px;background:var(--panel);box-shadow:0 12px 32px #0003}
+    .bee-users__menu{position:absolute;z-index:20;top:calc(100% + 5px);right:0;display:grid;min-width:170px;padding:5px;border:1px solid var(--border);border-radius:10px;background:var(--panel);box-shadow:var(--bee-shadow)}
     .bee-users__menu button{padding:9px 10px;border:0;border-radius:6px;background:transparent;color:inherit;text-align:left;font:inherit;font-size:11px;cursor:pointer}
     .bee-users__menu button:hover:not(:disabled){background:var(--bg)}
     .bee-users__menu button:disabled{opacity:.5;cursor:not-allowed}
