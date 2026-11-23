@@ -2,6 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
+import { BeeIconComponent } from "../core/icons/bee-icon.component";
 
 type CompanyMember = { userId: string; email: string | null; role: string; customRoleId?: string | null; restrictionRoleIds?: string[]; status: "active" | "suspended"; createdAt: string };
 type CustomRole = { id: string; name: string; description: string; permissions: string[]; mode?: "grant" | "restriction" };
@@ -10,7 +11,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
 @Component({
   selector: "bee-company-members",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BeeIconComponent],
   template: `
     <section id="users" class="bee-users">
       <div *ngIf="error" class="bee-users__notice bee-users__notice--error" role="alert">{{error}}</div>
@@ -36,11 +37,11 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
           <section class="bee-users__directory">
             <div class="bee-users__section-head">
               <div><h3>{{t('users.directory')}}</h3><p>{{t('users.directoryDescription')}}</p></div>
-              <div class="bee-users__section-actions"><span class="bee-users__count">{{filteredMembers.length}} / {{members.length}}</span><button class="bee-users__button bee-users__button--secondary" type="button" (click)="load()" [disabled]="loading">{{loading ? t('users.refreshing') : t('users.refresh')}}</button></div>
+              <div class="bee-users__section-actions"><span class="bee-users__count">{{filteredMembers.length}} / {{members.length}}</span><button class="bee-users__button bee-users__button--secondary" type="button" (click)="load()" [disabled]="loading"><bee-icon name="refresh" size="14px" aria-hidden="true"></bee-icon>{{loading ? t('users.refreshing') : t('users.refresh')}}</button></div>
             </div>
             <div class="bee-users__toolbar">
               <label class="bee-users__search">
-                <span aria-hidden="true">⌕</span>
+                <bee-icon name="search" size="15px" aria-hidden="true"></bee-icon>
                 <input type="search" [(ngModel)]="memberSearch" [placeholder]="t('users.search')" [attr.aria-label]="t('users.search')">
               </label>
               <select class="bee-users__filter" [(ngModel)]="memberStatusFilter" [attr.aria-label]="t('users.filterStatus')">
@@ -89,7 +90,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
               </table>
             </div>
             <div *ngIf="!loading && !filteredMembers.length" class="bee-users__empty">
-              <span class="bee-users__empty-icon" aria-hidden="true">◎</span>
+              <span class="bee-users__empty-icon" aria-hidden="true"><bee-icon name="users" size="22px"></bee-icon></span>
               <strong>{{members.length ? t('users.noMatches') : t('users.noMembers')}}</strong>
               <p>{{members.length ? t('users.adjustSearch') : t('users.noMembersDescription')}}</p>
               <button *ngIf="members.length" type="button" class="bee-users__text-button" (click)="memberSearch='';memberStatusFilter='all'">{{t('users.clearFilters')}}</button>
@@ -97,7 +98,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
           </section>
 
           <aside class="bee-users__invite-panel" *ngIf="canInvite">
-            <div class="bee-users__invite-heading"><span class="bee-users__invite-icon" aria-hidden="true">＋</span><div><h3>{{t('users.inviteTitle')}}</h3><p>{{t('users.inviteDescription')}}</p></div></div>
+            <div class="bee-users__invite-heading"><span class="bee-users__invite-icon" aria-hidden="true"><bee-icon name="plus" size="17px"></bee-icon></span><div><h3>{{t('users.inviteTitle')}}</h3><p>{{t('users.inviteDescription')}}</p></div></div>
             <form class="bee-users__invite-form" (submit)="invite($event)">
               <label>{{t('users.emailAddress')}}<input type="email" name="inviteEmail" [(ngModel)]="inviteEmail" [placeholder]="t('users.emailPlaceholder')" autocomplete="email" required></label>
               <label>{{t('users.assignRole')}}<select name="inviteRole" [(ngModel)]="inviteRole"><option value="guest">{{t('users.guest')}}</option><option value="member">{{t('users.memberRole')}}</option><option value="manager">{{t('users.manager')}}</option><option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">{{t('users.admin')}}</option><option *ngFor="let customRole of grantRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option></select></label>
@@ -116,7 +117,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
           <div class="bee-users__section-head"><div><h3>{{t('users.invitations')}}</h3><p>{{t('users.invitationsDescription')}}</p></div><span class="bee-users__count">{{invitations.length}}</span></div>
           <div *ngIf="invitations.length" class="bee-users__invitation-list">
             <article class="bee-users__invitation" *ngFor="let invitation of invitations; trackBy: trackInvitation">
-              <span class="bee-users__invitation-icon" aria-hidden="true">✉</span>
+              <span class="bee-users__invitation-icon" aria-hidden="true"><bee-icon name="mail" size="15px"></bee-icon></span>
               <div class="bee-users__invitation-copy"><strong>{{invitation.email}}</strong><small>{{displayRole(invitation.role,invitation.customRoleId)}} · {{t('users.expires')}} {{invitation.expiresAt | date:'mediumDate'}}</small></div>
               <span class="bee-users__status" [class.is-pending]="invitationState(invitation) === 'pending'" [class.is-accepted]="invitationState(invitation) === 'accepted'" [class.is-expired]="invitationState(invitation) === 'expired'" [class.is-revoked]="invitationState(invitation) === 'revoked'"><span></span>{{invitationState(invitation) === 'pending' ? t('users.pending') : invitationState(invitation) === 'accepted' ? t('users.accepted') : invitationState(invitation) === 'expired' ? t('users.expired') : t('users.revoked')}}</span>
               <div class="bee-users__menu-wrap">
