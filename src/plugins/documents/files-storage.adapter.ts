@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-type StoredFile = Document & { id: string; tenantId: string; originalName: string; contentType: string; size: number; storageKey: string };
+type StoredFile = Document & { id: string; tenantId: string; originalName: string; contentType: string; size: number; storageKey: string; uploadedBy: string; createdAt: Date };
 
 /** Transitional boundary around the existing Files storage implementation. */
 export class FilesStorageAdapter {
