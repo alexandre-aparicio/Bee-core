@@ -16,6 +16,8 @@ export const SETTINGS_EN = {
   "localization.save":"Save language settings","localization.saved":"Language settings saved.","localization.loading":"Loading language settings…",
   "localization.permission":"Only company owners and administrators can change the team default language.",
   "localization.error":"Could not save language settings."
+  "platformConfiguration":"Platform configuration",
+  "tenants.platformDescription":"Manage registered companies, tenant status and platform-level services.",
 } as const;
 export const SETTINGS_ES = {
   "section.general":"General","section.general.description":"Identidad de plataforma, apariencia y configuración global.",
@@ -35,4 +37,6 @@ export const SETTINGS_ES = {
   "localization.save":"Guardar preferencias de idioma","localization.saved":"Preferencias de idioma guardadas.","localization.loading":"Cargando preferencias de idioma…",
   "localization.permission":"Solo los propietarios y administradores de la empresa pueden cambiar el idioma predeterminado del equipo.",
   "localization.error":"No se pudieron guardar las preferencias de idioma."
+  "platformConfiguration":"Configuración de la plataforma",
+  "tenants.platformDescription":"Gestiona las empresas registradas, el estado de cada espacio y los servicios globales de la plataforma.",
 } as const;
