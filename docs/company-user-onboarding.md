@@ -83,3 +83,8 @@ Both methods should create a user membership within the currently selected compa
 - Add end-to-end UI/backend tests for both onboarding paths, tenant isolation, token replay/expiry and secret redaction.
 
 These are future implementation tasks. This specification does not change current authentication or organization functionality.
+
+
+## Roles & Permissions workspace — 2026-11-23
+
+Organization → Roles & Permissions is the dedicated location for creating and editing custom roles. Users remains responsible for invitations, membership status and assigning an available role. The initial catalogue covers current Core permission keys for Organization members, Plugins, Billing, Files, Notes and Mail. Tenant custom roles cannot receive platform-global permissions such as platform.super_admin; backend role-management authorization remains owner-only. Record-level scopes and granular Teams/Company permissions are not yet implemented.
