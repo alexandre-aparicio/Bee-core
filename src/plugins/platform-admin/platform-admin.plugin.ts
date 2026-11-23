@@ -13,6 +13,7 @@ import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
 import { getTenantSubscription, getTrustedPluginPackage, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
+import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
@@ -242,13 +243,23 @@ export const platformAdminPlugin:BeePlugin={
    const actor=await guard(req,reply);if(!actor)return;
    const company=await companies.findOne({id:req.params.companyId});
    if(!company)return reply.code(404).send({error:"Company not found"});
-   const installations=await db.collection("tenant_plugin_installations").find({tenantId:company.id}).toArray();
-   const byPlugin=new Map(installations.map(item=>[String(item.pluginId),item]));
+   const superOrganization=await companies.findOne({kind:"super",status:"active"});
+   if(!superOrganization)return reply.code(503).send({error:"Super Organization is unavailable"});
+   // The Super Organization owns the one platform package installation.
+   // Tenant rows below represent activation/configuration, not package copies.
+   await getTenantSubscription(db,superOrganization.id);
+   const [globalInstallations,tenantInstallations]=await Promise.all([
+    db.collection("tenant_plugin_installations").find({tenantId:superOrganization.id,status:"installed"}).toArray(),
+    db.collection("tenant_plugin_installations").find({tenantId:company.id}).toArray()
+   ]);
+   const globalByPlugin=new Map(globalInstallations.map(item=>[String(item.pluginId),item]));
+   const tenantByPlugin=new Map(tenantInstallations.map(item=>[String(item.pluginId),item]));
    return {tenantId:mask(req.platformSession!,company.id,"tenant"),plugins:TRUSTED_PLUGIN_PACKAGES.map(plugin=>{
-    const installation=byPlugin.get(plugin.id);
-    const installed=installation?.status==="installed";
-    const enabled=installed&&installation?.enabled!==false;
-    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:plugin.version,system:plugin.system,installed,enabled,status:installation?.status??"uninstalled",dependencies:plugin.dependencies};
+    const globalInstallation=globalByPlugin.get(plugin.id);
+    const tenantInstallation=tenantByPlugin.get(plugin.id);
+    const installed=globalInstallation?.status==="installed";
+    const enabled=!!installed&&tenantInstallation?.status==="installed"&&tenantInstallation?.enabled!==false;
+    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:globalInstallation?.version??plugin.version,system:plugin.system,installed,enabled,status:!installed?"uninstalled":enabled?"installed":"disabled",dependencies:plugin.dependencies};
    })};
   });
   ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{enabled?:boolean}}>("/platform/companies/:companyId/plugins/:pluginId",async(req,reply)=>{
@@ -258,27 +269,52 @@ export const platformAdminPlugin:BeePlugin={
    const plugin=getTrustedPluginPackage(req.params.pluginId);
    if(!plugin)return reply.code(404).send({error:"Trusted plugin package not found"});
    if(typeof req.body?.enabled!=="boolean")return reply.code(400).send({error:"enabled must be a boolean"});
+   const superOrganization=await companies.findOne({kind:"super",status:"active"});
+   if(!superOrganization)return reply.code(503).send({error:"Super Organization is unavailable"});
    const installations=db.collection("tenant_plugin_installations");
-   const installation=await installations.findOne({tenantId:company.id,pluginId:plugin.id,status:"installed"});
-   if(!installation)return reply.code(409).send({error:"Plugin must be installed before it can be activated or deactivated"});
-   const currentEnabled=installation.enabled!==false;
-   if(req.body.enabled===currentEnabled)return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:currentEnabled,unchanged:true};
+   const globalInstallation=await installations.findOne({tenantId:superOrganization.id,pluginId:plugin.id,status:"installed"});
+   if(!globalInstallation)return reply.code(409).send({error:"Plugin is not installed on the platform. Install it first in Settings → Plugins."});
+   const installation=await installations.findOne({tenantId:company.id,pluginId:plugin.id});
+   const currentEnabled=!!installation&&installation.status==="installed"&&installation.enabled!==false;
+   if(req.body.enabled===currentEnabled)return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),installed:true,enabled:currentEnabled,unchanged:true};
    if(!req.body.enabled){
     const dependents=TRUSTED_PLUGIN_PACKAGES.filter(candidate=>candidate.dependencies.includes(plugin.id));
     for(const dependent of dependents){
      const activeDependent=await installations.findOne({tenantId:company.id,pluginId:dependent.id,status:"installed",enabled:{$ne:false}});
      if(activeDependent)return reply.code(409).send({error:"Cannot deactivate this plugin while the dependent plugin is enabled: "+dependent.name});
     }
+    if(installation?.status==="installed"){
+     const now=new Date();
+     await installations.updateOne({tenantId:company.id,pluginId:plugin.id,status:"installed"},{$set:{enabled:false,enabledUpdatedAt:now,enabledUpdatedBy:actor.id,updatedAt:now}});
+    }
    }else{
     for(const dependencyId of plugin.dependencies){
-     const dependency=await installations.findOne({tenantId:company.id,pluginId:dependencyId,status:"installed",enabled:{$ne:false}});
-     if(!dependency)return reply.code(409).send({error:"Activate the required plugin first: "+dependencyId});
+     const dependencyGlobal=await installations.findOne({tenantId:superOrganization.id,pluginId:dependencyId,status:"installed"});
+     const dependencyTenant=await installations.findOne({tenantId:company.id,pluginId:dependencyId,status:"installed",enabled:{$ne:false}});
+     if(!dependencyGlobal||!dependencyTenant)return reply.code(409).send({error:"Activate the required plugin first: "+dependencyId});
+    }
+    const now=new Date();
+    if(!installation||installation.status!=="installed"){
+     const migrationRun=await runTenantPluginMigrations(db,company.id,plugin.id,plugin.migrations??[]);
+     try{
+      await plugin.installTenant?.(db,company.id);
+      await installations.updateOne(
+       {tenantId:company.id,pluginId:plugin.id},
+       {$set:{status:"installed",version:String(globalInstallation.version??plugin.version),installedAt:now,updatedAt:now,enabled:true,enabledUpdatedAt:now,enabledUpdatedBy:actor.id},$setOnInsert:{id:randomUUID(),tenantId:company.id,pluginId:plugin.id}},
+       {upsert:true}
+      );
+     }catch(error){
+      const rollback=await rollbackTenantPluginMigrations(db,company.id,plugin.id,plugin.migrations??[],migrationRun.applied);
+      if(rollback.failed.length)ctx.logger.error("Tenant plugin activation rollback was incomplete",{tenantId:company.id,pluginId:plugin.id,failedMigrations:rollback.failed});
+      throw error;
+     }
+    }else{
+     await installations.updateOne({tenantId:company.id,pluginId:plugin.id,status:"installed"},{$set:{enabled:true,enabledUpdatedAt:now,enabledUpdatedBy:actor.id,updatedAt:now}});
     }
    }
-   const now=new Date();
-   await installations.updateOne({tenantId:company.id,pluginId:plugin.id,status:"installed"},{$set:{enabled:req.body.enabled,enabledUpdatedAt:now,enabledUpdatedBy:actor.id,updatedAt:now}});
-   await recordPlatformAudit({actorId:actor.id,action:req.body.enabled?"plugin.enabled":"plugin.disabled",tenantId:company.id,resourceType:"plugin",resourceId:plugin.id,metadata:{enabled:req.body.enabled}});
-   return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:req.body.enabled,installed:true,status:"installed"};
+   const enabled=req.body.enabled;
+   await recordPlatformAudit({actorId:actor.id,action:enabled?"plugin.enabled":"plugin.disabled",tenantId:company.id,resourceType:"plugin",resourceId:plugin.id,metadata:{enabled,platformVersion:String(globalInstallation.version??plugin.version)}});
+   return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled,installed:true,status:"installed"};
   });
   ctx.logger.info("Platform admin plugin initialized",{membershipRole:"super_admin"});
  }
