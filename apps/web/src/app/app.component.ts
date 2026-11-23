@@ -84,7 +84,18 @@ export class AppComponent implements OnInit {
   companyError = '';
   companyBusy = false;
   activePlugins: string[] = [];
-  setActivePlugins(pluginIds: string[]): void { this.activePlugins = pluginIds; this.i18n.setInstalledModules(pluginIds); }
+  setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.i18n.setInstalledModules(this.activePlugins); }
+  isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
+  private async refreshTenantPlugins(): Promise<void> {
+    if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
+    try {
+      const response = await fetch(this.api + '/marketplace/plugins', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not load enabled company plugins');
+      const enabledIds = (Array.isArray(result.plugins) ? result.plugins : []).filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true).map((plugin: any) => String(plugin.id || '')).filter(Boolean);
+      this.setActivePlugins(enabledIds);
+    } catch { this.setActivePlugins([]); }
+  }
   t(key: string): string { return this.i18n.t(key); }
   get mode(): 'login'|'register'|'forgot' { return this.path === '/register' ? 'register' : this.path === '/forgot' ? 'forgot' : 'login'; }
   get dashboard(): boolean { return this.path === '/dashboard' || this.path.startsWith('/dashboard/'); }
@@ -323,6 +334,7 @@ export class AppComponent implements OnInit {
       this.activeCompanyId = active.id;
       this.activeCompanyName = active.name;
       this.activeCompanyRole = active.role;
+      await this.refreshTenantPlugins();
       // Resolve language using the personal preference or the active team's default.
       await this.i18n.loadPreferences(this.auth.accessToken);
       // Resolve deep-linked settings routes only after the active tenant role is known.
@@ -403,7 +415,7 @@ export class AppComponent implements OnInit {
     }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
     const nextSection = entry?.[0] || 'dashboard';
-    this.activeSection = nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)
+    this.activeSection = (nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)) || (nextSection === 'documents' && !this.isPluginEnabled('documents'))
       ? 'dashboard'
       : nextSection;
     this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : '');
@@ -474,7 +486,7 @@ export class AppComponent implements OnInit {
     // Privileged areas are restricted within Settings and by section access checks.
     const items = [
       {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
-      {id:'documents',label:'Documents',labelKey:'nav.documents',icon:'documentation',group:'WORKSPACE'},
+      ...(this.isPluginEnabled('documents') ? [{id:'documents',label:'Documents',labelKey:'nav.documents',icon:'documentation',group:'WORKSPACE'}] : []),
       {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
       {id:'activity',label:this.i18n.t('nav.activity'),labelKey:'nav.activity',icon:'activity',group:'WORKSPACE'},
       {id:'mail',label:this.i18n.t('nav.mail'),labelKey:'nav.mail',icon:'mail',group:'WORKSPACE'},
@@ -488,6 +500,7 @@ export class AppComponent implements OnInit {
     const targetId = id === 'settings' ? (this.settingsNavigationItems.some(item => item.id === 'settings-general') ? 'settings-general' : this.settingsNavigationItems[0]?.id) : id === 'organization' ? 'organization-company' : id;
     if (!targetId) return;
     if (targetId.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === targetId)) return;
+    if (targetId === 'documents' && !this.isPluginEnabled('documents')) { this.navigateSection('dashboard'); return; }
     const route = this.sectionRoutes[targetId];
     if (!route) return;
     if (window.location.pathname !== route) window.history.pushState({}, '', route);
