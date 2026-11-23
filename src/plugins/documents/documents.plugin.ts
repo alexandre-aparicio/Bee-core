@@ -71,7 +71,7 @@ export const documentsPlugin:BeePlugin={
    const canMove=await canAccess(tenant,"document",item.id,"write",parents);
    return {
     id:ref(item.id,"document",tenant),title:item.title,description:item.description,tags:item.tags,
-    folderId:item.folderId?ref(item.folderId,"folder",tenant):null,canMove,visibility:item.visibility,publishedAt:
+    folderId:item.folderId?ref(item.folderId,"folder",tenant):null,canMove,visibility:item.visibility,publishedAt:item.publishedAt,
     publicUrl:item.visibility==="public"&&item.publicId?"/api/public/documents/"+item.publicId:null,
     downloadUrl:"/api/documents/"+ref(item.id,"document",tenant)+"/download",
     originalName:file?.originalName??item.title,fileContentType:file?.contentType??"application/octet-stream",
