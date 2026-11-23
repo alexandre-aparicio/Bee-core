@@ -29,7 +29,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 
   <nav class="documents__toolbar bee-page__toolbar" aria-label="Document location and actions">
     <div class="documents__breadcrumbs" aria-label="Folder path">
-      <button type="button" class="documents__breadcrumb-root" cdkDropList [cdkDropListSortingDisabled]="true" id="documents-root-drop" [cdkDropListConnectedTo]="dropListIds" [cdkDropListData]="null" (cdkDropListDropped)="dropToRoot($event)" [class.is-current]="!currentFolderId" (click)="openFolder(null)" [attr.aria-current]="!currentFolderId ? 'page' : null">All documents</button>
+      <button type="button" class="documents__breadcrumb-root" cdkDropList [cdkDropListSortingDisabled]="true" id="documents-root-drop" [cdkDropListConnectedTo]="rootDropListIds" [cdkDropListData]="null" (cdkDropListDropped)="dropToRoot($event)" [class.is-current]="!currentFolderId" (click)="openFolder(null)" [attr.aria-current]="!currentFolderId ? 'page' : null">All documents</button>
       <ng-container *ngFor="let folder of breadcrumbs;let i=index">
         <span class="documents__breadcrumb-separator" aria-hidden="true">/</span>
         <button type="button" class="documents__breadcrumb" [class.is-current]="i===breadcrumbs.length-1" (click)="openFolder(folder.id)" [attr.aria-current]="i===breadcrumbs.length-1 ? 'page' : null">{{folder.name}}</button>
@@ -71,7 +71,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
       <span>Loading documents…</span>
     </div>
 
-    <div class="documents__grid" *ngIf="!loading && viewMode==='cards' && (visibleFolders.length || documents.length)">
+    <div class="documents__grid" *ngIf="!loading && viewMode==='cards' && (visibleFolders.length || documents.length)" cdkDropList id="documents-cards-source" [cdkDropListSortingDisabled]="true" [cdkDropListConnectedTo]="sourceDropListIds('documents-cards-source')" (cdkDropListDropped)="dropOnSource($event)">
       <article class="documents__item documents__item--folder" *ngFor="let folder of visibleFolders" cdkDropList [cdkDropListSortingDisabled]="true" [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="folderDropListIds(folder.id)" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
         <button class="documents__folder-open" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)" [attr.aria-label]="'Open folder ' + folder.name">
           <span class="documents__item-copy">
@@ -117,7 +117,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
     <div class="documents__table-wrap" *ngIf="!loading && viewMode==='table' && (visibleFolders.length || documents.length)">
       <table class="documents__table">
         <thead><tr><th scope="col">Title / original file</th><th scope="col">Type</th><th scope="col">Uploaded by</th><th scope="col">Uploaded</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
-        <tbody>
+        <tbody cdkDropList id="documents-table-source" [cdkDropListSortingDisabled]="true" [cdkDropListConnectedTo]="sourceDropListIds('documents-table-source')" (cdkDropListDropped)="dropOnSource($event)">
           <tr *ngFor="let folder of visibleFolders" cdkDropList [cdkDropListSortingDisabled]="true" [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="folderDropListIds(folder.id)" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
             <td colspan="5"><button class="documents__table-name" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)">{{folder.name}} <span class="documents__folder-count documents__folder-count--table">{{folder.documentCount || 0}}</span></button></td>
             <td>
@@ -301,8 +301,15 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 .documents__folder-count{display:inline-flex;flex:0 0 27px;width:27px;height:27px;align-items:center;justify-content:center;margin-left:auto;border:1px solid color-mix(in srgb,var(--purple) 42%,var(--border));border-radius:50%;background:color-mix(in srgb,var(--purple) 11%,transparent);color:var(--purple);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
 .documents__folder-count--table{width:23px;height:23px;min-width:23px;margin-left:8px;vertical-align:middle}
 .documents__item--folder.cdk-drop-list-receiving,.documents__table tr.cdk-drop-list-receiving,.documents__breadcrumb-root.cdk-drop-list-receiving{outline:2px solid var(--purple);outline-offset:2px;background:color-mix(in srgb,var(--purple) 9%,var(--panel))}
-.cdk-drag-preview{opacity:.9;box-shadow:0 14px 36px rgba(0,0,0,.2)}
-.cdk-drag-placeholder{opacity:.35}
+.cdk-drag-preview{z-index:1000!important;display:flex;box-sizing:border-box;min-width:220px;max-width:min(360px,80vw);padding:16px;border:1px solid color-mix(in srgb,var(--purple) 58%,var(--border));border-radius:14px;background:var(--panel);color:inherit;opacity:1;box-shadow:0 22px 55px rgba(0,0,0,.34);transform:scale(1.025);pointer-events:none}
+.cdk-drag-placeholder{opacity:0!important;transition:opacity .18s ease,transform .24s cubic-bezier(.2,.8,.2,1)}
+.documents__grid.cdk-drop-list-dragging>.cdk-drag-placeholder{min-height:0;height:0;margin:0;padding-block:0;border-width:0;overflow:hidden}
+.documents__grid.cdk-drop-list-dragging>.documents__item:not(.cdk-drag-placeholder){transition:transform .26s cubic-bezier(.2,.8,.2,1),border-color .2s ease,background-color .2s ease}
+.documents__item--folder.cdk-drop-list-receiving{position:relative;z-index:1;transform:scale(1.025);box-shadow:0 0 0 4px color-mix(in srgb,var(--purple) 12%,transparent),0 14px 34px color-mix(in srgb,var(--purple) 18%,transparent);transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease,background-color .2s ease}
+.documents__table tbody tr.cdk-drag-placeholder{height:0;opacity:0!important}
+.documents__table tbody tr.cdk-drop-list-receiving{background:color-mix(in srgb,var(--purple) 12%,var(--panel))}
+.cdk-drag-animating{transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+@media(prefers-reduced-motion:reduce){.cdk-drag-preview,.cdk-drag-placeholder,.documents__grid.cdk-drop-list-dragging>.documents__item,.documents__item--folder.cdk-drop-list-receiving{transition:none!important;animation:none!important;transform:none!important}}
 .documents__item-main[cdkDragHandle],.documents__table td[cdkDragHandle]{cursor:grab}
 .documents__item-main[cdkDragHandle]:active,.documents__table td[cdkDragHandle]:active{cursor:grabbing}
 .documents__folder-open{display:flex;align-items:flex-start;gap:0;width:100%;min-width:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
@@ -450,8 +457,11 @@ export class BeeDocumentsComponent implements OnChanges {
  }
 
  get visibleFolders():Folder[]{return this.folders.filter(f=>f.parentId===this.currentFolderId);}
- get dropListIds():string[]{return ["documents-root-drop",...this.visibleFolders.map(folder=>this.folderDropId(folder.id))];}
+ get dropListIds():string[]{const sourceId=this.viewMode==="cards"?"documents-cards-source":"documents-table-source";return ["documents-root-drop",sourceId,...this.visibleFolders.map(folder=>this.folderDropId(folder.id))];}
+ get rootDropListIds():string[]{return this.dropListIds.filter(id=>id!=="documents-root-drop");}
+ sourceDropListIds(sourceId:string):string[]{return this.dropListIds.filter(id=>id!==sourceId);}
  folderDropListIds(id:string):string[]{return this.dropListIds.filter(dropId=>dropId!==this.folderDropId(id));}
+ dropOnSource(_event:CdkDragDrop<any,any,any>):void{/* Dropping on another document or empty grid space intentionally does nothing. */}
  folderDropId(id:string):string{return "documents-folder-drop-"+id;}
  dropToRoot(event:CdkDragDrop<any,any,any>):void{this.applyDrop(event,null);}
  dropOnFolder(event:CdkDragDrop<any,any,any>,folder:Folder):void{this.applyDrop(event,folder.id);}
