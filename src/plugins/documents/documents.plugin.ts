@@ -122,6 +122,8 @@ export const documentsPlugin:BeePlugin={
    const parents=await ancestors(tenant.tenantId,item.folderId);
    if(!await canAccess(tenant,"document",id,"read",parents))return reply.code(404).send({error:"Document not found"});
    const file=await storage.getMetadata(tenant.tenantId,item.fileId);if(!file)return reply.code(404).send({error:"Document content not found"});
+   const fileDecision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"files",resourceType:"file",resourceId:item.fileId,permission:"read"});
+   if(fileDecision===false)return reply.code(404).send({error:"Document content not found"});
    let data:Buffer;try{data=await storage.read(tenant.tenantId,file);}catch{return reply.code(404).send({error:"Document content not found"});}
    reply.header("content-type",file.contentType);reply.header("content-length",String(data.length));
    reply.header("content-disposition","attachment; filename=\""+file.originalName.replace(/["\\\\\\r\\n]/g,"_")+"\"");
