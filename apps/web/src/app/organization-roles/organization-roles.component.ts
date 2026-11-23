@@ -9,25 +9,62 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  selector:"bee-organization-roles",standalone:true,imports:[CommonModule,FormsModule],
  template:`
  <section class="org-roles">
-  <div class="org-roles__header"><div><h2>Roles &amp; Permissions</h2><p>Review built-in roles and create custom grant roles or deny-only restrictions for this organization.</p></div><button type="button" (click)="load()" [disabled]="loading">Refresh</button></div>
+  <header class="org-roles__header"><div><span class="org-roles__eyebrow">ORGANIZATION ACCESS</span><h2>Roles &amp; Permissions</h2><p>Review system roles, explore the permissions available to this organization and manage custom access profiles.</p></div><button type="button" (click)="load()" [disabled]="loading||busy">Refresh</button></header>
   <p class="org-roles__error" *ngIf="error" role="alert">{{error}}</p><p class="org-roles__success" *ngIf="message" role="status">{{message}}</p>
   <p class="org-roles__notice" *ngIf="!canManage">You can view roles. Only the organization owner or Super Admin can create, edit or delete custom roles.</p>
-  <div class="org-roles__layout">
-   <aside class="org-roles__list"><h3>Built-in roles</h3><article class="org-roles__system-role" *ngFor="let item of systemRoles"><strong>{{item.label}}</strong><small>{{item.description}}</small><code>{{item.permissions.length}} default permissions · {{item.protected?"System protected":"Standard role"}}</code><div class="org-roles__system-permissions"><code *ngFor="let permission of item.permissions">{{permission}}</code></div></article><h3 class="org-roles__custom-heading">Custom roles &amp; restrictions</h3><p *ngIf="loading">Loading roles…</p><p *ngIf="!loading&&!roles.length">No custom roles yet.</p>
-    <button class="org-roles__role" *ngFor="let item of roles;trackBy:trackRole" type="button" [class.active]="editingId===item.id" (click)="edit(item)"><strong>{{item.name}}</strong><small>{{item.mode==="restriction"?"Denies ":"Grants "}}{{item.permissions.length}} permissions</small></button>
-    <button *ngIf="canManage" class="org-roles__new" type="button" (click)="reset()">+ Create role / restriction</button>
-   </aside>
-   <div class="org-roles__editor"><h3>{{editingId?'Edit role':'New custom role or restriction'}}</h3>
-    <form (submit)="save($event)">
-     <label>Role name<input name="roleName" [(ngModel)]="name" maxlength="48" required [disabled]="!canManage"></label>
-     <label>Description<input name="roleDescription" [(ngModel)]="description" maxlength="240" [disabled]="!canManage"></label><label>Role behavior<select name="roleMode" [(ngModel)]="mode" (ngModelChange)="updateMode($event)" [disabled]="!canManage"><option value="grant">Custom role with explicit grants</option><option value="restriction">Deny permissions from the primary role</option></select></label><p class="org-roles__mode-hint">{{mode==="restriction"?"Selected permissions are explicit denials. Denials always override permissions granted by the primary role.":"Selected permissions are grants. They remain limited by the global delegation policy."}}</p>
-     <div class="org-roles__groups"><section *ngFor="let group of groups"><h4>{{group}}</h4>
-      <label class="org-roles__permission" *ngFor="let item of inGroup(group)"><input type="checkbox" [checked]="item.selected" (change)="item.selected=$any($event.target).checked" [disabled]="!canManage||!item.assignable"><span><strong>{{item.label}}</strong><small>{{item.action}} · {{item.description}}</small><code>{{item.key}}</code></span><em *ngIf="!item.assignable">System protected</em><em *ngIf="item.assignable&&item.sensitive">Sensitive</em></label>
-     </section></div>
-     <div class="org-roles__actions" *ngIf="canManage"><button type="submit" [disabled]="busy||!name.trim()">{{busy?'Saving…':editingId?'Save changes':'Create role'}}</button><button type="button" *ngIf="editingId" (click)="remove()" [disabled]="busy">Delete role</button><button type="button" (click)="reset()" [disabled]="busy">Cancel</button></div>
-    </form>
+  <nav class="org-roles__tabs" aria-label="Roles and permissions sections">
+   <button type="button" [class.is-active]="activeTab==='system'" [attr.aria-selected]="activeTab==='system'" (click)="activeTab='system'"><span>01</span>System Roles <small>{{systemRoles.length}}</small></button>
+   <button type="button" [class.is-active]="activeTab==='permissions'" [attr.aria-selected]="activeTab==='permissions'" (click)="activeTab='permissions'"><span>02</span>Available Permissions <small>{{permissions.length}}</small></button>
+   <button type="button" [class.is-active]="activeTab==='custom'" [attr.aria-selected]="activeTab==='custom'" (click)="activeTab='custom'"><span>03</span>Custom Roles <small>{{roles.length}}</small></button>
+  </nav>
+  <section class="org-roles__tab-panel" *ngIf="activeTab==='system'">
+   <div class="org-roles__section-heading"><div><h3>System roles</h3><p>Built-in roles maintained by Core. Their baseline permissions and protected boundaries cannot be replaced by custom roles.</p></div><span class="org-roles__section-tag">Core managed</span></div>
+   <div class="org-roles__system-grid">
+    <article class="org-roles__system-card" *ngFor="let item of systemRoles">
+     <div class="org-roles__card-top"><div><strong>{{item.label}}</strong><small>{{item.protected?'Protected system role':'Standard system role'}}</small></div><span class="org-roles__permission-count">{{item.permissions.length}} permissions</span></div>
+     <p>{{item.description}}</p>
+     <div class="org-roles__chips"><code *ngFor="let permission of item.permissions">{{permission}}</code></div>
+    </article>
    </div>
-  </div>
+  </section>
+  <section class="org-roles__tab-panel" *ngIf="activeTab==='permissions'">
+   <div class="org-roles__section-heading"><div><h3>Available permissions</h3><p>Core capabilities that can be reviewed and, subject to platform policy, assigned to custom grant roles. Restriction roles can deny permissions without granting new access.</p></div><span class="org-roles__section-tag">{{permissions.length}} registered</span></div>
+   <div *ngIf="loading" class="org-roles__empty">Loading permission catalogue…</div>
+   <div class="org-roles__permission-groups">
+    <section class="org-roles__permission-group" *ngFor="let group of groups"><h4>{{group}}</h4>
+     <article class="org-roles__permission-card" *ngFor="let item of inGroup(group)">
+      <div class="org-roles__permission-copy"><strong>{{item.label}}</strong><small>{{item.action}} · {{item.description}}</small><code>{{item.key}}</code></div>
+      <span class="org-roles__permission-state" [class.is-protected]="!item.assignable">{{item.assignable?'Available for role configuration':'System protected'}}</span>
+     </article>
+    </section>
+   </div>
+   <p class="org-roles__footnote">The global delegation policy controls which capabilities may be granted to tenant custom roles. Protected capabilities remain unavailable for grants. Backend authorization remains authoritative.</p>
+  </section>
+  <section class="org-roles__tab-panel" *ngIf="activeTab==='custom'">
+   <div class="org-roles__section-heading"><div><h3>Custom roles</h3><p>Create reusable permission profiles or additional restrictions. Denials always take priority over permissions granted by the primary role.</p></div><button *ngIf="canManage" type="button" class="org-roles__primary" (click)="reset()">+ Create custom role</button></div>
+   <div class="org-roles__custom-layout">
+    <aside class="org-roles__custom-list">
+     <div class="org-roles__list-heading"><strong>Saved roles</strong><span>{{roles.length}}</span></div>
+     <p *ngIf="loading">Loading roles…</p><p *ngIf="!loading&&!roles.length" class="org-roles__empty">No custom roles yet. Create one to define reusable access.</p>
+     <button class="org-roles__role-card" *ngFor="let item of roles;trackBy:trackRole" type="button" [class.active]="editingId===item.id" (click)="edit(item)"><span><strong>{{item.name}}</strong><small>{{item.description||'No description'}}</small></span><em [class.is-restriction]="item.mode==='restriction'">{{item.mode==='restriction'?'Restriction':'Grant'}}</em><small class="org-roles__role-meta">{{item.permissions.length}} {{item.mode==='restriction'?'denials':'permissions'}}</small></button>
+    </aside>
+    <div class="org-roles__editor">
+     <div class="org-roles__editor-heading"><div><h3>{{editingId?'Edit custom role':'Create custom role'}}</h3><p>Define the role identity and choose its permission behavior.</p></div><span class="org-roles__section-tag">{{mode==='restriction'?'Deny overlay':'Permission grants'}}</span></div>
+     <form (submit)="save($event)">
+      <div class="org-roles__form-grid">
+       <label>Role name<input name="roleName" [(ngModel)]="name" maxlength="48" required [disabled]="!canManage"></label>
+       <label>Description<input name="roleDescription" [(ngModel)]="description" maxlength="240" [disabled]="!canManage"></label>
+      </div>
+      <label class="org-roles__mode-label">Role behavior<select name="roleMode" [(ngModel)]="mode" (ngModelChange)="updateMode($event)" [disabled]="!canManage"><option value="grant">Grant role — explicitly allows selected permissions</option><option value="restriction">Restriction role — explicitly denies selected permissions</option></select></label>
+      <p class="org-roles__mode-hint">{{mode==='restriction'?'Selected permissions are explicit denials. Denials always override permissions granted by the primary role.':'Selected permissions are grants. They remain limited by the global delegation policy.'}}</p>
+      <div class="org-roles__groups"><section *ngFor="let group of groups"><h4>{{group}}</h4>
+       <label class="org-roles__permission" *ngFor="let item of inGroup(group)"><input type="checkbox" [checked]="item.selected" (change)="item.selected=$any($event.target).checked" [disabled]="!canManage||!item.assignable"><span><strong>{{item.label}}</strong><small>{{item.action}} · {{item.description}}</small><code>{{item.key}}</code></span><em *ngIf="!item.assignable">System protected</em><em *ngIf="item.assignable&&item.sensitive">Sensitive</em></label>
+      </section></div>
+      <div class="org-roles__actions" *ngIf="canManage"><button class="org-roles__primary" type="submit" [disabled]="busy||!name.trim()">{{busy?'Saving…':editingId?'Save changes':'Create role'}}</button><button type="button" *ngIf="editingId" (click)="remove()" [disabled]="busy">Delete role</button><button type="button" (click)="reset()" [disabled]="busy">Clear form</button></div>
+     </form>
+    </div>
+   </div>
+  </section>
  </section>`,
  styles:[`
  .org-roles{margin-top:18px;color:var(--text-primary,#172033)}.org-roles__header,.org-roles__layout,.org-roles__actions{display:flex;gap:18px}.org-roles__header{align-items:center;justify-content:space-between;margin-bottom:16px}.org-roles h2,.org-roles h3,.org-roles h4{margin:0 0 7px}.org-roles p{color:var(--text-muted,#778197);margin:0 0 12px}.org-roles button{border:1px solid var(--border-color,#dce1ea);border-radius:9px;padding:9px 13px;background:var(--surface,#fff);color:inherit;cursor:pointer}.org-roles button:disabled{opacity:.55;cursor:not-allowed}.org-roles__list{width:250px;flex:0 0 250px;border:1px solid var(--border-color,#dce1ea);border-radius:12px;padding:14px}.org-roles__role{display:flex;width:100%;justify-content:space-between;align-items:center;text-align:left;margin:8px 0}.org-roles__role small,.org-roles__permission small,.org-roles__permission code{display:block;color:var(--text-muted,#778197);font-size:11px}.org-roles__role.active{border-color:var(--accent,#625cf5);background:var(--surface-raised,#f6f7ff)}.org-roles__new{width:100%;margin-top:8px}.org-roles__system-role{display:grid;gap:4px;padding:10px 0;border-top:1px solid var(--border-subtle,#edf0f5)}.org-roles__system-role small,.org-roles__system-role code{font-size:11px;color:var(--text-muted,#778197)}.org-roles__system-permissions{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.org-roles__system-permissions code{font-size:9px;padding:3px 5px;border-radius:5px;background:var(--surface-raised,#f6f7fa)}.org-roles__custom-heading{margin-top:20px!important}.org-roles__mode-hint{font-size:12px!important;margin:6px 0 14px!important}.org-roles__editor{flex:1;min-width:0;border:1px solid var(--border-color,#dce1ea);border-radius:12px;padding:18px}.org-roles__editor form>label{display:block;margin:12px 0;font-size:13px;font-weight:600}.org-roles__editor input:not([type=checkbox]){display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:10px;border:1px solid var(--border-color,#dce1ea);border-radius:8px;background:var(--surface,#fff);color:inherit}.org-roles__groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}.org-roles__groups section{border:1px solid var(--border-color,#dce1ea);border-radius:10px;padding:12px}.org-roles__permission{display:flex;align-items:flex-start;gap:9px;padding:10px 0;border-top:1px solid var(--border-subtle,#edf0f5);font-size:13px}.org-roles__permission input{margin-top:3px}.org-roles__permission span{flex:1}.org-roles__permission em{font-size:10px;color:#a65b18;font-style:normal}.org-roles__actions{flex-wrap:wrap}.org-roles__actions button:first-child{background:var(--accent,#625cf5);color:white;border-color:var(--accent,#625cf5)}.org-roles__error{color:#b42318!important}.org-roles__success{color:#16794b!important}.org-roles__notice{padding:12px;border-radius:9px;background:var(--surface-raised,#f6f7fa);margin-bottom:14px}@media(max-width:760px){.org-roles__layout{flex-direction:column}.org-roles__list{width:auto;flex:auto}.org-roles__groups{grid-template-columns:1fr}}
