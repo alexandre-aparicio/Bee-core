@@ -7,6 +7,7 @@ import { TenantCollection } from "../../core/tenant-collection.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { getTenantStorageLimitBytes, hasPluginEntitlement, isPluginInstalled, seedPluginCommerce } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
+import { evaluateResourceAccess } from "../../core/resource-access.js";
 
 type FileRecord = Document & {
   id: string;
@@ -194,7 +195,8 @@ export const filesPlugin: BeePlugin = {
       if (!tenant) return;
       if (!hasTenantPermission(tenant, "files.read")) return reply.code(403).send({ error: "File read permission required" });
       const records = await scopedFiles(tenant.tenantId).find({}).sort({ createdAt: -1 }).limit(200).toArray();
-      return { files: records.map(record => publicRecord(record, tenant)) };
+      const visible = await Promise.all(records.map(async record => ({ record, decision: await evaluateResourceAccess(db, { tenantId: tenant.tenantId, userId: tenant.userId, pluginId: "files", resourceType: "file", resourceId: record.id, permission: "read" }) })));
+      return { files: visible.filter(item => item.decision !== false).map(item => publicRecord(item.record, tenant)) };
     });
 
     ctx.server.get<{ Params: { fileId: string } }>("/files/:fileId", async (request: any, reply: any) => {
@@ -206,6 +208,8 @@ export const filesPlugin: BeePlugin = {
       if (!/^[0-9a-f-]{36}$/i.test(fileId)) return reply.code(404).send({ error: "File not found" });
       const record = await scopedFiles(tenant.tenantId).findOne({ id: fileId });
       if (!record) return reply.code(404).send({ error: "File not found" });
+      const resourceDecision = await evaluateResourceAccess(db, { tenantId: tenant.tenantId, userId: tenant.userId, pluginId: "files", resourceType: "file", resourceId: record.id, permission: "read" });
+      if (resourceDecision === false) return reply.code(404).send({ error: "File not found" });
       let data: Buffer;
       try { data = await readFile(storagePath(tenant.tenantId, record.id)); }
       catch { return reply.code(404).send({ error: "File content not found" }); }
@@ -228,6 +232,8 @@ export const filesPlugin: BeePlugin = {
       const collection = scopedFiles(tenant.tenantId);
       const record = await collection.findOne({ id: fileId });
       if (!record) return reply.code(404).send({ error: "File not found" });
+      const resourceDecision = await evaluateResourceAccess(db, { tenantId: tenant.tenantId, userId: tenant.userId, pluginId: "files", resourceType: "file", resourceId: record.id, permission: "delete" });
+      if (resourceDecision === false) return reply.code(404).send({ error: "File not found" });
       await unlink(storagePath(tenant.tenantId, record.id)).catch((error: NodeJS.ErrnoException) => {
         if (error.code !== "ENOENT") throw error;
       });
