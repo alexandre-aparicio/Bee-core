@@ -590,3 +590,18 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - The grid reduces to two columns on medium screens and one column on narrow mobile screens to preserve readability.
 - No permission catalogue, authorization, persistence or API behavior was changed.
 - Validation: no Angular build, tests, browser checks or VPS runtime checks have been executed. Verify the layout in Glass, Midnight and Paper after rebuilding on the VPS.
+
+
+## Organization role presets and deny-only restrictions (2026-11-23)
+
+- Made built-in organization role permissions explicit in source-controlled Core defaults: `super_admin`, `owner`, `admin`, `manager`, `member` and `guest`. The Guest default remains only `plugins.read`; Owner and Super Admin remain protected identities.
+- The Organization → Roles & Permissions API now returns the built-in role definitions for the active organization, including the Super Organization's protected `super_admin` role. These defaults do not depend on MongoDB seed rows, so a clean database receives the same role definitions on first startup.
+- Added custom role modes: `grant` for existing custom permission bundles and `restriction` for deny-only overlays. Restriction roles may deny any registered Core permission, including otherwise protected capabilities; they cannot grant permissions.
+- Memberships can retain a built-in primary role and carry multiple additional restriction-role IDs. Effective permissions are the primary role's grants minus the union of all assigned restrictions. Explicit denials win; unassigned permissions remain denied by default.
+- Owner and `super_admin` memberships cannot receive restriction roles. Restriction roles cannot be assigned as primary custom roles. Role deletion and mode changes are blocked while memberships still reference the role.
+- Organization → Users can assign and remove additional restriction roles for eligible members. Role changes revoke that member's active sessions so the next session resolves the new effective permissions.
+- The active-company permission endpoint and organization authorization guards now use the same fully resolved permission set, preventing UI/API discrepancies.
+- Global platform revocation only prunes grant-role permissions; it does not erase deny rules.
+- Added unit and MongoDB integration regression coverage for deny precedence, protected capability denials, built-in role defaults and effective membership permissions.
+- Bootstrap behavior remains code-driven: the Super Organization and bootstrap Super Admin membership are initialized by the existing idempotent startup flow; built-in role definitions and global delegation defaults are source-controlled fallbacks rather than manually created database records.
+- Validation: no tests, TypeScript build, Angular build, Docker build, CI or VPS runtime validation have been executed for this change. Validate on the VPS, including a clean-database bootstrap and a Super Organization Admin assigned a restriction role.
