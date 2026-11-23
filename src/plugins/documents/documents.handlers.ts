@@ -74,7 +74,7 @@ export function createDocumentsHandlers(deps:any) {
    ]);
    const usersById=new Map(userRows.map((user:any)=>[user.id,user]));
    const folderOwnerById=new Map(rows.map((folder:any)=>[folder.id,folder.createdBy]));
-   const sharedPolicies=folderPolicies.filter((policy:any)=>(policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read"))||(policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read")));
+   const sharedPolicies=folderPolicies.filter((policy:any)=>((policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read")))||((policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read"))));
    const sharedFolderIds=new Set(sharedPolicies.map((policy:any)=>policy.resourceId));
    for(const item of documentRows as any[]){
     const parents=await ancestors(tenant.tenantId,item.folderId);
@@ -125,7 +125,7 @@ export function createDocumentsHandlers(deps:any) {
    const updated=await docs(tenant.tenantId).findOne({id});
    return {success:true,document:updated?await present(updated,tenant):null};
   },
-  folderLocation: async(req,reply)=>{
+  folderLocation: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let id:string;try{id=unref(req.params.folderId,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
@@ -164,7 +164,7 @@ export function createDocumentsHandlers(deps:any) {
    for(const item of rows){const parents=await ancestors(tenant.tenantId,item.folderId);if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(await present(item,tenant));}
    return {documents:visible};
   },
-  documentsPost: async(req,reply)=>{
+  documentsPost: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let fileId:string;try{fileId=unmaskResourceId(String(req.body?.fileId??""),"file",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);}catch{return reply.code(400).send({error:"A valid uploaded Files reference is required"});}
@@ -179,7 +179,7 @@ export function createDocumentsHandlers(deps:any) {
    const item:BeeDocument={id:randomUUID(),tenantId:tenant.tenantId,fileId,folderId,title,description:clean(req.body?.description,2000),tags,visibility:"private",publicId:null,publishedAt:null,createdBy:tenant.userId,createdAt:now,updatedAt:now};
    await docs(tenant.tenantId).insertOne(item);return reply.code(201).send({document:await present(item,tenant)});
   },
-  publication: async(req,reply)=>{
+  publication: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
@@ -190,7 +190,7 @@ export function createDocumentsHandlers(deps:any) {
    await docs(tenant.tenantId).updateOne({id},{$set:{visibility:published?"public":"private",publicId,publishedAt:published?(item.publishedAt??now):null,updatedAt:now}});
    const updated=await docs(tenant.tenantId).findOne({id});return {document:updated?await present(updated,tenant):null};
   },
-  download: async(req,reply)=>{
+  download: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
    const item=await docs(tenant.tenantId).findOne({id});if(!item)return reply.code(404).send({error:"Document not found"});
@@ -204,7 +204,7 @@ export function createDocumentsHandlers(deps:any) {
    reply.header("content-disposition","attachment; filename=\""+file.originalName.replace(/["\\\\\\r\\n]/g,"_")+"\"");
    reply.header("cache-control","private, no-store");reply.header("x-content-type-options","nosniff");return reply.send(data);
   },
-  publicDownload: async(req,reply)=>{
+  publicDownload: async(req:any,reply:any)=>{
    const publicId=validPublicId(req.params.publicId);if(!publicId)return reply.code(404).send({error:"Document not found"});
    const item=await repository.documentCollection.findOne({publicId,visibility:"public",publishedAt:{$ne:null}});if(!item)return reply.code(404).send({error:"Document not found"});
    const file=await storage.getMetadata(item.tenantId,item.fileId);if(!file)return reply.code(404).send({error:"Document content not found"});
