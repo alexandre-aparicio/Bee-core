@@ -9,10 +9,10 @@ import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../.
 import { maskResourceId, maskTenantId, unmaskResourceId, unmaskTenantId } from "../../core/session-id.js";
 
 type Company = { id:string; name:string; slug?:string; domains?:string[]; settings?:{defaultLanguage?:"en"|"es"}; createdAt:Date; status?:"active"|"suspended" };
-type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
+type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantRef?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string; slug?:string };
-type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
+type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"|"guest"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
 
 export const organizationsPlugin:BeePlugin={
  manifest:{name:"organizations",version:"0.1.0",description:"Company records, user memberships and active-company session context",dependencies:["auth"]},
@@ -178,7 +178,7 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
-   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["admin","manager","member","guest"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
    if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can invite administrators"});
    const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
    if(existingMembership)return reply.code(409).send({error:"User is already a company member"});
