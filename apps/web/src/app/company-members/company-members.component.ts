@@ -40,7 +40,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
                 <span *ngIf="!canManage || member.role === 'owner' || member.role === 'super_admin'">{{member.role === 'super_admin' ? 'Super Admin' : (member.role === 'custom' ? customRoleName(member.customRoleId) : member.role)}}</span>
               </td>
               <td><span class="bee-company-members__status" [class.is-suspended]="member.status !== 'active'">{{member.status}}</span></td>
-              <td *ngIf="canManage"><button *ngIf="member.role !== 'owner' && member.status === 'active' && (role === 'owner' || member.role !== 'admin')" class="bee-company-members__danger" type="button" (click)="suspend(member)" [disabled]="busyId === member.userId">Suspend</button></td>
+              <td *ngIf="canManage"><button *ngIf="member.role !== 'owner' && member.role !== 'super_admin' && member.status === 'active' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')" class="bee-company-members__danger" type="button" (click)="suspend(member)" [disabled]="busyId === member.userId">Suspend</button></td>
             </tr>
           </tbody>
         </table>
@@ -66,7 +66,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
         <h3>Invite a colleague</h3>
         <form (submit)="invite($event)">
           <input type="email" name="inviteEmail" [(ngModel)]="inviteEmail" placeholder="colleague@company.com" required>
-          <select name="inviteRole" [(ngModel)]="inviteRole"><option value="member">Member</option><option value="manager">Manager</option><option *ngIf="role === 'owner'" value="admin">Admin</option></select>
+          <select name="inviteRole" [(ngModel)]="inviteRole"><option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option><option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">Admin</option></select>
           <button type="submit" [disabled]="busyId === 'invite' || !inviteEmail.trim()">{{busyId === 'invite' ? 'Creating…' : 'Create invitation'}}</button>
         </form>
         <div *ngIf="acceptanceToken" class="bee-company-members__token">
