@@ -12,7 +12,7 @@ import { organizationsPlugin } from "../src/plugins/organizations/organizations.
 import { filesPlugin } from "../src/plugins/files/files.plugin.js";
 import { requireAuth, requireRoles, requireTenantPermissions, type AuthenticatedRequest } from "../src/plugins/auth/auth.guard.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
-import { unmaskResourceId, type SessionResourceType } from "../src/core/session-id.js";
+import { maskResourceId, unmaskResourceId, type SessionResourceType } from "../src/core/session-id.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
 const uri = process.env.MONGODB_TEST_URI;
@@ -36,6 +36,12 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const session=await db.collection("refresh_sessions").findOne({id:claims.sid});
     assert.ok(session,"reference must belong to a persisted session");
     return unmaskResourceId(reference,type,{sessionId:session.id,expiresAt:session.expiresAt},String(ctx.config.jwtSecret));
+  };
+  const maskReference = async (token:string, internalId:string, type:SessionResourceType):Promise<string> => {
+    const claims=JSON.parse(Buffer.from(token.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const session=await db.collection("refresh_sessions").findOne({id:claims.sid});
+    assert.ok(session,"reference must belong to a persisted session");
+    return maskResourceId(internalId,type,{sessionId:session.id,expiresAt:session.expiresAt},String(ctx.config.jwtSecret));
   };
   try {
     await authPlugin.initialize?.(ctx);
@@ -276,10 +282,18 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const activateCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(activateCompany.statusCode,200);
     const secondCompanyInternalId=await resolveReference(tokens.accessToken,secondCompanyId,"tenant");
-    const inactiveCompanyAccess=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(secondCompanyId)+"/memberships",headers:{authorization:"Bearer "+tokens.accessToken}});
-    assert.equal(inactiveCompanyAccess.statusCode,403,"a valid reference for another membership must not bypass the active-company boundary");
-    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:"tenant-alpha",actorId:"test-user",action:"permission.denied",outcome:"denied",resourceType:"company","metadata.permission":"members.read","metadata.reason":"inactive_company_reference"}),"cross-company access attempts must be audited in the actor's active tenant");
-    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:secondCompanyInternalId,action:"permission.denied",resourceType:"company","metadata.reason":"inactive_company_reference"}),0,"denied cross-company attempts must never write audit records into the target tenant");
+    const switchedToken=activateCompany.json().accessToken as string;
+    // Company switching updates the existing session's tenant. The original token is stale;
+    // mint a fresh opaque reference to Alpha under the active Beta session to test a real IDOR.
+    const inactiveCompanyReference=await maskReference(switchedToken,"tenant-alpha","tenant");
+    const inactiveCompanyAccess=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(inactiveCompanyReference)+"/memberships",headers:{authorization:"Bearer "+switchedToken}});
+    assert.equal(inactiveCompanyAccess.statusCode,403,"a valid reference for a non-active company must be denied");
+    const actorTenantDenial=await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"permission.denied",outcome:"denied",resourceType:"company","metadata.permission":"members.read","metadata.reason":"inactive_company_reference"});
+    assert.ok(actorTenantDenial,"cross-company access attempts must be audited in the actor's active tenant");
+    assert.equal(actorTenantDenial.resourceId,undefined,"the target company must not be recorded as an audit resource");
+    assert.equal(actorTenantDenial.metadata?.companyId,undefined,"audit metadata must not disclose the target company");
+    assert.equal(actorTenantDenial.metadata?.tenantId,undefined,"audit metadata must not disclose tenant IDs");
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"tenant-alpha",action:"permission.denied",resourceType:"company","metadata.reason":"inactive_company_reference"}),0,"denied cross-company attempts must never write audit records into the target tenant");
     const switchedClaims=JSON.parse(Buffer.from(activateCompany.json().accessToken.split(".")[1],"base64url").toString("utf8")) as {sub:string;tenantRef?:string};
     assert.notEqual(switchedClaims.sub,"test-user","company switching must keep the JWT subject opaque");
     assert.ok(switchedClaims.tenantRef);
