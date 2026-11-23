@@ -35,7 +35,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
                 <select *ngIf="canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
                   <option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option>
                   <option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">Admin</option>
-                  <option *ngFor="let customRole of customRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
+                  <option *ngFor="let customRole of grantRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
                 </select>
                 <span *ngIf="!canManage || member.role === 'owner' || member.role === 'super_admin'">{{member.role === 'super_admin' ? 'Super Admin' : (member.role === 'custom' ? customRoleName(member.customRoleId) : member.role)}}</span>
                 <div *ngIf="canManageCustomRoles && member.role !== 'owner' && member.role !== 'super_admin' && restrictionRoles.length" class="bee-company-members__restrictions"><small>Additional restrictions</small><label *ngFor="let restriction of restrictionRoles"><input type="checkbox" [checked]="(member.restrictionRoleIds || []).includes(restriction.id)" (change)="toggleRestriction(member,restriction.id,$any($event.target).checked)" [disabled]="busyId === member.userId"> {{restriction.name}}</label></div>
@@ -83,6 +83,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   invitations: CompanyInvitation[] = [];
   customRoles: CustomRole[] = [];
   get restrictionRoles(): CustomRole[] { return this.customRoles.filter(item => item.mode === "restriction"); }
+  get grantRoles(): CustomRole[] { return this.customRoles.filter(item => item.mode !== "restriction"); }
   inviteEmail = "";
   inviteRole: "guest" | "member" | "manager" | "admin" = "member";
   acceptanceToken = "";
