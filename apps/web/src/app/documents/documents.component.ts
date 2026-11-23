@@ -114,8 +114,7 @@ type Doc={id:string;title:string;description:string;tags:string[];visibility:"pr
         <thead><tr><th scope="col">Title / original file</th><th scope="col">Type</th><th scope="col">Uploaded by</th><th scope="col">Uploaded</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
         <tbody>
           <tr *ngFor="let folder of visibleFolders">
-            <td><button class="documents__table-name" type="button" (click)="openFolder(folder.id)">{{folder.name}}</button></td>
-            <td>Folder</td><td>—</td>
+            <td colspan="5"><button class="documents__table-name" type="button" (click)="openFolder(folder.id)">{{folder.name}}</button></td>
             <td>
               <div class="documents__table-actions" *ngIf="folder.canManageShares">
                 <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
