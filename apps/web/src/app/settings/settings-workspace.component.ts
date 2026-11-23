@@ -150,6 +150,10 @@ export class SettingsWorkspaceComponent implements OnChanges {
       {title:'Plans and pricing',description:'Commercial plan catalogue and billing terms.',fields:['Plan catalogue','Prices and billing intervals','Plan feature limits'],note:'No plan or price records are exposed by the current API; no sample commercial data is shown.'},
       {title:'Subscriptions and licenses',description:'Tenant subscriptions, license status and entitlement lifecycle.',fields:['Subscription lifecycle','License assignments','Renewals and usage entitlements'],note:'Subscription and licensing operations require billing persistence and authorized service endpoints.'}
     ]},
+    security: {title:'Security',description:'Manage authentication, sessions, security policies, audit, privacy and data retention.',icon:'⌑',groups:[
+      {title:'Authentication and sessions',description:'Identity controls and active session policy.',fields:['Authentication providers and MFA policy','Session lifetime and revocation policy','Password and sign-in policy'],note:'The existing authentication endpoints remain authoritative; these global policy controls are not yet configurable here.'},
+      {title:'Governance and privacy',description:'Security audit, compliance controls and personal-data lifecycle.',fields:['Security audit and compliance policy','Privacy and data subject controls','Data retention and deletion schedule'],note:'Audit events are available in the existing Activity view. This section does not duplicate that log; policy and retention APIs are not implemented.'}
+    ]},
     infrastructure: {title:'Infrastructure',description:'Review runtime, storage, queues, logs, services and backup operations.',icon:'⌁',groups:[
       {title:'Runtime and services',description:'Application runtime and service health configuration.',fields:['Runtime environment and deployment profile','Service registry and health policy','Resource limits and scaling'],note:'The current API exposes application health only; infrastructure inventory and controls need an operations service.'},
       {title:'Storage and operations',description:'File storage, background queues, logs and backup lifecycle.',fields:['Storage provider and capacity','Queue workers and processing policy','Log retention and backup schedule'],note:'File storage paths and database settings are server-side environment configuration, not editable dashboard settings.'}
@@ -227,13 +231,7 @@ export class SettingsWorkspaceComponent implements OnChanges {
       this.groups = [];
       return;
     }
-    const definition = this.definitions[this.section];
-    if (!definition) {
-      this.sectionTitle = 'Settings';
-      this.sectionDescription = 'Select a Settings section.';
-      this.groups = [];
-      return;
-    }
+    const definition = this.definitions[this.section] ?? this.definitions.security;
     this.sectionTitle = definition.title;
     this.sectionDescription = definition.description;
     this.icon = definition.icon;
