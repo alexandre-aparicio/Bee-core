@@ -1,9 +1,9 @@
 import type { CompanyRole } from "./tenant-context.js";
-import { CORE_PERMISSION_KEYS } from "./permission-catalog.js";
+import { CORE_PERMISSION_CATALOG } from "./permission-catalog.js";
 
 export const CUSTOM_ROLE_PERMISSION_PATTERN = /^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*$/;
 export const MAX_CUSTOM_ROLE_PERMISSIONS = 100;
-export const CUSTOM_ROLE_ALLOWED_PERMISSIONS = CORE_PERMISSION_KEYS;
+export const CUSTOM_ROLE_ALLOWED_PERMISSIONS = CORE_PERMISSION_CATALOG.filter(permission => permission.customRoleAssignable).map(permission => permission.key);
 
 export function normalizeTenantCustomRolePermissions(input: unknown): string[] {
   const permissions = normalizeCustomRolePermissions(input);
