@@ -517,3 +517,14 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Linked the specification from the README and the SaaS/plugin platform roadmap.
 - This is a product/architecture proposal only. No device service, QR pairing flow, mobile app, location tracking, POS device integration, API, or UI has been implemented or verified.
 - It is explicitly excluded from MVP implementation and release-readiness percentages until scope is approved, implemented, and tested.
+
+
+## CI restoration proposal — 2026-11-23
+
+- Current `main` is `c0b501eb0399fcfe87bb6e8f597eb48238cb660e`. It contains no `.github/workflows` files; the removal was explicit in the 2026-11-22 commits `87e2d21`, `33bd008` and `344ce00`.
+- The current GitHub Actions run list reports **0 runs**. The prior run `45011257135` mentioned in this document is no longer retrievable (API 404), so its final result is unknown.
+- PR #6 is closed without merge. Its security-foundation head `5c0f78c` has zero check runs and combined status pending with zero statuses. PR #7 is merged, but its deployment-profile head `47a8514` has zero check runs/statuses. No current-head CI result is confirmed.
+- Branch `ci/restore-mvp-workflows-current-main` proposes restoring backend/MongoDB + Docker full-stack CI, Angular build/browser smoke, and production Compose clean-install/persistence/backup-restore checks. The Docker CI job includes the required Mongo/MFA credentials and the CI Compose override; Angular uses `npm ci`; the production persistence job loads `.env` before authenticated MongoDB checks.
+- These workflows are not merged and no run can be reported from them yet. This automation did not run local Docker, tests, builds or npm audits.
+- The auto-committing Angular major-version migration workflow was intentionally not restored; it requires a separately reviewed migration branch.
+- PR link (once opened): https://github.com/alexandre-aparicio/Bee-core/pull/92
