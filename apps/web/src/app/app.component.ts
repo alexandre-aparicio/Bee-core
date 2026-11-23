@@ -77,6 +77,7 @@ export class AppComponent implements OnInit {
   get signedEmail(): string { return this.auth?.user?.email || 'Workspace user'; }
   get firstName(): string { const name = this.auth?.user?.firstName || this.auth?.user?.first_name || this.auth?.user?.name || this.auth?.user?.displayName || ''; return name.trim().split(/\s+/)[0] || this.signedEmail.split('@')[0].split(/[._-]/)[0] || 'User'; }
   get avatarInitial(): string { return this.firstName.charAt(0).toUpperCase(); }
+  get avatarInitials(): string { const name = this.auth?.user?.firstName || this.auth?.user?.first_name || this.auth?.user?.name || this.auth?.user?.displayName || ''; const parts = String(name).trim().split(/\\s+/).filter(Boolean); return (parts.length > 1 ? parts[0].charAt(0) + parts[parts.length - 1].charAt(0) : this.avatarInitial).toUpperCase(); }
   userMenuOpen = false;
   toggleUserMenu(): void { this.userMenuOpen = !this.userMenuOpen; }
   get initial(): string { return this.signedEmail.charAt(0).toUpperCase(); }
