@@ -274,7 +274,7 @@ export const organizationsPlugin:BeePlugin={
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
    if(!target)return reply.code(404).send({error:"Company membership not found"});
-   if(target.role==="owner")return reply.code(409).send({error:"The company owner role cannot be changed here"});
+   if(target.role==="owner"||target.role==="super_admin")return reply.code(409).send({error:"The company owner and Super Admin roles are protected"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot change other administrator roles"});
    const customRoleId=String(req.body?.customRoleId??"").trim();
    let update:any;
@@ -299,7 +299,7 @@ export const organizationsPlugin:BeePlugin={
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
    if(!target)return reply.code(404).send({error:"Company membership not found"});
-   if(target.role==="owner")return reply.code(409).send({error:"The company owner cannot be removed"});
+   if(target.role==="owner"||target.role==="super_admin")return reply.code(409).send({error:"The company owner and Super Admin memberships cannot be removed here"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot remove other administrators"});
    await memberships.updateOne({id:target.id},{$set:{status:"suspended",updatedAt:new Date()}});
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.suspended",outcome:"success",resourceType:"membership",resourceId:target.userId});
