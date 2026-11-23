@@ -16,12 +16,6 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
         <div><h2>{{canRead ? "Organization members" : "Join an organization"}}</h2><p>{{canRead ? "Memberships and roles apply only to the active organization." : "Have an invitation token? Accept it to join another company."}}</p></div>
         <button class="bee-company-members__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
       </div>
-      <div class="bee-company-members__accept">
-        <form (submit)="acceptInvitation($event)">
-          <input type="text" name="acceptInvitationToken" [(ngModel)]="inviteTokenInput" placeholder="Paste a company invitation token">
-          <button type="submit" [disabled]="busyId === 'accept' || !inviteTokenInput.trim()">{{busyId === 'accept' ? 'Joining…' : 'Accept invitation'}}</button>
-        </form>
-      </div>
       <div *ngIf="canRead && loading" class="bee-company-members__state">Loading members…</div>
       <div *ngIf="error" class="bee-company-members__error" role="alert">{{error}}</div>
       <div *ngIf="message" class="bee-company-members__message" role="status">{{message}}</div>
@@ -92,7 +86,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   inviteRole = "member";
   inviteRestrictionRoleIds: string[] = [];
   acceptanceLink = "";
-  inviteTokenInput = "";
+
   loading = false;
   private requestSequence = 0;
   busyId = "";
@@ -201,26 +195,6 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not create invitation";
-    } finally {
-      this.busyId = "";
-    }
-  }
-
-  async acceptInvitation(event: Event): Promise<void> {
-    event.preventDefault();
-    const token = this.inviteTokenInput.trim();
-    if (!token || this.busyId) return;
-    this.busyId = "accept";
-    this.error = "";
-    this.message = "";
-    try {
-      const result = await this.request("/invitations/accept", "POST", { token });
-      this.inviteTokenInput = "";
-      this.message = "Invitation accepted for " + result.company.name + ". Select that company in the workspace switcher.";
-      this.membershipChanged.emit();
-      await this.load();
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : "Could not accept invitation";
     } finally {
       this.busyId = "";
     }
