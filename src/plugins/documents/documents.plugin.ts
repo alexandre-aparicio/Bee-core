@@ -100,8 +100,10 @@ export const documentsPlugin:BeePlugin={
    const tenant=await authenticate(req,reply);if(!tenant)return;
    let id:string;try{id=unref(req.params.folderId,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
    const folder=await ownedFolder(tenant,id);if(!folder)return reply.code(404).send({error:"Folder not found"});
-   const teamIds=Array.isArray(req.body?.teamIds)?[...new Set(req.body.teamIds.map((value:unknown)=>clean(value,80)).filter(Boolean))]:[];
-   const userRefs=Array.isArray(req.body?.userIds)?[...new Set(req.body.userIds.map((value:unknown)=>String(value??"").trim()).filter(Boolean))]:[];
+   const rawTeamIds:unknown[]=Array.isArray(req.body?.teamIds)?req.body.teamIds:[];
+   const rawUserRefs:unknown[]=Array.isArray(req.body?.userIds)?req.body.userIds:[];
+   const teamIds:string[]=[...new Set(rawTeamIds.map((value:unknown)=>clean(value,80)).filter((value:string)=>value.length>0))];
+   const userRefs:string[]=[...new Set(rawUserRefs.map((value:unknown)=>String(value??"").trim()).filter((value:string)=>value.length>0))];
    let userIds:string[];try{userIds=userRefs.map(value=>unmaskResourceId(value,"user",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret));}catch{return reply.code(400).send({error:"Invalid organization member reference"});}
    const [validTeams,validUsers]=await Promise.all([
     teamIds.length?db.collection("company_teams").countDocuments({tenantId:tenant.tenantId,id:{$in:teamIds},status:"active"}):0,
