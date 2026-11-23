@@ -174,3 +174,8 @@ A mobile-first browser companion is included at `/assets/device-simulator/index.
 The API base defaults to `/api`, matching the dashboard proxy. If the simulator is hosted elsewhere, the API must explicitly allow that origin and the browser's credential/header restrictions must be respected. The simulator keeps the returned device credential in memory only; disconnecting or reloading clears it. Use it only against a development/test tenant and revoke the test device when finished.
 
 **Transport limitation:** this simulator validates the currently implemented HTTP pairing, approval-status and heartbeat endpoints. The current plugin does not yet expose a device WebSocket/realtime endpoint. A successful heartbeat therefore proves authenticated REST connectivity, not a persistent socket connection.
+
+
+## Browser simulator heartbeat request
+
+The browser simulator sends an explicit empty JSON object (`{}`) with the authenticated heartbeat POST. The API request helper sets `Content-Type: application/json`; sending no body with that header can be rejected by Fastify's JSON parser before the device authentication handler runs. The heartbeat route itself does not require payload fields. This client-side correction does not change device authentication or authorization.
