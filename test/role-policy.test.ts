@@ -52,4 +52,8 @@ test("platform policy can narrow tenant custom-role delegation without changing 
   assert.throws(() => normalizeTenantCustomRolePermissions(["members.manage"], allowed), /protected permissions/);
 });
 
-test("custom role effective permissions honor the current platform delegation policy", () => {\n  const role = { permissions: ["notes.read", "files.write", "mail.send"] };\n  assert.deepEqual(permissionsForCustomRole(role, ["notes.read", "files.write"]), ["notes.read", "files.write"]);\n  assert.deepEqual(permissionsForCustomRole(role, ["notes.read"]), ["notes.read"]);\n});\n
+test("custom role effective permissions honor the current platform delegation policy", () => {
+  const role = { permissions: ["notes.read", "files.write", "mail.send"] };
+  assert.deepEqual(permissionsForCustomRole(role, ["notes.read", "files.write"]), ["notes.read", "files.write"]);
+  assert.deepEqual(permissionsForCustomRole(role, ["notes.read"]), ["notes.read"]);
+});
