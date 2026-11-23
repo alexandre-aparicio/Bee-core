@@ -94,7 +94,7 @@ export const documentsPlugin:BeePlugin={
     teamIds.length?db.collection<{id:string;name:string}>("company_teams").find({tenantId:tenant.tenantId,id:{$in:teamIds}}).toArray():[],
     userIds.length?db.collection<{id:string;email:string}>("users").find({id:{$in:userIds}},{projection:{id:1,email:1}}).toArray():[]
    ]);
-   return {teams:teamRows.map(team=>({id:team.id,name:team.name})),users:userRows.map(user=>({id:ref(user.id,"document",tenant),email:user.email}))};
+   return {teams:teamRows.map(team=>({id:team.id,name:team.name})),users:userRows.map(user=>({id:userRef(user.id,tenant),email:user.email}))};
   });
   ctx.server.put<{Params:{folderId:string};Body:{teamIds?:unknown;userIds?:unknown}}>("/documents/folders/:folderId/shares",async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
