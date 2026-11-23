@@ -75,8 +75,10 @@ export const platformAdminPlugin:BeePlugin={
     const sessionContext={sessionId:session.id,expiresAt:session.expiresAt};
     let userId="";try{userId=unmaskResourceId(String(claims.sub),"user",sessionContext,sessionIdSecret);}catch{return reply.code(401).send({error:"Invalid session subject"}),null;}
     if(userId!==session.userId)return reply.code(401).send({error:"Invalid session subject"}),null;
-    const user=await users.findOne({id:userId,enabled:true,platformRole:"superadmin"});
-    if(!user)return reply.code(403).send({error:"Platform superadministrator required"}),null;
+    const user=await users.findOne({id:userId,enabled:true});
+    const membership=await memberships.findOne({userId,tenantId:session.tenantId,status:"active",role:"super_admin"});
+    const superOrganization=await companies.findOne({id:session.tenantId,kind:"super",status:"active"});
+    if(!user||!membership||!superOrganization)return reply.code(403).send({error:"Super Organization super_admin membership required"}),null;
     if(!user.mfaSecretEnc){
      await recordPlatformAudit({actorId:user.id,action:"security.mfa_required",resourceType:"security",metadata:{reason:"mfa_not_enrolled"}});
      return reply.code(403).send({error:"Active MFA enrollment required"}),null;
