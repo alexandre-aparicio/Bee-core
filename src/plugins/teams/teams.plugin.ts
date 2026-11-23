@@ -22,6 +22,16 @@ export const teamsPlugin:BeePlugin = {
   const members=db.collection<TeamMember>("company_team_members");
   const assignments=db.collection<TeamAppAssignment>("team_app_assignments");
   const policies=db.collection<ResourceAccessPolicy>("resource_access_policies");
+  const auditEvents=db.collection<TenantAuditEvent>("tenant_audit_events");
+  await ensureTenantAuditIndexes(auditEvents);
+  const sessionOf=(tenant:any)=>({sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt});
+  const maskUser=(tenant:any,userId:string)=>maskResourceId(userId,"user",sessionOf(tenant),secret);
+  const unmaskUser=(tenant:any,reference:string)=>unmaskResourceId(reference,"user",sessionOf(tenant),secret);
+  const audit=async(tenantId:string,actorId:string,action:TenantAuditEvent["action"],resourceType:string,resourceId:string,metadata?:TenantAuditEvent["metadata"])=>{
+   try{
+    await appendTenantAuditEvent(auditEvents,{id:randomUUID(),tenantId,actorId,action,resourceType,resourceId,outcome:"success",metadata,occurredAt:new Date()});
+   }catch(error){ctx.logger.error("Teams audit event write failed",{action,tenantId,error});}
+  };
   await Promise.all([
    teams.createIndex({tenantId:1,id:1},{unique:true,name:"company_teams_tenant_id_unique"}),
    teams.createIndex({tenantId:1,name:1},{unique:true,name:"company_teams_tenant_name_unique"}),
