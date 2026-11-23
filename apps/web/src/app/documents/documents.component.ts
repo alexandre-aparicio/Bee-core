@@ -280,7 +280,8 @@ type Doc={id:string;title:string;description:string;tags:string[];visibility:"pr
 .documents__table-name:hover{text-decoration:underline;text-underline-offset:3px}
 .documents__table-name-text{display:block;font-weight:650;overflow-wrap:anywhere}
 .documents__table-description{display:block;margin-top:4px;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
-.documents__table-actions{position:relative;display:inline-flex;align-items:center}\n.documents__document-actions{position:absolute;top:12px;right:12px;z-index:3}
+.documents__table-actions{position:relative;display:inline-flex;align-items:center}
+.documents__document-actions{position:absolute;top:12px;right:12px;z-index:3}
 .documents__table-actions .documents__menu{top:calc(100% + 4px)}
 .documents__table .documents__text-action{white-space:nowrap}
 .documents__details-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;margin:0}
@@ -376,7 +377,9 @@ export class BeeDocumentsComponent implements OnChanges {
  showCreateFolder=false;
  folderName="";
  viewMode:"cards"|"table"="cards";
- folderMenuId:string|null=null;\n documentMenuId:string|null=null;\n detailDocument:Doc|null=null;
+ folderMenuId:string|null=null;
+ documentMenuId:string|null=null;
+ detailDocument:Doc|null=null;
  shareFolder:Folder|null=null;
  shareMode:"groups"|"users"="groups";
  shareQuery="";
