@@ -63,3 +63,8 @@ The existing engine/API still contains legacy custom-token persistence and SSE c
 - Platform website selection is superadmin-only.
 - Templates are distinct from business plugins, plans and plugin entitlements.
 - Only trusted, reviewed, versioned Angular code may execute. No arbitrary remote JavaScript, HTML or Angular bundles.
+
+
+## Design system standards
+
+Dashboard page and shared UI development must follow the [Global Bee-Core Design System](../../../../../docs/design-system/bee-core-design-system.md) and the [Midnight Template Style Guide](./packages/midnight/STYLE-GUIDE.md) when Midnight is the active dashboard template. These are normative guides; see the [design system index](../../../../../docs/design-system/README.md).
