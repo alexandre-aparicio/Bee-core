@@ -54,7 +54,7 @@ export function createDocumentsHandlers(deps:any) {
    if(validTeams!==teamIds.length)return reply.code(400).send({error:"All selected teams must be active in this organization"});
    if(validUsers!==userIds.length)return reply.code(400).send({error:"All selected users must be active members of this organization"});
    const assigned=teamIds.length?await repository.teamAppAssignments.find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true,teamId:{$in:teamIds}}).toArray():[];
-   if(new Set(assigned.map(item=>item.teamId)).size!==teamIds.length)return reply.code(400).send({error:"Every shared team must have Documents enabled"});
+   if(new Set(assigned.map((item:any)=>item.teamId)).size!==teamIds.length)return reply.code(400).send({error:"Every shared team must have Documents enabled"});
    const key={tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder",resourceId:id};
    const existing=await policies.findOne(key);
    const retainedDenials=(existing?.userOverrides??[]).filter((item:any)=>item.effect==="deny"&&item.userId!==tenant.userId);
@@ -74,7 +74,7 @@ export function createDocumentsHandlers(deps:any) {
    ]);
    const usersById=new Map(userRows.map((user:any)=>[user.id,user]));
    const folderOwnerById=new Map(rows.map((folder:any)=>[folder.id,folder.createdBy]));
-   const sharedPolicies=folderPolicies.filter((policy:any)=>(policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read")))||(policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read")));
+   const sharedPolicies=folderPolicies.filter((policy:any)=>(policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read"))||(policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read")));
    const sharedFolderIds=new Set(sharedPolicies.map((policy:any)=>policy.resourceId));
    for(const item of documentRows as any[]){
     const parents=await ancestors(tenant.tenantId,item.folderId);
@@ -106,7 +106,7 @@ export function createDocumentsHandlers(deps:any) {
    return reply.code(201).send({folder:{id:ref(row.id,"folder",tenant),name,parentId:parentId?ref(parentId,"folder",tenant):null,
     uploadedBy:{email:creator?.email??"Unknown user"},createdAt:now,updatedAt:now,access:"private",documentCount:0}});
   },
-  documentLocation: async(req,reply)=>{
+  documentLocation: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
