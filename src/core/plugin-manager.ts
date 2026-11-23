@@ -24,6 +24,7 @@ export class BeePluginManager {
   private readonly configAccess: Record<string, readonly string[]> = {
     auth: ["mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "authMfaEncryptionKey", "publicBaseDomain", "sessionIdSecret"],
     organizations: ["mongoDbName", "publicBaseDomain", "sessionIdSecret"],
+    teams: ["mongoDbName", "sessionIdSecret"],
     files: ["mongoDbName", "fileStoragePath", "sessionIdSecret"],
     marketplace: ["mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
     notes: ["mongoDbName", "sessionIdSecret"],
