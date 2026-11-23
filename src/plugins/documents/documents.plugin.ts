@@ -141,7 +141,14 @@ export const documentsPlugin:BeePlugin={
    const tenant=await authenticate(req,reply);if(!tenant)return;
    const rows=await folders(tenant.tenantId).find({}).sort({name:1}).limit(500).toArray();
    const visible:any[]=[];const countByFolder=new Map<string,number>();
-   const documentRows=await docs(tenant.tenantId).find({folderId:{$ne:null}}).toArray();
+   const [documentRows,userRows,folderPolicies]=await Promise.all([
+    docs(tenant.tenantId).find({folderId:{$ne:null}}).toArray(),
+    db.collection<{id:string;email:string}>("users").find({id:{$in:[...new Set(rows.map(folder=>folder.createdBy))]}},{projection:{id:1,email:1}}).toArray(),
+    policies.find({tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder"}).toArray()
+   ]);
+   const usersById=new Map(userRows.map(user=>[user.id,user]));
+   const folderOwnerById=new Map(rows.map(folder=>[folder.id,folder.createdBy]));
+   const sharedFolderIds=new Set(folderPolicies.filter((policy:any)=>(policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read"))||(policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read"))).map((policy:any)=>policy.resourceId));
    for(const item of documentRows){
     const parents=await ancestors(tenant.tenantId,item.folderId);
     if(!await canAccess(tenant,"document",item.id,"read",parents))continue;
@@ -152,7 +159,9 @@ export const documentsPlugin:BeePlugin={
     if(await canAccess(tenant,"folder",folder.id,"read",parents)){
      visible.push({id:ref(folder.id,"folder",tenant),name:folder.name,parentId:folder.parentId?ref(folder.parentId,"folder",tenant):null,
       canManageShares:folder.createdBy===tenant.userId,canMove:await canAccess(tenant,"folder",folder.id,"write",parents),
-      documentCount:countByFolder.get(folder.id)??0,createdAt:folder.createdAt,updatedAt:folder.updatedAt});
+      documentCount:countByFolder.get(folder.id)??0,uploadedBy:{email:usersById.get(folder.createdBy)?.email??"Unknown user"},
+      createdAt:folder.createdAt,updatedAt:folder.updatedAt,
+      access:([folder.id,...parents.map(parent=>parent.id)].some(id=>sharedFolderIds.has(id))?"shared":"private")});
     }
    }
    return {folders:visible};
@@ -166,7 +175,9 @@ export const documentsPlugin:BeePlugin={
     if(!await canAccess(tenant,"folder",parentId,"write",parents.slice(1)))return reply.code(404).send({error:"Parent folder not found"});}
    const now=new Date();const row:Folder={id:randomUUID(),tenantId:tenant.tenantId,name,parentId,createdBy:tenant.userId,createdAt:now,updatedAt:now};
    await folders(tenant.tenantId).insertOne(row);
-   return reply.code(201).send({folder:{id:ref(row.id,"folder",tenant),name,parentId:parentId?ref(parentId,"folder",tenant):null,createdAt:now}});
+   const creator=await db.collection<{id:string;email:string}>("users").findOne({id:tenant.userId},{projection:{id:1,email:1}});
+   return reply.code(201).send({folder:{id:ref(row.id,"folder",tenant),name,parentId:parentId?ref(parentId,"folder",tenant):null,
+    uploadedBy:{email:creator?.email??"Unknown user"},createdAt:now,updatedAt:now,access:"private",documentCount:0}});
   });
   ctx.server.patch<{Params:{documentId:string};Body:{folderId?:unknown}}>("/documents/:documentId/location",async(req,reply)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
