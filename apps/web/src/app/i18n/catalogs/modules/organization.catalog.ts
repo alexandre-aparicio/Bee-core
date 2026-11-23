@@ -5,7 +5,7 @@ export const ORGANIZATION_EN = {
   "teams": "Teams",
   "roles": "Roles & Permissions",
   "loading": "Loading organization…",
-  "empty": "No organization data available."
+  "empty": "No organization data available.",
   "management": "Management",
   "description.company": "Manage your company profile and organizational information.",
   "description.users": "Manage company members, invitations and user access.",
@@ -19,7 +19,7 @@ export const ORGANIZATION_ES = {
   "teams": "Equipos",
   "roles": "Roles y permisos",
   "loading": "Cargando organización…",
-  "empty": "No hay datos de organización disponibles."
+  "empty": "No hay datos de organización disponibles.",
   "management": "Gestión",
   "description.company": "Gestiona el perfil de tu empresa y su información organizativa.",
   "description.users": "Gestiona los miembros de la empresa, las invitaciones y los permisos de acceso.",
