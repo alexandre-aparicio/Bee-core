@@ -13,17 +13,6 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
   imports: [CommonModule, FormsModule],
   template: `
     <section id="users" class="bee-users">
-      <header class="bee-users__header">
-        <div class="bee-users__heading">
-          <span class="bee-users__eyebrow">{{t('users.eyebrow')}}</span>
-          <h2>{{t('users.title')}}</h2>
-          <p>{{t('users.description')}}</p>
-        </div>
-        <button class="bee-users__button bee-users__button--secondary" type="button" (click)="load()" [disabled]="loading || !canRead">
-          <span aria-hidden="true">↻</span>{{loading ? t('users.refreshing') : t('users.refresh')}}
-        </button>
-      </header>
-
       <div *ngIf="error" class="bee-users__notice bee-users__notice--error" role="alert">{{error}}</div>
       <div *ngIf="message" class="bee-users__notice bee-users__notice--success" role="status">{{message}}</div>
 
@@ -47,7 +36,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
           <section class="bee-users__directory">
             <div class="bee-users__section-head">
               <div><h3>{{t('users.directory')}}</h3><p>{{t('users.directoryDescription')}}</p></div>
-              <span class="bee-users__count">{{filteredMembers.length}} / {{members.length}}</span>
+              <div class="bee-users__section-actions"><span class="bee-users__count">{{filteredMembers.length}} / {{members.length}}</span><button class="bee-users__button bee-users__button--secondary" type="button" (click)="load()" [disabled]="loading">{{loading ? t('users.refreshing') : t('users.refresh')}}</button></div>
             </div>
             <div class="bee-users__toolbar">
               <label class="bee-users__search">
@@ -145,8 +134,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
   styles: [`
     :host{display:block;min-width:0;width:100%;color:inherit}
     .bee-users{display:grid;gap:20px;min-width:0;color:inherit}
-    .bee-users__header,.bee-users__section-head,.bee-users__invite-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
-    .bee-users__header{align-items:center}
+    .bee-users__section-head,.bee-users__invite-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
     .bee-users__eyebrow{display:block;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
     .bee-users h2{margin:6px 0 5px;font-size:clamp(22px,2.2vw,28px);font-weight:700;letter-spacing:-.025em}
     .bee-users h3{margin:0;font-size:15px;font-weight:650}
@@ -171,6 +159,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__directory,.bee-users__invite-panel,.bee-users__invitations{min-width:0;border:1px solid var(--border);border-radius:13px;background:var(--panel)}
     .bee-users__directory,.bee-users__invitations{padding:17px}
     .bee-users__section-head{align-items:center;margin-bottom:14px}
+    .bee-users__section-actions{display:flex;align-items:center;gap:8px}
     .bee-users__section-head p{margin-top:4px}
     .bee-users__count{flex:none;padding:5px 9px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
     .bee-users__toolbar{display:flex;gap:9px;margin-bottom:12px}
@@ -249,7 +238,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     @keyframes bee-users-spin{to{transform:rotate(360deg)}}
     @media(max-width:1100px){.bee-users__workspace{grid-template-columns:minmax(0,1fr) 270px}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:820px){.bee-users__workspace{grid-template-columns:1fr}.bee-users__invite-panel{order:-1}.bee-users__invite-form{grid-template-columns:repeat(2,minmax(0,1fr))}.bee-users__invite-form>label{min-width:0}.bee-users__invite-form .bee-users__button{align-self:end}}
-    @media(max-width:620px){.bee-users{gap:14px}.bee-users__header,.bee-users__section-head{align-items:flex-start}.bee-users__header{flex-direction:column}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.bee-users__metric{padding:12px}.bee-users__metric strong{font-size:22px}.bee-users__directory,.bee-users__invitations,.bee-users__invite-panel{padding:13px}.bee-users__toolbar{flex-direction:column}.bee-users__filter{width:100%}.bee-users__invite-form{grid-template-columns:1fr}.bee-users__invite-form .bee-users__button{align-self:stretch}.bee-users__invitation{gap:8px;flex-wrap:wrap}.bee-users__invitation-copy{flex-basis:calc(100% - 58px)}.bee-users__invitation .bee-users__status{margin-left:46px}.bee-users__table{min-width:650px}}
+    @media(max-width:620px){.bee-users{gap:14px}.bee-users__section-head{align-items:flex-start}.bee-users__section-actions{flex-wrap:wrap;justify-content:flex-end}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.bee-users__metric{padding:12px}.bee-users__metric strong{font-size:22px}.bee-users__directory,.bee-users__invitations,.bee-users__invite-panel{padding:13px}.bee-users__toolbar{flex-direction:column}.bee-users__filter{width:100%}.bee-users__invite-form{grid-template-columns:1fr}.bee-users__invite-form .bee-users__button{align-self:stretch}.bee-users__invitation{gap:8px;flex-wrap:wrap}.bee-users__invitation-copy{flex-basis:calc(100% - 58px)}.bee-users__invitation .bee-users__status{margin-left:46px}.bee-users__table{min-width:650px}}
     @media(prefers-reduced-motion:reduce){.bee-users__button,.bee-users__spinner{transition:none;animation:none}}
   `]
 
