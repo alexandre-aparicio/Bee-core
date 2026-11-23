@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { normalizeCustomRolePermissions, normalizeTenantCustomRolePermissions, normalizeCustomRoleName, hasPolicyPermission } from "../src/core/role-policy.js";
+import { CORE_PERMISSION_CATALOG, CORE_PERMISSION_KEYS } from "../src/core/permission-catalog.js";
+import { COMPANY_ROLE_PERMISSIONS } from "../src/core/tenant-context.js";
 
 test("custom role permission normalization validates, deduplicates and sorts", () => {
   assert.deepEqual(normalizeCustomRolePermissions(["notes.read", "files.write", "notes.read"]), ["files.write", "notes.read"]);
@@ -23,8 +25,19 @@ test("policy permission check is exact (no implicit wildcards)", () => {
 });
 
 
-test("tenant custom role permission allowlist blocks privilege escalation", () => {
-  assert.deepEqual(normalizeTenantCustomRolePermissions(["notes.read", "files.read"]), ["files.read", "notes.read"]);
-  assert.throws(() => normalizeTenantCustomRolePermissions(["members.manage"]), /protected permissions/);
-  assert.throws(() => normalizeTenantCustomRolePermissions(["billing.manage"]), /protected permissions/);
+test("the core permission catalogue is unique and covers every built-in role permission", () => {
+  const keys = CORE_PERMISSION_CATALOG.map(permission => permission.key);
+  assert.equal(new Set(keys).size, keys.length);
+  assert.deepEqual([...CORE_PERMISSION_KEYS].sort(), [...keys].sort());
+  for (const rolePermissions of Object.values(COMPANY_ROLE_PERMISSIONS)) {
+    for (const permission of rolePermissions) assert.ok(CORE_PERMISSION_KEYS.includes(permission), `Missing catalogue entry: ${permission}`);
+  }
+  assert.ok(!CORE_PERMISSION_KEYS.includes("platform.super_admin"));
+});
+
+test("tenant custom roles accept registered core permissions but reject unregistered privilege keys", () => {
+  const selected = ["notes.read", "files.read", "members.manage", "mail.send", "billing.manage"];
+  assert.deepEqual(normalizeTenantCustomRolePermissions(selected), [...selected].sort());
+  assert.throws(() => normalizeTenantCustomRolePermissions(["platform.super_admin"]), /protected permissions/);
+  assert.throws(() => normalizeTenantCustomRolePermissions(["tenants.manage"]), /protected permissions/);
 });
