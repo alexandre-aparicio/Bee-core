@@ -33,7 +33,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
               <td><strong>{{member.email || member.userId}}</strong><small>{{member.userId}}</small></td>
               <td>
                 <select *ngIf="canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
-                  <option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option>
+                  <option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option><option *ngIf="canAssignOwner" value="owner">Owner</option>
                   <option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">Admin</option>
                   <option *ngFor="let customRole of grantRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
                 </select>
@@ -63,7 +63,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
         </div>
       </div>
 
-      <div *ngIf="canManage && invitations.length" class="bee-company-members__invitations">
+      <div *ngIf="canInvite && invitations.length" class="bee-company-members__invitations">
         <h3>Invitations</h3>
         <div class="bee-company-members__invitation" *ngFor="let invitation of invitations; trackBy: trackInvitation">
           <span><strong>{{invitation.email}}</strong><small>{{invitation.role}} · expires {{invitation.expiresAt | date:'mediumDate'}}</small></span>
@@ -82,6 +82,9 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   members: CompanyMember[] = [];
   invitations: CompanyInvitation[] = [];
   customRoles: CustomRole[] = [];
+  effectivePermissions: string[] = [];
+  permissionsLoaded = false;
+  canAssignOwner = false;
   get restrictionRoles(): CustomRole[] { return this.customRoles.filter(item => item.mode === "restriction"); }
   get grantRoles(): CustomRole[] { return this.customRoles.filter(item => item.mode !== "restriction"); }
   inviteEmail = "";
@@ -94,10 +97,10 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   error = "";
   message = "";
 
-  get canRead(): boolean { return this.role === "super_admin" || this.role === "owner" || this.role === "admin" || this.role === "manager"; }
-  get canManage(): boolean { return this.role === "super_admin" || this.role === "owner" || this.role === "admin"; }
-  get canInvite(): boolean { return this.canManage; }
-  get canManageCustomRoles(): boolean { return this.role === "super_admin" || this.role === "owner"; }
+  get canRead(): boolean { return this.permissionsLoaded ? this.effectivePermissions.includes("members.read") : this.role === "super_admin" || this.role === "owner" || this.role === "admin" || this.role === "manager" || this.role === "member"; }
+  get canManage(): boolean { return this.permissionsLoaded ? this.effectivePermissions.includes("members.manage") : this.role === "super_admin" || this.role === "owner" || this.role === "admin"; }
+  get canInvite(): boolean { return this.permissionsLoaded ? this.effectivePermissions.includes("members.invite") : this.role === "super_admin" || this.role === "owner" || this.role === "admin"; }
+  get canManageCustomRoles(): boolean { return (this.role === "super_admin" || this.role === "owner") && this.canManage; }
 
   ngOnInit(): void { void this.load(); }
   ngOnChanges(changes: SimpleChanges): void {
@@ -106,6 +109,9 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
       this.members = [];
       this.invitations = [];
       this.customRoles = [];
+      this.effectivePermissions = [];
+      this.permissionsLoaded = false;
+      this.canAssignOwner = false;
       this.loading = false;
       this.error = "";
       this.message = "";
@@ -143,10 +149,16 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
     this.loading = true;
     this.error = "";
     try {
+      const access = await this.request("/companies/active/permissions");
+      if (!isCurrentRequest()) return;
+      this.effectivePermissions = Array.isArray(access.permissions) ? access.permissions : [];
+      this.permissionsLoaded = true;
+      if (!this.canRead) { this.members = []; this.invitations = []; this.customRoles = []; return; }
       const result = await this.request("/companies/" + encodeURIComponent(requestedTenantId) + "/memberships");
       if (!isCurrentRequest()) return;
+      this.canAssignOwner = !!result.canAssignOwner;
       this.members = result.memberships || [];
-      if (this.canManage) {
+      if (this.canInvite) {
         const pending = await this.request("/companies/" + encodeURIComponent(requestedTenantId) + "/invitations");
         if (!isCurrentRequest()) return;
         this.invitations = pending.invitations || [];
@@ -215,7 +227,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
 
   async changeRole(member: CompanyMember, role: string): Promise<void> {
     const customRoleId = role.startsWith("custom:") ? role.slice("custom:".length) : "";
-    if (customRoleId ? (!this.canManageCustomRoles || !this.customRoles.some(item => item.id === customRoleId)) : !["admin", "manager", "member", "guest"].includes(role)) return;
+    if (customRoleId ? (!this.canManageCustomRoles || !this.customRoles.some(item => item.id === customRoleId && item.mode !== "restriction")) : !(["admin", "manager", "member", "guest"].includes(role) || (role === "owner" && this.canAssignOwner))) return;
     this.busyId = member.userId;
     this.error = "";
     try {
