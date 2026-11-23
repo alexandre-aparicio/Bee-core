@@ -318,10 +318,10 @@ export const organizationsPlugin:BeePlugin={
     if(body.role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can assign administrators"});
     nextRole=body.role;nextCustomRoleId=undefined;
    }
-   let restrictionRoleIds=nextRole==="owner"||nextRole==="super_admin"?[]:target.restrictionRoleIds??[];
+   let restrictionRoleIds=nextRole==="owner"?[]:target.restrictionRoleIds??[];
    if(hasRestrictions){
     if(actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the owner or Super Organization super_admin can assign restriction roles"});
-    if(nextRole==="owner"||nextRole==="super_admin")return reply.code(409).send({error:"Owner and Super Admin memberships cannot receive restriction roles"});
+    if(nextRole==="owner")return reply.code(409).send({error:"Owner memberships cannot receive restriction roles"});
     if(!Array.isArray(body.restrictionRoleIds)||body.restrictionRoleIds.length>10||body.restrictionRoleIds.some(id=>typeof id!=="string"))return reply.code(400).send({error:"restrictionRoleIds must be an array of up to 10 role IDs"});
     restrictionRoleIds=[...new Set(body.restrictionRoleIds)];
     if(restrictionRoleIds.length){
