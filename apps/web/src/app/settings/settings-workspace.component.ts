@@ -1,4 +1,6 @@
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { BeeI18nService } from '../i18n/bee-i18n.service';
 import { Component, Input, OnChanges } from '@angular/core';
 import { BeeTemplateManagerComponent } from '../templates/template-manager.component';
 import { PlatformIdentityComponent } from './platform-identity.component';
@@ -8,7 +10,7 @@ type SettingGroup = { title: string; description: string; fields: string[]; note
 @Component({
   selector: 'bee-settings-workspace',
   standalone: true,
-  imports: [CommonModule, BeeTemplateManagerComponent, PlatformIdentityComponent],
+  imports: [CommonModule, FormsModule, BeeTemplateManagerComponent, PlatformIdentityComponent],
   template: `
     <section class="settings-workspace">
       <header class="settings-workspace__heading">
@@ -64,6 +66,34 @@ type SettingGroup = { title: string; description: string; fields: string[]; note
             }
           </article>
         </div>
+      } @else if (section === 'localization') {
+        <article class="settings-workspace__card settings-workspace__language">
+          <div class="settings-workspace__card-heading"><span class="settings-workspace__icon">◎</span><div><h2>{{tr('localization.title')}}</h2><p>{{tr('localization.description')}}</p></div></div>
+          @if(languageLoading){<p class="settings-workspace__notice">{{tr('localization.loading')}}</p>}
+          @else {
+            <div class="settings-workspace__language-grid">
+              <label>{{tr('localization.teamTitle')}}
+                <small>{{tr('localization.teamDescription')}}</small>
+                <select [(ngModel)]="teamDefaultLanguage" [disabled]="!canManageTeamDefault">
+                  <option value="en">{{tr('localization.english')}}</option>
+                  <option value="es">{{tr('localization.spanish')}}</option>
+                </select>
+              </label>
+              <label>{{tr('localization.userTitle')}}
+                <small>{{tr('localization.userDescription')}}</small>
+                <select [(ngModel)]="userLanguage">
+                  <option value="">{{tr('localization.inherit')}}</option>
+                  <option value="en">{{tr('localization.english')}}</option>
+                  <option value="es">{{tr('localization.spanish')}}</option>
+                </select>
+              </label>
+            </div>
+            @if(!canManageTeamDefault){<p class="settings-workspace__notice">{{tr('localization.permission')}}</p>}
+            @if(languageError){<p class="settings-workspace__language-error">{{languageError}}</p>}
+            @if(languageMessage){<p class="settings-workspace__language-success">{{languageMessage}}</p>}
+            <button type="button" class="settings-workspace__language-save" [disabled]="languageSaving" (click)="saveLanguagePreferences()">{{languageSaving ? '…' : tr('localization.save')}}</button>
+          }
+        </article>
       } @else {
         <div class="settings-workspace__groups">
           @for (group of groups; track group.title) {
@@ -82,10 +112,20 @@ type SettingGroup = { title: string; description: string; fields: string[]; note
     </section>
   `,
   styles: [`
-    :host{display:block;width:100%;min-width:0;color:inherit}.settings-workspace{display:block;width:100%;max-width:none;min-width:0;box-sizing:border-box}.settings-workspace__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:4px 0 25px}.settings-workspace__eyebrow{font-size:10px;letter-spacing:.16em;opacity:.58;font-weight:700}.settings-workspace__heading h1{font-size:clamp(26px,3vw,36px);margin:9px 0 6px}.settings-workspace__heading p{margin:0;opacity:.7;max-width:720px;line-height:1.6}.settings-workspace__scope{border:1px solid var(--border,#8885);border-radius:30px;padding:7px 11px;font-size:11px;opacity:.75;white-space:nowrap}.settings-workspace__general,.settings-workspace__groups{display:grid;gap:16px;grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace__card{min-width:0;padding:21px;border:1px solid var(--border,#8885);border-radius:16px;background:var(--panel,#8881)}.settings-workspace__card--identity{padding:0;border:0;background:transparent}.settings-workspace__card-heading{display:flex;gap:13px;align-items:flex-start;margin-bottom:18px}.settings-workspace__icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:12px;background:var(--purple,#777);color:white;font-size:19px}.settings-workspace__card h2{font-size:17px;margin:2px 0 5px}.settings-workspace__card-heading p{font-size:12px;line-height:1.55;opacity:.68;margin:0}.settings-workspace__fields{display:grid;gap:12px}.settings-workspace__fields label{display:grid;gap:6px;font-size:12px;font-weight:600}.settings-workspace__fields input,.settings-workspace__unavailable{width:100%;box-sizing:border-box;min-height:38px;padding:9px 11px;border:1px solid var(--border,#8885);border-radius:9px;background:transparent;color:inherit;font:inherit;font-size:12px}.settings-workspace__fields input:disabled{opacity:.72}.settings-workspace__unavailable{display:flex;align-items:center;opacity:.58;font-weight:400}.settings-workspace__notice{font-size:11px;line-height:1.55;opacity:.58;margin:14px 0 0}.settings-workspace__general article:nth-child(1){grid-column:1/-1;min-width:0}.settings-workspace__general article:nth-child(2){grid-column:1;min-width:0}.settings-workspace__general article:nth-child(3){grid-column:2;min-width:0}.settings-workspace__general article:nth-child(4){grid-column:1/-1;min-width:0}.settings-workspace__general article:nth-child(2) bee-template-manager{display:block;min-width:0}.settings-workspace__preference-list{display:grid;gap:10px}.settings-workspace__preference-list>div{display:grid;gap:4px;padding:12px;border:1px solid var(--border,#8885);border-radius:11px}.settings-workspace__preference-list strong{font-size:12px}.settings-workspace__preference-list span{font-size:11px;opacity:.65;line-height:1.5}.settings-workspace__groups{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace__default-tabs{display:flex;gap:4px;padding:0 14px;margin:0 0 16px;border-bottom:1px solid var(--border,#8885);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--purple,#8c72ff) transparent;scrollbar-gutter:stable}.settings-workspace__default-tabs::-webkit-scrollbar{height:3px}.settings-workspace__default-tabs::-webkit-scrollbar-track{background:transparent}.settings-workspace__default-tabs::-webkit-scrollbar-thumb{background:var(--purple,#8c72ff);border-radius:999px}.settings-workspace__default-tabs::-webkit-scrollbar-thumb:hover{background:var(--purple,#8c72ff)}.settings-workspace__default-tabs button{flex:1;min-width:max-content;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;font:600 11px Arial,sans-serif;opacity:.62;cursor:pointer;white-space:nowrap}.settings-workspace__default-tabs button span{font-size:9px;opacity:.55}.settings-workspace__default-tabs button.is-active{border-bottom-color:var(--purple,#8c72ff);opacity:1;color:var(--purple,#8c72ff)}.settings-workspace__default-intro{margin:0 0 16px}.settings-workspace__default-intro h3{font-size:15px;margin:0 0 5px}.settings-workspace__default-intro p,.settings-workspace__default-group p{font-size:12px;opacity:.65;line-height:1.55;margin:0}.settings-workspace__default-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.settings-workspace__default-group{border:1px solid var(--border,#8885);border-radius:12px;padding:14px;min-width:0}.settings-workspace__default-group h4{font-size:13px;margin:0 0 5px}.settings-workspace__default-fields{display:grid;gap:10px;margin-top:13px}.settings-workspace__default-fields label{display:grid;gap:5px;font-size:11px;font-weight:600}.settings-workspace__default-fields .settings-workspace__unavailable{font-weight:400;font-size:11px;min-height:34px}.settings-workspace__card--defaults{grid-column:1/-1;min-width:0}.settings-workspace__card--defaults .settings-workspace__notice{margin-top:16px}@media(max-width:760px){.settings-workspace__general,.settings-workspace__groups{grid-template-columns:1fr}.settings-workspace__general article:nth-child(1),.settings-workspace__general article:nth-child(2),.settings-workspace__general article:nth-child(3),.settings-workspace__general article:nth-child(4){grid-column:auto}.settings-workspace__heading{flex-direction:column}}
+    :host{display:block;width:100%;min-width:0;color:inherit}.settings-workspace{display:block;width:100%;max-width:none;min-width:0;box-sizing:border-box}.settings-workspace__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:4px 0 25px}.settings-workspace__eyebrow{font-size:10px;letter-spacing:.16em;opacity:.58;font-weight:700}.settings-workspace__heading h1{font-size:clamp(26px,3vw,36px);margin:9px 0 6px}.settings-workspace__heading p{margin:0;opacity:.7;max-width:720px;line-height:1.6}.settings-workspace__scope{border:1px solid var(--border,#8885);border-radius:30px;padding:7px 11px;font-size:11px;opacity:.75;white-space:nowrap}.settings-workspace__general,.settings-workspace__groups{display:grid;gap:16px;grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace__language{max-width:900px}.settings-workspace__language-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.settings-workspace__language-grid label{display:grid;gap:8px;font-size:12px;font-weight:700}.settings-workspace__language-grid small{font-size:11px;line-height:1.5;font-weight:400;opacity:.65}.settings-workspace__language-grid select{min-height:40px;padding:9px 11px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--panel,#8881);color:inherit;font:inherit}.settings-workspace__language-save{margin-top:18px;padding:10px 16px;border:0;border-radius:9px;background:var(--purple,#777);color:#fff;font-weight:700;cursor:pointer}.settings-workspace__language-save:disabled{opacity:.55}.settings-workspace__language-error,.settings-workspace__language-success{font-size:12px;margin:12px 0 0}.settings-workspace__language-error{color:#d65c5c}.settings-workspace__language-success{color:#26996c}.settings-workspace__card{min-width:0;padding:21px;border:1px solid var(--border,#8885);border-radius:16px;background:var(--panel,#8881)}.settings-workspace__card--identity{padding:0;border:0;background:transparent}.settings-workspace__card-heading{display:flex;gap:13px;align-items:flex-start;margin-bottom:18px}.settings-workspace__icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:12px;background:var(--purple,#777);color:white;font-size:19px}.settings-workspace__card h2{font-size:17px;margin:2px 0 5px}.settings-workspace__card-heading p{font-size:12px;line-height:1.55;opacity:.68;margin:0}.settings-workspace__fields{display:grid;gap:12px}.settings-workspace__fields label{display:grid;gap:6px;font-size:12px;font-weight:600}.settings-workspace__fields input,.settings-workspace__unavailable{width:100%;box-sizing:border-box;min-height:38px;padding:9px 11px;border:1px solid var(--border,#8885);border-radius:9px;background:transparent;color:inherit;font:inherit;font-size:12px}.settings-workspace__fields input:disabled{opacity:.72}.settings-workspace__unavailable{display:flex;align-items:center;opacity:.58;font-weight:400}.settings-workspace__notice{font-size:11px;line-height:1.55;opacity:.58;margin:14px 0 0}.settings-workspace__general article:nth-child(1){grid-column:1/-1;min-width:0}.settings-workspace__general article:nth-child(2){grid-column:1;min-width:0}.settings-workspace__general article:nth-child(3){grid-column:2;min-width:0}.settings-workspace__general article:nth-child(4){grid-column:1/-1;min-width:0}.settings-workspace__general article:nth-child(2) bee-template-manager{display:block;min-width:0}.settings-workspace__preference-list{display:grid;gap:10px}.settings-workspace__preference-list>div{display:grid;gap:4px;padding:12px;border:1px solid var(--border,#8885);border-radius:11px}.settings-workspace__preference-list strong{font-size:12px}.settings-workspace__preference-list span{font-size:11px;opacity:.65;line-height:1.5}.settings-workspace__groups{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace__default-tabs{display:flex;gap:4px;padding:0 14px;margin:0 0 16px;border-bottom:1px solid var(--border,#8885);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--purple,#8c72ff) transparent;scrollbar-gutter:stable}.settings-workspace__default-tabs::-webkit-scrollbar{height:3px}.settings-workspace__default-tabs::-webkit-scrollbar-track{background:transparent}.settings-workspace__default-tabs::-webkit-scrollbar-thumb{background:var(--purple,#8c72ff);border-radius:999px}.settings-workspace__default-tabs::-webkit-scrollbar-thumb:hover{background:var(--purple,#8c72ff)}.settings-workspace__default-tabs button{flex:1;min-width:max-content;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;font:600 11px Arial,sans-serif;opacity:.62;cursor:pointer;white-space:nowrap}.settings-workspace__default-tabs button span{font-size:9px;opacity:.55}.settings-workspace__default-tabs button.is-active{border-bottom-color:var(--purple,#8c72ff);opacity:1;color:var(--purple,#8c72ff)}.settings-workspace__default-intro{margin:0 0 16px}.settings-workspace__default-intro h3{font-size:15px;margin:0 0 5px}.settings-workspace__default-intro p,.settings-workspace__default-group p{font-size:12px;opacity:.65;line-height:1.55;margin:0}.settings-workspace__default-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.settings-workspace__default-group{border:1px solid var(--border,#8885);border-radius:12px;padding:14px;min-width:0}.settings-workspace__default-group h4{font-size:13px;margin:0 0 5px}.settings-workspace__default-fields{display:grid;gap:10px;margin-top:13px}.settings-workspace__default-fields label{display:grid;gap:5px;font-size:11px;font-weight:600}.settings-workspace__default-fields .settings-workspace__unavailable{font-weight:400;font-size:11px;min-height:34px}.settings-workspace__card--defaults{grid-column:1/-1;min-width:0}.settings-workspace__card--defaults .settings-workspace__notice{margin-top:16px}@media(max-width:760px){.settings-workspace__general,.settings-workspace__groups,.settings-workspace__language-grid{grid-template-columns:1fr}.settings-workspace__general article:nth-child(1),.settings-workspace__general article:nth-child(2),.settings-workspace__general article:nth-child(3),.settings-workspace__general article:nth-child(4){grid-column:auto}.settings-workspace__heading{flex-direction:column}}
   `]
 })
 export class SettingsWorkspaceComponent implements OnChanges {
+  constructor(private readonly i18n: BeeI18nService) {}
+  tr(key: string): string { return this.i18n.t('settings:' + key); }
+  languageLoading = false;
+  languageSaving = false;
+  languageError = '';
+  languageMessage = '';
+  userLanguage: '' | 'en' | 'es' = '';
+  teamDefaultLanguage: 'en' | 'es' = 'en';
+  canManageTeamDefault = false;
+  private languageLoadKey = '';
   @Input() section = 'general';
   @Input() scope: 'platform' | 'tenant' = 'tenant';
   @Input() tenantName = 'Active tenant';
@@ -128,10 +168,70 @@ export class SettingsWorkspaceComponent implements OnChanges {
     ]}
   };
 
+  private async loadLanguagePreferences(): Promise<void> {
+    const key = this.accessToken + ':' + this.section;
+    if (this.languageLoadKey === key || !this.accessToken) return;
+    this.languageLoadKey = key;
+    this.languageLoading = true;
+    this.languageError = '';
+    try {
+      const response = await fetch('/api/i18n/preferences', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.accessToken } });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not load language preferences.');
+      this.userLanguage = result.userLanguage ?? '';
+      this.teamDefaultLanguage = result.teamDefaultLanguage === 'es' ? 'es' : 'en';
+      this.canManageTeamDefault = result.canManageTeamDefault === true;
+      this.i18n.updatePreferences(result);
+    } catch (error) {
+      this.languageError = error instanceof Error ? error.message : this.tr('localization.error');
+      this.languageLoadKey = '';
+    } finally {
+      this.languageLoading = false;
+    }
+  }
+
+  async saveLanguagePreferences(): Promise<void> {
+    if (!this.accessToken || this.languageSaving) return;
+    this.languageSaving = true;
+    this.languageError = '';
+    this.languageMessage = '';
+    try {
+      const personal = await fetch('/api/i18n/preferences', {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + this.accessToken },
+        body: JSON.stringify({ language: this.userLanguage || null })
+      });
+      const personalResult = await personal.json();
+      if (!personal.ok) throw new Error(personalResult.error || this.tr('localization.error'));
+      if (this.canManageTeamDefault) {
+        const team = await fetch('/api/i18n/team-default', {
+          method: 'PUT', credentials: 'same-origin',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + this.accessToken },
+          body: JSON.stringify({ language: this.teamDefaultLanguage })
+        });
+        const teamResult = await team.json();
+        if (!team.ok) throw new Error(teamResult.error || this.tr('localization.error'));
+      }
+      await this.i18n.loadPreferences(this.accessToken);
+      this.languageMessage = this.tr('localization.saved');
+    } catch (error) {
+      this.languageError = error instanceof Error ? error.message : this.tr('localization.error');
+    } finally {
+      this.languageSaving = false;
+    }
+  }
+
   ngOnChanges(): void {
+    if (this.section === 'localization' && this.accessToken) void this.loadLanguagePreferences();
     if (this.section === 'general') {
       this.sectionTitle = 'General';
       this.sectionDescription = this.scope === 'platform' ? 'Manage global platform identity, appearance and defaults.' : 'Manage this tenant’s identity, appearance and workspace defaults.';
+      this.groups = [];
+      return;
+    }
+    if (this.section === 'localization') {
+      this.sectionTitle = this.tr('localization.title');
+      this.sectionDescription = this.tr('localization.description');
       this.groups = [];
       return;
     }
