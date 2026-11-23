@@ -9,38 +9,18 @@ import {
   lucideWorkflow
 } from '@ng-icons/lucide';
 
-const ICONS = {
-  dashboard: lucideLayoutDashboard,
-  organization: lucideBuilding2,
-  company: lucideBuilding2,
-  users: lucideUsers,
-  teams: lucideUsersRound,
-  roles: lucideShieldCheck,
-  activity: lucideActivity,
-  mail: lucideMail,
-  notifications: lucideBell,
-  settings: lucideSettings,
-  plugins: lucidePuzzle,
-  general: lucideSettings,
-  tenants: lucideBuilding2,
-  integrations: lucidePlug,
-  plans: lucideCreditCard,
-  security: lucideLock,
-  infrastructure: lucideServer,
-  localization: lucideLanguages,
-  themes: lucidePalette,
-  domains: lucideGlobe,
-  workflow: lucideWorkflow,
-  documentation: lucideFileText,
-  home: lucideHouse,
-  menu: lucideMenu,
-  logout: lucideLogOut,
-  chevronDown: lucideChevronDown,
-  chevronRight: lucideChevronRight,
-  light: lucideSun,
-  dark: lucideMoon,
-  help: lucideCircleHelp
-} as const;
+const ICONS: Record<string, string> = {
+  dashboard: 'lucideLayoutDashboard', organization: 'lucideBuilding2', company: 'lucideBuilding2',
+  users: 'lucideUsers', teams: 'lucideUsersRound', roles: 'lucideShieldCheck',
+  activity: 'lucideActivity', mail: 'lucideMail', notifications: 'lucideBell',
+  settings: 'lucideSettings', plugins: 'lucidePuzzle', general: 'lucideSettings',
+  tenants: 'lucideBuilding2', integrations: 'lucidePlug', plans: 'lucideCreditCard',
+  security: 'lucideLock', infrastructure: 'lucideServer', localization: 'lucideLanguages',
+  themes: 'lucidePalette', domains: 'lucideGlobe', workflow: 'lucideWorkflow',
+  documentation: 'lucideFileText', home: 'lucideHouse', menu: 'lucideMenu',
+  logout: 'lucideLogOut', chevronDown: 'lucideChevronDown', chevronRight: 'lucideChevronRight',
+  light: 'lucideSun', dark: 'lucideMoon', help: 'lucideCircleHelp'
+};
 
 @Component({
   selector: 'bee-icon',
@@ -61,7 +41,5 @@ export class BeeIconComponent {
   @Input() name = 'help';
   @Input() size = '18px';
   @Input() strokeWidth: number | string = 1.8;
-  get resolvedIcon(): string { return ICONS[this.name as keyof typeof ICONS] ? this.nameToRegistered(this.name) : 'lucideCircleHelp'; }
-  private nameToRegistered(name: string): string { return (ICONS[name as keyof typeof ICONS] as { name?: string })?.name || Object.keys(ICONS).includes(name) ? this.iconRegistrationName(name) : 'lucideCircleHelp'; }
-  private iconRegistrationName(name: string): string { return 'lucide' + name.charAt(0).toUpperCase() + name.slice(1); }
+  get resolvedIcon(): string { return ICONS[this.name] || 'lucideCircleHelp'; }
 }
