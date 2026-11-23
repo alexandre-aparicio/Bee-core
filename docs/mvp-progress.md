@@ -625,3 +625,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - No SMTP, email delivery provider, background mail job or external email dependency is required. Administrators can copy the link and share it manually.
 - Security behavior: random 256-bit URL-safe token, SHA-256 token hash at rest, seven-day expiry, one-time conditional consumption, invitation email matching, organization availability checks, duplicate-account handling and compensation if membership creation fails. The invitation link token is displayed only immediately after creation.
 - Validation: no TypeScript build, Angular build, tests, Docker build, browser test or VPS runtime check has been executed for this branch. Validate new-account registration, existing-account acceptance, expired/cancelled/replayed links, custom grant roles, multiple restrictions and clean-database bootstrap on the VPS.
+
+## Organization Roles & Permissions tabbed workspace (2026-11-23)
+
+- Reorganized Organization → Roles & Permissions into three numbered tabs using the same restrained underline-tab pattern as Settings → General: System Roles, Available Permissions and Custom Roles.
+- System Roles presents the built-in organization roles as responsive cards with scope-safe descriptions, protection state and their existing baseline permission keys.
+- Available Permissions presents the live Core permission catalogue grouped into resource cards, with descriptions, action/key details and a distinction between globally grantable capabilities and restriction-only/protected capabilities.
+- Custom Roles consolidates the existing custom-role list and editor. It retains grant and deny-only restriction modes, permission selection, owner/Super Admin management checks, and existing create/update/delete API operations.
+- Applied theme-token-based surfaces, borders, foregrounds and accent styling so the shared component remains consistent across Glass, Midnight and Paper. Responsive layouts collapse cards and editor columns on narrower screens.
+- No backend routes, permission keys, role defaults, delegation policy, membership assignments or authorization behavior were changed.
+- Validation: no Angular build, tests, browser checks or VPS runtime validation have been executed. Verify tab navigation, role CRUD, permission-policy states and all three dashboard themes on the VPS.
