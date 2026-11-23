@@ -348,3 +348,11 @@ Do not mark these gaps complete merely because this guide documents them. Update
 - Shared components MUST adapt to the active appearance mode through semantic tokens; the Midnight package must not force its dark surface palette into light mode.
 - Modal overlays should remain neutral dark translucent layers in both modes; dialogs and menus use the active panel/background tokens, while dialog shadows remain neutral dark.
 - Validate the collection toolbar, active/inactive view control, cards, table row hover, overflow menus, forms, empty states and modal details in both light and dark appearance. Violet/cyan accents are preserved as functional states, not decorative gradients or glow.
+
+
+### Documents light-mode surface audit (2026-11-23)
+
+- Documents responds to the Midnight dashboard host's `data-bee-dashboard-mode="light"` state with component-local semantic surface/text/accent tokens so `--panel`, `--bg`, `--muted` and `--border` no longer resolve to dark-only values in Light mode.
+- Folder/document cards, card hover, overflow menus, share/detail dialogs, share tabs, suggestions, chips, hint panels, empty state and table surface are explicitly reviewed for Light contrast.
+- Primary buttons and selected view controls use a contrast-safe white foreground over the violet action/selection surface in Light mode.
+- This component-scoped treatment MUST NOT bleed into other features or alter Midnight Dark. Confirm visually in browser in both modes before marking verified.

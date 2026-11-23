@@ -487,3 +487,11 @@ A feature is not visually complete merely because it renders. It is design-syste
 - Overlays are the exception to surface token mixing: modal backdrops should use a neutral dark translucent layer in both light and dark modes so the underlying page is consistently dimmed; do not mix the backdrop from the page background token, which can turn it pale in light mode.
 - Dialog shadows should use a neutral dark shadow rather than the active background token. Check dialogs, menus, selected segmented controls, empty states, tables and forms in both modes for contrast.
 - Light-mode checks are required alongside dark-mode checks for first-party collection pages: primary action text, muted labels, table headers, hover rows, menu surfaces, selected/unselected view controls, borders and keyboard focus must remain readable.
+
+
+## Documents theme-mode contract (implementation correction — 2026-11-23)
+
+- Documents is a theme-aware collection workspace. A light page canvas is not sufficient: folder/document cards, overflow menus, dialogs, inputs, selected controls, chips, suggestions, empty/loading/feedback states and table surfaces must all resolve to light surfaces and dark readable foregrounds in Light mode.
+- The Midnight dashboard host exposes its mode through `data-bee-dashboard-mode`. Documents component-local semantic tokens must respond to this host state without changing Midnight Dark or other features.
+- Primary actions and selected view controls must use contrast-safe foregrounds; do not use the light `--bg` token as their text color in Light mode.
+- Validate Cards and Table, opening every menu and dialog, in both light and dark modes. Source-level corrections do not count as browser verification.

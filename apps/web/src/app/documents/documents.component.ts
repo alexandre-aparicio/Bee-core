@@ -373,6 +373,33 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
  .documents__button,.documents__item{transition:none}
  .documents__spinner{animation:none;border-top-color:var(--muted)}
 }
+/* Light mode: keep Documents surfaces readable when the Midnight shell switches appearance. */
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]){
+ --bg:#f5f7fb;
+ --panel:#ffffff;
+ --muted:#667085;
+ --border:#dce2eb;
+ --purple:#6752d8;
+ --cyan:#087f78;
+ color:#20283a;
+}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__button--primary,
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__view-toggle button.is-active{color:#fff}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__item{background:var(--panel);color:#20283a;box-shadow:0 2px 8px rgba(31,41,55,.045)}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__item:hover{background:color-mix(in srgb,#fff 92%,var(--purple));border-color:color-mix(in srgb,var(--purple) 45%,var(--border))}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__menu,
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__share-dialog{background:#fff;color:#20283a;border-color:#dce2eb;box-shadow:0 18px 48px rgba(23,32,50,.18)}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__menu button:hover,
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__suggestions button:hover{background:#f0edff;color:#4333b4}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__icon-button:hover{background:#f3f5f9;border-color:#dce2eb}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__share-tabs{background:#f1f4f9}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__share-tabs button.is-active{background:#fff;color:var(--purple);box-shadow:0 1px 4px rgba(31,41,55,.12)}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__suggestions{background:#fff}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__chip{background:#f2efff;color:#4537a5;border-color:#d8cffc}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__share-hint{background:#edf8f7;color:#526879}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__empty{background:#fbfcfe}
+:host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__table-wrap{background:#fff}
+
 `]
 })
 export class BeeDocumentsComponent implements OnChanges {

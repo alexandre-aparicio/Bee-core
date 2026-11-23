@@ -725,3 +725,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Corrected three literal escaped newline sequences in the Angular component before merge; verified the component file no longer contains those accidental sequences.
 - PR #127 was squash-merged into `main` at `6e2cd04f7fa5f845c04b3adcf46d3293a7c79874`.
 - Validation status: source-level checks only. No TypeScript/Angular build, tests, CI, browser/responsive checks or VPS runtime verification were run. The Documents feature must not be considered build- or production-verified until those checks pass.
+
+
+## Documents Light-mode surface correction (2026-11-23)
+- Corrected a token mismatch in Documents: the dashboard canvas switched to Light while feature-local `--panel`, `--bg`, `--muted` and `--border` still resolved to Midnight dark values. Added component-scoped Light tokens keyed to the Midnight host mode.
+- Harmonized folder/document cards and hover, overflow menus, share/detail dialogs, share tabs, search suggestions, chips, hints, empty state and table surface. Primary actions and selected view controls now retain readable white text over the accent background.
+- Styles remain scoped to Documents; Midnight Dark and unrelated dashboard features are not intentionally altered.
+- Validation: source/documentation review only. No Angular build, tests, browser visual/responsive QA, CI or VPS runtime verification executed. Check Cards/Table and all open menus/dialogs in both Light and Dark after deploy.
