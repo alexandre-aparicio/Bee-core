@@ -4,13 +4,14 @@ import { hasPluginEntitlement, isPluginInstalled } from "../../core/plugin-entit
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { evaluateResourceAccess } from "../../core/resource-access.js";
 import { FilesStorageAdapter } from "./files-storage.adapter.js";
+import { MAX_FOLDER_DEPTH, sanitizeText, isValidPublicId, normalizeTags } from "./documents.validators.js";
 import { DocumentsRepository } from "./documents.repository.js";
 
 export type Folder = Document & { id:string; tenantId:string; name:string; parentId:string|null; createdBy:string; createdAt:Date; updatedAt:Date };
 export type BeeDocument = Document & { id:string; tenantId:string; fileId:string; folderId:string|null; title:string; description:string; tags:string[]; visibility:"private"|"public"; publicId:string|null; publishedAt:Date|null; createdBy:string; createdAt:Date; updatedAt:Date };
-export const MAX_DEPTH=32;
-export const clean=(value:unknown,max=160)=>typeof value==="string"?value.trim().replace(/[\u0000-\u001f\u007f]/g,"").slice(0,max):"";
-export const validPublicId=(value:unknown)=>typeof value==="string"&&/^[A-Za-z0-9_-]{40,100}$/.test(value)?value:"";
+export const MAX_DEPTH=MAX_FOLDER_DEPTH;
+export const clean=sanitizeText;
+export const validPublicId=isValidPublicId;
 
 /** Creates module-owned business/security helpers bound to Core and Files infrastructure. */
 export function createDocumentsServices(input:{db:Db;secret:string;storage:FilesStorageAdapter;folderCollection:any;documentCollection:any;repository:DocumentsRepository}) {
@@ -64,5 +65,5 @@ export function createDocumentsServices(input:{db:Db;secret:string;storage:Files
  const policies=repository.resourcePolicies;
  const ownedFolder=async(tenant:TenantContext,folderId:string)=>folders(tenant.tenantId).findOne({id:folderId,createdBy:tenant.userId});
 
- return {db,secret,storage,folderCollection,documentCollection,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,MAX_DEPTH,clean,validPublicId};
+ return {db,secret,storage,folderCollection,documentCollection,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,MAX_DEPTH,clean,validPublicId,normalizeTags};
 }
