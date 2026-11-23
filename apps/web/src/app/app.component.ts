@@ -283,7 +283,7 @@ export class AppComponent implements OnInit {
     dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
-    'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans-licensing',
+    'settings-plans': '/dashboard/settings/plans-licensing',
     'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
     'settings-localization': '/dashboard/settings/localization',
     'themes-dashboard': '/dashboard/themes', 'themes-public': '/dashboard/public-theme',
@@ -296,7 +296,6 @@ export class AppComponent implements OnInit {
     {id:'settings-roles',label:'Roles & Permissions',icon:'roles',description:'Global permission catalogue, system roles and tenant delegation boundaries.'},
     {id:'settings-users',label:'Platform Users',icon:'users',description:'Global user administration and company membership onboarding.'},
     {id:'settings-plugins',label:'Plugins',icon:'plugins',description:'Catalogue, authorization, versions and dependencies.'},
-    {id:'settings-integrations',label:'Integrations',icon:'integrations',description:'Available connectors, global credentials and policies.'},
     {id:'settings-plans',label:'Plans & Licensing',icon:'plans',description:'Plans, subscriptions, pricing and licenses.'},
     {id:'settings-security',label:'Security',icon:'security',description:'Global policies, authentication, sessions and audit.'},
     {id:'settings-infrastructure',label:'Infrastructure',icon:'infrastructure',description:'Runtime, storage, queues, logs and services.'},
@@ -350,7 +349,7 @@ export class AppComponent implements OnInit {
     const allowed = this.isPlatformAdmin
       ? this.allSettingsSections.map(item => item.id)
       : ['owner','admin'].includes(role)
-        ? ['settings-general','settings-plugins','settings-integrations','settings-security','settings-localization']
+        ? ['settings-general','settings-plugins','settings-security','settings-localization']
         : ['settings-localization'];
     return this.allSettingsSections.filter(item => allowed.includes(item.id)).map(item => ({
       ...item,

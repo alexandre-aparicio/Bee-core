@@ -564,3 +564,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Fixed an extra Angular control-flow closing brace immediately after the Organization → Roles & Permissions component in the Glass, Midnight and Paper dashboard templates.
 - The VPS production build identified the same `NG5002: Unexpected closing block` error in all three template files. This change removes only the redundant closing brace and preserves the surrounding section conditions.
 - The backend image build completed in the reported Docker run; the web image failed at Angular template compilation. Re-run the full Docker build on the VPS to verify the correction. No successful Angular or Docker build is claimed yet.
+
+
+## Platform Roles & Permissions visual consistency and Settings navigation — 2026-11-23
+
+- Removed the Settings → Integrations destination from the Super Administrator global Settings navigation. Global connectors, credentials, SMTP and notification-channel management do not belong in this Settings workspace; the unrelated standalone Integrations destination is unchanged.
+- Removed the obsolete Settings Integrations route mapping, tenant owner/admin allow-list entry and placeholder definition. An invalid/legacy Settings section now falls back to the existing Security definition rather than rendering an unrelated integrations inventory.
+- Reworked Settings → Roles & Permissions to inherit the active dashboard template's foreground and use the same restrained translucent panel/border treatment as the other Settings sections. Removed forced dark text and white surface fallbacks that made the page unreadable in Midnight and visually inconsistent in Glass/Paper.
+- Matched the section heading to the other Settings pages with the GLOBAL PLATFORM eyebrow, page title and Platform-wide scope indicator. The component is shared by Glass, Midnight and Paper, so the same theme-aware treatment applies to all three.
+- Updated the Settings navigation Playwright smoke scenario from eight to seven Super Administrator destinations and removed the Integrations navigation assertion.
+- Validation: no tests, Angular build, Docker build or VPS runtime checks have been executed for this change. Verify all three dashboard templates on the VPS, including Midnight dark mode, before considering the visual correction complete.
