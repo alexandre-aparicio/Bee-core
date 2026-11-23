@@ -693,3 +693,9 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Members without Owner/Admin editing authority see a read-only profile. Added English and Spanish catalog labels.
 - Configuration overlap reviewed: platform identity/branding and themes remain in Settings → General/Appearance; localization remains in Settings → Localization. Company profile does not duplicate those settings.
 - Validation: source changes only. No Angular build, backend typecheck, tests, browser checks, Docker/CI or VPS validation executed.
+
+
+## Company profile frontend build correction — 2026-11-23
+- Fixed a literal escaped `\\n` accidentally inserted between the constructor and `canEdit` getter in `organization-company.component.ts`; it is now a real TypeScript line break.
+- Based on the Angular compiler diagnostics from the VPS Docker build after PR #117 was pulled. This addresses the reported TS1127/TS1434/TS7008 source error.
+- Validation: source-level correction only. Angular/Docker rebuild and VPS verification remain pending.
