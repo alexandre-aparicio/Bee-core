@@ -1,6 +1,6 @@
 import type { BeePlugin } from "../../core/types.js";
 import type { Document, Db } from "mongodb";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { TenantCollection } from "../../core/tenant-collection.js";
@@ -32,7 +32,7 @@ export const documentsPlugin:BeePlugin={
    folderCollection.createIndex({tenantId:1,parentId:1,name:1},{name:"tenant_document_folders_parent_name"}),
    documentCollection.createIndex({tenantId:1,id:1},{unique:true,name:"tenant_documents_tenant_id_unique"}),
    documentCollection.createIndex({tenantId:1,folderId:1,updatedAt:-1},{name:"tenant_documents_folder_updated"}),
-   documentCollection.createIndex({publicId:1},{unique:true,sparse:true,name:"tenant_documents_public_id_unique"})
+   documentCollection.createIndex({publicId:1},{unique:true,partialFilterExpression:{publicId:{$type:"string"}},name:"tenant_documents_public_id_unique"})
   ]);
   const authenticate=async(req:any,reply:any):Promise<TenantContext|null>=>{
    try{
