@@ -29,7 +29,7 @@ test("company plan user quota reserves capacity for active members and pending i
     { id: "quota-membership-member", userId: "quota-member", tenantId: "quota-company", role: "member", status: "active", createdAt: now, updatedAt: now }
   ]);
   await seedPluginCommerce(db);
-  await db.collection("plugin_plans").updateOne({ id: "starter" }, { $set: { maxUsers: 2 } });
+  await db.collection("plugin_plans").updateOne({ id: "starter" }, { $set: { maxUsers: 3 } });
 
   const app = Fastify();
   app.register(jwt, { secret: "01234567890123456789012345678901" });
@@ -52,22 +52,27 @@ test("company plan user quota reserves capacity for active members and pending i
     assert.equal(login.statusCode, 200);
     const token = login.json().accessToken as string;
     const headers = { authorization: "Bearer " + token };
+    const companyList=await app.inject({method:"GET",url:"/companies",headers});
+    assert.equal(companyList.statusCode,200);
+    const companyRef=companyList.json().companies.find((company:{name:string})=>company.name==="Quota Company")?.id as string;
+    assert.ok(companyRef,"company route should return a session-bound opaque reference");
+    const companyPath="/companies/"+encodeURIComponent(companyRef);
 
     const firstInvite = await app.inject({
-      method: "POST", url: "/companies/quota-company/invitations", headers,
+      method: "POST", url: companyPath+"/invitations", headers,
       payload: { email: "first-invite@quota.test", role: "member" }
     });
     assert.equal(firstInvite.statusCode, 201);
 
     const secondInvite = await app.inject({
-      method: "POST", url: "/companies/quota-company/invitations", headers,
+      method: "POST", url: companyPath+"/invitations", headers,
       payload: { email: "second-invite@quota.test", role: "member" }
     });
     assert.equal(secondInvite.statusCode, 409);
     assert.match(secondInvite.json().error, /user limit/i);
 
     const directAdd = await app.inject({
-      method: "POST", url: "/companies/quota-company/memberships", headers,
+      method: "POST", url: companyPath+"/memberships", headers,
       payload: { email: "member@quota.test", role: "member" }
     });
     assert.equal(directAdd.statusCode, 409);
