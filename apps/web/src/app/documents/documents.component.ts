@@ -34,6 +34,10 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
       </ng-container>
     </div>
     <div class="documents__toolbar-actions">
+      <div class="documents__view-toggle" role="group" aria-label="Document view">
+        <button type="button" [class.is-active]="viewMode==='cards'" [attr.aria-pressed]="viewMode==='cards'" aria-label="Card view" title="Card view" (click)="viewMode='cards'"><span aria-hidden="true">▦</span></button>
+        <button type="button" [class.is-active]="viewMode==='table'" [attr.aria-pressed]="viewMode==='table'" aria-label="Table view" title="Table view" (click)="viewMode='table'"><span aria-hidden="true">☷</span></button>
+      </div>
       <input #textFileInput class="documents__file-input" type="file" accept=".txt,text/plain" (change)="uploadTextFile($event)" aria-label="Choose a plain text file">
       <button type="button" class="documents__button documents__button--secondary" (click)="textFileInput.click()" [disabled]="uploading || loading">{{uploading ? "Uploading…" : "Upload text file"}}</button>
     </div>
@@ -65,7 +69,7 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
       <span>Loading documents…</span>
     </div>
 
-    <div class="documents__grid" *ngIf="!loading && (visibleFolders.length || documents.length)">
+    <div class="documents__grid" *ngIf="!loading && viewMode==='cards' && (visibleFolders.length || documents.length)">
       <article class="documents__item documents__item--folder" *ngFor="let folder of visibleFolders">
         <button class="documents__folder-open" type="button" (click)="openFolder(folder.id)" [attr.aria-label]="'Open folder ' + folder.name">
           <span class="documents__item-copy">
@@ -96,6 +100,34 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
       </article>
     </div>
 
+    
+    <div class="documents__table-wrap" *ngIf="!loading && viewMode==='table' && (visibleFolders.length || documents.length)">
+      <table class="documents__table">
+        <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let folder of visibleFolders">
+            <td><button class="documents__table-name" type="button" (click)="openFolder(folder.id)">{{folder.name}}</button></td>
+            <td>Folder</td><td>—</td>
+            <td>
+              <div class="documents__table-actions" *ngIf="folder.canManageShares">
+                <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
+                <div class="documents__menu" *ngIf="folderMenuId===folder.id">
+                  <button type="button" (click)="openShareDialog(folder,'groups')">Share with group</button>
+                  <button type="button" (click)="openShareDialog(folder,'users')">Share with user</button>
+                </div>
+              </div>
+              <span *ngIf="!folder.canManageShares">—</span>
+            </td>
+          </tr>
+          <tr *ngFor="let doc of documents">
+            <td><strong class="documents__table-name-text">{{doc.title}}</strong><small class="documents__table-description">{{doc.description || 'Document'}}</small></td>
+            <td>Document</td>
+            <td><span class="documents__visibility" [class.is-public]="doc.visibility==='public'">{{doc.visibility==='public'?'Public':'Private'}}</span></td>
+            <td><button type="button" class="documents__text-action" (click)="downloadDocument(doc)">Download <span aria-hidden="true">↗</span></button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <div class="documents__empty bee-panel" *ngIf="!loading && !visibleFolders.length && !documents.length">
       <h2>{{currentFolderId ? 'This folder is empty' : 'No documents yet'}}</h2>
       <p>{{currentFolderId ? 'Add a text document or create a subfolder to organize this location.' : 'Start by creating a folder or uploading a plain text document.'}}</p>
@@ -163,6 +195,10 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
 .documents__header h1{margin:0;font-size:clamp(26px,3vw,36px);font-weight:650;line-height:1.15;letter-spacing:-.035em}
 .documents__description{max-width:680px;margin:9px 0 0;color:var(--muted);font-size:14px;line-height:1.65}
 .documents__header-actions,.documents__toolbar-actions,.documents__form-actions,.documents__empty-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.documents__view-toggle{display:flex;align-items:center;gap:5px;padding:5px;border:0;border-radius:10px;background:transparent}
+.documents__view-toggle button{display:grid;place-items:center;width:34px;height:32px;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--muted);font:inherit;font-size:17px;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,color .16s ease}
+.documents__view-toggle button:hover{border-color:var(--purple);color:inherit}
+.documents__view-toggle button.is-active{border-color:var(--purple);background:var(--purple);color:var(--bg)}
 .documents__button{display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:8px;padding:8px 13px;border:1px solid var(--border);border-radius:9px;background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,transform .16s ease}
 .documents__button:hover:not(:disabled){background:color-mix(in srgb,var(--purple) 10%,transparent);border-color:color-mix(in srgb,var(--purple) 55%,var(--border))}
 .documents__button:focus-visible,.documents button:focus-visible,.documents input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
@@ -194,6 +230,19 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
 .documents__spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--purple);border-radius:50%;animation:documents-spin .8s linear infinite}
 @keyframes documents-spin{to{transform:rotate(360deg)}}
 .documents__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,245px),1fr));gap:12px;min-width:0}
+.documents__table-wrap{width:100%;min-width:0;overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.documents__table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}
+.documents__table th,.documents__table td{padding:13px 15px;border-bottom:1px solid var(--border);vertical-align:middle}
+.documents__table th{color:var(--muted);font-size:11px;font-weight:650;white-space:nowrap}
+.documents__table tbody tr:last-child td{border-bottom:0}
+.documents__table tbody tr:hover{background:color-mix(in srgb,var(--purple) 5%,transparent)}
+.documents__table-name{padding:0;border:0;background:transparent;color:var(--purple);font:inherit;font-weight:650;text-align:left;cursor:pointer}
+.documents__table-name:hover{text-decoration:underline;text-underline-offset:3px}
+.documents__table-name-text{display:block;font-weight:650;overflow-wrap:anywhere}
+.documents__table-description{display:block;margin-top:4px;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+.documents__table-actions{position:relative;display:inline-flex;align-items:center}
+.documents__table-actions .documents__menu{top:calc(100% + 4px)}
+.documents__table .documents__text-action{white-space:nowrap}
 .documents__item{position:relative;display:flex;min-width:0;min-height:142px;flex-direction:column;justify-content:space-between;gap:18px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--panel);transition:border-color .16s ease,background-color .16s ease}
 .documents__item:hover{border-color:color-mix(in srgb,var(--purple) 48%,var(--border));background:color-mix(in srgb,var(--panel) 92%,var(--purple))}
 .documents__folder-open{display:flex;align-items:flex-start;gap:0;width:100%;min-width:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
@@ -247,6 +296,10 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
  .documents__create{grid-template-columns:minmax(0,1fr)}
  .documents__form-actions{justify-content:flex-start}
 }
+@media(max-width:600px){
+ .documents__toolbar-actions{justify-content:space-between}
+ .documents__table{min-width:620px}
+}
 @media(max-width:480px){
  .documents{gap:17px}
  .documents__header-actions .documents__button{flex:1}
@@ -277,6 +330,7 @@ export class BeeDocumentsComponent implements OnChanges {
  uploadMessage="";
  showCreateFolder=false;
  folderName="";
+ viewMode:"cards"|"table"="cards";
  folderMenuId:string|null=null;
  shareFolder:Folder|null=null;
  shareMode:"groups"|"users"="groups";
