@@ -751,3 +751,15 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 ## Documents remaining handler typing errors — 2026-11-23
 - Responds to the latest VPS TypeScript diagnostics: explicitly typed the uploader/user lookup map to expose its email field (`TS2339`) and typed the folder-ancestor map callback parameter (`TS7006`).
 - **Validation:** targeted source correction only; no TypeScript build, Docker build, tests or runtime verification has been run. The next VPS build is required to confirm these and uncover any further errors.
+
+
+## Tenant plugin activation controls — 2026-11-23
+
+- Separated plugin installation from tenant availability. A tenant can keep a plugin installed while marking it disabled; this state is persisted on the tenant installation record and is independent for every company.
+- Settings → Tenants → Manage → Plugins now shows Enabled/Disabled for every installed plugin, including system plugins, and exposes Activate/Deactivate without invoking install or uninstall jobs. Non-installed packages remain clearly marked Not installed and cannot be toggled from this control.
+- Existing installation records without an `enabled` field remain enabled by default, preserving current tenant behavior during rollout.
+- Backend plugin guards now require installation, plan/purchase entitlement, tenant permission and enabled state. Public tenant plugin discovery omits disabled plugins.
+- Dependency safety is enforced when changing tenant availability: a plugin cannot be disabled while an installed dependent plugin remains enabled, and a plugin cannot be enabled while one of its required dependencies is disabled. For the current catalog this means Documents can be disabled, while Files cannot be disabled until Documents is disabled.
+- Platform activation/deactivation changes are audited with actor, tenant, plugin and enabled state. The operation does not uninstall data or run plugin lifecycle migrations.
+- Added platform-admin integration coverage for default-enabled system plugins, dependency protection, disable/re-enable persistence, preservation of installation status and audit recording.
+- **Validation:** source and test changes only. No TypeScript build, backend test, Angular build, browser test, CI, Docker build or VPS runtime validation has been executed. Re-run the relevant checks before treating this behavior as verified.
