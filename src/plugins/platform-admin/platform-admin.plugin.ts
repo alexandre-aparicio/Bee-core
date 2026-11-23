@@ -14,10 +14,10 @@ import { enqueuePluginInstallJob, enqueuePluginUninstallJob } from "../../core/p
 import { getTrustedPluginPackage, isPluginInstalled } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
-type Company={id:string;name:string;slug?:string;settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
+type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
-type Membership={id:string;userId:string;tenantId:string;role:"owner"|"admin"|"manager"|"member";status:"active";createdAt:Date;updatedAt:Date};
-type Claims={sub?:string;sid?:string;client?:string;aud?:string;platformRole?:string};
+type Membership={id:string;userId:string;tenantId:string;role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom";status:"active";createdAt:Date;updatedAt:Date};
+type Claims={sub?:string;sid?:string;client?:string;aud?:string};
 export const platformAdminPlugin:BeePlugin={
  manifest:{name:"platform-admin",version:"0.1.0",description:"Platform-wide administration for the bootstrap superadministrator",dependencies:["auth","organizations","marketplace"]},
  async initialize(ctx){
@@ -30,6 +30,38 @@ export const platformAdminPlugin:BeePlugin={
    platformAudit.createIndex({occurredAt:-1},{name:"platform_audit_occurred"}),
    platformAudit.createIndex({actorId:1,occurredAt:-1},{name:"platform_audit_actor_occurred"})
   ]);
+  // Idempotent migration: make the platform root a real organization and
+  // move legacy platform superadmins into it before the API accepts requests.
+  const bootstrapEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase();
+  let superOrganization=await companies.findOne({kind:"super"});
+  if(!superOrganization){
+   const existingSlug=await companies.findOne({slug:"super-organization"});
+   const now=new Date();
+   const superOrganizationId="bee-core-super-organization";
+   superOrganization=await companies.findOne({id:superOrganizationId});
+   if(!superOrganization){
+    const slug=existingSlug?"bee-core-super-organization":"super-organization";
+    superOrganization={id:superOrganizationId,name:"Bee-Core Super Organization",slug,kind:"super",createdAt:now,status:"active",settings:{defaultLanguage:"en"}};
+    await companies.insertOne(superOrganization);
+   }else{
+    await companies.updateOne({id:superOrganizationId},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
+    superOrganization={...superOrganization,kind:"super",status:"active"};
+   }
+  }
+  const legacyFilter:any={$or:[{platformRole:"superadmin"},...(bootstrapEmail?[{email:bootstrapEmail}]:[])]};
+  const legacyAdmins=await users.find(legacyFilter).toArray();
+  for(const legacyAdmin of legacyAdmins){
+   const now=new Date();
+   await memberships.updateOne(
+    {userId:legacyAdmin.id,tenantId:superOrganization.id},
+    {$set:{role:"super_admin",status:"active",updatedAt:now},$setOnInsert:{id:randomUUID(),userId:legacyAdmin.id,tenantId:superOrganization.id,createdAt:now}},
+    {upsert:true}
+   );
+   const moved=legacyAdmin.tenantId!==superOrganization.id||legacyAdmin.platformRole==="superadmin";
+   await users.updateOne({id:legacyAdmin.id},{$set:{tenantId:superOrganization.id,updatedAt:now},$unset:{platformRole:""}});
+   if(moved)await sessions.updateMany({userId:legacyAdmin.id,revokedAt:null},{$set:{revokedAt:now}});
+  }
+  if(legacyAdmins.length)ctx.logger.info("Super Organization migration completed",{organizationId:superOrganization.id,migratedUsers:legacyAdmins.length});
   const recordPlatformAudit=async(event:{actorId:string;action:string;tenantId?:string;resourceType:string;resourceId?:string;metadata?:Record<string,unknown>})=>{
    try{await platformAudit.insertOne({id:randomUUID(),...event,occurredAt:new Date()});}
    catch(error){ctx.logger.error("Platform audit event write failed",{action:event.action,error});}
@@ -115,8 +147,8 @@ export const platformAdminPlugin:BeePlugin={
    const hasMore=rows.length>limit;
    return {events:rows.slice(0,limit).map(event=>({id:mask(req.platformSession!,String(event.id),"audit-event"),actorId:mask(req.platformSession!,String(event.actorId),"user"),action:event.action,tenantId:event.tenantId?mask(req.platformSession!,String(event.tenantId),"tenant"):null,resourceType:event.resourceType,resourceId:event.resourceId?mask(req.platformSession!,String(event.resourceId),event.resourceType==="plugin"?"plugin":event.resourceType==="tenant"?"tenant":"audit-event"):null,metadata:event.metadata??{},occurredAt:event.occurredAt})),page,limit,hasMore};
   });
-  ctx.server.get("/platform/me",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;return {platformAdmin:true,role:user.platformRole,email:user.email};});
-  ctx.server.get("/platform/companies",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;const list=await companies.find({}).sort({createdAt:-1}).toArray();return {companies:await Promise.all(list.map(async c=>({id:mask(req.platformSession!,c.id,"tenant"),name:c.name,slug:c.slug??null,status:c.status??"active",createdAt:c.createdAt,membersCount:await memberships.countDocuments({tenantId:c.id,status:"active"})}))) };});
+  ctx.server.get("/platform/me",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;return {platformAdmin:true,role:"super_admin",email:user.email};});
+  ctx.server.get("/platform/companies",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;const list=await companies.find({kind:{$ne:"super"}}).sort({createdAt:-1}).toArray();return {companies:await Promise.all(list.map(async c=>({id:mask(req.platformSession!,c.id,"tenant"),name:c.name,slug:c.slug??null,status:c.status??"active",createdAt:c.createdAt,membersCount:await memberships.countDocuments({tenantId:c.id,status:"active"})}))) };});
   ctx.server.post<{Body:{name?:string;slug?:string;ownerEmail?:string;ownerPassword?:string}}>("/platform/companies",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const name=String(req.body?.name??"").trim();const ownerEmail=String(req.body?.ownerEmail??"").trim().toLowerCase();
@@ -125,7 +157,7 @@ export const platformAdminPlugin:BeePlugin={
    try{slug=normalizeTenantSlug(req.body?.slug||slugifyTenantName(name));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid tenant slug"});}
    if(await companies.findOne({slug},{projection:{_id:1}}))return reply.code(409).send({error:"This tenant slug is already in use"});
    const now=new Date(),tenantId=randomUUID();
-   const company:Company={id:tenantId,name,slug,createdAt:now,status:"active",settings:{defaultLanguage:"en"}};
+   const company:Company={id:tenantId,name,slug,kind:"tenant",createdAt:now,status:"active",settings:{defaultLanguage:"en"}};
    let owner:User|null=await users.findOne({email:ownerEmail});
    if(!owner){const password=String(req.body?.ownerPassword??"");if(password.length<12)return reply.code(400).send({error:"For a new owner, ownerPassword must contain at least 12 characters"});
     owner={id:randomUUID(),email:ownerEmail,passwordHash:await bcrypt.hash(password,12),roles:["user"],enabled:true,allowedClients:["dashboard","public"],tenantId,createdAt:now,updatedAt:now};
