@@ -133,7 +133,8 @@ export const organizationsPlugin:BeePlugin={
   const ownerOnly=async(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>{
    const actor=await requireCompanyPermission(auth,companyId,"members.manage",reply);
    if(!actor)return null;
-   if(actor.role!=="owner"){reply.code(403).send({error:"Only the company owner can manage custom roles"});return null;}
+   const superOrganization=actor.role==="super_admin"?await companies.findOne({id:companyId,kind:"super"}):null;
+   if(actor.role!=="owner"&&!superOrganization){reply.code(403).send({error:"Only the company owner or Super Organization super_admin can manage custom roles"});return null;}
    return actor;
   };
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/roles",async(req,reply)=>{
@@ -179,7 +180,7 @@ export const organizationsPlugin:BeePlugin={
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["admin","manager","member","guest"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
-   if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can invite administrators"});
+   if(role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can invite administrators"});
    const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
    if(existingMembership)return reply.code(409).send({error:"User is already a company member"});
    const invitationNow=new Date();
@@ -250,7 +251,7 @@ export const organizationsPlugin:BeePlugin={
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
    if(!email||!["admin","manager","member","guest"].includes(role))return reply.code(400).send({error:"A valid email and role are required"});
-   if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign administrators"});
+   if(role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can assign administrators"});
    const target=await users.findOne({email,enabled:true});
    const existing=await memberships.findOne({userId:target?.id??"__unknown_account__",tenantId:req.params.companyId});
    const userLimit=await getTenantUserLimit(db,req.params.companyId);
@@ -278,7 +279,7 @@ export const organizationsPlugin:BeePlugin={
    const customRoleId=String(req.body?.customRoleId??"").trim();
    let update:any;
    if(customRoleId){
-    if(actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign custom roles"});
+    if(actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can assign custom roles"});
     const customRole=await customRoles.findOne({id:customRoleId,tenantId:req.params.companyId});
     if(!customRole)return reply.code(404).send({error:"Custom role not found"});
     update={$set:{role:"custom",customRoleId,updatedAt:new Date()}};
@@ -309,7 +310,7 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const companyId=req.params.companyId;
    const actor=await requireCompanyPermission(auth,companyId,"members.read",reply);if(!actor)return;
-   if(actor.role!=="owner"&&actor.role!=="admin"){
+   if(actor.role!=="owner"&&actor.role!=="admin"&&actor.role!=="super_admin"){
     await auditOrganizationEvent({tenantId:companyId,actorId:auth.user!.id,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission:"audit.read"}});
     return reply.code(403).send({error:"Only company owners and administrators can read audit events"});
    }
