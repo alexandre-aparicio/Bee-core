@@ -1,7 +1,7 @@
 @if (path === '/login' || path === '/register' || path === '/forgot') {
-  <div class="auth-page"><div class="auth-background"></div><div class="auth-shell"><div class="auth-top"><a class="brand" href="/"><span class="brand-mark">✦</span><span>bee<span class="brand-muted">-core</span></span></a><a href="/">← Back to website</a></div><div class="auth-card"><div class="auth-icon">🔐</div><div class="eyebrow">BEE-CORE WORKSPACE</div><h1>{{ mode === 'register' ? 'Request access' : mode === 'forgot' ? 'Reset password' : 'Welcome back' }}</h1><p>{{ mode === 'register' ? 'Self-service access is not enabled. Request an account from your workspace administrator.' : mode === 'forgot' ? 'Password recovery is not configured yet. Contact your workspace administrator.' : 'Sign in to manage your plugins and workspace.' }}</p><form (submit)="signIn($event)"><label>Email address</label><input type="email" name="email" [(ngModel)]="email" placeholder="you@example.com" autocomplete="email" required>
-    @if (mode !== 'forgot') { <label>Password</label><div class="password-field"><input [type]="reveal ? 'text' : 'password'" name="password" [(ngModel)]="password" placeholder="Your password" autocomplete="current-password" required><button type="button" (click)="reveal = !reveal">{{reveal ? 'Hide' : 'Show'}}</button></div> }
-    @if (mode === 'login') { <div class="auth-options"><small>Session refreshes securely for up to 7 days.</small><a href="/forgot">Forgot password?</a></div> }
+  <div class="auth-page"><div class="auth-background"></div><div class="auth-shell"><div class="auth-top"><a class="brand" href="/"><span class="brand-mark">✦</span><span>bee<span class="brand-muted">-core</span></span></a><a href="/">← {{t('auth.back')}}</a></div><div class="auth-card"><div class="auth-icon">🔐</div><div class="eyebrow">BEE-CORE WORKSPACE</div><h1>{{ mode === 'register' ? t('auth.requestAccess') : mode === 'forgot' ? t('auth.resetPassword') : t('auth.welcome') }}</h1><p>{{ mode === 'register' ? 'Self-service access is not enabled. Request an account from your workspace administrator.' : mode === 'forgot' ? 'Password recovery is not configured yet. Contact your workspace administrator.' : t('auth.signInIntro') }}</p><form (submit)="signIn($event)"><label>{{t('auth.email')}}</label><input type="email" name="email" [(ngModel)]="email" placeholder="you@example.com" autocomplete="email" required>
+    @if (mode !== 'forgot') { <label>{{t('auth.password')}}</label><div class="password-field"><input [type]="reveal ? 'text' : 'password'" name="password" [(ngModel)]="password" placeholder="Your password" autocomplete="current-password" required><button type="button" (click)="reveal = !reveal">{{reveal ? t('auth.hide') : t('auth.show')}}</button></div> }
+    @if (mode === 'login') { <div class="auth-options"><small>Session refreshes securely for up to 7 days.</small><a href="/forgot">{{t('auth.forgot')}}</a></div> }
     @if (mfaRecoveryCodes.length) {
       <div class="auth-options"><strong>Save your recovery codes</strong></div>
       <p>Store these codes somewhere safe. Each code can only be used once. They will not be shown again.</p>
@@ -18,7 +18,7 @@
       <label>Authenticator or recovery code</label><input inputmode="text" autocomplete="one-time-code" name="mfaCode" [(ngModel)]="mfaCode" maxlength="12" placeholder="6-digit code or recovery code" required>
     }
     @if (error) { <div class="auth-error">{{error}}</div> }
-    @if (!mfaRecoveryCodes.length) { <button class="auth-submit" type="submit" [disabled]="busy">{{busy ? 'Please wait…' : mfaSetupMode ? 'Confirm MFA' : mfaRequired ? 'Verify and sign in' : mode === 'forgot' ? 'Continue' : mode === 'register' ? 'Request access' : 'Sign in'}} ↗</button> }</form><div class="auth-divider"><span>Protected workspace</span></div><div class="secure-note">✓ Secure authentication with Bee-Core</div></div><div class="auth-footer">© Bee-Core · All is a plugin</div></div></div>
+    @if (!mfaRecoveryCodes.length) { <button class="auth-submit" type="submit" [disabled]="busy">{{busy ? 'Please wait…' : mfaSetupMode ? 'Confirm MFA' : mfaRequired ? 'Verify and sign in' : mode === 'forgot' ? 'Continue' : mode === 'register' ? 'Request access' : 'Sign in'}} ↗</button> }</form><div class="auth-divider"><span>{{t('auth.protected')}}</span></div><div class="secure-note">✓ Secure authentication with Bee-Core</div></div><div class="auth-footer">© Bee-Core · All is a plugin</div></div></div>
 } @else if (dashboard) {@if (auth) {
     @if (layoutId('dashboard') === 'dashboard.midnight') {
       <bee-template-midnight-layout><bee-template-midnight-page [vm]="this"></bee-template-midnight-page></bee-template-midnight-layout>
@@ -28,7 +28,7 @@
       <bee-template-paper-layout><bee-template-paper-page [vm]="this"></bee-template-paper-page></bee-template-paper-layout>
     }
   } @else {
-    <div class="auth-page"><div class="auth-shell"><div class="auth-card"><h1>Session required</h1><p>Sign in to continue.</p><a class="auth-submit" href="/login">Sign in</a></div></div></div>
+    <div class="auth-page"><div class="auth-shell"><div class="auth-card"><h1>Session required</h1><p>{{t('auth.signInIntro')}}</p><a class="auth-submit" href="/login">{{t('auth.signIn')}}</a></div></div></div>
   }
 } @else if (publicTenantLoading) {
   <div class="auth-page"><div class="auth-shell"><div class="auth-card"><div class="eyebrow">BEE-CORE</div><h1>Loading website…</h1><p>Resolving this tenant's public website.</p></div></div></div>

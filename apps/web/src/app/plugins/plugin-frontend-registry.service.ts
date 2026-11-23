@@ -1,6 +1,7 @@
 import { Injectable, type Type } from "@angular/core";
 import { BeeNotesComponent } from "../notes/notes.component";
 import { BeeHelloWorldComponent } from "./hello-world.component";
+import { NOTES_EN, NOTES_ES } from "../i18n/catalogs/modules/notes.catalog";
 
 export type BeePluginFrontendContext = {
   tenantId: string;
@@ -10,6 +11,7 @@ export type BeePluginFrontendContext = {
 export type BeePluginFrontendRegistration = {
   component: Type<unknown>;
   inputs: (context: BeePluginFrontendContext) => Record<string, unknown>;
+  translations?: { en: Record<string, string>; es: Record<string, string> };
 };
 
 /**
@@ -24,7 +26,8 @@ export class BeePluginFrontendRegistry {
       inputs: context => ({
         tenantId: context.tenantId,
         canWrite: ["owner", "admin", "manager"].includes(context.role)
-      })
+      }),
+      translations: { en: NOTES_EN, es: NOTES_ES }
     }],
     ["hello-world", {
       component: BeeHelloWorldComponent,

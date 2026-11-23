@@ -30,6 +30,7 @@ export class BeePluginManager {
     mail: ["mongoDbName", "sessionIdSecret"],
     notifications: ["mongoDbName", "sessionIdSecret"],
     "platform-admin": ["mongoDbName", "sessionIdSecret"],
+    localization: ["mongoDbName", "sessionIdSecret"],
     hello: []
   };
 

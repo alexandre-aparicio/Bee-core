@@ -14,7 +14,7 @@ import { enqueuePluginInstallJob, enqueuePluginUninstallJob } from "../../core/p
 import { getTrustedPluginPackage, isPluginInstalled } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
-type Company={id:string;name:string;slug?:string;createdAt:Date;status:"active"|"suspended"};
+type Company={id:string;name:string;slug?:string;settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
 type Membership={id:string;userId:string;tenantId:string;role:"owner"|"admin"|"manager"|"member";status:"active";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string;platformRole?:string};
@@ -125,7 +125,7 @@ export const platformAdminPlugin:BeePlugin={
    try{slug=normalizeTenantSlug(req.body?.slug||slugifyTenantName(name));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid tenant slug"});}
    if(await companies.findOne({slug},{projection:{_id:1}}))return reply.code(409).send({error:"This tenant slug is already in use"});
    const now=new Date(),tenantId=randomUUID();
-   const company:Company={id:tenantId,name,slug,createdAt:now,status:"active"};
+   const company:Company={id:tenantId,name,slug,createdAt:now,status:"active",settings:{defaultLanguage:"en"}};
    let owner:User|null=await users.findOne({email:ownerEmail});
    if(!owner){const password=String(req.body?.ownerPassword??"");if(password.length<12)return reply.code(400).send({error:"For a new owner, ownerPassword must contain at least 12 characters"});
     owner={id:randomUUID(),email:ownerEmail,passwordHash:await bcrypt.hash(password,12),roles:["user"],enabled:true,allowedClients:["dashboard","public"],tenantId,createdAt:now,updatedAt:now};

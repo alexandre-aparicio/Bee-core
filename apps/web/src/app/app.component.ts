@@ -11,11 +11,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateEngine } from './templates/template-engine.service';
 import type { BeeThemeMode } from './templates/template-engine.service';
+import { BeeI18nService } from './i18n/bee-i18n.service';
 import { BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent } from './templates/packages';
 
 @Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], templateUrl: './app.component.html' })
 export class AppComponent implements OnInit {
-  constructor(private readonly templates: BeeTemplateEngine) {}
+  constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService) {}
 
   ngOnInit(): void {
     this.syncActiveSectionFromPath();
@@ -71,7 +72,8 @@ export class AppComponent implements OnInit {
   companyError = '';
   companyBusy = false;
   activePlugins: string[] = [];
-  setActivePlugins(pluginIds: string[]): void { this.activePlugins = pluginIds; }
+  setActivePlugins(pluginIds: string[]): void { this.activePlugins = pluginIds; this.i18n.setInstalledModules(pluginIds); }
+  t(key: string): string { return this.i18n.t(key); }
   get mode(): 'login'|'register'|'forgot' { return this.path === '/register' ? 'register' : this.path === '/forgot' ? 'forgot' : 'login'; }
   get dashboard(): boolean { return this.path === '/dashboard' || this.path.startsWith('/dashboard/'); }
   get signedEmail(): string { return this.auth?.user?.email || 'Workspace user'; }
@@ -239,6 +241,8 @@ export class AppComponent implements OnInit {
         this.activeCompanyName = active.name;
         this.activeCompanyRole = active.role;
       }
+      // Resolve language using the personal preference or the active team's default.
+      await this.i18n.loadPreferences(this.auth.accessToken);
       // Resolve deep-linked settings routes only after the active tenant role is known.
       this.syncActiveSectionFromPath();
     } catch (error) {
@@ -328,8 +332,8 @@ export class AppComponent implements OnInit {
   navigatePlatformList(): void { this.navigateSection('settings-tenants'); }
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
-  get sectionTitle(): string { const organizationTitles: Record<string,string> = {'organization-company':'Company','organization-users':'Users','organization-teams':'Teams','organization-roles':'Roles & Permissions'}; return organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'Notifications' : this.activeSection === 'messages' ? 'Chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'); }
-  get settingsNavigationItems(): Array<{id:string;label:string;icon:string;description:string}> {
+  get sectionTitle(): string { const organizationTitles: Record<string,string> = {'organization-company':'nav.organization.company','organization-users':'nav.organization.users','organization-teams':'nav.organization.teams','organization-roles':'nav.organization.roles'}; const key=organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'nav.notifications' : this.activeSection === 'messages' ? 'nav.notifications.chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.labelKey || this.navigationItems.find(item => item.id === this.activeSection)?.labelKey || 'nav.dashboard'); return this.i18n.t(key); }
+  get settingsNavigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;description:string}> {
     const role = (this.activeCompanyRole || '').toLowerCase();
     const allowed = this.isPlatformAdmin
       ? this.allSettingsSections.map(item => item.id)
@@ -338,9 +342,9 @@ export class AppComponent implements OnInit {
         : ['settings-localization'];
     return this.allSettingsSections.filter(item => allowed.includes(item.id)).map(item => ({
       ...item,
-      description: item.id === 'settings-general' && !this.isPlatformAdmin
-        ? 'Company name, identity and tenant-wide configuration.'
-        : item.description
+      labelKey: 'settings:section.' + item.id.replace('settings-',''),
+      label: this.i18n.t('settings:section.' + item.id.replace('settings-','')),
+      description: this.i18n.t('settings:section.' + item.id.replace('settings-','') + '.description')
     }));
   }
   get settingsComponentSection(): string {
@@ -355,16 +359,16 @@ export class AppComponent implements OnInit {
       if (first) this.navigateSection(first.id);
     }
   }
-  get navigationItems(): Array<{id:string;label:string;icon:string;group:string}> {
+  get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string}> {
     // One shared navigation structure for platform and tenant administrators.
     // Privileged areas are restricted within Settings and by section access checks.
     return [
-      {id:'dashboard',label:'Dashboard',icon:'dashboard',group:'WORKSPACE'},
-      {id:'organization',label:'Organization',icon:'organization',group:'WORKSPACE'},
-      {id:'activity',label:'Activity',icon:'activity',group:'WORKSPACE'},
-      {id:'mail',label:'Mail',icon:'mail',group:'WORKSPACE'},
-      {id:'notifications',label:'Notifications',icon:'notifications',group:'WORKSPACE'},
-      {id:'settings',label:'Settings',icon:'settings',group:'SYSTEM'}
+      {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
+      {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
+      {id:'activity',label:this.i18n.t('nav.activity'),labelKey:'nav.activity',icon:'activity',group:'WORKSPACE'},
+      {id:'mail',label:this.i18n.t('nav.mail'),labelKey:'nav.mail',icon:'mail',group:'WORKSPACE'},
+      {id:'notifications',label:this.i18n.t('nav.notifications'),labelKey:'nav.notifications',icon:'notifications',group:'WORKSPACE'},
+      {id:'settings',label:this.i18n.t('nav.settings'),labelKey:'nav.settings',icon:'settings',group:'SYSTEM'}
     ];
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
