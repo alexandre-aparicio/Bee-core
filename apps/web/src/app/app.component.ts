@@ -305,12 +305,24 @@ export class AppComponent implements OnInit {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not load companies');
       this.companies = result.companies || [];
-      const active = this.companies.find(company => company.active) || this.companies.find(company => company.id === (this.auth.tenantId || this.auth.user?.tenantId));
-      if (active) {
-        this.activeCompanyId = active.id;
-        this.activeCompanyName = active.name;
-        this.activeCompanyRole = active.role;
+      // The tenant embedded in the authenticated session is authoritative.
+      // A stale "active" flag in the companies response must never override it,
+      // otherwise tenant-scoped requests (e.g. Teams) are sent for the wrong company.
+      const sessionTenantId = this.auth.tenantId || this.auth.user?.tenantId || '';
+      const active = sessionTenantId
+        ? this.companies.find(company => company.id === sessionTenantId)
+        : this.companies.find(company => company.active);
+      if (!active) {
+        this.activeCompanyId = '';
+        this.activeCompanyName = 'Bee workspace';
+        this.activeCompanyRole = 'Workspace';
+        throw new Error(sessionTenantId
+          ? 'The active organization in your session is not available in your company list. Refresh your session or switch organization.'
+          : 'No active organization is available for this session.');
       }
+      this.activeCompanyId = active.id;
+      this.activeCompanyName = active.name;
+      this.activeCompanyRole = active.role;
       // Resolve language using the personal preference or the active team's default.
       await this.i18n.loadPreferences(this.auth.accessToken);
       // Resolve deep-linked settings routes only after the active tenant role is known.
