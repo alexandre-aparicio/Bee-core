@@ -13,7 +13,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
   template: `
     <section id="users" class="panel bee-dashboard-card bee-company-members">
       <div class="panel-heading">
-        <div><h2>{{canRead ? "Company members" : "Join a company"}}</h2><p>{{canRead ? "Memberships and roles apply only to the active company." : "Have an invitation token? Accept it to join another company."}}</p></div>
+        <div><h2>{{canRead ? "Organization members" : "Join an organization"}}</h2><p>{{canRead ? "Memberships and roles apply only to the active organization." : "Have an invitation token? Accept it to join another company."}}</p></div>
         <button class="bee-company-members__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
       </div>
       <div class="bee-company-members__accept">
@@ -32,12 +32,12 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
             <tr *ngFor="let member of members; trackBy: trackMember">
               <td><strong>{{member.email || member.userId}}</strong><small>{{member.userId}}</small></td>
               <td>
-                <select *ngIf="canManage && member.role !== 'owner' && (role === 'owner' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
+                <select *ngIf="canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
                   <option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option>
                   <option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">Admin</option>
                   <option *ngFor="let customRole of customRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
                 </select>
-                <span *ngIf="!canManage || member.role === 'owner'">{{member.role === 'super_admin' ? 'Super Admin' : (member.role === 'custom' ? customRoleName(member.customRoleId) : member.role)}}</span>
+                <span *ngIf="!canManage || member.role === 'owner' || member.role === 'super_admin'">{{member.role === 'super_admin' ? 'Super Admin' : (member.role === 'custom' ? customRoleName(member.customRoleId) : member.role)}}</span>
               </td>
               <td><span class="bee-company-members__status" [class.is-suspended]="member.status !== 'active'">{{member.status}}</span></td>
               <td *ngIf="canManage"><button *ngIf="member.role !== 'owner' && member.status === 'active' && (role === 'owner' || member.role !== 'admin')" class="bee-company-members__danger" type="button" (click)="suspend(member)" [disabled]="busyId === member.userId">Suspend</button></td>
