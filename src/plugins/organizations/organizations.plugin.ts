@@ -126,7 +126,7 @@ export const organizationsPlugin:BeePlugin={
    if(companyId!==activeTenantId){reply.code(403).send({error:"Switch to this company before accessing its resources"});return null;}
    const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
    let effectivePermissions:readonly string[]=[];
-   if(actor?.role==="custom"&&actor.customRoleId){const custom=await customRoles.findOne({id:actor.customRoleId,tenantId:companyId});if(custom){try{effectivePermissions=permissionsForCustomRole(custom);}catch{}}}
+   if(actor?.role==="custom"&&actor.customRoleId){const custom=await customRoles.findOne({id:actor.customRoleId,tenantId:companyId});if(custom){try{effectivePermissions=permissionsForCustomRole(custom,await getTenantAssignablePermissions());}catch{}}}
    else if(actor&&actor.role!=="custom")effectivePermissions=rolePermissions[actor.role];
    if(!actor||!effectivePermissions.includes(permission)){
     if(auth.user&&activeTenantId&&companyId===activeTenantId)await auditOrganizationEvent({tenantId:activeTenantId,actorId:auth.user.id,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission}});
