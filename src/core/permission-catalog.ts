@@ -10,6 +10,8 @@ export const CORE_PERMISSION_CATALOG:readonly PermissionDefinition[]=[
 {key:"billing.manage",module:"billing",resource:"billing",action:"manage",label:"Manage billing",description:"Manage plans, subscriptions and billing settings.",customRoleAssignable:false,sensitive:true},
 {key:"files.read",module:"files",resource:"files",action:"read",label:"View files",description:"List and download organization files.",customRoleAssignable:true},
 {key:"files.write",module:"files",resource:"files",action:"write",label:"Manage files",description:"Upload and modify organization files.",customRoleAssignable:true},
+{key:"documents.read",module:"documents",resource:"documents",action:"read",label:"View documents",description:"Browse and download documents allowed by tenant and resource-level access.",customRoleAssignable:true},
+{key:"documents.write",module:"documents",resource:"documents",action:"write",label:"Manage documents",description:"Create folders, register documents and manage publication.",customRoleAssignable:true},
 {key:"notes.read",module:"notes",resource:"notes",action:"read",label:"View notes",description:"Read organization notes.",customRoleAssignable:true},
 {key:"notes.write",module:"notes",resource:"notes",action:"write",label:"Manage notes",description:"Create and modify organization notes.",customRoleAssignable:true},
 {key:"mail.read",module:"mail",resource:"mail",action:"read",label:"Read mail",description:"Read connected mailbox messages.",customRoleAssignable:true},

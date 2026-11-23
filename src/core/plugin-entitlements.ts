@@ -64,9 +64,9 @@ type TenantPluginPurchase = Document & {
 };
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "hello-world"], visiblePluginIds: ["files", "notes", "hello-world"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "notes", "hello-world"], visiblePluginIds: ["files", "notes", "hello-world"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "notes", "hello-world"], visiblePluginIds: ["files", "notes", "hello-world"], maxUsers: null, storageMb: 10240 }
+  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "hello-world"], visiblePluginIds: ["files", "documents", "notes", "hello-world"], maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "hello-world"], visiblePluginIds: ["files", "documents", "notes", "hello-world"], maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "hello-world"], visiblePluginIds: ["files", "documents", "notes", "hello-world"], maxUsers: null, storageMb: 10240 }
 ];
 
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
@@ -83,6 +83,12 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     dependencies: [],
     codeAvailable: true,
     status: "published"
+  },
+  {
+    id: "documents", name: "Documents", version: "0.1.0",
+    description: "Shared document library with folder-level team access and controlled public delivery",
+    category: "platform", visibleInPlans: ["starter", "pro", "enterprise"], includedInPlans: ["starter", "pro", "enterprise"],
+    purchasable: false, system: true, dependencies: ["files"], codeAvailable: true, status: "published"
   },
   {
     id: "notes",
@@ -231,6 +237,12 @@ export async function getTenantSubscription(db: Db, tenantId: string): Promise<T
     } catch (error) {
       if ((error as { code?: number }).code !== 11000) throw error;
     }
+  }
+  const documentsInstalled = await installations.findOne({ pluginId: "documents", status: "installed" });
+  if (!documentsInstalled) {
+    const now = new Date();
+    try { await installations.insertOne({ id: randomUUID(), pluginId: "documents", version: packagesById.get("documents")!.version, status: "installed", installedAt: now, updatedAt: now }); }
+    catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
   }
   return subscription;
 }
