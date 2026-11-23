@@ -524,3 +524,16 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Corrected bootstrap to keep the new organization as a plain `Company` insert document, insert it, re-read the persisted MongoDB record, and fail explicitly if initialization still returns no organization.
 - Expanded the platform-admin membership status type to include the persisted `invited` and `suspended` states used by the migration and membership lifecycle.
 - Fix is isolated on branch `fix/super-organization-mongodb-types`. No build, tests or CI were run here. Rebuild on the VPS is required to confirm the TypeScript diagnostics are resolved; subsequent runtime migration and MFA flows remain unverified.
+
+
+## Core permission catalogue and Organization role editor — feat/core-permission-catalog (2026-11-23)
+
+- Added a canonical backend permission catalogue for current Core authorization keys: Organization members, Plugins, Billing, Files, Notes and Mail.
+- Preserved existing permission keys so current backend guards and persisted custom-role records remain compatible.
+- Custom roles can select every registered current Core permission, including mail, billing and management capabilities previously excluded by the custom-role allow-list.
+- Unregistered keys such as platform.super_admin and tenants.manage remain rejected. Platform-global super-admin authority is outside the tenant-customizable catalogue.
+- Added a dedicated Organization → Roles & Permissions workspace to Glass, Midnight and Paper. Role editing is removed from Users; Users retains invitation and membership workflows.
+- The editor groups permissions by module, explains each action and marks sensitive operations. Backend owner-only checks remain authoritative for creating, editing and deleting custom roles.
+- Added regression coverage for catalogue uniqueness, built-in role coverage and rejection of unregistered privilege keys.
+- This first pass includes only permissions backed by current Core authorization checks. It does not invent Teams/Company CRUD permissions or claim record-level scopes (own, team, assigned) are implemented.
+- Validation: no tests, TypeScript build, Angular build, Docker build or VPS runtime validation have been executed here. Run backend npm test/build and Angular production build before deployment.
