@@ -699,3 +699,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Fixed a literal escaped `\\n` accidentally inserted between the constructor and `canEdit` getter in `organization-company.component.ts`; it is now a real TypeScript line break.
 - Based on the Angular compiler diagnostics from the VPS Docker build after PR #117 was pulled. This addresses the reported TS1127/TS1434/TS7008 source error.
 - Validation: source-level correction only. Angular/Docker rebuild and VPS verification remain pending.
+
+
+## Organization → Company profile translations audit (2026-11-23)
+
+- Audited every translation key used by the Company profile component against the Organization English and Spanish catalogs. The visible profile labels, field labels, loading/saving/success/read-only notices were already present in both languages.
+- Added missing localized fallback error messages for loading and saving the Company profile, and replaced the component's hard-coded English fallback strings with the translation keys.
+- API-provided error details remain displayed as received when present; only local fallback messages are translated.
+- Validation: source/catalog audit only; no Angular build, browser locale test or Docker/VPS runtime check executed.
