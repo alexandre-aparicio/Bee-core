@@ -117,3 +117,10 @@
   color:#263248!important;
   border-color:#cfd8e6!important;
 }
+
+/* Semantic token overrides for Midnight workspace features in Light appearance. */
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-users{
+  --panel:#fff;--bg:#f4f6fb;--muted:#68758b;--border:#dfe5ef;--purple:#5542bd;
+  --bee-status-success:#167447;--bee-status-warning:#946200;--bee-status-danger:#b42318;--bee-status-info:#2762b5;
+  --bee-shadow:0 12px 32px #25385818;--bee-action-text:#fff;color:#263248!important;
+}
