@@ -116,7 +116,7 @@ export class TeamsWorkspaceComponent implements OnChanges {
  search="";
  statusFilter:"all"|"active"|"archived"="all";
  view:TeamView="cards";
- readonly applicationCatalog=[{id:"documents",label:"Documents"},{id:"files",label:"Files"},{id:"mail",label:"Mail"},{id:"notes",label:"Notes"},{id:"tasks",label:"Tasks"},{id:"crm",label:"CRM"},{id:"calendar",label:"Calendar"},{id:"projects",label:"Projects"}];
+ applicationCatalog:{id:string;label:string}[]=[];
  aclPlugin="documents";
  aclType="folder";
  aclId="";
@@ -133,7 +133,7 @@ export class TeamsWorkspaceComponent implements OnChanges {
  get matchingApplications(){const query=this.pluginInput.trim().toLowerCase();if(!query)return [];return this.applicationCatalog.filter(app=>(app.id.includes(query)||app.label.toLowerCase().includes(query))&&!this.selectedApplications.includes(app.id)).slice(0,5);}
  ngOnChanges(changes:SimpleChanges){if(changes["tenantId"]||changes["accessToken"]||changes["role"])void this.load();}
  private async request(path:string,method="GET",body?:unknown){const response=await fetch("/api"+path,{method,headers:{authorization:"Bearer "+this.accessToken,...(body?{"content-type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Team request failed");return result;}
- async load(){if(!this.tenantId||!this.accessToken)return;this.loading=true;this.error="";try{const [teams,members]=await Promise.all([this.request("/companies/"+encodeURIComponent(this.tenantId)+"/teams"),this.request("/companies/"+encodeURIComponent(this.tenantId)+"/memberships")]);this.teams=teams.teams||[];this.allMembers=(members.memberships||[]).filter((item:any)=>item.status==="active").map((item:any)=>({userId:item.userId,email:item.email||item.userId}));if(this.selected)this.selected=this.teams.find((item:Team)=>item.id===this.selected?.id)||null;}catch(e){this.error=e instanceof Error?e.message:"Could not load teams";}finally{this.loading=false;}}
+ async load(){if(!this.tenantId||!this.accessToken)return;this.loading=true;this.error="";try{const [teams,members]=await Promise.all([this.request("/companies/"+encodeURIComponent(this.tenantId)+"/teams"),this.request("/companies/"+encodeURIComponent(this.tenantId)+"/memberships")]);this.teams=teams.teams||[];this.allMembers=(members.memberships||[]).filter((item:any)=>item.status==="active").map((item:any)=>({userId:item.userId,email:item.email||item.userId}));try{const marketplace=await this.request("/marketplace/plugins");this.applicationCatalog=(marketplace.plugins||[]).filter((plugin:any)=>plugin.entitled&&plugin.installed&&plugin.enabled!==false).map((plugin:any)=>({id:String(plugin.pluginKey||plugin.id),label:String(plugin.name||plugin.pluginKey||plugin.id)}));}catch{this.applicationCatalog=[];}if(this.selected)this.selected=this.teams.find((item:Team)=>item.id===this.selected?.id)||null;}catch(e){this.error=e instanceof Error?e.message:"Could not load teams";}finally{this.loading=false;}}
  startCreate(){this.reset();this.composerOpen=true;}
  closeComposer(){this.composerOpen=false;this.reset();}
  reset(){this.selected=null;this.name="";this.description="";this.parentTeamId="";this.selectedMemberIds=[];this.selectedApplications=[];this.pluginInput="";}
