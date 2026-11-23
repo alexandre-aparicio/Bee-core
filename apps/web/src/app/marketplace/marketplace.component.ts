@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChange
 
 type MarketplacePlugin = {
   id: string;
+  pluginKey?: string;
   name: string;
   version: string;
   description: string;
@@ -94,7 +95,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not load company plugins");
       this.plugins = result.plugins || [];
-      this.activePluginsChange.emit(this.plugins.filter(plugin => plugin.entitled && plugin.installed && plugin.enabled !== false).map(plugin => plugin.id));
+      this.activePluginsChange.emit(this.plugins.filter(plugin => plugin.entitled && plugin.installed && plugin.enabled !== false).map(plugin => plugin.pluginKey || plugin.id));
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not load company plugins";
       this.plugins = [];
