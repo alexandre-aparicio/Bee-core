@@ -1,6 +1,6 @@
 # Company user onboarding
 
-This specification is reconciled against the current `main` branch. Company membership management and token-based invitations already exist in the backend/UI; the manual account creation with a temporary password and email delivery of invitations remain future work. This document separates implemented behavior from deferred requirements so it does not imply features that are not present.
+This specification is reconciled against the current `main` branch. Company membership management and token-based invitations already exist in the backend/UI; a new Superadmin-only **Admin → Users** overview has now been added to the Glass, Midnight and Paper dashboard shells. It documents onboarding methods but does not create users or send emails. Manual account creation with a temporary password and email delivery of invitations remain future work. This document separates implemented behavior from deferred requirements so it does not imply features that are not present.
 
 ## Who can create company users?
 
