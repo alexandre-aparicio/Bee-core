@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-23 — tenant subdomain routing is included. Company invitation tokens, acceptance and cancellation exist in the company Users UI (manual token sharing; seven-day expiry is shown in the UI). A Superadmin-only **Admin → Users** overview is now added to Glass, Midnight and Paper dashboards; it is informational and does not connect user-creation APIs. Temporary-password user creation and email-delivered invitations/self-registration remain future work in `docs/company-user-onboarding.md`. No tests or CI were run for this UI/documentation change.
+Updated: 2026-11-23 — tenant subdomain routing is included. Company invitation tokens, acceptance and cancellation exist in the company Users UI (manual token sharing; seven-day expiry is shown in the UI). **Organization → Users** now renders the existing company membership manager in Glass, Midnight and Paper; built-in Guest membership has restricted `plugins.read` permissions. The separate Superadmin-only **Admin → Users** overview remains informational. Superadmin enrollment as a member of a first-class Super Organization is still pending; this PR does not claim that platform identity migration is complete. Temporary-password user creation and email-delivered invitations/self-registration remain future work in `docs/company-user-onboarding.md`. No tests or CI were run for this UI/documentation change.
 
 ## How progress is measured
 
