@@ -26,6 +26,12 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.ok(session);
     return unmaskResourceId(reference,"job",{sessionId:session.id,expiresAt:session.expiresAt}, "01234567890123456789012345678901");
   };
+  const resolvePluginId = async (token:string, reference:string) => {
+    const claims=JSON.parse(Buffer.from(token.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const session=await db.collection("refresh_sessions").findOne({id:claims.sid});
+    assert.ok(session);
+    return unmaskResourceId(reference,"plugin",{sessionId:session.id,expiresAt:session.expiresAt}, "01234567890123456789012345678901");
+  };
   const waitForInstallJob = async (jobId: string) => {
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
@@ -136,8 +142,12 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const alphaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCatalog.statusCode, 200);
-    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["files", "notes"]);
-    const alphaNotesOffer = alphaCatalog.json().plugins.find((plugin: { name: string }) => plugin.name.toLowerCase() === "notes");
+    const alphaCatalogPlugins=alphaCatalog.json().plugins;
+    const alphaPluginIds=await Promise.all(alphaCatalogPlugins.map((plugin:{id:string})=>resolvePluginId(alphaToken,plugin.id)));
+    assert.deepEqual(alphaPluginIds.sort(),["files","hello-world","notes"],"catalog should expose the trusted plugin IDs, not localized display names");
+    const alphaNotesOffer=alphaCatalogPlugins.find((plugin:{name:string})=>plugin.name.toLowerCase().includes("notes"));
+    assert.ok(alphaNotesOffer,"Notes package should be visible in the starter catalog");
+    assert.equal(await resolvePluginId(alphaToken,alphaNotesOffer.id),"notes");
     const alphaNotesPluginRef = alphaNotesOffer.id as string;
     assert.equal(alphaNotesOffer.entitled, false);
     assert.equal(alphaNotesOffer.purchasable, true);
@@ -146,8 +156,13 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const betaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaCatalog.statusCode, 200);
-    assert.deepEqual(betaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["files", "notes"]);
-    const betaNotesPluginRef = betaCatalog.json().plugins.find((plugin: { name: string }) => plugin.name.toLowerCase() === "notes").id as string;
+    const betaCatalogPlugins=betaCatalog.json().plugins;
+    const betaPluginIds=await Promise.all(betaCatalogPlugins.map((plugin:{id:string})=>resolvePluginId(betaToken,plugin.id)));
+    assert.deepEqual(betaPluginIds.sort(),["files","hello-world","notes"],"catalog IDs should remain stable across tenant sessions");
+    const betaNotesOffer=betaCatalogPlugins.find((plugin:{name:string})=>plugin.name.toLowerCase().includes("notes"));
+    assert.ok(betaNotesOffer,"Notes package should be visible in the Pro catalog");
+    assert.equal(await resolvePluginId(betaToken,betaNotesOffer.id),"notes");
+    const betaNotesPluginRef = betaNotesOffer.id as string;
     const betaNotesInstallAttempts = await Promise.all([
       app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } }),
       app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } })
@@ -341,7 +356,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(cleanupConcurrentPurchase.statusCode, 200);
     assert.equal(cleanupConcurrentPurchase.json().changed, true);
     const alphaPurchasedCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
-    assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; name: string; entitled: boolean; accessSource: string }) => plugin.name.toLowerCase() === "notes" && plugin.entitled && plugin.accessSource === "purchase"));
+    assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; name: string; entitled: boolean; accessSource: string }) => plugin.name.toLowerCase().includes("notes") && plugin.entitled && plugin.accessSource === "purchase"));
     const alphaNotesInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(alphaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaNotesInstall.statusCode, 202);
     const alphaInstallJob = await waitForInstallJob(await resolveJobId(alphaToken,alphaNotesInstall.json().jobId as string));
