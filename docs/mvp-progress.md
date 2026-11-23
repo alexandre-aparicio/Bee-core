@@ -817,7 +817,7 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 
 ## Connected Device browser simulator — prepared (2026-11-23)
 
-- Added a minimal browser companion at `/assets/device-simulator/index.html`, published as a static Angular asset. It accepts the one-time `bee-device://pair?token=...` QR payload, exchanges it through the public pairing endpoint, polls approval, and sends authenticated device heartbeats after approval.
+- Added a mobile-first browser companion at `/assets/device-simulator/index.html`, published as a static Angular asset. It uses a phone-shaped shell on desktop and a full-screen mobile layout on narrow screens, including a device status bar, Bee-Core app header, connection status card, compact pairing form, metrics, activity log and bottom navigation. It accepts the one-time `bee-device://pair?token=...` QR payload, exchanges it through the public pairing endpoint, polls approval, and sends authenticated device heartbeats after approval.
 - The simulator shows API reachability, pairing/approval state, device ID, granted capabilities, heartbeat acknowledgements and a timestamped request log. The generated device credential remains in page memory only and is cleared on disconnect/reload.
 - This exercises the **implemented REST pairing and heartbeat contract**. It is not a WebSocket simulator: the current Connected Devices plugin has no device WebSocket endpoint or realtime channel yet.
 - **Validation pending:** Angular asset-copy/build, browser test, CORS/same-origin deployment check and end-to-end QR/approval/heartbeat test have not been run. The utility is on a feature branch and is not yet in `main`.
