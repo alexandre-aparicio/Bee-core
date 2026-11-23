@@ -576,10 +576,9 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Validation: no tests, Angular build, Docker build or VPS runtime checks have been executed for this change. Verify all three dashboard templates on the VPS, including Midnight dark mode, before considering the visual correction complete.
 
 
-## Remove placeholder Settings → Security section (2026-11-23)
+## Fix duplicated Security workspace above Roles & Permissions (2026-11-23)
 
-- Removed the standalone Settings → Security destination from the platform Settings navigation and tenant owner/admin navigation.
-- Removed its `/dashboard/settings/security` route mapping and its placeholder workspace definition (authentication/session policy, governance, privacy and retention fields that had no Settings API behind them).
-- Kept Roles & Permissions, Platform Users, existing authentication/MFA/session endpoints, authorization enforcement and the Activity audit log unchanged. This is removal of an unused Settings placeholder only; it does not change backend security enforcement.
-- Unknown/retired Settings section values now render a neutral Settings fallback rather than falling through to the Security placeholder.
-- No build, tests, browser checks or VPS validation were run. Verify Angular compilation, Settings navigation and direct access to the retired URL on the VPS.
+- Restored the Settings → Security destination and its existing placeholder definition; the previous change had removed it based on a misreading of the reported screen.
+- Fixed the shared Glass, Midnight and Paper dashboard templates so `settings-roles` is excluded from the generic `settings-*` workspace renderer.
+- The platform Roles & Permissions component now renders on its own without the unrelated Security workspace appearing above it. Security navigation and backend authentication/authorization remain unchanged.
+- Validation: no Angular build, tests, browser checks or VPS runtime checks have been executed. Verify Settings → Security still opens its workspace and Settings → Roles & Permissions shows only its intended component in all three dashboard templates.
