@@ -80,7 +80,7 @@ export async function resolveTenantContext(
   if (!membership) return null;
   if (membership.role === "super_admin") {
     const superOrganization = await db.collection<{ id:string; kind?:string }>("tenants").findOne({ id: tenantId, kind: "super" });
-    if (!superOrganization || !user.mfaSecretEnc || !session.mfaVerifiedAt || Date.now() - session.mfaVerifiedAt.getTime() > 15 * 60 * 1000) return null;
+    if (!superOrganization || !user.mfaSecretEnc) return null;
   }
   let permissions: readonly string[];
   if (membership.role === "custom") {
