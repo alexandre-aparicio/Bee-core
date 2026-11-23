@@ -2,7 +2,7 @@ import type { Db } from "mongodb";
 import { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
 import { unmaskTenantId, unmaskUserId } from "./session-id.js";
 
-export type CompanyRole = "owner" | "admin" | "manager" | "member" | "guest";
+export type CompanyRole = "super_admin" | "owner" | "admin" | "manager" | "member" | "guest";
 export type MembershipRole = CompanyRole | "custom";
 export type TenantClaims = {
   sub?: string;
@@ -14,6 +14,7 @@ export type TenantClaims = {
 };
 
 export const COMPANY_ROLE_PERMISSIONS: Record<CompanyRole, readonly string[]> = {
+  super_admin: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "billing.manage", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send", "mail.manage"],
   owner: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "billing.manage", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send", "mail.manage"],
   admin: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send", "mail.manage"],
   manager: ["members.read", "plugins.read", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send"],
@@ -52,7 +53,7 @@ export async function resolveTenantContext(
   }
 
   const now = new Date();
-  const session = await db.collection<{ id:string; userId:string; tenantId:string; client?:string; expiresAt:Date; revokedAt:Date|null }>("refresh_sessions").findOne({
+  const session = await db.collection<{ id:string; userId:string; tenantId:string; client?:string; expiresAt:Date; revokedAt:Date|null; mfaVerifiedAt?:Date }>("refresh_sessions").findOne({
     id: claims.sid,
     revokedAt: null,
     expiresAt: { $gt: now }
