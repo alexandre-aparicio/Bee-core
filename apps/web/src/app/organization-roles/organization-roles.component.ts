@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input, OnChanges, SimpleChanges } from "@angular/core";
+import { Component, HostListener, Input, OnChanges, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 type CustomRole={id:string;name:string;description:string;permissions:string[];mode?:"grant"|"restriction"};
 type SystemRole={key:string;label:string;description:string;protected:boolean;permissions:string[]};
@@ -41,14 +41,20 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
    <p class="org-roles__footnote">The global delegation policy controls which capabilities may be granted to tenant custom roles. Protected capabilities remain unavailable for grants. Backend authorization remains authoritative.</p>
   </section>
   <section class="org-roles__tab-panel" *ngIf="activeTab==='custom'">
-   <div class="org-roles__section-heading"><div><h3>Custom roles</h3><p>Create reusable permission profiles or additional restrictions. Denials always take priority over permissions granted by the primary role.</p></div><button *ngIf="canManage" type="button" class="org-roles__primary" (click)="reset()">+ Create custom role</button></div>
+   <div class="org-roles__section-heading"><div><h3>Custom roles</h3><p>Create reusable permission profiles or additional restrictions. Denials always take priority over permissions granted by the primary role.</p></div><button *ngIf="canManage" type="button" class="org-roles__primary" (click)="openCreate()">+ Create custom role</button></div>
    <div class="org-roles__custom-layout">
     <aside class="org-roles__custom-list">
      <div class="org-roles__list-heading"><strong>Saved roles</strong><span>{{roles.length}}</span></div>
      <p *ngIf="loading">Loading roles…</p><p *ngIf="!loading&&!roles.length" class="org-roles__empty">No custom roles yet. Create one to define reusable access.</p>
      <button class="org-roles__role-card" *ngFor="let item of roles;trackBy:trackRole" type="button" [class.active]="editingId===item.id" (click)="edit(item)"><span><strong>{{item.name}}</strong><small>{{item.description||'No description'}}</small></span><em [class.is-restriction]="item.mode==='restriction'">{{item.mode==='restriction'?'Restriction':'Grant'}}</em><small class="org-roles__role-meta">{{item.permissions.length}} {{item.mode==='restriction'?'denials':'permissions'}}</small></button>
     </aside>
-    <div class="org-roles__editor">
+    
+   </div>
+
+   <div class="org-roles__modal-backdrop" *ngIf="modalOpen" (click)="closeModal()">
+    <div class="org-roles__modal" role="dialog" aria-modal="true" aria-labelledby="org-role-modal-title" (click)="$event.stopPropagation()">
+     <div class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">ORGANIZATION ACCESS</span><h2 id="org-role-modal-title">{{editingId?'Edit custom role':'Create custom role'}}</h2><p>Define the role identity and choose its permission behavior.</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeModal()">×</button></div>
+     <div class="org-roles__editor org-roles__editor--modal">
      <div class="org-roles__editor-heading"><div><h3>{{editingId?'Edit custom role':'Create custom role'}}</h3><p>Define the role identity and choose its permission behavior.</p></div><span class="org-roles__section-tag">{{mode==='restriction'?'Deny overlay':'Permission grants'}}</span></div>
      <form (submit)="save($event)">
       <div class="org-roles__form-grid">
@@ -62,6 +68,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
       </section></div>
       <div class="org-roles__actions" *ngIf="canManage"><button class="org-roles__primary" type="submit" [disabled]="busy||!name.trim()">{{busy?'Saving…':editingId?'Save changes':'Create role'}}</button><button type="button" *ngIf="editingId" (click)="remove()" [disabled]="busy">Delete role</button><button type="button" (click)="reset()" [disabled]="busy">Clear form</button></div>
      </form>
+    </div>
     </div>
    </div>
   </section>
@@ -98,6 +105,14 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__permission-copy strong{font-size:12px}.org-roles__permission-copy small{font-size:10px;opacity:.65;margin:3px 0}.org-roles__permission-copy code{font-size:9px;opacity:.55;overflow-wrap:anywhere}
  .org-roles__permission-state{font-size:9px;white-space:nowrap;opacity:.68}.org-roles__permission-state.is-protected{color:var(--warning,#c58a35);opacity:1}
  .org-roles__footnote{font-size:11px;margin-top:14px!important}
+ .org-roles__modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:rgba(8,12,22,.62);backdrop-filter:blur(7px);animation:orgRoleFade .16s ease-out}
+ .org-roles__modal{width:min(980px,100%);max-height:min(90vh,900px);overflow:auto;border:1px solid var(--border,#8885);border-radius:18px;background:var(--surface-raised,var(--panel,#171a24));box-shadow:0 24px 80px rgba(0,0,0,.3);padding:22px;animation:orgRoleRise .2s ease-out}
+ .org-roles__modal-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}
+ .org-roles__modal-top h2{font-size:22px;margin:5px 0}.org-roles__modal-top p{font-size:12px}.org-roles__modal-eyebrow{font-size:9px;letter-spacing:.15em;font-weight:700;opacity:.55}
+ .org-roles__modal-close{width:36px;height:36px;padding:0!important;font-size:22px;line-height:1;border-radius:50%!important}
+ .org-roles__editor--modal{border:0;padding:0;background:transparent}.org-roles__editor--modal .org-roles__editor-heading{display:none}
+ @keyframes orgRoleFade{from{opacity:0}to{opacity:1}}@keyframes orgRoleRise{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+ @media(prefers-reduced-motion:reduce){.org-roles__modal-backdrop,.org-roles__modal{animation:none}}
  .org-roles__custom-layout{display:grid;grid-template-columns:minmax(220px,.72fr) minmax(0,2fr);gap:14px;align-items:start}
  .org-roles__list-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.org-roles__list-heading strong{font-size:12px}
  .org-roles__role-card{display:grid;width:100%;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;text-align:left;margin-top:8px;padding:11px!important}
@@ -122,14 +137,14 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__notice,.org-roles__empty{padding:12px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface,rgba(130,145,170,.04));font-size:11px}
  @media(max-width:980px){.org-roles__system-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.org-roles__custom-layout{grid-template-columns:1fr}}
  @media(max-width:760px){.org-roles__header,.org-roles__section-heading,.org-roles__editor-heading{align-items:flex-start;flex-direction:column}.org-roles__permission-groups,.org-roles__groups,.org-roles__form-grid{grid-template-columns:1fr}}
- @media(max-width:520px){.org-roles__system-grid{grid-template-columns:1fr}.org-roles__tab-panel{padding:13px}.org-roles__tabs{padding:0 4px}.org-roles__tabs button{padding:12px 8px}}
+ @media(max-width:520px){.org-roles__system-grid{grid-template-columns:1fr}.org-roles__tab-panel{padding:13px}.org-roles__tabs{padding:0 4px}.org-roles__tabs button{padding:12px 8px}.org-roles__modal-backdrop{padding:10px}.org-roles__modal{padding:15px;max-height:94vh}}
  `]
 
 })
 export class OrganizationRolesComponent implements OnChanges{
  @Input() tenantId="";@Input() role="member";@Input() accessToken="";
  activeTab:"system"|"permissions"|"custom"="system";
- roles:CustomRole[]=[];systemRoles:SystemRole[]=[];name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";
+ roles:CustomRole[]=[];systemRoles:SystemRole[]=[];name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";modalOpen=false;
  permissions:PermissionOption[]=[];
  private tenantAssignablePermissions:string[]=[];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
@@ -141,8 +156,11 @@ export class OrganizationRolesComponent implements OnChanges{
  trackRole(_i:number,item:CustomRole):string{return item.id;}
  private async request(path:string,method="GET",body?:unknown):Promise<any>{const response=await fetch("/api"+path,{method,headers:{authorization:"Bearer "+this.accessToken,...(body?{"content-type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Role request failed");return result;}
  async load():Promise<void>{if(!this.tenantId||!this.accessToken)return;this.loading=true;this.error="";try{const result=await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles");this.roles=result.roles||[];this.systemRoles=result.systemRoles||[];this.tenantAssignablePermissions=Array.isArray(result.tenantAssignablePermissions)?result.tenantAssignablePermissions:[];const allowed=new Set<string>(this.tenantAssignablePermissions);const selected=new Set(this.permissions.filter(permission=>permission.selected).map(permission=>permission.key));this.permissions=(Array.isArray(result.permissionCatalog)?result.permissionCatalog:[]).map((item:any)=>({key:item.key,label:item.label,group:String(item.resource||item.module||"Core").replace(/^./,letter=>letter.toUpperCase()),action:item.action||"manage",description:item.description||"",sensitive:!!item.sensitive,customRoleAssignable:!!item.customRoleAssignable,assignable:this.mode==="restriction"||!!item.customRoleAssignable&&allowed.has(item.key),selected:selected.has(item.key)||(selected.size===0&&["members.read","plugins.read"].includes(item.key))}));}catch(error){this.error=error instanceof Error?error.message:"Could not load roles";}finally{this.loading=false;}}
- edit(item:CustomRole):void{this.editingId=item.id;this.name=item.name;this.description=item.description||"";this.mode=item.mode??"grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=item.permissions.includes(p.key);this.error="";this.message="";}
- reset():void{this.editingId="";this.name="";this.description="";this.mode="grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=["members.read","plugins.read"].includes(p.key)&&p.assignable;this.error="";this.message="";}
+ openCreate():void{this.reset();this.modalOpen=true;}
+ closeModal():void{this.modalOpen=false;}
+ @HostListener("document:keydown.escape") onEscape():void{if(this.modalOpen)this.closeModal();}
+ edit(item:CustomRole):void{this.modalOpen=true;this.editingId=item.id;this.name=item.name;this.description=item.description||"";this.mode=item.mode??"grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=item.permissions.includes(p.key);this.error="";this.message="";}
+ reset():void{this.modalOpen=false;this.editingId="";this.name="";this.description="";this.mode="grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=["members.read","plugins.read"].includes(p.key)&&p.assignable;this.error="";this.message="";}
  async save(event:Event):Promise<void>{event.preventDefault();if(!this.canManage||this.busy||!this.name.trim())return;this.busy=true;this.error="";this.message="";const body={name:this.name.trim(),description:this.description.trim(),mode:this.mode,permissions:this.permissions.filter(p=>p.selected&&p.assignable).map(p=>p.key)};try{if(this.editingId)await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(this.editingId),"PUT",body);else await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles","POST",body);this.message=this.editingId?"Role updated.":"Role created.";this.reset();await this.load();}catch(error){this.error=error instanceof Error?error.message:"Could not save role";}finally{this.busy=false;}}
  async remove():Promise<void>{if(!this.canManage||!this.editingId||this.busy)return;this.busy=true;this.error="";this.message="";try{await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(this.editingId),"DELETE");this.message="Role deleted.";this.reset();await this.load();}catch(error){this.error=error instanceof Error?error.message:"Could not delete role";}finally{this.busy=false;}}
 }
