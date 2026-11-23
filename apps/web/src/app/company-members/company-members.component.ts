@@ -89,8 +89,9 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
                       <div class="bee-users__menu-wrap" *ngIf="member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')">
                         <button type="button" class="bee-users__icon-button" [attr.aria-label]="t('users.memberOptions') + ' ' + (member.email || t('users.unnamedMember'))" [attr.aria-expanded]="openMemberMenuId === member.userId" (click)="toggleMemberMenu(member.userId)">⋮</button>
                         <div *ngIf="openMemberMenuId === member.userId" class="bee-users__menu">
-                          <button type="button" *ngIf="member.status === 'active'" (click)="setMemberStatus(member,'suspended')" [disabled]="busyId === member.userId">{{t('users.suspendAccess')}}</button>
-                          <button type="button" *ngIf="member.status === 'suspended'" (click)="setMemberStatus(member,'active')" [disabled]="busyId === member.userId">{{t('users.restoreAccess')}}</button>
+                          <button type="button" *ngIf="member.status === 'active'" (click)="requestMemberStatus(member,'suspended')" [disabled]="busyId === member.userId">{{t('users.suspendAccess')}}</button>
+                          <button type="button" *ngIf="member.status === 'suspended'" (click)="requestMemberStatus(member,'active')" [disabled]="busyId === member.userId">{{t('users.restoreAccess')}}</button>
+                          <div *ngIf="pendingMemberStatus?.userId === member.userId" class="bee-users__confirm"><p>{{pendingMemberStatus?.status === 'suspended' ? t('users.confirmSuspend') : t('users.confirmRestore')}}</p><div><button type="button" (click)="pendingMemberStatus=null">{{t('users.cancel')}}</button><button type="button" (click)="confirmMemberStatus(member)" [disabled]="busyId === member.userId">{{t('users.confirm')}}</button></div></div>
                         </div>
                       </div>
                     </td>
@@ -128,10 +129,10 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
             <article class="bee-users__invitation" *ngFor="let invitation of invitations; trackBy: trackInvitation">
               <span class="bee-users__invitation-icon" aria-hidden="true">✉</span>
               <div class="bee-users__invitation-copy"><strong>{{invitation.email}}</strong><small>{{displayRole(invitation.role,invitation.customRoleId)}} · {{t('users.expires')}} {{invitation.expiresAt | date:'mediumDate'}}</small></div>
-              <span class="bee-users__status" [class.is-pending]="invitationState(invitation) === 'pending'" [class.is-suspended]="invitationState(invitation) !== 'pending'"><span></span>{{invitationState(invitation) === 'pending' ? t('users.pending') : invitationState(invitation) === 'accepted' ? t('users.accepted') : invitationState(invitation) === 'expired' ? t('users.expired') : t('users.revoked')}}</span>
+              <span class="bee-users__status" [class.is-pending]="invitationState(invitation) === 'pending'" [class.is-accepted]="invitationState(invitation) === 'accepted'" [class.is-expired]="invitationState(invitation) === 'expired'" [class.is-revoked]="invitationState(invitation) === 'revoked'"><span></span>{{invitationState(invitation) === 'pending' ? t('users.pending') : invitationState(invitation) === 'accepted' ? t('users.accepted') : invitationState(invitation) === 'expired' ? t('users.expired') : t('users.revoked')}}</span>
               <div class="bee-users__menu-wrap">
                 <button type="button" class="bee-users__icon-button" [attr.aria-label]="t('users.invitationOptions') + ' ' + invitation.email" [attr.aria-expanded]="openInvitationMenuId === invitation.id" (click)="toggleInvitationMenu(invitation.id)">⋮</button>
-                <div *ngIf="openInvitationMenuId === invitation.id" class="bee-users__menu"><button type="button" class="is-danger" (click)="cancelInvitation(invitation)" [disabled]="busyId === invitation.id || invitation.acceptedAt || invitation.cancelledAt || invitation.status === 'expired'">{{t('users.revokeInvitation')}}</button></div>
+                <div *ngIf="openInvitationMenuId === invitation.id" class="bee-users__menu"><button type="button" class="is-danger" (click)="confirmInvitationRevoke(invitation.id)" [disabled]="busyId === invitation.id || invitation.acceptedAt || invitation.cancelledAt || invitation.status === 'expired'">{{t('users.revokeInvitation')}}</button><div *ngIf="confirmInvitationId === invitation.id" class="bee-users__confirm"><p>{{t('users.confirmRevoke')}}</p><div><button type="button" (click)="confirmInvitationId=''">{{t('users.cancel')}}</button><button type="button" (click)="cancelInvitation(invitation)" [disabled]="busyId === invitation.id">{{t('users.confirm')}}</button></div></div></div>
               </div>
             </article>
           </div>
@@ -161,7 +162,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__notice{padding:11px 14px;border:1px solid var(--border);border-radius:10px;font-size:12px;line-height:1.5}
     .bee-users__notice--error{border-color:var(--bee-status-danger);color:var(--bee-status-danger)}
     .bee-users__notice--success{border-color:var(--bee-status-success);color:var(--bee-status-success)}
-    .bee-users__metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .bee-users__metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
     .bee-users__metric{display:grid;gap:5px;padding:15px 16px;border:1px solid var(--border);border-radius:12px;background:var(--panel);min-width:0}
     .bee-users__metric>span{font-size:11px;color:var(--muted);font-weight:600}
     .bee-users__metric strong{font-size:25px;line-height:1.15;font-weight:700;font-variant-numeric:tabular-nums}
@@ -199,6 +200,8 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__status.is-active{color:var(--bee-status-success)}
     .bee-users__status.is-suspended{color:var(--bee-status-warning)}
     .bee-users__status.is-pending{color:var(--bee-status-info)}
+    .bee-users__status.is-accepted{color:var(--bee-status-success)}.bee-users__status.is-accepted>span{background:var(--bee-status-success)}
+    .bee-users__status.is-expired,.bee-users__status.is-revoked{color:var(--muted)}
     .bee-users__actions-cell{text-align:right;width:42px}
     .bee-users__menu-wrap{position:relative;display:inline-flex}
     .bee-users__icon-button{display:grid;place-items:center;width:34px;height:34px;border:1px solid transparent;border-radius:8px;background:transparent;color:inherit;font-size:20px;line-height:1;cursor:pointer}
@@ -208,6 +211,8 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__menu button:hover:not(:disabled){background:var(--bg)}
     .bee-users__menu button:disabled{opacity:.5;cursor:not-allowed}
     .bee-users__menu button.is-danger{color:var(--bee-status-danger)}
+    .bee-users__confirm{display:grid;gap:8px;padding:9px;border-top:1px solid var(--border);white-space:normal}
+    .bee-users__confirm p{font-size:10px;color:var(--muted)}.bee-users__confirm>div{display:flex;gap:6px}.bee-users__confirm button{flex:1;padding:7px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:10px;text-align:center}.bee-users__confirm button:last-child{border-color:var(--bee-status-danger);color:var(--bee-status-danger)}
     .bee-users__restrictions{display:flex;flex-wrap:wrap;align-items:center;gap:5px 9px;margin:8px 0 0 44px}
     .bee-users__restrictions>span{width:100%;color:var(--muted);font-size:9px}
     .bee-users__restrictions label,.bee-users__restriction-fieldset label{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-size:10px}
@@ -287,6 +292,8 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   acceptanceLink = "";
   openInvitationMenuId = "";
   openMemberMenuId = "";
+  pendingMemberStatus: { userId: string; status: "active" | "suspended" } | null = null;
+  confirmInvitationId = "";
   loading = false;
   private requestSequence = 0;
   busyId = "";
@@ -320,7 +327,10 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   trackInvitation(_index: number, invitation: CompanyInvitation): string { return invitation.id; }
   invitationState(invitation: CompanyInvitation): "pending" | "accepted" | "revoked" | "expired" { return invitation.acceptedAt ? "accepted" : invitation.cancelledAt || invitation.status === "cancelled" ? "revoked" : invitation.status === "expired" || new Date(invitation.expiresAt).getTime() <= Date.now() ? "expired" : "pending"; }
   toggleInvitationMenu(id: string): void { this.openInvitationMenuId = this.openInvitationMenuId === id ? "" : id; }
-  toggleMemberMenu(id: string): void { this.openMemberMenuId = this.openMemberMenuId === id ? "" : id; }
+  toggleMemberMenu(id: string): void { this.openMemberMenuId = this.openMemberMenuId === id ? "" : id; this.pendingMemberStatus = null; }
+  requestMemberStatus(member: CompanyMember, status: "active" | "suspended"): void { this.pendingMemberStatus = { userId: member.userId, status }; }
+  confirmMemberStatus(member: CompanyMember): void { const pending = this.pendingMemberStatus; if (pending?.userId === member.userId) void this.setMemberStatus(member, pending.status); }
+  confirmInvitationRevoke(id: string): void { this.confirmInvitationId = this.confirmInvitationId === id ? "" : id; }
   trackCustomRole(_index:number, role:CustomRole):string { return role.id; }
   customRoleName(roleId?:string|null):string { return this.customRoles.find(item=>item.id===roleId)?.name || "Custom role"; }
 
