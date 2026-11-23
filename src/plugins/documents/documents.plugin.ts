@@ -85,7 +85,7 @@ export const documentsPlugin:BeePlugin={
    let folderId:string|null=null;const folderRef=clean(req.query?.folderId,2048);
    if(folderRef){try{folderId=unref(folderRef,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
     const parents=await ancestors(tenant.tenantId,folderId);if(!await canAccess(tenant,"folder",folderId,"read",parents.slice(1)))return reply.code(404).send({error:"Folder not found"});}
-   const rows=await docs(tenant.tenantId).find(folderId?{folderId}:{}).sort({updatedAt:-1}).limit(200).toArray();const visible=[];
+   const rows=await docs(tenant.tenantId).find({folderId}).sort({updatedAt:-1}).limit(200).toArray();const visible=[];
    for(const item of rows){const parents=await ancestors(tenant.tenantId,item.folderId);if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(present(item,tenant));}
    return {documents:visible};
   });
