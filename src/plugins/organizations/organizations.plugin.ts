@@ -8,11 +8,11 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type T
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, maskTenantId, unmaskResourceId, unmaskTenantId } from "../../core/session-id.js";
 
-type Company = { id:string; name:string; slug?:string; domains?:string[]; settings?:{defaultLanguage?:"en"|"es"}; createdAt:Date; status?:"active"|"suspended" };
-type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
+type Company = { id:string; name:string; slug?:string; kind?:"super"|"tenant"; domains?:string[]; settings?:{defaultLanguage?:"en"|"es"}; createdAt:Date; status?:"active"|"suspended" };
+type Membership = { id:string; userId:string; tenantId:string; role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantRef?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string; slug?:string };
-type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
+type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"|"guest"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
 
 export const organizationsPlugin:BeePlugin={
  manifest:{name:"organizations",version:"0.1.0",description:"Company records, user memberships and active-company session context",dependencies:["auth"]},
@@ -133,7 +133,8 @@ export const organizationsPlugin:BeePlugin={
   const ownerOnly=async(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,reply:any)=>{
    const actor=await requireCompanyPermission(auth,companyId,"members.manage",reply);
    if(!actor)return null;
-   if(actor.role!=="owner"){reply.code(403).send({error:"Only the company owner can manage custom roles"});return null;}
+   const superOrganization=actor.role==="super_admin"?await companies.findOne({id:companyId,kind:"super"}):null;
+   if(actor.role!=="owner"&&!superOrganization){reply.code(403).send({error:"Only the company owner or Super Organization super_admin can manage custom roles"});return null;}
    return actor;
   };
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/roles",async(req,reply)=>{
@@ -174,12 +175,12 @@ export const organizationsPlugin:BeePlugin={
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.deleted",outcome:"success",resourceType:"role",resourceId:req.params.roleId});
    return {success:true};
   });
-  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/invitations",async(req,reply)=>{
+  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"|"guest"}}>("/companies/:companyId/invitations",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
-   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
-   if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can invite administrators"});
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["admin","manager","member","guest"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
+   if(role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can invite administrators"});
    const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
    if(existingMembership)return reply.code(409).send({error:"User is already a company member"});
    const invitationNow=new Date();
@@ -245,12 +246,12 @@ export const organizationsPlugin:BeePlugin={
    const emails=new Map(memberUsers.map(user=>[user.id,user.email]));
    return {memberships:rows.map(row=>({userId:mask(auth,row.userId,"user"),email:emails.get(row.userId)??null,role:row.role,customRoleId:row.customRoleId?mask(auth,row.customRoleId,"role"):null,status:row.status,createdAt:row.createdAt}))};
   });
-  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"}}>("/companies/:companyId/memberships",async(req,reply)=>{
+  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"|"guest"}}>("/companies/:companyId/memberships",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
-   if(!email||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A valid email and role are required"});
-   if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign administrators"});
+   if(!email||!["admin","manager","member","guest"].includes(role))return reply.code(400).send({error:"A valid email and role are required"});
+   if(role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can assign administrators"});
    const target=await users.findOne({email,enabled:true});
    const existing=await memberships.findOne({userId:target?.id??"__unknown_account__",tenantId:req.params.companyId});
    const userLimit=await getTenantUserLimit(db,req.params.companyId);
@@ -268,24 +269,24 @@ export const organizationsPlugin:BeePlugin={
    // Unknown, disabled, already-active and over-limit addresses receive the same response.
    return reply.code(202).send({success:true,message:"The membership request has been accepted for processing."});
   });
-  ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member";customRoleId?:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
+  ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member"|"guest";customRoleId?:string}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
    if(!target)return reply.code(404).send({error:"Company membership not found"});
-   if(target.role==="owner")return reply.code(409).send({error:"The company owner role cannot be changed here"});
+   if(target.role==="owner"||target.role==="super_admin")return reply.code(409).send({error:"The company owner and Super Admin roles are protected"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot change other administrator roles"});
    const customRoleId=String(req.body?.customRoleId??"").trim();
    let update:any;
    if(customRoleId){
-    if(actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign custom roles"});
+    if(actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can assign custom roles"});
     const customRole=await customRoles.findOne({id:customRoleId,tenantId:req.params.companyId});
     if(!customRole)return reply.code(404).send({error:"Custom role not found"});
     update={$set:{role:"custom",customRoleId,updatedAt:new Date()}};
    }else{
     const role=req.body?.role;
-    if(!role||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A built-in membership role or customRoleId is required"});
-    if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign administrators"});
+    if(!role||!["admin","manager","member","guest"].includes(role))return reply.code(400).send({error:"A built-in membership role or customRoleId is required"});
+    if(role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can assign administrators"});
     update={$set:{role,updatedAt:new Date()},$unset:{customRoleId:""}};
    }
    await memberships.updateOne({id:target.id},update);
@@ -298,7 +299,7 @@ export const organizationsPlugin:BeePlugin={
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
    if(!target)return reply.code(404).send({error:"Company membership not found"});
-   if(target.role==="owner")return reply.code(409).send({error:"The company owner cannot be removed"});
+   if(target.role==="owner"||target.role==="super_admin")return reply.code(409).send({error:"The company owner and Super Admin memberships cannot be removed here"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot remove other administrators"});
    await memberships.updateOne({id:target.id},{$set:{status:"suspended",updatedAt:new Date()}});
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.suspended",outcome:"success",resourceType:"membership",resourceId:target.userId});
@@ -309,7 +310,7 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const companyId=req.params.companyId;
    const actor=await requireCompanyPermission(auth,companyId,"members.read",reply);if(!actor)return;
-   if(actor.role!=="owner"&&actor.role!=="admin"){
+   if(actor.role!=="owner"&&actor.role!=="admin"&&actor.role!=="super_admin"){
     await auditOrganizationEvent({tenantId:companyId,actorId:auth.user!.id,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission:"audit.read"}});
     return reply.code(403).send({error:"Only company owners and administrators can read audit events"});
    }
@@ -342,7 +343,7 @@ export const organizationsPlugin:BeePlugin={
    try{slug=normalizeTenantSlug(req.body?.slug||slugifyTenantName(name));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid tenant slug"});}
    if(await companies.findOne({slug},{projection:{_id:1}}))return reply.code(409).send({error:"This tenant slug is already in use"});
    const id=randomUUID(),now=new Date();
-   const company:Company={id,name,slug,createdAt:now,status:"active",settings:{defaultLanguage:"en"}};
+   const company:Company={id,name,slug,kind:"tenant",createdAt:now,status:"active",settings:{defaultLanguage:"en"}};
    const membership:Membership={id:randomUUID(),userId:auth.user!.id,tenantId:id,role:"owner",status:"active",createdAt:now,updatedAt:now};
    await db.collection("tenants").insertOne(company);
    try{await memberships.insertOne(membership);}
