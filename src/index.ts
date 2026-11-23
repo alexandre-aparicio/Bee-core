@@ -15,6 +15,7 @@ import { notesPlugin } from "./plugins/notes/notes.plugin.js";
 import { notificationsPlugin } from "./plugins/notifications/notifications.plugin.js";
 import { mailPlugin } from "./plugins/mail/mail.plugin.js";
 import { platformAdminPlugin } from "./plugins/platform-admin/platform-admin.plugin.js";
+import { localizationPlugin } from "./plugins/localization/localization.plugin.js";
 
 const logger: BeeLogger = {
   info: (message, context) => console.log("[INFO]", message, context ?? ""),
@@ -75,6 +76,7 @@ plugins.register(notesPlugin);
 plugins.register(platformAdminPlugin);
 plugins.register(notificationsPlugin);
 plugins.register(mailPlugin);
+plugins.register(localizationPlugin);
 
 app.get("/health", async () => ({
   status: "ok",
