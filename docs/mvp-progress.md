@@ -707,3 +707,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added missing localized fallback error messages for loading and saving the Company profile, and replaced the component's hard-coded English fallback strings with the translation keys.
 - API-provided error details remain displayed as received when present; only local fallback messages are translated.
 - Validation: source/catalog audit only; no Angular build, browser locale test or Docker/VPS runtime check executed.
+
+
+## i18n runtime namespace activation fix (2026-11-23)
+
+- Root cause of the Company/Organization page rendering translation keys instead of labels: the organization catalog was registered but not active in the i18n service's initial active namespace set. The namespace only became active after setInstalledModules() ran.
+- Activated the built-in Organization namespace (and other already-registered built-in catalogs) during service initialization, so labels translate before module activation/plugin loading.
+- Validation: source-level change only. Angular build, browser locale switch, and Docker runtime verification remain pending.
