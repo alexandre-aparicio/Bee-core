@@ -7,3 +7,4 @@ test("individual allow is evaluated within caller tenant permission boundary",as
 test("missing ACL delegates to plugin-level authorization",async()=>assert.equal(await evaluateResourceAccess(fakeDb([],[]),input),null));
 test("ancestor folder denials cascade to descendant files across resource types",async()=>assert.equal(await evaluateResourceAccess(fakeDb([{...base,resourceType:"folder",resourceId:"parent",teamGrants:[],userOverrides:[{userId:"u1",effect:"deny",permissions:["read"]}]}],["a"]),{...input,resourceType:"file",ancestorResources:[{resourceType:"folder",resourceId:"parent"}]}),false));
 test("team grants are ignored without explicit application assignment",async()=>assert.equal(await evaluateResourceAccess(fakeDb([base],["a"],false),input),false));
+test("an explicit empty policy denies access instead of restoring tenant defaults",async()=>assert.equal(await evaluateResourceAccess(fakeDb([{...base,teamGrants:[],userOverrides:[]}],[]),input),false));
