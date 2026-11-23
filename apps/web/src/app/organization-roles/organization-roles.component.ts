@@ -2,7 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, Input, OnChanges, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 type CustomRole={id:string;name:string;description:string;permissions:string[]};
-type PermissionOption={key:string;label:string;group:string;description:string;sensitive?:boolean;selected:boolean};
+type PermissionOption={key:string;label:string;group:string;description:string;sensitive?:boolean;assignable:boolean;selected:boolean};
 
 @Component({
  selector:"bee-organization-roles",standalone:true,imports:[CommonModule,FormsModule],
@@ -21,7 +21,7 @@ type PermissionOption={key:string;label:string;group:string;description:string;s
      <label>Role name<input name="roleName" [(ngModel)]="name" maxlength="48" required [disabled]="!canManage"></label>
      <label>Description<input name="roleDescription" [(ngModel)]="description" maxlength="240" [disabled]="!canManage"></label>
      <div class="org-roles__groups"><section *ngFor="let group of groups"><h4>{{group}}</h4>
-      <label class="org-roles__permission" *ngFor="let item of inGroup(group)"><input type="checkbox" [checked]="item.selected" (change)="item.selected=$any($event.target).checked" [disabled]="!canManage"><span><strong>{{item.label}}</strong><small>{{item.description}}</small><code>{{item.key}}</code></span><em *ngIf="item.sensitive">Sensitive</em></label>
+      <label class="org-roles__permission" *ngFor="let item of inGroup(group)"><input type="checkbox" [checked]="item.selected" (change)="item.selected=$any($event.target).checked" [disabled]="!canManage||!item.assignable"><span><strong>{{item.label}}</strong><small>{{item.description}}</small><code>{{item.key}}</code></span><em *ngIf="!item.assignable">System protected</em><em *ngIf="item.assignable&&item.sensitive">Sensitive</em></label>
      </section></div>
      <div class="org-roles__actions" *ngIf="canManage"><button type="submit" [disabled]="busy||!name.trim()">{{busy?'Saving…':editingId?'Save changes':'Create role'}}</button><button type="button" *ngIf="editingId" (click)="remove()" [disabled]="busy">Delete role</button><button type="button" (click)="reset()" [disabled]="busy">Cancel</button></div>
     </form>
