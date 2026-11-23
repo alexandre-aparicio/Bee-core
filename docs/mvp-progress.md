@@ -755,3 +755,9 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - **Phase 3 frontend API separation implemented at source level:** `DocumentsApiService` owns typed DTOs, route paths and URL builders, auth headers, HTTP dispatch, JSON parsing and error normalization, folder/document operations, share calls, upload and download API response. The Angular component has no direct `fetch()`, endpoint literals, API URL construction, `.json()` response parsing, or API request setup. Component retains view state, event handlers and browser-specific blob download presentation.
 - Phase 4 architecture documentation updated to match actual layers and dependency boundaries.
 - Branch remains unmerged; PR #132 is still draft pending final source review. No TypeScript/Angular build, tests, browser interaction, API smoke test, Docker/CI or VPS runtime verification has been executed. Phase 5 is still explicitly deferred until after merge approval.
+
+
+## Documents backend controller/handler split completed (2026-11-23)
+- Further reduced `documents.controller.ts` to route mounting only. The 12 endpoint callbacks have been moved into module-owned `documents.handlers.ts`; controller now mounts route constants against the handler factory.
+- Phase 2 structure now comprises plugin bootstrap → routes contract → controller → handlers → service helpers → repository → validators, with Core shared auth/ACL/Files capabilities injected.
+- **Important verification caveat:** extraction was reviewed by source and route count checks only. No TypeScript parsing/compile or runtime tests were available; therefore this means architectural source separation, not verified functional completion.
