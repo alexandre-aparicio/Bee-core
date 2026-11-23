@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-20 — repository main now includes tenant subdomain routing through `fd19a01021d3a04433f650af491bcfb439a8a5db`. Template business-model clarification and removal of the color-picker UI are being recorded in subsequent commits. No tests or CI were run for the latest template changes, per user instruction.
+Updated: 2026-11-23 — tenant subdomain routing is included. Future company user onboarding via temporary credentials and expiring invitation/self-registration is specified in `docs/company-user-onboarding.md`; these flows are documentation-only and not implemented by this change. No tests or CI were run for this documentation update.
 
 ## How progress is measured
 
