@@ -33,7 +33,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
               <td><strong>{{member.email || member.userId}}</strong><small>{{member.userId}}</small></td>
               <td>
                 <select *ngIf="canManage && member.role !== 'owner' && (role === 'owner' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
-                  <option value="member">Member</option><option value="manager">Manager</option>
+                  <option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option>
                   <option *ngIf="role === 'owner'" value="admin">Admin</option>
                   <option *ngFor="let customRole of customRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
                 </select>
@@ -109,7 +109,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
     {key:"notes.write",label:"Manage notes",selected:false}
   ];
   inviteEmail = "";
-  inviteRole: "member" | "manager" | "admin" = "member";
+  inviteRole: "guest" | "member" | "manager" | "admin" = "member";
   acceptanceToken = "";
   inviteTokenInput = "";
   loading = false;
@@ -272,7 +272,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
 
   async changeRole(member: CompanyMember, role: string): Promise<void> {
     const customRoleId = role.startsWith("custom:") ? role.slice("custom:".length) : "";
-    if (customRoleId ? (!this.canManageCustomRoles || !this.customRoles.some(item => item.id === customRoleId)) : !["admin", "manager", "member"].includes(role)) return;
+    if (customRoleId ? (!this.canManageCustomRoles || !this.customRoles.some(item => item.id === customRoleId)) : !["admin", "manager", "member", "guest"].includes(role)) return;
     this.busyId = member.userId;
     this.error = "";
     try {
