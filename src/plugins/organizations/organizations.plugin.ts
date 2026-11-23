@@ -8,8 +8,8 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type T
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, maskTenantId, unmaskResourceId, unmaskTenantId } from "../../core/session-id.js";
 
-type Company = { id:string; name:string; slug?:string; domains?:string[]; settings?:{defaultLanguage?:"en"|"es"}; createdAt:Date; status?:"active"|"suspended" };
-type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
+type Company = { id:string; name:string; slug?:string; kind?:"super"|"tenant"; domains?:string[]; settings?:{defaultLanguage?:"en"|"es"}; createdAt:Date; status?:"active"|"suspended" };
+type Membership = { id:string; userId:string; tenantId:string; role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantRef?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string; slug?:string };
 type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"|"guest"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
