@@ -674,3 +674,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added an authenticated membership-status PATCH endpoint scoped to the active organization. It enforces organization-admin access, protected Owner/Super Admin boundaries, peer-Admin restrictions, status validation, and revokes active refresh sessions when suspending or reactivating.
 - Added `member.activated` to the tenant audit-action catalogue.
 - Validation: source-level implementation only; no TypeScript build, tests, browser smoke checks, Docker build or VPS runtime validation executed.
+
+## Tenant teams and resource-level authorization (PR)
+
+- Adds tenant-owned teams with optional parent teams and membership restricted to active tenant memberships.
+- Adds explicit team-to-plugin assignments, accepted only for plugins installed in the active tenant; installation does not automatically expose every team.
+- Adds resource policies with team grants and individual user exceptions. Explicit user denials override grants from every team; tenant permission checks remain mandatory. Team, membership, application-assignment and resource-policy mutations are tenant-audited.
+- Integrates resource ACL decisions into private Files listing, download and deletion. Plugins can use the shared evaluator and pass typed ancestor resource references so folder-level grants and restrictions cascade to descendant files and folders.
+- Cross-tenant team sharing is not supported; external collaboration must be an explicit future capability.
+- Validation: not executed; backend typecheck/tests and Angular production build remain required before merge.

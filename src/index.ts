@@ -9,6 +9,7 @@ import type { BeeContext, BeeLogger } from "./core/types.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
+import { teamsPlugin } from "./plugins/teams/teams.plugin.js";
 import { filesPlugin } from "./plugins/files/files.plugin.js";
 import { marketplacePlugin } from "./plugins/marketplace/marketplace.plugin.js";
 import { notesPlugin } from "./plugins/notes/notes.plugin.js";
@@ -70,6 +71,7 @@ const ctx: BeeContext = {
 plugins.register(helloPlugin);
 plugins.register(authPlugin);
 plugins.register(organizationsPlugin);
+plugins.register(teamsPlugin);
 plugins.register(filesPlugin);
 plugins.register(marketplacePlugin);
 plugins.register(notesPlugin);
