@@ -606,3 +606,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added unit and MongoDB integration regression coverage for deny precedence, protected capability denials, built-in role defaults and effective membership permissions.
 - Bootstrap behavior remains code-driven: the Super Organization and bootstrap Super Admin membership are initialized by the existing idempotent startup flow; built-in role definitions and global delegation defaults are source-controlled fallbacks rather than manually created database records.
 - Validation: no tests, TypeScript build, Angular build, Docker build, CI or VPS runtime validation have been executed for this change. Validate on the VPS, including a clean-database bootstrap and a Super Organization Admin assigned a restriction role.
+
+
+## Fix organization restriction role TypeScript build (2026-11-23)
+
+- Corrected two unreachable `nextRole === "super_admin"` comparisons in membership restriction handling. The route rejects existing `super_admin` memberships before this code and its assignable role input excludes `super_admin`; TypeScript therefore correctly narrows `nextRole` to the assignable membership roles.
+- Kept the protected-role behavior intact: Super Admin memberships remain blocked from modification by the earlier guard, and Owner memberships cannot receive restriction roles.
+- This resolves the exact TS2367 errors reported by the VPS Docker build at `organizations.plugin.ts:321` and `:324` without weakening authorization.
+- Validation: change is based on the exact VPS compiler diagnostics. No TypeScript build, tests, Angular build, Docker build or CI have been run by the assistant; rerun `docker compose up -d --build` on the VPS.
