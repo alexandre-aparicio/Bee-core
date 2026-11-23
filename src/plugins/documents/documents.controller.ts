@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { documentsRoutes } from "./documents.routes.js";
 import { hasTenantPermission } from "../../core/tenant-context.js";
 import { evaluateResourceAccess } from "../../core/resource-access.js";
-import type { Folder } from "./documents.service.js";
+import type { Folder, BeeDocument } from "./documents.service.js";
 
 /** Module-owned HTTP controller/route registration. Domain helpers and infrastructure
  * are injected from the Documents plugin initialization scope. */
