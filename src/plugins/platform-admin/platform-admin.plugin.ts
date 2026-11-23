@@ -1,6 +1,7 @@
 import type { BeePlugin } from "../../core/types.js";
 import type { PlatformIdentityDocument } from "../../core/platform-identity.js";
 import { CORE_PERMISSION_CATALOG } from "../../core/permission-catalog.js";
+import { COMPANY_ROLE_PERMISSIONS } from "../../core/tenant-context.js";
 
 declare module "fastify" {
  interface FastifyRequest {
@@ -121,12 +122,12 @@ export const platformAdminPlugin:BeePlugin={
    const actor=await guard(req,reply);if(!actor)return;
    const policy=await readPermissionPolicy();
    return {catalog:CORE_PERMISSION_CATALOG,tenantAssignablePermissions:policy.tenantAssignablePermissions,systemRoles:[
-    {key:"super_admin",label:"Super Admin",scope:"platform",protected:true,description:"Full platform administration; assigned only through the Super Organization."},
-    {key:"owner",label:"Tenant Owner",scope:"tenant",protected:true,description:"Owns one tenant and administers its users, roles and organization settings."},
-    {key:"admin",label:"Tenant Admin",scope:"tenant",protected:true,description:"Administers tenant operations within the permissions enforced by Core."},
-    {key:"manager",label:"Manager",scope:"tenant",protected:false,description:"Operational access defined by the tenant membership policy."},
-    {key:"member",label:"Member",scope:"tenant",protected:false,description:"Standard tenant access."},
-    {key:"guest",label:"Guest",scope:"tenant",protected:true,description:"Restricted read-only membership."}
+    {key:"super_admin",label:"Super Admin",scope:"platform",protected:true,description:"Full platform administration; assigned only through the Super Organization.",permissions:COMPANY_ROLE_PERMISSIONS.super_admin},
+    {key:"owner",label:"Tenant Owner",scope:"tenant",protected:true,description:"Owns one tenant and administers its users, roles and organization settings.",permissions:COMPANY_ROLE_PERMISSIONS.owner},
+    {key:"admin",label:"Tenant Admin",scope:"tenant",protected:true,description:"Administers tenant operations within the permissions enforced by Core.",permissions:COMPANY_ROLE_PERMISSIONS.admin},
+    {key:"manager",label:"Manager",scope:"tenant",protected:false,description:"Operational access defined by the tenant membership policy.",permissions:COMPANY_ROLE_PERMISSIONS.manager},
+    {key:"member",label:"Member",scope:"tenant",protected:false,description:"Standard tenant access.",permissions:COMPANY_ROLE_PERMISSIONS.member},
+    {key:"guest",label:"Guest",scope:"tenant",protected:true,description:"Restricted read-only membership.",permissions:COMPANY_ROLE_PERMISSIONS.guest}
    ]};
   });
   ctx.server.put<{Body:{tenantAssignablePermissions?:unknown}}>("/platform/permissions",async(req,reply)=>{
