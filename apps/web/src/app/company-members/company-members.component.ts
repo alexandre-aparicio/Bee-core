@@ -2,8 +2,8 @@ import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
-type CompanyMember = { userId: string; email: string | null; role: string; customRoleId?: string | null; status: "active" | "suspended"; createdAt: string };
-type CustomRole = { id: string; name: string; description: string; permissions: string[] };
+type CompanyMember = { userId: string; email: string | null; role: string; customRoleId?: string | null; restrictionRoleIds?: string[]; status: "active" | "suspended"; createdAt: string };
+type CustomRole = { id: string; name: string; description: string; permissions: string[]; mode?: "grant" | "restriction" };
 type CompanyInvitation = { id: string; email: string; role: string; createdAt: string; expiresAt: string; acceptedAt: string | null; cancelledAt: string | null };
 
 @Component({
@@ -38,6 +38,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
                   <option *ngFor="let customRole of customRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
                 </select>
                 <span *ngIf="!canManage || member.role === 'owner' || member.role === 'super_admin'">{{member.role === 'super_admin' ? 'Super Admin' : (member.role === 'custom' ? customRoleName(member.customRoleId) : member.role)}}</span>
+                <div *ngIf="canManageCustomRoles && member.role !== 'owner' && member.role !== 'super_admin' && restrictionRoles.length" class="bee-company-members__restrictions"><small>Additional restrictions</small><label *ngFor="let restriction of restrictionRoles"><input type="checkbox" [checked]="(member.restrictionRoleIds || []).includes(restriction.id)" (change)="toggleRestriction(member,restriction.id,$any($event.target).checked)" [disabled]="busyId === member.userId"> {{restriction.name}}</label></div>
               </td>
               <td><span class="bee-company-members__status" [class.is-suspended]="member.status !== 'active'">{{member.status}}</span></td>
               <td *ngIf="canManage"><button *ngIf="member.role !== 'owner' && member.role !== 'super_admin' && member.status === 'active' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')" class="bee-company-members__danger" type="button" (click)="suspend(member)" [disabled]="busyId === member.userId">Suspend</button></td>
@@ -81,6 +82,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   members: CompanyMember[] = [];
   invitations: CompanyInvitation[] = [];
   customRoles: CustomRole[] = [];
+  get restrictionRoles(): CustomRole[] { return this.customRoles.filter(item => item.mode === "restriction"); }
   inviteEmail = "";
   inviteRole: "guest" | "member" | "manager" | "admin" = "member";
   acceptanceToken = "";
@@ -221,6 +223,21 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not update role";
+    } finally { this.busyId = ""; }
+  }
+
+  async toggleRestriction(member: CompanyMember, restrictionRoleId: string, checked: boolean): Promise<void> {
+    if (!this.canManageCustomRoles || member.role === "owner" || member.role === "super_admin" || this.busyId) return;
+    const current = new Set(member.restrictionRoleIds || []);
+    if (checked) current.add(restrictionRoleId); else current.delete(restrictionRoleId);
+    this.busyId = member.userId;
+    this.error = "";
+    try {
+      await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/memberships/" + encodeURIComponent(member.userId), "PUT", { restrictionRoleIds: [...current] });
+      this.message = "Restriction updated. The member's active sessions were revoked.";
+      await this.load();
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : "Could not update restrictions";
     } finally { this.busyId = ""; }
   }
 
