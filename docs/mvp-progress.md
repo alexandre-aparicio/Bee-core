@@ -557,3 +557,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Revoking a capability removes it from effective custom-role permissions immediately without invalidating the entire membership/session. Persisted role grants are also cleaned up by the platform policy update operation.
 - Regression coverage added for live policy filtering. Tests and builds have not been executed in this change; VPS validation remains required.
 - Current catalogue describes only capabilities registered by the existing Core modules. It does not invent CRUD operations for modules whose backend operations do not exist. Record-level scopes (own/team/assigned/all), tenant-specific system-role overrides and a full ABAC policy engine remain deliberately deferred until the relevant resource ownership and team data contracts exist.
+
+
+## Angular dashboard template build fix — 2026-11-23
+
+- Fixed an extra Angular control-flow closing brace immediately after the Organization → Roles & Permissions component in the Glass, Midnight and Paper dashboard templates.
+- The VPS production build identified the same `NG5002: Unexpected closing block` error in all three template files. This change removes only the redundant closing brace and preserves the surrounding section conditions.
+- The backend image build completed in the reported Docker run; the web image failed at Angular template compilation. Re-run the full Docker build on the VPS to verify the correction. No successful Angular or Docker build is claimed yet.
