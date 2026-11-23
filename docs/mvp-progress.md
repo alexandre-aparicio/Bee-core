@@ -524,3 +524,16 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Corrected bootstrap to keep the new organization as a plain `Company` insert document, insert it, re-read the persisted MongoDB record, and fail explicitly if initialization still returns no organization.
 - Expanded the platform-admin membership status type to include the persisted `invited` and `suspended` states used by the migration and membership lifecycle.
 - Fix is isolated on branch `fix/super-organization-mongodb-types`. No build, tests or CI were run here. Rebuild on the VPS is required to confirm the TypeScript diagnostics are resolved; subsequent runtime migration and MFA flows remain unverified.
+
+
+## Core permission catalogue and Organization role editor — feat/core-permission-catalog (2026-11-23)
+
+- Added a canonical backend permission catalogue for the permission keys already consumed by current Core capabilities: Organization members, Plugins, Billing, Files, Notes and Mail.
+- Kept existing permission keys stable (members.*, plugins.*, billing.manage, files.*, notes.*, mail.*) so current backend guards and persisted custom-role records remain compatible.
+- Custom roles can now select all registered current Core permission keys, including existing built-in capabilities that were previously missing from the custom-role allow-list (mail and billing, plus membership/plugin management).
+- Unregistered keys such as platform.super_admin and tenants.manage remain rejected. Platform-global super-admin authority is not part of the tenant-customizable catalogue.
+- Added a dedicated Organization → Roles & Permissions workspace to Glass, Midnight and Paper. Role editing has been removed from the Users workspace; Users retains membership assignment and invitation workflows.
+- The role editor displays permission groups, descriptions and sensitive-operation indicators. Backend owner-only checks remain authoritative for creating, editing and deleting custom roles.
+- Added role-policy regression coverage for catalogue uniqueness, built-in role coverage, accepted registered keys and rejection of unregistered privilege keys.
+- This first pass deliberately models only permissions backed by current Core permission checks. It does not invent Teams/Company CRUD permissions or claim record-level scopes (own, team, assigned) are implemented.
+- Validation: no backend tests, TypeScript build, Angular build, Docker build or VPS runtime validation have been executed in this environment. Run the backend npm test and npm run build, then the Angular production build and VPS smoke checks before considering this complete.
