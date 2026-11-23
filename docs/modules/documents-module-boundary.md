@@ -3,7 +3,7 @@
 This document is the target contract for Documents in Bee-Core's modular runtime.
 
 ## Documents owns
-- Route contract (`documents.routes.ts`), HTTP controller/registration (`documents.controller.ts`), module service/security helpers (`documents.service.ts`), persistence wiring and tenant collections (`documents.repository.ts`), and pure validators (`documents.validators.ts`).
+- Route contract (`documents.routes.ts`), thin HTTP controller/registration (`documents.controller.ts`), endpoint handlers (`documents.handlers.ts`), module service/security helpers (`documents.service.ts`), persistence wiring and tenant collections (`documents.repository.ts`), and pure validators (`documents.validators.ts`).
 - HTTP routes and API URL/DTO contract for document operations.
 - Folder/document metadata, indexes, domain validation and folder hierarchy rules.
 - Publication lifecycle and public-link validation.
