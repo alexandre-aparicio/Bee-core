@@ -822,3 +822,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - This exercises the **implemented REST pairing and heartbeat contract**. It is not a WebSocket simulator: the current Connected Devices plugin has no device WebSocket endpoint or realtime channel yet.
 - **Integration:** merged into `main` via PR #150 (squash commit `9e7c7f094c83ef0a47d87020b198b148250607aa`).
 - **Validation pending:** Angular asset-copy/build, browser test, CORS/same-origin deployment check and end-to-end QR/approval/heartbeat test have not been run. The simulator is integrated in source but is not yet verified in a deployed environment.
+
+
+## Device simulator strict-CSP compatibility — fix prepared (2026-11-23)
+
+- Removed inline JavaScript and inline CSS from the simulator document; behavior and styles now load from same-origin `device-simulator.js` and `device-simulator.css` assets.
+- Replaced inline style attributes with CSS classes and widened the Angular asset-copy glob so the HTML, JS and CSS files are all published together.
+- This addresses the reported `script-src 'self'` inline-script violation without weakening the Content Security Policy or adding `unsafe-inline`.
+- **Validation pending:** no Angular production build or browser test under the deployed CSP has been run. The fix is prepared on `fix/device-simulator-csp` and awaits review/merge.

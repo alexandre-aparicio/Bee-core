@@ -50,7 +50,7 @@
                 "output": "assets/templates/studio"
               },
               {
-                "glob": "index.html",
+                "glob": "**/*",
                 "input": "src/assets/device-simulator",
                 "output": "assets/device-simulator"
               }
