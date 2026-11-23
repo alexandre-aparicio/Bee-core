@@ -70,9 +70,6 @@ export async function resolveTenantContext(
   const users = db.collection<{ id: string; email: string; enabled: boolean; allowedClients?: string[]; platformRole?: string; mfaSecretEnc?: string }>("users");
   const user = await users.findOne({ id: userId, enabled: true });
   if (!user || !Array.isArray(user.allowedClients) || !user.allowedClients.includes(claims.client)) return null;
-  // A superadministrator may authenticate to enroll MFA, but cannot use any
-  // tenant/business route until an encrypted MFA secret is active.
-  if (user.platformRole === "superadmin" && !user.mfaSecretEnc) return null;
   if (!tenantId || tenantId !== session.tenantId) return null;
 
   const membership = await db.collection<{ role: MembershipRole; customRoleId?: string; status: string }>("memberships").findOne({
