@@ -163,6 +163,23 @@ The Midnight shell owns the dashboard frame, sidebar, topbar and content host. F
 
 ## 8. Buttons and actions
 
+### 8.1 Collection view controls
+
+When a collection supports both card and table presentation, use the same compact two-button switcher already established in Bee-Core:
+- Place it in the toolbar immediately to the left of the primary contextual action (such as Upload or Create).
+- Use the same card/table glyphs, equal compact hit areas, subtle border and restrained Midnight surface.
+- The selected view uses the violet accent; the inactive view remains readable in muted foreground.
+- Provide accessible names, tooltips and `aria-pressed` state for each button.
+- Keep the switcher adjacent to the primary action at desktop widths; allow a clean wrap on mobile.
+- Switching views changes presentation only; records, permissions and actions remain identical.
+
+### 8.2 Vertical ellipsis for overflow menus
+
+- Use the vertical three-dot icon (`⋮` / established vertical-ellipsis icon) for contextual overflow menus in both cards and tables.
+- Do not replace it with a “More” text button or an unrelated menu symbol.
+- Match the established icon-button hit area, hover/focus treatment and accessible name/tooltip.
+- Keep the same icon and action placement for the same entity across card and table views.
+
 ### Primary
 - Violet accent background with high-contrast foreground.
 - Clear label, consistent height, radius and horizontal padding.
