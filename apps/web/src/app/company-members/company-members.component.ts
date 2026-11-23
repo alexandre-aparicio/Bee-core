@@ -33,7 +33,7 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
               <td><strong>{{member.email || member.userId}}</strong><small>{{member.userId}}</small></td>
               <td>
                 <select *ngIf="canManage && member.role !== 'owner' && (role === 'owner' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
-                  <option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option>
+                  <option value="guest">Guest</option><option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option>
                   <option *ngIf="role === 'owner'" value="admin">Admin</option>
                   <option *ngFor="let customRole of customRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
                 </select>
