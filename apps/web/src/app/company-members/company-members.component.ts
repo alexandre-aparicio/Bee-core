@@ -116,7 +116,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
       this.error = "";
       this.message = "";
       this.acceptanceToken = "";
-      if (this.canRead && this.tenantId) void this.load();
+      if (this.tenantId && this.token) void this.load();
     }
   }
 
@@ -139,7 +139,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   }
 
   async load(): Promise<void> {
-    if (!this.canRead || !this.tenantId || !this.token) return;
+    if (!this.tenantId || !this.token) return;
     const requestId = ++this.requestSequence;
     const requestedTenantId = this.tenantId;
     const requestedRole = this.role;
