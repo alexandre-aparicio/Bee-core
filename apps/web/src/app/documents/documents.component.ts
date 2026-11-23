@@ -1,5 +1,5 @@
 import { Component, Input, OnChanges } from "@angular/core";
-import { DocumentsApiService } from "./documents-api.service";
+import { DocumentsApiService, type DocumentsFolder as Folder, type DocumentsShareTeam as ShareTeam, type DocumentsShareUser as ShareUser, type DocumentsItem as Doc } from "./documents-api.service";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from "@angular/cdk/drag-drop";
