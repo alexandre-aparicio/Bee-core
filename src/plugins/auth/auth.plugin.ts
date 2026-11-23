@@ -54,7 +54,7 @@ export const authPlugin:BeePlugin={
   const templateSubscribers=new Map<string,Set<TemplateSubscriber>>();
   const broadcastTemplateUpdate=(tenantId:string,payload:unknown)=>{const clients=templateSubscribers.get(tenantId);if(!clients)return;const event=`event: template-update\ndata: ${JSON.stringify(payload)}\n\n`;for(const client of clients){if(client.response.destroyed){clients.delete(client);client.release();continue;}client.response.write(event);}if(!clients.size)templateSubscribers.delete(tenantId);};
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
-  const tenants=db.collection<{id:string;name:string;slug?:string;domains?:string[];createdAt:Date}>("tenants");
+  const tenants=db.collection<{id:string;name:string;slug?:string;kind?:"super"|"tenant";domains?:string[];createdAt:Date}>("tenants");
   await Promise.all([
    users.createIndex({email:1},{unique:true,name:"users_email_unique"}),
    users.createIndex({id:1},{unique:true,name:"users_id_unique"}),
@@ -66,7 +66,7 @@ export const authPlugin:BeePlugin={
    tenants.createIndex({domains:1},{unique:true,sparse:true,name:"tenants_domains_unique"})
   ]);
   await sessions.updateMany({absoluteExpiresAt:{$exists:false}},{$set:{absoluteExpiresAt:absoluteSessionExpiry()}});
-   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,createdAt:new Date()}},{upsert:true});
+   await tenants.updateOne({id:defaultTenantId},{$setOnInsert:{id:defaultTenantId,name:defaultTenantId,kind:"tenant",createdAt:new Date()}},{upsert:true});
   await users.updateMany({$or:[{tenantId:{$exists:false}},{tenantId:""}]},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});
   const preferencesCollectionExists=await db.listCollections({name:"template_preferences"},{nameOnly:true}).hasNext();
   if(!preferencesCollectionExists){
@@ -87,7 +87,7 @@ export const authPlugin:BeePlugin={
   const adminEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase(),adminPassword=String(ctx.config.authAdminPassword??"");
   if(adminEmail&&adminPassword){
    if(adminPassword.length<12)throw new Error("Auth: bootstrap admin password must be at least 12 characters.");
-   await users.updateOne({email:adminEmail},{$set:{platformRole:"superadmin"},$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,tenantId:defaultTenantId,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
+   await users.updateOne({email:adminEmail},{$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,tenantId:defaultTenantId,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
    ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
   }
   const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId"|"platformRole">,client:ClientType,tenantId:string,sessionId:string,expiresAt:Date):string=>{const payload:JwtPayload={sub:maskUserId(u.id,{sessionId,expiresAt},sessionIdSecret),email:u.email,roles:u.roles,...(u.platformRole?{platformRole:u.platformRole}:{}),tenantRef:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret),client,aud:"bee-core",iss:"bee-core",sid:sessionId};return ctx.server.jwt.sign(payload);};
@@ -100,8 +100,15 @@ export const authPlugin:BeePlugin={
    const passwordMatches=await bcrypt.compare(password,u?.passwordHash??dummyPasswordHash);
    if(!u||!passwordMatches)return reply.code(401).send({error:"Invalid credentials"});
    if(!u.allowedClients.includes(client))return reply.code(403).send({error:"Client access denied"});
+   if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
+   const tenantId=u.tenantId??defaultTenantId;
+   const membership=await db.collection("memberships").findOne({userId:u.id,tenantId,status:"active"});
+   if(!membership)return reply.code(403).send({error:"No active company membership"});
+   const tenant=await tenants.findOne({id:tenantId});
+   const isSuperAdmin=membership.role==="super_admin"&&tenant?.kind==="super";
+   if(membership.role==="super_admin"&&!isSuperAdmin)return reply.code(403).send({error:"Super Admin membership is only valid in the Super Organization"});
    let mfaVerifiedAt:Date|undefined;
-   if(u.platformRole==="superadmin"&&u.mfaSecretEnc){
+   if(isSuperAdmin&&u.mfaSecretEnc){
     const code=String(req.body?.mfaCode??"");
     if(!mfaEncryptionKey)return reply.code(503).send({error:"Superadministrator MFA encryption is not configured"});
     let secret:string;try{secret=decryptMfaSecret(u.mfaSecretEnc,mfaEncryptionKey);}catch(error){ctx.logger.error("Could not decrypt superadministrator MFA secret",{userId:u.id,error});return reply.code(503).send({error:"MFA configuration unavailable"});}
@@ -117,18 +124,14 @@ export const authPlugin:BeePlugin={
     }
     mfaVerifiedAt=new Date();
    }
-   if(!u.tenantId){u.tenantId=defaultTenantId;await users.updateOne({id:u.id},{$set:{tenantId:defaultTenantId,updatedAt:new Date()}});}
-   const tenantId=u.tenantId??defaultTenantId;
-   const membership=await db.collection("memberships").findOne({userId:u.id,tenantId,status:"active"});
-   if(!membership)return reply.code(403).send({error:"No active company membership"});
-   const membershipRole=String(membership.role??"member"),effectiveRoles:Role[]=membershipRole==="owner"||membershipRole==="admin"?["admin"]:["user"];
-   const sessionId=randomUUID(),expiresAt=refreshExpiry(),absoluteExpiresAt=absoluteSessionExpiry(),accessToken=issue({...u,roles:effectiveRoles},client,tenantId,sessionId,expiresAt),refreshToken=makeRefreshToken();
+   const membershipRole=String(membership.role??"member"),effectiveRoles:Role[]=isSuperAdmin||membershipRole==="owner"||membershipRole==="admin"?["admin"]:["user"];
+   const sessionId=randomUUID(),expiresAt=refreshExpiry(),absoluteExpiresAt=absoluteSessionExpiry(),accessToken=issue({...u,roles:effectiveRoles,...(isSuperAdmin?{platformRole:"superadmin" as const}:{})},client,tenantId,sessionId,expiresAt),refreshToken=makeRefreshToken();
    await sessions.insertOne({id:sessionId,userId:u.id,tokenHash:hashToken(refreshToken),client,tenantId,expiresAt,absoluteExpiresAt,revokedAt:null,...(mfaVerifiedAt?{mfaVerifiedAt}:{}),createdAt:new Date()});
    await ctx.events.emit("auth.login",{userId:u.id,client,at:new Date().toISOString()});
    await auditAuthEvent({tenantId,actorId:u.id,action:"auth.login",outcome:"success",metadata:{client}});
    const secureCookie=String(ctx.config.environment??"")!=="development";
    if(client==="dashboard")writeRefreshCookie(reply,refreshToken,secureCookie);
-   return {accessToken,...(client==="dashboard"?{}:{refreshToken}),tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,user:publicUser({...u,roles:effectiveRoles},sessionId,expiresAt,sessionIdSecret),client,tenantId:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret), ...(u.platformRole?{platformRole:u.platformRole}:{}),...(u.platformRole==="superadmin"&&!u.mfaSecretEnc?{mfaSetupRequired:true}:{})};
+   return {accessToken,...(client==="dashboard"?{}:{refreshToken}),tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,user:publicUser({...u,roles:effectiveRoles,...(isSuperAdmin?{platformRole:"superadmin" as const}:{})},sessionId,expiresAt,sessionIdSecret),client,tenantId:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret), ...(isSuperAdmin?{platformRole:"superadmin"}:{}),...(isSuperAdmin&&!u.mfaSecretEnc?{mfaSetupRequired:true}:{})};
   });
   const resolveMfaAdmin=async(req:any,reply:any):Promise<{user:UserRecord;session:RefreshSession}|null>=>{
    try{await req.jwtVerify();}catch{return reply.code(401).send({error:"Unauthorized"}),null;}
@@ -137,8 +140,10 @@ export const authPlugin:BeePlugin={
    const session=await sessions.findOne({id:claims.sid,client:"dashboard",revokedAt:null,expiresAt:{$gt:new Date()}});
    if(!session)return reply.code(401).send({error:"Session expired"}),null;
    let userId="";try{userId=unmaskUserId(claims.sub,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret);}catch{return reply.code(401).send({error:"Invalid session"}),null;}
-   const user=await users.findOne({id:userId,enabled:true,platformRole:"superadmin"});
-   if(!user||user.id!==session.userId)return reply.code(403).send({error:"Superadministrator access required"}),null;
+   const user=await users.findOne({id:userId,enabled:true});
+   const membership=await db.collection("memberships").findOne({userId,tenantId:session.tenantId,status:"active",role:"super_admin"});
+   const superOrganization=await tenants.findOne({id:session.tenantId,kind:"super"});
+   if(!user||user.id!==session.userId||!membership||!superOrganization)return reply.code(403).send({error:"Super Organization super_admin membership required"}),null;
    return {user,session};
   };
   ctx.server.post("/auth/mfa/setup",async(req,reply)=>{
@@ -163,9 +168,9 @@ export const authPlugin:BeePlugin={
    await sessions.updateOne({id:current.session.id,userId:current.user.id,revokedAt:null},{$set:{mfaVerifiedAt:verifiedAt}});
    const tenantId=current.session.tenantId??current.user.tenantId??defaultTenantId;
    const membership=await db.collection("memberships").findOne({userId:current.user.id,tenantId,status:"active"});
-   const role=String(membership?.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
+   const role=String(membership?.role??"member"),roles:Role[]=role==="super_admin"||role==="owner"||role==="admin"?["admin"]:["user"];
    await auditAuthEvent({tenantId,actorId:current.user.id,action:"auth.mfa.enrolled",outcome:"success",metadata:{client:"dashboard"}});
-   return {success:true,accessToken:issue({...current.user,roles}, "dashboard",tenantId,current.session.id,current.session.expiresAt),expiresIn:1200,platformRole:"superadmin",recoveryCodes};
+   return {success:true,accessToken:issue({...current.user,roles,platformRole:"superadmin"}, "dashboard",tenantId,current.session.id,current.session.expiresAt),expiresIn:1200,platformRole:"superadmin",recoveryCodes};
   });
   ctx.server.post<{Body:RefreshBody}>("/auth/refresh",async(req,reply)=>{
    if(!isSameOrigin(req))return reply.code(403).send({error:"Cross-origin refresh request rejected"});
@@ -188,12 +193,13 @@ export const authPlugin:BeePlugin={
    const activeTenantId=session.tenantId??u.tenantId??defaultTenantId;
    const membership=await db.collection("memberships").findOne({userId:u.id,tenantId:activeTenantId,status:"active"});
    if(!membership){await sessions.updateOne({id:session.id},{$set:{revokedAt:new Date()}});return reply.code(401).send({error:"Company membership is no longer active"});}
-   const role=String(membership.role??"member"),roles:Role[]=role==="owner"||role==="admin"?["admin"]:["user"];
-   const accessToken=issue({...u,roles},session.client,activeTenantId,session.id,session.expiresAt);
-   if(session.client==="dashboard"){writeRefreshCookie(reply,next,secureCookie);return {accessToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,client:session.client,tenantId:maskTenantId(activeTenantId,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret),user:publicUser({...u,roles},session.id,session.expiresAt,sessionIdSecret),...(u.platformRole?{platformRole:u.platformRole}:{})};}
-   return {accessToken,refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,client:session.client,tenantId:maskTenantId(activeTenantId,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret),user:publicUser({...u,roles},session.id,session.expiresAt,sessionIdSecret),...(u.platformRole?{platformRole:u.platformRole}:{})};
+   const role=String(membership.role??"member"),isSuperAdmin=role==="super_admin"&&(await tenants.findOne({id:activeTenantId,kind:"super"}))!==null,roles:Role[]=isSuperAdmin||role==="owner"||role==="admin"?["admin"]:["user"];
+   const sessionUser={...u,roles,...(isSuperAdmin?{platformRole:"superadmin" as const}:{})};
+   const accessToken=issue(sessionUser,session.client,activeTenantId,session.id,session.expiresAt);
+   if(session.client==="dashboard"){writeRefreshCookie(reply,next,secureCookie);return {accessToken,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,client:session.client,tenantId:maskTenantId(activeTenantId,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret),user:publicUser(sessionUser,session.id,session.expiresAt,sessionIdSecret),...(isSuperAdmin?{platformRole:"superadmin"}:{})};}
+   return {accessToken,refreshToken:next,tokenType:"Bearer",expiresIn:1200,refreshExpiresIn:604800,client:session.client,tenantId:maskTenantId(activeTenantId,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret),user:publicUser(sessionUser,session.id,session.expiresAt,sessionIdSecret),...(isSuperAdmin?{platformRole:"superadmin"}:{})};
   });
-  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as Partial<JwtClaims>;const tenantContext=await resolveTenantContext(db,c,{},sessionIdSecret);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});const sessionContext={sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt};const user=await users.findOne({id:tenantContext.userId,enabled:true},{projection:{platformRole:1}});return {authenticated:true,user:{id:maskUserId(tenantContext.userId,sessionContext,sessionIdSecret),email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:maskTenantId(tenantContext.tenantId,sessionContext,sessionIdSecret),platformRole:user?.platformRole??null};}catch{return reply.code(401).send({error:"Unauthorized"});}});
+  ctx.server.get("/auth/me",async(req,reply)=>{try{await req.jwtVerify();const c=req.user as Partial<JwtClaims>;const tenantContext=await resolveTenantContext(db,c,{},sessionIdSecret);if(!tenantContext)return reply.code(401).send({error:"Unauthorized or active company session required"});const sessionContext={sessionId:tenantContext.sessionId,expiresAt:tenantContext.sessionExpiresAt};return {authenticated:true,user:{id:maskUserId(tenantContext.userId,sessionContext,sessionIdSecret),email:tenantContext.email,roles:c.roles},client:tenantContext.client,tenantId:maskTenantId(tenantContext.tenantId,sessionContext,sessionIdSecret),platformRole:tenantContext.role==="super_admin"?"superadmin":null};}catch{return reply.code(401).send({error:"Unauthorized"});}});
   ctx.server.post<{Body:RefreshBody}>("/auth/logout",async(req,reply)=>{const secureCookie=String(ctx.config.environment??"")!=="development";if(!isSameOrigin(req))return reply.code(403).send({error:"Cross-origin logout request rejected"});const cookieToken=readCookie(req,"bee_refresh");clearRefreshCookie(reply,secureCookie);try{await req.jwtVerify();const claims=req.user as Partial<JwtClaims>;if(claims.aud!=="bee-core"||!claims.sub||!claims.sid)return reply.code(401).send({error:"Unauthorized"});const session=await sessions.findOne({id:claims.sid});if(!session)return {success:true,message:"Session is already unavailable."};let userId:string;try{userId=unmaskUserId(claims.sub,{sessionId:session.id,expiresAt:session.expiresAt},sessionIdSecret)===session.userId?session.userId:"";}catch{return reply.code(401).send({error:"Unauthorized"});}if(!userId)return reply.code(401).send({error:"Unauthorized"});const raw=String(req.body?.refreshToken??"");if(raw)await sessions.updateOne({id:session.id,tokenHash:hashToken(raw),userId,revokedAt:null},{$set:{revokedAt:new Date()}});await sessions.updateOne({id:session.id,userId,revokedAt:null},{$set:{revokedAt:new Date()}});if(session.tenantId)await auditAuthEvent({tenantId:session.tenantId,actorId:userId,action:"auth.logout",outcome:"success",metadata:{refreshTokenProvided:Boolean(raw||cookieToken)}});return {success:true,message:"Refresh session revoked."};}catch{if(cookieToken.length>=40){await sessions.updateOne({tokenHash:hashToken(cookieToken),revokedAt:null},{$set:{revokedAt:new Date()}});return {success:true,message:"Refresh session revoked."};}return reply.code(401).send({error:"Unauthorized"});}});
 
   const templateDefaults={public:"aurora",dashboard:"midnight"} as const;

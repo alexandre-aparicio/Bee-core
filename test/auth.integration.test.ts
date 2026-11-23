@@ -4,10 +4,13 @@ import Fastify from "fastify";
 import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
+import { createHmac } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
+import { platformAdminPlugin } from "../src/plugins/platform-admin/platform-admin.plugin.js";
+import { base32Decode } from "../src/core/totp.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { filesPlugin } from "../src/plugins/files/files.plugin.js";
 import { requireAuth, requireRoles, requireTenantPermissions, type AuthenticatedRequest } from "../src/plugins/auth/auth.guard.js";
@@ -494,5 +497,87 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     await rm(fileStoragePath,{recursive:true,force:true});
     await client.db(dbName).dropDatabase();
     await client.close();
+  }
+});
+
+
+function totpCodeAt(secret:string,step:number):string {
+  const message=Buffer.alloc(8);message.writeBigUInt64BE(BigInt(step));
+  const digest=createHmac("sha1",base32Decode(secret)).update(message).digest();
+  const offset=digest[digest.length-1]&15;
+  const binary=((digest[offset]&127)<<24)|((digest[offset+1]&255)<<16)|((digest[offset+2]&255)<<8)|(digest[offset+3]&255);
+  return String(binary%1_000_000).padStart(6,"0");
+}
+
+test("super organization migration: reserved membership retains mandatory MFA and global scope", { skip: !uri }, async () => {
+  const dbName="bee_core_super_org_test_"+Date.now();
+  const client=new MongoClient(uri!);await client.connect();
+  const db=client.db(dbName);
+  const fileStoragePath=await mkdtemp(path.join(tmpdir(),"bee-super-org-test-"));
+  const passwordHash=await bcrypt.hash("Super-password-12345",10);
+  const now=new Date();
+  await db.collection("tenants").insertMany([
+    {id:"legacy-platform-tenant",name:"Legacy platform tenant",createdAt:now},
+    {id:"ordinary-tenant",name:"Ordinary tenant",createdAt:now}
+  ]);
+  await db.collection("users").insertMany([
+    {id:"legacy-superadmin",email:"super@example.test",passwordHash,roles:["admin"],platformRole:"superadmin",enabled:true,allowedClients:["dashboard"],tenantId:"legacy-platform-tenant",createdAt:now,updatedAt:now},
+    {id:"ordinary-owner",email:"owner@example.test",passwordHash,roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:"ordinary-tenant",createdAt:now,updatedAt:now}
+  ]);
+  await db.collection("memberships").insertMany([
+    {id:"legacy-membership",userId:"legacy-superadmin",tenantId:"legacy-platform-tenant",role:"owner",status:"active",createdAt:now,updatedAt:now},
+    {id:"ordinary-owner-membership",userId:"ordinary-owner",tenantId:"ordinary-tenant",role:"owner",status:"active",createdAt:now,updatedAt:now}
+  ]);
+  await db.collection("refresh_sessions").insertOne({id:"legacy-super-session",userId:"legacy-superadmin",tenantId:"legacy-platform-tenant",client:"dashboard",tokenHash:"legacy-super-token-hash",expiresAt:new Date(Date.now()+60*60*1000),revokedAt:null,createdAt:now});
+  const app=Fastify();app.register(jwt,{secret:"01234567890123456789012345678901"});
+  const logger:BeeLogger={info(){},warn(){},error(){}};
+  const ctx:BeeContext={appName:"Bee test",version:"test",events:new BeeEventBus(),logger,server:app,mongoClient:client,config:{jwtSecret:"01234567890123456789012345678901",authMfaEncryptionKey:Buffer.alloc(32,7).toString("base64"),mongoUri:uri!,mongoDbName:dbName,fileStoragePath,authAdminEmail:"",authAdminPassword:""}};
+  try{
+    await authPlugin.initialize?.(ctx);
+    await organizationsPlugin.initialize?.(ctx);
+    await platformAdminPlugin.initialize?.(ctx);
+    const superOrg=await db.collection("tenants").findOne({kind:"super"});
+    assert.ok(superOrg,"startup must create the Super Organization");
+    const migratedUser=await db.collection("users").findOne({id:"legacy-superadmin"});
+    assert.equal(migratedUser?.tenantId,superOrg!.id);
+    assert.equal(migratedUser?.platformRole,undefined,"legacy platformRole must be removed from the user record");
+    const superMembership=await db.collection("memberships").findOne({userId:"legacy-superadmin",tenantId:superOrg!.id,status:"active"});
+    assert.equal(superMembership?.role,"super_admin");
+    const oldTenantMembership=await db.collection("memberships").findOne({userId:"legacy-superadmin",tenantId:"legacy-platform-tenant"});
+    assert.equal(oldTenantMembership?.status,"suspended","migrated Super Admin must not retain tenant-owner membership");
+    const oldSession=await db.collection("refresh_sessions").findOne({id:"legacy-super-session"});
+    assert.ok(oldSession?.revokedAt,"migration must revoke sessions created under the old organization context");
+    await app.ready();
+
+    const setupLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"super@example.test",password:"Super-password-12345",client:"dashboard"}});
+    assert.equal(setupLogin.statusCode,200);
+    assert.equal(setupLogin.json().mfaSetupRequired,true);
+    const setup=await app.inject({method:"POST",url:"/auth/mfa/setup",headers:{authorization:"Bearer "+setupLogin.json().accessToken}});
+    assert.equal(setup.statusCode,200);
+    const secret=setup.json().secret as string;
+    const confirm=await app.inject({method:"POST",url:"/auth/mfa/confirm",headers:{authorization:"Bearer "+setupLogin.json().accessToken},payload:{code:totpCodeAt(secret,Math.floor(Date.now()/30000))}});
+    assert.equal(confirm.statusCode,200);
+    assert.equal(confirm.json().recoveryCodes.length,10);
+
+    const missingCode=await app.inject({method:"POST",url:"/auth/login",payload:{email:"super@example.test",password:"Super-password-12345",client:"dashboard"}});
+    assert.equal(missingCode.statusCode,401,"Super Admin login must still require the second factor");
+    const verifiedLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"super@example.test",password:"Super-password-12345",client:"dashboard",mfaCode:totpCodeAt(secret,Math.floor(Date.now()/30000)+1)}});
+    assert.equal(verifiedLogin.statusCode,200);
+    const globalAccess=await app.inject({method:"GET",url:"/platform/me",headers:{authorization:"Bearer "+verifiedLogin.json().accessToken}});
+    assert.equal(globalAccess.statusCode,200);
+    assert.equal(globalAccess.json().role,"super_admin");
+
+    const ordinaryLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"owner@example.test",password:"Super-password-12345",client:"dashboard"}});
+    assert.equal(ordinaryLogin.statusCode,200);
+    const ordinaryGlobalAccess=await app.inject({method:"GET",url:"/platform/me",headers:{authorization:"Bearer "+ordinaryLogin.json().accessToken}});
+    assert.equal(ordinaryGlobalAccess.statusCode,403,"Tenant owners must not receive global platform access");
+
+    const claims=JSON.parse(Buffer.from(verifiedLogin.json().accessToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    await db.collection("refresh_sessions").updateOne({id:claims.sid},{$set:{mfaVerifiedAt:new Date(Date.now()-16*60*1000)}});
+    const staleMfaAccess=await app.inject({method:"GET",url:"/platform/me",headers:{authorization:"Bearer "+verifiedLogin.json().accessToken}});
+    assert.equal(staleMfaAccess.statusCode,403,"privileged platform actions must continue to require recent MFA");
+  }finally{
+    await app.close().catch(()=>undefined);
+    await db.dropDatabase();await client.close();await rm(fileStoragePath,{recursive:true,force:true});
   }
 });

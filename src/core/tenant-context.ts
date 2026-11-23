@@ -2,7 +2,7 @@ import type { Db } from "mongodb";
 import { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
 import { unmaskTenantId, unmaskUserId } from "./session-id.js";
 
-export type CompanyRole = "owner" | "admin" | "manager" | "member";
+export type CompanyRole = "super_admin" | "owner" | "admin" | "manager" | "member" | "guest";
 export type MembershipRole = CompanyRole | "custom";
 export type TenantClaims = {
   sub?: string;
@@ -14,10 +14,12 @@ export type TenantClaims = {
 };
 
 export const COMPANY_ROLE_PERMISSIONS: Record<CompanyRole, readonly string[]> = {
+  super_admin: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "billing.manage", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send", "mail.manage"],
   owner: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "billing.manage", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send", "mail.manage"],
   admin: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send", "mail.manage"],
   manager: ["members.read", "plugins.read", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send"],
-  member: ["members.read", "plugins.read", "files.read", "notes.read", "mail.read"]
+  member: ["members.read", "plugins.read", "files.read", "notes.read", "mail.read"],
+  guest: ["plugins.read"]
 };
 
 export type TenantContext = {
@@ -51,7 +53,7 @@ export async function resolveTenantContext(
   }
 
   const now = new Date();
-  const session = await db.collection<{ id:string; userId:string; tenantId:string; client?:string; expiresAt:Date; revokedAt:Date|null }>("refresh_sessions").findOne({
+  const session = await db.collection<{ id:string; userId:string; tenantId:string; client?:string; expiresAt:Date; revokedAt:Date|null; mfaVerifiedAt?:Date }>("refresh_sessions").findOne({
     id: claims.sid,
     revokedAt: null,
     expiresAt: { $gt: now }
@@ -68,9 +70,6 @@ export async function resolveTenantContext(
   const users = db.collection<{ id: string; email: string; enabled: boolean; allowedClients?: string[]; platformRole?: string; mfaSecretEnc?: string }>("users");
   const user = await users.findOne({ id: userId, enabled: true });
   if (!user || !Array.isArray(user.allowedClients) || !user.allowedClients.includes(claims.client)) return null;
-  // A superadministrator may authenticate to enroll MFA, but cannot use any
-  // tenant/business route until an encrypted MFA secret is active.
-  if (user.platformRole === "superadmin" && !user.mfaSecretEnc) return null;
   if (!tenantId || tenantId !== session.tenantId) return null;
 
   const membership = await db.collection<{ role: MembershipRole; customRoleId?: string; status: string }>("memberships").findOne({
@@ -79,6 +78,10 @@ export async function resolveTenantContext(
     status: "active"
   });
   if (!membership) return null;
+  if (membership.role === "super_admin") {
+    const superOrganization = await db.collection<{ id:string; kind?:string }>("tenants").findOne({ id: tenantId, kind: "super" });
+    if (!superOrganization || !user.mfaSecretEnc) return null;
+  }
   let permissions: readonly string[];
   if (membership.role === "custom") {
     if (!membership.customRoleId) return null;
