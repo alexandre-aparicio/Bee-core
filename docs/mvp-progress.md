@@ -582,3 +582,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Fixed the shared Glass, Midnight and Paper dashboard templates so `settings-roles` is excluded from the generic `settings-*` workspace renderer.
 - The platform Roles & Permissions component now renders on its own without the unrelated Security workspace appearing above it. Security navigation and backend authentication/authorization remain unchanged.
 - Validation: no Angular build, tests, browser checks or VPS runtime checks have been executed. Verify Settings → Security still opens its workspace and Settings → Roles & Permissions shows only its intended component in all three dashboard templates.
+
+## Platform permission catalogue four-column layout (2026-11-23)
+
+- Updated the shared platform Roles & Permissions component so each permission group (for example, Organization) displays its permission cards in a four-column grid on desktop.
+- Group headings span the full grid width. Permission cards retain their labels, descriptions, permission keys, protected-state text and existing toggle behavior.
+- The grid reduces to two columns on medium screens and one column on narrow mobile screens to preserve readability.
+- No permission catalogue, authorization, persistence or API behavior was changed.
+- Validation: no Angular build, tests, browser checks or VPS runtime checks have been executed. Verify the layout in Glass, Midnight and Paper after rebuilding on the VPS.
