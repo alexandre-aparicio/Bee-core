@@ -9,7 +9,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  selector:"bee-organization-roles",standalone:true,imports:[CommonModule,FormsModule],
  template:`
  <section class="org-roles">
-  <header class="org-roles__header"><div><span class="org-roles__eyebrow">ORGANIZATION ACCESS</span><h2>Roles &amp; Permissions</h2><p>Review system roles, explore the permissions available to this organization and manage custom access profiles.</p></div><button type="button" (click)="load()" [disabled]="loading||busy">Refresh</button></header>
+  <header class="org-roles__header org-roles__header--actions"><button type="button" (click)="load()" [disabled]="loading||busy">Refresh</button></header>
   <p class="org-roles__error" *ngIf="error" role="alert">{{error}}</p><p class="org-roles__success" *ngIf="message" role="status">{{message}}</p>
   <p class="org-roles__notice" *ngIf="!canManage">You can view roles. Only the organization owner or Super Admin can create, edit or delete custom roles.</p>
   <nav class="org-roles__tabs" aria-label="Roles and permissions sections">
