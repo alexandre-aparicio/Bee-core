@@ -543,6 +543,8 @@ test("super organization migration: reserved membership retains mandatory MFA an
     assert.equal(migratedUser?.platformRole,undefined,"legacy platformRole must be removed from the user record");
     const superMembership=await db.collection("memberships").findOne({userId:"legacy-superadmin",tenantId:superOrg!.id,status:"active"});
     assert.equal(superMembership?.role,"super_admin");
+    const oldTenantMembership=await db.collection("memberships").findOne({userId:"legacy-superadmin",tenantId:"legacy-platform-tenant"});
+    assert.equal(oldTenantMembership?.status,"suspended","migrated Super Admin must not retain tenant-owner membership");
     const oldSession=await db.collection("refresh_sessions").findOne({id:"legacy-super-session"});
     assert.ok(oldSession?.revokedAt,"migration must revoke sessions created under the old organization context");
     await app.ready();
