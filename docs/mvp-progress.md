@@ -2,6 +2,12 @@
 
 Updated: 2026-11-23 — **Organization → Users** uses the same membership manager in Glass, Midnight and Paper for the Super Organization and all Tenants. Guest is a built-in restricted role (`plugins.read` only). The Super Organization migration creates a system organization, moves legacy platform superadmins into reserved `super_admin` memberships, suspends their previous tenant memberships, updates their active organization and revokes old sessions for re-authentication. Global platform routes authorize only an active `super_admin` membership in the Super Organization. The encrypted TOTP secret, one-time recovery codes, login MFA challenge and 15-minute privileged-action MFA freshness check are retained. API responses keep a temporary `platformRole` compatibility field for the existing Angular shell; the database identity source is the membership. Build, integration tests and browser QA are pending; this change must not be considered production-verified. Temporary-password user creation and email-delivered invitations remain future work.
 
+## Connected Devices marketplace installation visibility (2026-11-23)
+
+- Fixed the marketplace management gate so the built-in `super_admin` tenant role and platform superadministrator can see the install action for entitled plugins, alongside `owner` and `admin`.
+- The gate is centralized in `AppComponent.canManagePlugins` and reused by Midnight, Glass and Paper. It does not weaken API authorization: installation still requires the server-side `plugins.install` permission and the lifecycle endpoint remains authoritative.
+- Validation: source-level diff review only; Angular build, role-based browser test and live tenant install are pending.
+
 ## How progress is measured
 
 The percentages below measure distinct product capabilities, not the number of passing workflows or PRs. Each capability is counted once. Re-running backend, Angular or Docker regression suites protects existing work but does not increase implementation progress.
