@@ -18,3 +18,12 @@ Platform administration panel is displayed to the authenticated account when log
 
 ## Verification
 Automated integration tests cover bootstrap login, platform identity, company create/list/status, and tenant-user denial. GitHub Actions CI must pass before merging.
+
+
+## Global package installation versus tenant activation
+
+The Super Organization owns the platform installation of trusted plugin packages. A package installed from Settings → Plugins is installed once for the platform; it must not be installed again independently for every company.
+
+Each company has a separate activation state. In Platform Administration → Company → Plugins, the catalog reports the global package as Installed and shows whether it is Enabled for that company. Activating a package creates the tenant-scoped runtime registration and applies tenant setup; deactivating it disables access while preserving the registration and company data. Dependencies must be globally installed and enabled for the same company.
+
+The platform installation is not a tenant entitlement: plan/purchase checks still govern what a company may access through its tenant marketplace. Tenant isolation and plugin authorization continue to be enforced by the backend.
