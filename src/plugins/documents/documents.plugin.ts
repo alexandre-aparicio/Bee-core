@@ -6,6 +6,7 @@ import path from "node:path";
 import { FilesStorageAdapter } from "./files-storage.adapter.js";
 import { registerDocumentsRoutes } from "./documents.controller.js";
 import { createDocumentsServices, type Folder, type BeeDocument } from "./documents.service.js";
+import { DocumentsRepository } from "./documents.repository.js";
 
 export const documentsPlugin:BeePlugin={
  manifest:{name:"documents",version:"0.1.0",description:"Tenant document library, folder ACLs and controlled public delivery",dependencies:["auth","organizations","files"]},
@@ -16,17 +17,12 @@ export const documentsPlugin:BeePlugin={
   const root=path.resolve(String(ctx.config.fileStoragePath??"/data/bee-files"));
   await mkdir(root,{recursive:true});
   const storage=new FilesStorageAdapter(db,root);
-  const folderCollection=db.collection<Folder>("tenant_document_folders");
-  const documentCollection=db.collection<BeeDocument>("tenant_documents");
-  await Promise.all([
-   folderCollection.createIndex({tenantId:1,id:1},{unique:true,name:"tenant_document_folders_tenant_id_unique"}),
-   folderCollection.createIndex({tenantId:1,parentId:1,name:1},{name:"tenant_document_folders_parent_name"}),
-   documentCollection.createIndex({tenantId:1,id:1},{unique:true,name:"tenant_documents_tenant_id_unique"}),
-   documentCollection.createIndex({tenantId:1,folderId:1,updatedAt:-1},{name:"tenant_documents_folder_updated"}),
-   documentCollection.createIndex({publicId:1},{unique:true,partialFilterExpression:{publicId:{$type:"string"}},name:"tenant_documents_public_id_unique"})
-  ]);
-  const serviceDeps=createDocumentsServices({db,secret,storage,folderCollection,documentCollection});
-  registerDocumentsRoutes(ctx,serviceDeps);
+  const repository=new DocumentsRepository(db);
+  await repository.initializeIndexes();
+  const folderCollection=repository.folderCollection;
+  const documentCollection=repository.documentCollection;
+  const serviceDeps=createDocumentsServices({db,secret,storage,folderCollection,documentCollection,repository});
+  registerDocumentsRoutes(ctx,{...serviceDeps,repository});
   ctx.logger.info("Documents plugin initialized: tenant folders, document metadata, ACLs and public delivery ready.");
  }
 };
