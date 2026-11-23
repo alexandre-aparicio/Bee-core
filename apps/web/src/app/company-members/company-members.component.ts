@@ -404,7 +404,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
       this.inviteEmail = "";
       this.inviteRole = "member";
       this.inviteRestrictionRoleIds = [];
-      this.message = "Invitation created. Copy the link and share it with the invited person.";
+      this.message = this.t("users.invitationCreated");
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not create invitation";
@@ -421,8 +421,8 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
 
   async copyLink(): Promise<void> {
     if (!this.acceptanceLink) return;
-    try { await navigator.clipboard.writeText(this.acceptanceLink); this.message = "Invitation link copied. Share it with the invited person."; }
-    catch { this.error = "Clipboard access is unavailable. Select and copy the invitation link manually."; }
+    try { await navigator.clipboard.writeText(this.acceptanceLink); this.message = this.t("users.invitationCopied"); }
+    catch { this.error = this.t("users.clipboardUnavailable"); }
   }
 
   async changeRole(member: CompanyMember, role: string): Promise<void> {
@@ -432,7 +432,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
     this.error = "";
     try {
       await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/memberships/" + encodeURIComponent(member.userId), "PUT", customRoleId ? { customRoleId } : { role });
-      this.message = "Membership role updated. The member must sign in again.";
+      this.message = this.t("users.roleUpdated");
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not update role";
@@ -447,7 +447,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
     this.error = "";
     try {
       await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/memberships/" + encodeURIComponent(member.userId), "PUT", { restrictionRoleIds: [...current] });
-      this.message = "Restriction updated. The member's active sessions were revoked.";
+      this.message = this.t("users.restrictionUpdated");
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not update restrictions";
@@ -458,11 +458,12 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
     if (this.busyId || member.role === "owner" || member.role === "super_admin") return;
     this.busyId = member.userId;
     this.openMemberMenuId = "";
+    this.pendingMemberStatus = null;
     this.error = "";
     this.message = "";
     try {
       await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/memberships/" + encodeURIComponent(member.userId) + "/status", "PATCH", { status });
-      this.message = status === "suspended" ? "Membership suspended and active sessions revoked." : "Membership reactivated and active sessions revoked.";
+      this.message = status === "suspended" ? this.t("users.memberSuspended") : this.t("users.memberRestored");
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : (status === "suspended" ? "Could not suspend member" : "Could not reactivate member");
@@ -474,10 +475,11 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   async cancelInvitation(invitation: CompanyInvitation): Promise<void> {
     this.busyId = invitation.id;
     this.openInvitationMenuId = "";
+    this.confirmInvitationId = "";
     this.error = "";
     try {
       await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/invitations/" + encodeURIComponent(invitation.id), "DELETE");
-      this.message = "Invitation revoked.";
+      this.message = this.t("users.invitationRevoked");
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not cancel invitation";
