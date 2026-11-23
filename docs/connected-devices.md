@@ -165,3 +165,12 @@ The backend plugin depends on the shared Auth and Organizations platform plugins
 ## Scope and status
 
 The first implementation is being developed as an optional, standalone plugin. It must not increase MVP progress or release-readiness percentages until security tests, CI and runtime acceptance checks pass. TPV and all other business plugins remain independent; future extensions may depend on Connected Devices, but Connected Devices must never depend on them.
+
+
+## Browser companion simulator
+
+A minimal browser-based test client is included at `/assets/device-simulator/index.html` after the Angular web app is built and deployed. Open it from the same Bee-Core origin, paste the full `bee-device://pair?token=...` payload displayed by **Connected Devices → Link a device**, and choose **Pair this device**. The simulator exchanges the one-time token, displays the pending device ID, and checks approval every four seconds. Approve the device in the dashboard; once active, the simulator sends a REST heartbeat every ten seconds and displays the server acknowledgement.
+
+The API base defaults to `/api`, matching the dashboard proxy. If the simulator is hosted elsewhere, the API must explicitly allow that origin and the browser's credential/header restrictions must be respected. The simulator keeps the returned device credential in memory only; disconnecting or reloading clears it. Use it only against a development/test tenant and revoke the test device when finished.
+
+**Transport limitation:** this simulator validates the currently implemented HTTP pairing, approval-status and heartbeat endpoints. The current plugin does not yet expose a device WebSocket/realtime endpoint. A successful heartbeat therefore proves authenticated REST connectivity, not a persistent socket connection.
