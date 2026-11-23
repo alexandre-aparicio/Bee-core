@@ -414,7 +414,11 @@ export const organizationsPlugin:BeePlugin={
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.manage",reply);if(!actor)return;
    const company=await companies.findOne({id:req.params.companyId});
    if(!company)return reply.code(404).send({error:"Company not found"});
-   const bodyProfile=req.body?.profile??req.body;\n   const nextName=String(req.body?.name??company.name).trim();\n   if(nextName.length<2||nextName.length>120)return reply.code(400).send({error:"Company name must contain between 2 and 120 characters"});\n   if(nextName!==company.name&&await companies.findOne({name:nextName,id:{$ne:company.id}},{projection:{_id:1}}))return reply.code(409).send({error:"A company with this name already exists"});\n   const fields: (keyof CompanyProfile)[]=["legalName","taxId","email","phone","website","addressLine1","addressLine2","city","region","postalCode","country","industry","description"];
+   const bodyProfile=req.body?.profile??req.body;
+   const nextName=String(req.body?.name??company.name).trim();
+   if(nextName.length<2||nextName.length>120)return reply.code(400).send({error:"Company name must contain between 2 and 120 characters"});
+   if(nextName!==company.name&&await companies.findOne({name:nextName,id:{$ne:company.id}},{projection:{_id:1}}))return reply.code(409).send({error:"A company with this name already exists"});
+   const fields: (keyof CompanyProfile)[]=["legalName","taxId","email","phone","website","addressLine1","addressLine2","city","region","postalCode","country","industry","description"];
    const profile:CompanyProfile={...(company.profile??{})};
    for(const field of fields){const value=bodyProfile?.[field];if(value!==undefined)profile[field]=String(value??"").trim().slice(0,field==="description"?1000:field==="addressLine1"||field==="addressLine2"?180:field==="website"?240:field==="email"?160:field==="legalName"?160:120);}
    if(profile.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email))return reply.code(400).send({error:"Enter a valid company email address"});
