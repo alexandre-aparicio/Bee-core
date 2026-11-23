@@ -47,21 +47,6 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
       </div>
       <div *ngIf="canRead && !loading && !members.length" class="bee-company-members__state">No members found.</div>
 
-      <div *ngIf="canManageCustomRoles" class="bee-company-members__roles">
-        <div class="bee-company-members__roles-head"><div><h3>Custom roles</h3><p>Create company-specific access profiles using the permissions below.</p></div></div>
-        <form class="bee-company-members__role-form" (submit)="saveCustomRole($event)">
-          <input type="text" name="customRoleName" [(ngModel)]="customRoleNameInput" placeholder="Role name" maxlength="48" required>
-          <input type="text" name="customRoleDescription" [(ngModel)]="customRoleDescriptionInput" placeholder="Description (optional)" maxlength="240">
-          <div class="bee-company-members__permission-grid">
-            <label *ngFor="let permission of customRolePermissionOptions"><input type="checkbox" [checked]="permission.selected" (change)="permission.selected = $any($event.target).checked"><span>{{permission.label}}<small>{{permission.key}}</small></span></label>
-          </div>
-          <div class="bee-company-members__role-actions"><button type="submit" [disabled]="busyId === 'custom-role' || !customRoleNameInput.trim()">{{busyId === 'custom-role' ? 'Saving…' : customRoleEditingId ? 'Update role' : 'Create role'}}</button><button *ngIf="customRoleEditingId" type="button" class="bee-company-members__role-cancel" (click)="resetCustomRoleForm()">Cancel edit</button></div>
-        </form>
-        <div class="bee-company-members__role-list" *ngIf="customRoles.length">
-          <div class="bee-company-members__role-item" *ngFor="let customRole of customRoles; trackBy: trackCustomRole"><span><strong>{{customRole.name}}</strong><small>{{customRole.description || "No description"}} · {{customRole.permissions.length}} permissions</small></span><div><button type="button" (click)="editCustomRole(customRole)">Edit</button><button type="button" class="bee-company-members__danger" (click)="deleteCustomRole(customRole)" [disabled]="busyId === customRole.id">Delete</button></div></div>
-        </div>
-      </div>
-
       <div *ngIf="canInvite" class="bee-company-members__invite">
         <h3>Invite a colleague</h3>
         <form (submit)="invite($event)">
