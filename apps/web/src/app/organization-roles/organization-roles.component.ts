@@ -54,6 +54,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
    <div class="org-roles__modal-backdrop" *ngIf="modalOpen" (click)="closeModal()">
     <div class="org-roles__modal" role="dialog" aria-modal="true" aria-labelledby="org-role-modal-title" (click)="$event.stopPropagation()">
      <div class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">ORGANIZATION ACCESS</span><h2 id="org-role-modal-title">{{editingId?'Edit custom role':'Create custom role'}}</h2><p>Define the role identity and choose its permission behavior.</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeModal()">×</button></div>
+     <p class="org-roles__error" *ngIf="error" role="alert">{{error}}</p>
      <div class="org-roles__editor org-roles__editor--modal">
      <div class="org-roles__editor-heading"><div><h3>{{editingId?'Edit custom role':'Create custom role'}}</h3><p>Define the role identity and choose its permission behavior.</p></div><span class="org-roles__section-tag">{{mode==='restriction'?'Deny overlay':'Permission grants'}}</span></div>
      <form (submit)="save($event)">
@@ -113,7 +114,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__editor--modal{border:0;padding:0;background:transparent}.org-roles__editor--modal .org-roles__editor-heading{display:none}
  @keyframes orgRoleFade{from{opacity:0}to{opacity:1}}@keyframes orgRoleRise{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
  @media(prefers-reduced-motion:reduce){.org-roles__modal-backdrop,.org-roles__modal{animation:none}}
- .org-roles__custom-layout{display:grid;grid-template-columns:minmax(220px,.72fr) minmax(0,2fr);gap:14px;align-items:start}
+ .org-roles__custom-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
  .org-roles__list-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.org-roles__list-heading strong{font-size:12px}
  .org-roles__role-card{display:grid;width:100%;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;text-align:left;margin-top:8px;padding:11px!important}
  .org-roles__role-card.active{border-color:var(--purple,#8c72ff);background:var(--surface-raised,#8882)}
