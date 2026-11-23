@@ -8,7 +8,7 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type T
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, maskTenantId, unmaskResourceId, unmaskTenantId } from "../../core/session-id.js";
 
-type Company = { id:string; name:string; slug?:string; domains?:string[]; createdAt:Date; status?:"active"|"suspended" };
+type Company = { id:string; name:string; slug?:string; domains?:string[]; settings?:{defaultLanguage?:"en"|"es"}; createdAt:Date; status?:"active"|"suspended" };
 type Membership = { id:string; userId:string; tenantId:string; role:"owner"|"admin"|"manager"|"member"|"custom"; customRoleId?:string; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantRef?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string; slug?:string };
@@ -342,7 +342,7 @@ export const organizationsPlugin:BeePlugin={
    try{slug=normalizeTenantSlug(req.body?.slug||slugifyTenantName(name));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid tenant slug"});}
    if(await companies.findOne({slug},{projection:{_id:1}}))return reply.code(409).send({error:"This tenant slug is already in use"});
    const id=randomUUID(),now=new Date();
-   const company:Company={id,name,slug,createdAt:now,status:"active"};
+   const company:Company={id,name,slug,createdAt:now,status:"active",settings:{defaultLanguage:"en"}};
    const membership:Membership={id:randomUUID(),userId:auth.user!.id,tenantId:id,role:"owner",status:"active",createdAt:now,updatedAt:now};
    await db.collection("tenants").insertOne(company);
    try{await memberships.insertOne(membership);}
