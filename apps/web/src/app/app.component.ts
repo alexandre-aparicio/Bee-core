@@ -394,7 +394,7 @@ export class AppComponent implements OnInit {
     this.activeSection = nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)
       ? 'dashboard'
       : nextSection;
-    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : '');
+    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : '');
   }
   get pluginDetailsId(): string { const match = this.path.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/); return match ? decodeURIComponent(match[1]) : ''; }
   get platformTenantId(): string {
@@ -475,7 +475,7 @@ export class AppComponent implements OnInit {
     if (window.location.pathname !== route) window.history.pushState({}, '', route);
     this.path = route;
     this.activeSection = targetId;
-    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : '');
+    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : '');
     this.menuOpen = false;
   }
 

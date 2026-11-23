@@ -659,3 +659,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Expanded the tenant plugins endpoint to list trusted plugin catalogue entries with installed lifecycle status, version, system flag and description; UI activation controls are limited to non-system plugins.
 - The General tab retains the real tenant identity and platform suspension/activation control. No speculative configuration fields were added because tenant configuration APIs are not available yet.
 - Validation: no build, tests, browser, CI or VPS runtime validation performed.
+
+
+## Notifications → Email submenu persistence fix (2026-11-23)
+- Fixed sidebar submenu state so selecting Notifications → Email keeps the Notifications submenu expanded, both when navigating in-app and when loading/reloading the `/dashboard/mail` route or using browser history.
+- The navigation state now treats `mail` as a child of Notifications consistently with `notifications` and `messages`.
+- This is a small frontend state fix; no mail functionality or routing behavior changed.
+- Validation: source-level checks only; no Angular build, browser tests, CI or VPS runtime validation performed.
