@@ -61,9 +61,9 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
  .platform-roles__role p{font-size:12px;margin-top:8px}
  .platform-roles__permission-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
  .platform-roles__permission-tags code{font-size:9px;padding:4px 6px;border-radius:5px;background:rgba(130,145,170,.1);color:inherit}
- .platform-roles__group{border-top:1px solid rgba(130,145,170,.2);padding-top:14px;margin-top:14px}
- .platform-roles__group h4{text-transform:capitalize}
- .platform-roles__permission{display:flex;align-items:center;gap:15px;justify-content:space-between;padding:11px 4px;border-top:1px solid rgba(130,145,170,.16)}
+ .platform-roles__group{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;border-top:1px solid rgba(130,145,170,.2);padding-top:14px;margin-top:14px}
+ .platform-roles__group h4{text-transform:capitalize;grid-column:1/-1;margin:0 0 2px}
+ .platform-roles__permission{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;padding:13px;border:1px solid rgba(130,145,170,.2);border-radius:11px;background:rgba(130,145,170,.035);min-width:0;min-height:100%}
  .platform-roles__permission-copy{flex:1;min-width:0}
  .platform-roles__permission-copy strong,.platform-roles__permission-copy small,.platform-roles__permission-copy code{display:block}
  .platform-roles__permission-copy small{margin:3px 0}
@@ -81,7 +81,9 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
  .platform-roles__error{color:#e36b6b!important;opacity:1!important}
  .platform-roles__success{color:#2ca879!important;opacity:1!important}
  .platform-roles__empty{padding:16px;color:inherit;opacity:.65}
+ @media(max-width:980px){.platform-roles__group{grid-template-columns:repeat(2,minmax(0,1fr))}}
  @media(max-width:760px){.platform-roles__role-grid{grid-template-columns:1fr}.platform-roles__header,.platform-roles__panel-head,.platform-roles__footer{align-items:flex-start;flex-direction:column}}
+ @media(max-width:520px){.platform-roles__group{grid-template-columns:1fr}}
  `]
 })
 export class PlatformRolesComponent implements OnChanges{
