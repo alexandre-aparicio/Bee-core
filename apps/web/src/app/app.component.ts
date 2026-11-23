@@ -362,7 +362,7 @@ export class AppComponent implements OnInit {
   activeSection = 'dashboard';
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
-    dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
+    dashboard: '/dashboard', documents: '/dashboard/documents', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-plans': '/dashboard/settings/plans-licensing',
@@ -470,6 +470,7 @@ export class AppComponent implements OnInit {
     // Privileged areas are restricted within Settings and by section access checks.
     return [
       {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
+      ...(this.activePlugins.includes('documents') ? [{id:'documents',label:this.i18n.t('documents:title'),labelKey:'documents:title',icon:'files',group:'WORKSPACE'}] : []),
       {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
       {id:'activity',label:this.i18n.t('nav.activity'),labelKey:'nav.activity',icon:'activity',group:'WORKSPACE'},
       {id:'mail',label:this.i18n.t('nav.mail'),labelKey:'nav.mail',icon:'mail',group:'WORKSPACE'},
