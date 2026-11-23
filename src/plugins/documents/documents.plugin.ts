@@ -47,6 +47,7 @@ export const documentsPlugin:BeePlugin={
   const folders=(tenantId:string)=>new TenantCollection<Folder>(folderCollection,tenantId);
   const docs=(tenantId:string)=>new TenantCollection<BeeDocument>(documentCollection,tenantId);
   const ref=(id:string,type:"folder"|"document",tenant:TenantContext)=>maskResourceId(id,type,{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);
+  const userRef=(id:string,tenant:TenantContext)=>maskResourceId(id,"user",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);
   const unref=(value:string,type:"folder"|"document",tenant:TenantContext)=>{
    const id=unmaskResourceId(value,type,{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);
    if(!/^[0-9a-f-]{36}$/i.test(id))throw new Error("Invalid resource reference");
@@ -78,8 +79,9 @@ export const documentsPlugin:BeePlugin={
    const enabled=new Set(assignments.map(item=>item.teamId));
    const teams=teamRows.filter(team=>enabled.has(team.id)&&(!query||team.name.toLowerCase().includes(query))).map(team=>({id:team.id,name:team.name}));
    const userIds=[...new Set(memberships.map(item=>item.userId).filter(id=>id!==tenant.userId))];
-   const users=userIds.length?await db.collection<{id:string;email:string;enabled:boolean}>("users").find({id:{$in:userIds},enabled:true,...(query?{email:{$regex:query.replace(/[.*+?^${}()|[\]\\]/g,"\\  ctx.server.get("/documents/folders",async(req:any,reply:any)=>{"),$options:"i"}}:{})},{projection:{id:1,email:1}}).sort({email:1}).limit(50).toArray():[];
-   return {teams,users:users.map(user=>({id:ref(user.id,"document",tenant),email:user.email}))};
+   const allUsers=userIds.length?await db.collection<{id:string;email:string;enabled:boolean}>("users").find({id:{$in:userIds},enabled:true},{projection:{id:1,email:1}}).sort({email:1}).limit(500).toArray():[];
+   const users=allUsers.filter(user=>!query||user.email.toLowerCase().includes(query)).slice(0,50);
+   return {teams,users:users.map(user=>({id:userRef(user.id,tenant),email:user.email}))};
   });
   ctx.server.get<{Params:{folderId:string}}>("/documents/folders/:folderId/shares",async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
@@ -100,7 +102,7 @@ export const documentsPlugin:BeePlugin={
    const folder=await ownedFolder(tenant,id);if(!folder)return reply.code(404).send({error:"Folder not found"});
    const teamIds=Array.isArray(req.body?.teamIds)?[...new Set(req.body.teamIds.map((value:unknown)=>clean(value,80)).filter(Boolean))]:[];
    const userRefs=Array.isArray(req.body?.userIds)?[...new Set(req.body.userIds.map((value:unknown)=>String(value??"").trim()).filter(Boolean))]:[];
-   let userIds:string[];try{userIds=userRefs.map(value=>unmaskResourceId(value,"document",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret));}catch{return reply.code(400).send({error:"Invalid organization member reference"});}
+   let userIds:string[];try{userIds=userRefs.map(value=>unmaskResourceId(value,"user",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret));}catch{return reply.code(400).send({error:"Invalid organization member reference"});}
    const [validTeams,validUsers]=await Promise.all([
     teamIds.length?db.collection("company_teams").countDocuments({tenantId:tenant.tenantId,id:{$in:teamIds},status:"active"}):0,
     userIds.length?db.collection("memberships").countDocuments({tenantId:tenant.tenantId,status:"active",userId:{$in:userIds}}):0
