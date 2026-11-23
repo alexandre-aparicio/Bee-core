@@ -1,6 +1,7 @@
 export const SETTINGS_EN = {
   "section.general":"General","section.general.description":"Platform identity, appearance and global configuration.",
   "section.tenants":"Tenants","section.tenants.description":"Tenant directory, company status, subdomains and platform-level controls.",
+  "section.users":"Users","section.users.description":"Global user administration and company membership onboarding.",
   "section.plugins":"Plugins","section.plugins.description":"Catalogue, authorization, versions and dependencies.",
   "section.integrations":"Integrations","section.integrations.description":"Available connectors, global credentials and policies.",
   "section.plans":"Plans & Licensing","section.plans.description":"Plans, subscriptions, pricing and licenses.",
@@ -19,6 +20,7 @@ export const SETTINGS_EN = {
 export const SETTINGS_ES = {
   "section.general":"General","section.general.description":"Identidad de plataforma, apariencia y configuración global.",
   "section.tenants":"Empresas","section.tenants.description":"Directorio de empresas, estados, subdominios y controles globales.",
+  "section.users":"Usuarios","section.users.description":"Administración global de usuarios y alta de miembros en empresas.",
   "section.plugins":"Módulos","section.plugins.description":"Catálogo, autorizaciones, versiones y dependencias.",
   "section.integrations":"Integraciones","section.integrations.description":"Conectores disponibles, credenciales globales y políticas.",
   "section.plans":"Planes y licencias","section.plans.description":"Planes, suscripciones, precios y licencias.",
