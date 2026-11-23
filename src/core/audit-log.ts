@@ -3,7 +3,7 @@ import { TenantCollection } from "./tenant-collection.js";
 
 export const AUDIT_ACTIONS = [
   "auth.login", "auth.logout", "auth.refresh.reuse", "auth.mfa.enrolled",
-  "member.invited", "member.added", "member.role_changed", "member.removed", "member.suspended", "invitation.cancelled",
+  "member.invited", "member.added", "member.role_changed", "member.removed", "member.suspended", "member.activated", "invitation.cancelled",
   "role.created", "role.updated", "role.deleted",
   "permission.denied",
   "plugin.installed", "plugin.updated", "plugin.uninstalled",
