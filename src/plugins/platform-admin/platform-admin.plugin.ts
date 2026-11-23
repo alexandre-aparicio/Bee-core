@@ -47,8 +47,17 @@ export const platformAdminPlugin:BeePlugin={
    }
   }
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
-  const legacyFilter:any={$or:[{platformRole:"superadmin"},...(bootstrapEmail?[{email:bootstrapEmail}]:[])]};
-  const legacyAdmins=await users.find(legacyFilter).toArray();
+  // Migrate legacy platformRole accounts once. The configured bootstrap email
+  // is only eligible when no Super Admin membership exists yet; it must never
+  // silently re-promote an intentionally demoted or suspended administrator.
+  const legacyAdmins=await users.find({platformRole:"superadmin"}).toArray();
+  if(!legacyAdmins.length&&bootstrapEmail){
+   const existingSuperAdmin=await memberships.findOne({tenantId:superOrganization.id,role:"super_admin"});
+   if(!existingSuperAdmin){
+    const bootstrapUser=await users.findOne({email:bootstrapEmail});
+    if(bootstrapUser)legacyAdmins.push(bootstrapUser);
+   }
+  }
   for(const legacyAdmin of legacyAdmins){
    const now=new Date();
    await memberships.updateOne(
