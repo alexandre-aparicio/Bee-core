@@ -774,3 +774,18 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Files and Documents API authentication now also checks tenant enabled state, so hiding a module is not the only enforcement layer. Installation and stored data remain intact when disabled. Documents' public-download handler also checks the owning tenant's enabled state, so previously published public links stop serving content while the plugin is disabled.
 - Added integration assertions for stable frontend plugin keys, marketplace enabled-state reporting, and denial of Files/Notes API access when installed plugins are disabled.
 - **Validation:** source and integration-test updates only. No test suite, TypeScript build, Angular build, Docker build, CI, browser session or live Dragchart tenant check has been run in this environment. Validate on the deployment before treating this fix as runtime-confirmed.
+
+
+## Connected Devices plugin — implementation in progress (2026-11-23)
+
+- Working branch: `feat/connected-devices-plugin`; PR #144. The branch is synchronized with the latest `main` commit `f216e78f`; no changes have been merged into `main`.
+- Added a standalone backend plugin named `connected-devices`, dependent only on shared Auth and Organizations platform plugins. It has no dependency on TPV, Documents, Inventory or any business plugin.
+- Added tenant-scoped device and pairing-challenge collections, indexes, routes and services. Pairing challenges are five-minute, single-use, stored as hashes, limited to five outstanding challenges per user, and can be cancelled. Cancelling an already-claimed challenge also revokes its pending device.
+- Device credentials are separate high-entropy secrets stored only as SHA-256 hashes and cannot authenticate until explicit approval. Active devices can rotate credentials. Dashboard and device requests revalidate tenant/plugin state and the linked user's active membership; invalid membership fails closed and revokes the device on the next authenticated request.
+- Added capability allowlisting and an internal `hasConnectedDeviceCapability(db, tenantId, deviceId, capability)` contract for future consumer plugins. Business operations and synchronization remain outside this connector.
+- Added lifecycle operations: pending, active, suspended, revoked and expired; owner/admin approval of a subset of requested scopes; suspend/reactivate; revoke; heartbeat; rename; and expiration of stale pairing requests.
+- Added a standalone Angular workspace through the trusted frontend registry, with QR rendering via the existing local `qrcode.min.js` asset. Navigation is tenant-plugin-gated and appears to all tenant users; regular members see their own devices, while owner/admin users can review the tenant registry and device owners. Mounted in Midnight, Glass and Paper.
+- Registered the plugin in the marketplace catalog and built-in plan availability. Added the minimal plugin-manager config allowlist for its database and derived session-resource secret.
+- Added focused unit tests for capability validation, secret hashing/entropy, public response projection, role checks and membership/tenant state.
+- Updated `docs/connected-devices.md` with the implemented API surface, QR cancellation and expiry behavior.
+- **Validation:** tests and builds have not been executed. GitHub reports no CI check runs for the current PR head. No TypeScript build, backend test suite, Angular build, browser test, Docker build, live tenant test or real QR scan has been performed. Audit integration, rate limiting/operational alerting, deeper integration/security coverage and companion-app end-to-end validation remain outstanding. MVP and release-readiness percentages are unchanged.

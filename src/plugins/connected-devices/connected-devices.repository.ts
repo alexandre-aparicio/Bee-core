@@ -1,0 +1,33 @@
+import type { Collection, Db, Document } from "mongodb";
+
+export type ConnectedDeviceStatus = "pending" | "active" | "suspended" | "revoked" | "expired";
+export type ConnectedDeviceRecord = Document & {
+  id:string; tenantId:string; ownerUserId:string; requestedBy:string; name:string;
+  deviceType:string; platform:string; appVersion:string|null;
+  requestedCapabilities:string[]; grantedCapabilities:string[]; credentialHash:string;
+  status:ConnectedDeviceStatus; pairingExpiresAt:Date; createdAt:Date; updatedAt:Date;
+  approvedAt:Date|null; approvedBy:string|null; revokedAt:Date|null; revokedBy:string|null; lastSeenAt:Date|null;
+};
+export type PairingChallengeRecord = Document & {
+  id:string; tenantId:string; userId:string; tokenHash:string; requestedCapabilities:string[];
+  status:"issued"|"claimed"|"cancelled"; expiresAt:Date; createdAt:Date; claimedAt:Date|null; deviceId:string|null;
+};
+export class ConnectedDevicesRepository {
+  readonly devices:Collection<ConnectedDeviceRecord>;
+  readonly challenges:Collection<PairingChallengeRecord>;
+  constructor(db:Db){
+    this.devices=db.collection<ConnectedDeviceRecord>("connected_devices");
+    this.challenges=db.collection<PairingChallengeRecord>("connected_device_pairing_challenges");
+  }
+  async initializeIndexes():Promise<void>{
+    await Promise.all([
+      this.devices.createIndex({tenantId:1,id:1},{unique:true,name:"connected_devices_tenant_id_unique"}),
+      this.devices.createIndex({tenantId:1,ownerUserId:1,status:1,createdAt:-1},{name:"connected_devices_owner_status"}),
+      this.devices.createIndex({credentialHash:1},{unique:true,name:"connected_devices_credential_hash_unique"}),
+      this.challenges.createIndex({id:1},{unique:true,name:"connected_device_pairing_id_unique"}),
+      this.challenges.createIndex({tokenHash:1},{unique:true,name:"connected_device_pairing_token_unique"}),
+      this.challenges.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"connected_device_pairing_expiry"}),
+      this.challenges.createIndex({tenantId:1,userId:1,createdAt:-1},{name:"connected_device_pairing_owner"})
+    ]);
+  }
+}

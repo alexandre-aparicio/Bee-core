@@ -67,9 +67,9 @@ type TenantPluginPurchase = Document & {
 };
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "hello-world"], visiblePluginIds: ["files", "documents", "notes", "hello-world"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "hello-world"], visiblePluginIds: ["files", "documents", "notes", "hello-world"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "hello-world"], visiblePluginIds: ["files", "documents", "notes", "hello-world"], maxUsers: null, storageMb: 10240 }
+  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "hello-world", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], maxUsers: null, storageMb: 10240 }
 ];
 
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
@@ -92,6 +92,13 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     description: "Shared document library with folder-level team access and controlled public delivery",
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"], includedInPlans: ["starter", "pro", "enterprise"],
     purchasable: false, system: true, dependencies: ["files"], codeAvailable: true, status: "published"
+  },
+  {
+    id: "connected-devices", name: "Connected Devices", version: "0.1.0",
+    description: "Secure tenant-scoped device pairing, capability grants and revocation",
+    category: "platform", visibleInPlans: ["starter", "pro", "enterprise"],
+    includedInPlans: ["starter", "pro", "enterprise"], purchasable: false, system: false,
+    dependencies: [], codeAvailable: true, status: "published"
   },
   {
     id: "notes",

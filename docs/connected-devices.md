@@ -1,6 +1,6 @@
 # Connected Devices
 
-Status: proposed platform capability — **not implemented** and excluded from the verified MVP completion score.
+Status: **Phase A implementation in progress** on branch `feat/connected-devices-plugin`. The plugin is optional and independently installed/enabled per tenant. No POS, inventory, GPS tracking or realtime business workflow is included.
 
 ## Product vision
 
@@ -10,11 +10,11 @@ The goal is to make Bee-Core an extensible platform that is not limited to brows
 
 ## QR pairing experience
 
-1. An authorized user opens Settings → Connected Devices and chooses Link a device.
+1. An authorized user opens the Connected Devices workspace and chooses Link a device.
 2. They select the intended company/context and device type or use case. Bee-Core displays a short-lived QR code.
 3. The companion application scans the QR and authenticates the person linking it. Scanning alone grants no access.
 4. Bee-Core displays the device identity and exact requested capabilities. The user explicitly approves the pairing.
-5. The server consumes the one-time challenge, registers the device against the authorized user and tenant, issues device credentials, and records an audit event.
+5. The server atomically consumes the one-time challenge, registers the device against the authorized user and tenant, and issues a separate device credential. The credential is stored as a hash and cannot authenticate until approval.
 6. The dashboard shows the linked device, last-seen time, status, granted scopes, and available actions. Authorized users can rename, suspend, or revoke it.
 
 Pairing challenges must be unpredictable, single-use, short-lived, rate-limited, and bound to the intended tenant, initiating user/session, and requested context. QR payloads contain only an opaque pairing reference, never a reusable access token, refresh token, API key, or personal data. Expired, consumed, cancelled, or revoked challenges fail closed.
@@ -105,11 +105,22 @@ Potential API operations include creating/cancelling a pairing challenge, exchan
 ## Delivery phases and acceptance criteria
 
 ### Phase A — Secure pairing and device registry
-- Define device identity, tenant ownership, roles, scope vocabulary, and threat model.
-- Implement one-time QR challenges and explicit approval.
-- Implement device registry, credential rotation, last-seen status, audit, and immediate revocation.
-- Test cross-tenant isolation, expired/replayed challenges, stolen/revoked credentials, stale membership, and unauthorized scopes.
-- Acceptance: a device can be linked and revoked without exposing reusable secrets in QR content; it cannot access another tenant or exceed approved scopes.
+
+Implementation status on `feat/connected-devices-plugin`:
+- [x] Standalone backend plugin (`connected-devices`) with no dependency on TPV, Documents, Inventory or other business plugins; only the shared Auth runtime is required.
+- [x] Tenant-scoped device and pairing-challenge collections with indexes.
+- [x] Five-minute, random, one-time QR pairing token stored only as a SHA-256 hash; replay/expiry checks and atomic claim.
+- [x] Companion credential is separate from the QR token, stored only as a hash and unusable while the device is pending approval.
+- [x] Explicit owner/admin approval with a fixed capability vocabulary and grants restricted to the requested subset.
+- [x] Own-device visibility for regular members; organization administrators can review tenant devices.
+- [x] Immediate credential revocation and tenant/plugin activation checks on dashboard and device authentication.
+- [x] Heartbeat and exported `hasConnectedDeviceCapability(db, tenantId, deviceId, capability)` contract for future consumer plugins.
+- [x] Device suspension/reactivation by owner/admin and one-time credential rotation by the authenticated device; revoked credentials are replaced atomically.
+- [ ] Audit events, rate limiting and operational alerting.
+- [ ] Automated integration coverage for cross-tenant isolation, expiry/replay, approval, membership removal and revoked credentials.
+- [ ] Runtime validation/build/CI and end-to-end companion-client scan test.
+
+The phase remains **in progress** until the remaining controls and security tests are complete. The QR payload contains only the one-time pairing token; it never contains a reusable device credential.
 
 ### Phase B — Companion client and realtime foundation
 - Publish a versioned device API/SDK and minimal companion application.
@@ -130,6 +141,27 @@ Potential API operations include creating/cancelling a pairing challenge, exchan
 - Document third-party device adapters, certification/security requirements, supported categories, and compatibility/version policy.
 - Add POS, inventory, field-service, kiosk, printer, and IoT integrations through plugins.
 
+
+### Implemented API surface (Phase A)
+
+All paths below are plugin-owned and are mounted under the normal Bee-Core API prefix:
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/connected-devices/pairing-challenges` | Authenticated user creates a five-minute one-time QR challenge with requested capabilities (maximum five outstanding challenges per user). |
+| POST | `/connected-devices/pair` | Companion exchanges the QR token once and receives a pending, not-yet-authorized device credential. |\n| POST | `/connected-devices/pairing-challenges/:challengeId/cancel` | Owner or tenant admin cancels an unused challenge; if already claimed, its pending/active device is revoked. |
+| GET | `/connected-devices/pairing-status` | Companion checks approval using the pairing secret header. |
+| GET | `/connected-devices` | Lists the current user's devices, or the tenant registry plus owner identity for owner/admin. Expired pending requests are marked `expired`. |
+| POST | `/connected-devices/:deviceId/approve` | Owner/admin approves a subset of requested capabilities. |
+| POST | `/connected-devices/:deviceId/suspend` / `activate` | Owner/admin suspends or reactivates a device. |
+| POST | `/connected-devices/:deviceId/revoke` | Owner/admin or device owner permanently revokes access. |
+| PATCH | `/connected-devices/:deviceId` | Renames a device. |
+| POST | `/connected-devices/device/heartbeat` | Active device updates its last-seen timestamp. |
+| POST | `/connected-devices/device/rotate-credential` | Active device atomically rotates its credential; the new value is returned once. |
+| GET | `/connected-devices/device/me` | Returns the authenticated device's non-secret profile and granted capabilities. |
+
+The backend plugin depends on the shared Auth and Organizations platform plugins only; it has no dependency on TPV, Documents, Inventory or other business extensions. The plugin manager exposes only the database name and derived session-resource secret to this plugin. Dashboard routes re-resolve the active membership and tenant session. Device authentication rechecks plugin entitlement/installation/activation and the linked user's active membership; membership removal causes device access to fail closed and revokes the credential on the next authenticated request. Consumer plugins should use the exported server-side `hasConnectedDeviceCapability` contract after validating their own authenticated tenant context.
+
 ## Scope and status
 
-This is a proposed platform roadmap capability. It is **not currently implemented**, must not be represented as an existing Bee-Core feature, and must not increase MVP progress or release-readiness percentages. Start with secure pairing and the device registry only after architecture, privacy model, and acceptance tests are approved.
+The first implementation is being developed as an optional, standalone plugin. It must not increase MVP progress or release-readiness percentages until security tests, CI and runtime acceptance checks pass. TPV and all other business plugins remain independent; future extensions may depend on Connected Devices, but Connected Devices must never depend on them.
