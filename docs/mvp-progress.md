@@ -803,3 +803,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Connected both actions to the existing tenant-scoped marketplace API (`POST`/`DELETE /marketplace/plugins/:pluginId/install`), including durable lifecycle-job polling, visible progress/error feedback, catalogue refresh, and preservation of company data on uninstall. Backend permission checks and system-plugin/dependency protections remain authoritative; no backend authorization was weakened.
 - Applied the permission binding consistently to Midnight, Glass and Paper dashboard templates.
 - **Validation:** source changes prepared in PR; no Angular build, automated tests, browser interaction, or deployed-instance verification has been run yet. Do not treat runtime behavior as verified until those checks pass.
+
+
+## Global plugin installation and per-company activation — fix prepared (2026-11-23)
+
+- Corrected the ownership model in Platform Administration: the Super Organization is the single source of truth for whether a trusted package is installed on the platform; each tenant's installation row represents only its tenant runtime activation/configuration.
+- The company Plugins endpoint now reports Installed from the Super Organization package installation and reports Enabled only when the selected tenant has an active runtime registration. A package installed globally therefore no longer appears as Uninstalled in every other company.
+- Activating a globally installed package creates the tenant-scoped runtime registration, applies its tenant migrations and install hook, and records the actor. Deactivation only flips the tenant's enabled state; it does not uninstall the platform package or remove tenant data.
+- Dependency checks now require the dependency to be installed globally and enabled for the target tenant. Existing protection against disabling dependencies of active plugins is retained.
+- Added integration coverage for the reported regression: a package installed in Super Organization is visible as globally installed to a separate company, starts disabled there, can be activated, and can be deactivated without deleting its tenant registration.
+- **Validation pending:** no backend test, TypeScript build, Angular build, CI run or live tenant verification has been executed yet. The change is prepared on a feature branch and must pass those checks before release.
