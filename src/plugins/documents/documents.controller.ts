@@ -1,6 +1,5 @@
-import import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { documentsRoutes } from "./documents.routes.js";
-import { randomUUID } from "node:crypto";
 import type { Folder } from "./documents.service.js";
 
 /** Module-owned HTTP controller/route registration. Domain helpers and infrastructure
