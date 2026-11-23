@@ -65,5 +65,5 @@ export function createDocumentsServices(input:{db:Db;secret:string;storage:Files
  const policies=repository.resourcePolicies;
  const ownedFolder=async(tenant:TenantContext,folderId:string)=>folders(tenant.tenantId).findOne({id:folderId,createdBy:tenant.userId});
 
- return {db,secret,storage,repository,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,MAX_DEPTH,clean,validPublicId,normalizeTags};
+ return {db,secret,storage,repository,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,isEnabled:(tenantId:string)=>isPluginEnabled(db,tenantId,"documents"),MAX_DEPTH,clean,validPublicId,normalizeTags};
 }
