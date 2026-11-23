@@ -1,6 +1,6 @@
 import type { Db } from "mongodb";
 import { resolveTenantContext, hasTenantPermission, type TenantContext } from "../../core/tenant-context.js";
-import { hasPluginEntitlement, isPluginInstalled } from "../../core/plugin-entitlements.js";
+import { hasPluginEntitlement, isPluginEnabled, isPluginInstalled } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { evaluateResourceAccess } from "../../core/resource-access.js";
 import { FilesStorageAdapter } from "./files-storage.adapter.js";
@@ -22,7 +22,7 @@ export function createDocumentsServices(input:{db:Db;secret:string;storage:Files
    const tenant=await resolveTenantContext(db,req.user,{},secret);
    if(!tenant||tenant.client!=="dashboard"){reply.code(401).send({error:"Dashboard session required"});return null;}
    if(!hasTenantPermission(tenant,"documents.read")){reply.code(403).send({error:"Documents read permission required"});return null;}
-   if(!await hasPluginEntitlement(db,tenant.tenantId,"documents")||!await isPluginInstalled(db,tenant.tenantId,"documents")){reply.code(403).send({error:"Documents is not entitled or installed"});return null;}
+   if(!await hasPluginEntitlement(db,tenant.tenantId,"documents")||!await isPluginInstalled(db,tenant.tenantId,"documents")||!await isPluginEnabled(db,tenant.tenantId,"documents")){reply.code(403).send({error:"Documents is not entitled, installed or enabled"});return null;}
    return tenant;
   }catch{reply.code(401).send({error:"Unauthorized"});return null;}
  };
