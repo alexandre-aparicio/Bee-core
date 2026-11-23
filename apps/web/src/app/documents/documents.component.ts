@@ -112,7 +112,7 @@ export class BeeDocumentsComponent implements OnChanges {
   if(!this.accessToken)return;
   this.error="";
   try{
-   const response=await fetch(this.api+doc.downloadUrl,{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
+   const response=await fetch(doc.downloadUrl,{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
    if(!response.ok){
     let message="Could not download document";
     try{const body=await response.json();message=body.error||message;}catch{}
