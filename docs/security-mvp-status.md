@@ -74,3 +74,11 @@ The following evidence must come from successful CI runs on the exact PR head:
 - Gitleaks scan of the full Git history and working tree.
 
 A CI pass proves only the scripted cases. It does not prove real TLS, secret-management practices, off-site backups, successful disaster recovery or resistance to an independent penetration test.
+
+
+## CI availability and current-head evidence (2026-11-23)
+
+- Main `c0b501eb0399fcfe87bb6e8f597eb48238cb660e` has no GitHub Actions workflow files. The Actions run list currently returns zero runs; the previously recorded run `45011257135` is no longer accessible (404), so its final outcome is not confirmed.
+- PR #6's unmerged security foundation head and PR #7's merged deployment-profile head both have zero check runs and combined status pending with no status entries. Their historical claims do not validate current main.
+- A separate draft PR restores backend/full-stack, Angular/browser and production Compose workflows with CI configuration fixes. It is awaiting review and cannot be called tested until checks run on the exact head after workflow availability is restored.
+- No local tests/build/audit were run. Tenant route audit, webhook signature/replay protection, off-site encrypted backups, TLS/monitoring and independent security review remain outstanding.
