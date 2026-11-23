@@ -1,6 +1,6 @@
-# Company user onboarding (future implementation)
+# Company user onboarding
 
-This document specifies the future user-creation experience for a company (tenant), such as **Torasemida**. It is a design reference only: the two onboarding flows described here are **not being integrated in this change**. No credentials, invitation emails, registration forms, or token lifecycle are implemented by this documentation commit.
+This specification is reconciled against the current `main` branch. Company membership management and token-based invitations already exist in the backend/UI; the manual account creation with a temporary password and email delivery of invitations remain future work. This document separates implemented behavior from deferred requirements so it does not imply features that are not present.
 
 ## Who can create company users?
 
@@ -13,14 +13,20 @@ This document specifies the future user-creation experience for a company (tenan
 
 User type and team membership are separate from custom role assignment. User type supplies a sensible starting role/permission profile; the owner can assign an available custom role separately, subject to the authorization model.
 
-## Organization → Users screen
+## Organization → Users: current baseline
 
-When the authenticated owner opens the company context (e.g. Torasemida) and selects **Organization → Users → Add user**, the form should provide two creation methods:
+The current Users management component already supports listing company memberships, updating membership roles, suspending memberships, creating custom roles (owner), creating/copying invitation tokens, accepting an invitation token and cancelling pending invitations. Invitation creation currently returns a one-time token for the administrator to copy and share manually; the UI says it expires after seven days. This is not email-based delivery and does not provide an invitation-email registration experience.
 
-1. **Create account** — the company administrator enters the user's name, email, user type, optional team and optional custom role, and sets a temporary password.
-2. **Send invitation** — the company administrator enters the user's email, optionally selects the intended user type/team/custom role, and sends a time-limited invitation. The invited person completes registration themselves.
+Current company membership roles in the implementation include `owner`, `admin`, `manager`, `member`, and custom roles. The proposed `guest/external` type is not currently implemented as a built-in membership role. Platform `superadmin` remains a platform-level identity and must not be offered as a company user type.
 
-The initial UI should clearly label the method and display a short explanation before proceeding. The company context must remain visible so the user understands which tenant is receiving the new member.
+### Planned Add User entry point
+
+When the owner opens the company context (e.g. Torasemida) and selects **Organization → Users → Add user**, future UI work should present two distinct choices:
+
+1. **Create account with temporary password** — administrator enters the user's identity, selects company membership role/type, optional team and custom role, and sets a temporary password.
+2. **Invite by email** — administrator enters email and optional membership role/type, team/custom role; Bee-Core sends an invitation email containing a time-limited registration link. The invitee sets their own password.
+
+The active company must be visibly identified; both methods must create membership in that tenant only. The email-based invitation flow extends the existing token invitation baseline rather than replacing it.
 
 ## Flow A — Add a user with a temporary password
 
@@ -32,14 +38,16 @@ The initial UI should clearly label the method and display a short explanation b
 
 **Deferred requirement:** a future first-login password-change gate should force the user to replace the temporary password before accessing the normal dashboard. This first-login reset behavior is explicitly out of scope for the initial implementation of these onboarding flows.
 
-## Flow B — Invitation with expiring token and self-registration
+## Flow B — Invitation token (partially implemented; email delivery is future work)
 
-1. The owner/admin enters the email address and optionally selects the target user type, team and custom role.
-2. Bee-Core creates a pending invitation associated with the company and the inviter, with a cryptographically random, high-entropy token. Persist only a hash of the token, not the raw secret.
-3. Send a registration link by email containing the token. The link opens a dedicated invitation-registration page, not the regular login screen.
-4. The invited person validates the invitation, provides the required registration details, and chooses their own password.
-5. The server verifies that the invitation exists, is pending, has not expired, has not been used or revoked, and that the company remains eligible/active. Consume the invitation atomically to prevent concurrent/replay registration.
-6. On successful registration, create/activate the account and its company membership with the invitation's approved user type/team/role; then mark the invitation accepted. The person can sign in using their chosen password.
+Current behavior: the owner/admin creates an invitation from the company Users screen, receives a one-time acceptance token, and must copy/share it manually. The current UI states a seven-day expiry. A recipient uses the existing invitation acceptance endpoint with the token to join the company; the UI instructs them to select the company in the workspace switcher afterward.
+
+Future email-based flow requirements:
+1. The owner/admin enters the email and chooses the allowed membership role/type and optional team/custom role.
+2. Bee-Core sends a registration/invitation email with a registration link carrying the token (or a securely handled token reference).
+3. The invitee opens a dedicated registration flow and sets their own password.
+4. The server validates pending status, expiry, usage/revocation and company eligibility, then atomically consumes the invitation.
+5. Successful redemption activates the invited account/membership using the invitation's approved company and role assignments.
 
 ### Invitation states and controls
 
@@ -65,14 +73,13 @@ The Users UI should show invitation state, sent-to email, inviter, created/expir
 
 Both methods should create a user membership within the currently selected company, not a platform identity. Common fields/choices may include user type, team and custom role. Account status and invitation state should be represented distinctly: a pending invite is not an active user session. A company owner must not be able to create a platform superadministrator through this screen.
 
-## Explicitly not implemented in this documentation change
+## Future work / deferred features
 
-- Temporary-password account creation and credential delivery.
-- Forced password change on first login.
-- Email delivery/provider configuration for invitations.
-- Invitation token generation, storage, expiration, revocation, resend or redemption.
-- Public invitation registration form and validation endpoint.
-- Activation and membership creation driven by invitation redemption.
-- UI wiring, backend APIs, database models, tests and security review.
+- Add a manual **Create user** form and backend path that creates a company membership with a temporary password.
+- Deliver temporary credentials securely; never log secrets. A mandatory password-change-on-first-login is explicitly deferred for now.
+- Configure email delivery and implement invitation email/link delivery. Existing token creation, acceptance and cancellation remain the baseline; verify the current token-storage and expiry implementation before modifying it.
+- Add the self-service invitation registration page and password creation only if the current accept-token endpoint does not already cover the intended UX.
+- Extend membership user-type options to include Guest/External only when a clear permission policy is defined; this is a proposed category, not currently a built-in role.
+- Add end-to-end UI/backend tests for both onboarding paths, tenant isolation, token replay/expiry and secret redaction.
 
 These are future implementation tasks. This specification does not change current authentication or organization functionality.
