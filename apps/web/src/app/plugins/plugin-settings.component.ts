@@ -28,6 +28,7 @@ type PluginRecord = {
       </header>
       <p *ngIf="loading" class="plugin-settings__state">Loading plugins…</p>
       <p *ngIf="error" class="plugin-settings__error" role="alert">{{error}}</p>
+      <p *ngIf="message" class="plugin-settings__state" role="status">{{message}}</p>
       <ng-container *ngIf="!loading && !error">
         <ng-container *ngIf="detail as plugin">
           <button type="button" class="plugin-settings__back" (click)="backToList()">← Back to plugins</button>
@@ -59,8 +60,9 @@ type PluginRecord = {
             <div class="plugin-settings__menu-wrap">
               <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
               <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
-                <button type="button" role="menuitem" disabled>{{plugin.installed ? 'Uninstall' : 'Install'}}</button>
-                <button type="button" role="menuitem" disabled>Delete</button>
+                <button *ngIf="!plugin.installed && plugin.entitled" type="button" role="menuitem" [disabled]="busyId!==''" (click)="install(plugin)">Install</button>
+                <button *ngIf="plugin.installed && !plugin.system" type="button" role="menuitem" [disabled]="busyId!==''" (click)="uninstall(plugin)">Uninstall</button>
+                <span *ngIf="!plugin.installed && !plugin.entitled" class="plugin-settings__menu-hint">Not included in this company's plan</span>
                 <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
               </div>
             </div>
@@ -78,6 +80,8 @@ export class PluginSettingsComponent implements OnInit {
   detail: PluginRecord | null = null;
   loading = false;
   error = "";
+  message = "";
+  busyId = "";
   view: "cards" | "list" = "cards";
   openMenuId = "";
   @Input() accessToken = "";
@@ -85,6 +89,39 @@ export class PluginSettingsComponent implements OnInit {
   private get token(): string { return this.accessToken; }
   trackPlugin(_index: number, plugin: PluginRecord): string { return plugin.id; }
   toggleMenu(id: string): void { this.openMenuId = this.openMenuId === id ? "" : id; }
+  async install(plugin: PluginRecord): Promise<void> { await this.runLifecycle(plugin, "POST"); }
+  async uninstall(plugin: PluginRecord): Promise<void> { await this.runLifecycle(plugin, "DELETE"); }
+  private async runLifecycle(plugin: PluginRecord, method: "POST" | "DELETE"): Promise<void> {
+    if (this.busyId || (!plugin.entitled && method === "POST")) return;
+    this.busyId = plugin.id; this.openMenuId = ""; this.error = ""; this.message = "";
+    try {
+      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(plugin.id) + "/install", {
+        method, headers: { authorization: "Bearer " + this.token }
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Plugin action failed");
+      if (result.jobId) {
+        const deadline = Date.now() + 60_000;
+        let complete = false;
+        while (Date.now() < deadline) {
+          const statusResponse = await fetch("/api/marketplace/install-jobs/" + encodeURIComponent(result.jobId), {
+            headers: { authorization: "Bearer " + this.token }
+          });
+          const statusResult = await statusResponse.json();
+          if (!statusResponse.ok) throw new Error(statusResult.error || "Could not check plugin operation");
+          if (statusResult.job?.status === "succeeded") { complete = true; break; }
+          if (statusResult.job?.status === "failed") throw new Error(statusResult.job.error || "Plugin operation failed");
+          this.message = (method === "POST" ? "Installing " : "Uninstalling ") + plugin.name + "…";
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        if (!complete) throw new Error("Plugin operation is still running. Refresh to check its status.");
+      }
+      this.message = plugin.name + (method === "POST" ? " installed." : " uninstalled. Company data is preserved.");
+      await this.load();
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : "Plugin action failed";
+    } finally { this.busyId = ""; }
+  }
   async load(): Promise<void> {
     if (!this.token) { this.error = "Your session is not available. Sign in again."; return; }
     this.loading = true; this.error = "";
