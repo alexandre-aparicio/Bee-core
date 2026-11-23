@@ -146,10 +146,6 @@ export class SettingsWorkspaceComponent implements OnChanges {
   icon = '⚙';
 
   private readonly definitions: Record<string, {title:string;description:string;icon:string;groups:SettingGroup[]}> = {
-    integrations: {title:'Integrations',description:'Manage global connectors, service credentials, SMTP and notification channels.',icon:'⌘',groups:[
-      {title:'Connected services',description:'External connectors and provider availability.',fields:['Connector registry','Provider connection status','Webhook endpoints'],note:'Connector inventory and connection management require an integrations API.'},
-      {title:'Credentials and email',description:'Global credentials, SMTP delivery and notification routing.',fields:['Global API credentials','SMTP host and sender identity','Email and notification channels'],note:'Secrets are intentionally not displayed. Credential storage, rotation and delivery tests require backend support.'}
-    ]},
     plans: {title:'Plans & Licensing',description:'Manage commercial plans, pricing, subscriptions and license entitlements.',icon:'◇',groups:[
       {title:'Plans and pricing',description:'Commercial plan catalogue and billing terms.',fields:['Plan catalogue','Prices and billing intervals','Plan feature limits'],note:'No plan or price records are exposed by the current API; no sample commercial data is shown.'},
       {title:'Subscriptions and licenses',description:'Tenant subscriptions, license status and entitlement lifecycle.',fields:['Subscription lifecycle','License assignments','Renewals and usage entitlements'],note:'Subscription and licensing operations require billing persistence and authorized service endpoints.'}
@@ -235,7 +231,7 @@ export class SettingsWorkspaceComponent implements OnChanges {
       this.groups = [];
       return;
     }
-    const definition = this.definitions[this.section] ?? this.definitions.integrations;
+    const definition = this.definitions[this.section] ?? this.definitions.security;
     this.sectionTitle = definition.title;
     this.sectionDescription = definition.description;
     this.icon = definition.icon;
