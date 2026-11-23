@@ -3,6 +3,7 @@
 This document is the target contract for Documents in Bee-Core's modular runtime.
 
 ## Documents owns
+- Route contract (`documents.routes.ts`), HTTP controller/registration (`documents.controller.ts`), module service/security helpers (`documents.service.ts`), persistence wiring and tenant collections (`documents.repository.ts`), and pure validators (`documents.validators.ts`).
 - HTTP routes and API URL/DTO contract for document operations.
 - Folder/document metadata, indexes, domain validation and folder hierarchy rules.
 - Publication lifecycle and public-link validation.
@@ -25,6 +26,7 @@ Documents does not own binary storage. Upload goes through the Files API; a Docu
 Documents is registered in `src/index.ts` with the existing plugin manager, and declares dependencies `auth`, `organizations`, `files`. Its endpoints stay in the same API process, isolated plugin scope. The route path contract is recorded in `documents.routes.ts` and must not be changed as part of this refactor without compatibility tests.
 
 ## Frontend boundary
+- `documents-api.service.ts` owns typed DTOs, endpoint builders, auth headers, HTTP dispatch, response parsing, error normalization and operation methods. The component is not allowed to call `fetch`, parse API JSON or construct endpoint URLs.
 The Angular component should own view state, rendering, interaction, and orchestration only. The Documents API service owns the API base, endpoint builders, typed DTOs, transport request dispatch and response/error contract. Component code must not implement fetch mechanics, token header assembly or API URL construction.
 
 ## Security invariants (must not regress)
