@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101321">
+<title>Bee-Core · Device Simulator</title>
+<style>
+:root{color-scheme:dark;--bg:#0d1020;--panel:#151a2c;--line:#29314a;--muted:#9ba6c0;--text:#edf1ff;--accent:#8b7cff;--green:#43d6a0;--red:#ff737e;--amber:#f4c36a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% 0%,#24234a 0,transparent 38%),var(--bg);color:var(--text);font:14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
+main{width:min(920px,calc(100% - 32px));margin:44px auto 80px}.eyebrow{color:#aaa1ff;font-size:10px;font-weight:800;letter-spacing:.18em}h1{font-size:clamp(28px,5vw,42px);letter-spacing:-.04em;margin:8px 0}h2{font-size:16px;margin:0 0 12px}.intro{color:var(--muted);max-width:680px}.panel{background:linear-gradient(145deg,#191f34,#121728);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:18px;box-shadow:0 18px 55px #0003}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{display:grid;gap:6px;margin:12px 0}label{font-size:11px;color:#c1c9dc;font-weight:700}input,textarea{width:100%;background:#0c1120;color:var(--text);border:1px solid #343d59;border-radius:9px;padding:11px 12px;font:inherit;outline:none}input:focus,textarea:focus{border-color:var(--accent)}textarea{min-height:74px;resize:vertical}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}button{border:1px solid #414b6a;background:#202943;color:var(--text);padding:10px 15px;border-radius:9px;font-weight:750;cursor:pointer}button.primary{background:var(--accent);border-color:transparent;color:#0c0d1b}button:disabled{opacity:.45;cursor:not-allowed}.statusline{display:flex;align-items:center;gap:10px;margin:4px 0 14px}.dot{width:10px;height:10px;border-radius:50%;background:#78839b;box-shadow:0 0 0 4px #78839b22}.dot.connected{background:var(--green);box-shadow:0 0 0 4px #43d6a022}.dot.pending{background:var(--amber);box-shadow:0 0 0 4px #f4c36a22}.dot.error{background:var(--red);box-shadow:0 0 0 4px #ff737e22}.muted{color:var(--muted);font-size:12px}.metric{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;color:#c5cdef;overflow-wrap:anywhere}.log{max-height:250px;overflow:auto;background:#090d18;border:1px solid var(--line);border-radius:10px;padding:10px}.entry{padding:7px 3px;border-bottom:1px solid #202840;font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.entry:last-child{border:0}.time{color:#75819e;margin-right:8px}.warning{border-left:3px solid var(--amber);padding:10px 12px;background:#f4c36a12;color:#d7c69e;font-size:12px;border-radius:0 8px 8px 0}.hidden{display:none!important}@media(max-width:640px){main{margin-top:24px}.grid{grid-template-columns:1fr}.panel{padding:16px}}
+</style>
+</head>
+<body>
+<main>
+ <div class="eyebrow">BEE-CORE / CONNECTED DEVICES</div>
+ <h1>Device Simulator</h1>
+ <p class="intro">A tiny browser companion to verify the real pairing and device-authentication flow against your Bee-Core tenant. It does not simulate a successful connection locally: requests go to the API you configure.</p>
+ <section class="panel">
+  <h2>1 · API and pairing</h2>
+  <div class="field"><label for="api">Bee-Core API base URL</label><input id="api" value="/api" spellcheck="false" placeholder="https://your-bee-core-domain/api"></div>
+  <div class="field"><label for="pairing">QR payload from Connected Devices</label><textarea id="pairing" placeholder="Paste the bee-device://pair?token=... value shown by the dashboard"></textarea></div>
+  <div class="grid">
+   <div class="field"><label for="name">Device name</label><input id="name" value="Browser Test Device"></div>
+   <div class="field"><label for="version">App version</label><input id="version" value="simulator-0.1.0"></div>
+  </div>
+  <div class="actions"><button id="health">Test API</button><button id="pair" class="primary">Pair this device</button><button id="stop" disabled>Disconnect</button></div>
+  <p class="muted">The QR token is single-use. Pairing creates a pending device; an organization administrator must approve it in the Bee-Core dashboard before heartbeats are accepted.</p>
+ </section>
+ <section class="panel">
+  <h2>2 · Live connection state</h2>
+  <div class="statusline"><span id="dot" class="dot"></span><strong id="state">Not connected</strong><span id="stateDetail" class="muted"></span></div>
+  <div class="grid">
+   <div><div class="muted">Device ID</div><div id="deviceId" class="metric">—</div></div>
+   <div><div class="muted">Granted capabilities</div><div id="scopes" class="metric">—</div></div>
+   <div><div class="muted">Last heartbeat</div><div id="heartbeat" class="metric">—</div></div>
+   <div><div class="muted">Server time</div><div id="serverTime" class="metric">—</div></div>
+  </div>
+  <p class="muted">While pending, the simulator checks approval every 4 seconds. Once approved, it sends an authenticated REST heartbeat every 10 seconds.</p>
+ </section>
+ <section class="panel">
+  <h2>3 · Connection log</h2>
+  <div id="log" class="log" aria-live="polite"><div class="entry">Waiting for an action…</div></div>
+  <div class="actions"><button id="clear">Clear log</button></div>
+ </section>
+ <section class="panel">
+  <div class="warning"><strong>Important:</strong> this is a REST pairing + heartbeat simulator, not a WebSocket test. The current Connected Devices plugin exposes HTTP endpoints for pairing, approval checks and heartbeat; it does not yet expose a realtime WebSocket device channel. The device credential is kept in memory only and is cleared when you disconnect or reload this page.</div>
+ </section>
+</main>
+<script>
+(()=>{
+ const $=id=>document.getElementById(id);
+ let credential="",deviceId="",pollTimer=0,heartbeatTimer=0,stopped=true,active=false;
+ const log=(message,kind="info")=>{const row=document.createElement("div");row.className="entry";const time=document.createElement("span");time.className="time";time.textContent=new Date().toLocaleTimeString();const body=document.createElement("span");body.textContent=message;body.style.color=kind==="error"?"#ff8b95":kind==="success"?"#65e2b4":"#c5cdef";row.append(time,body);$("log").prepend(row);};
+ const api=()=>{let value=$("api").value.trim().replace(/\/+$/,"");if(!value)throw new Error("Enter the API base URL.");return value;};
+ const request=async(path,options={})=>{const response=await fetch(api()+path,{...options,headers:{"content-type":"application/json",...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||("HTTP "+response.status));return data;};
+ const setState=(state,detail="",kind="")=>{$("state").textContent=state;$("stateDetail").textContent=detail;$("dot").className="dot "+kind;};
+ const stopTimers=()=>{clearTimeout(pollTimer);clearInterval(heartbeatTimer);pollTimer=0;heartbeatTimer=0;};
+ const clearSession=()=>{stopTimers();credential="";deviceId="";active=false;stopped=true;$("stop").disabled=true;$("deviceId").textContent="—";$("scopes").textContent="—";};
+ const parseToken=value=>{const raw=value.trim();if(!raw)throw new Error("Paste the QR payload first.");try{const parsed=new URL(raw);const token=parsed.searchParams.get("token");if(token)return token;}catch{}if(/^[A-Za-z0-9_-]{40,}$/.test(raw))return raw;throw new Error("The QR payload is invalid. Paste the full bee-device://pair?token=… value.");};
+ $("health").addEventListener("click",async()=>{try{const result=await request("/health");log("API reachable · "+(result.name||"Bee-Core")+" · "+(result.status||"OK"),"success");}catch(error){log("API test failed · "+error.message,"error");}});
+ $("pair").addEventListener("click",async()=>{if(!stopped)return;try{const token=parseToken($("pairing").value);setState("Pairing…","Exchanging one-time QR token");log("Sending one-time pairing token to Bee-Core");const result=await request("/connected-devices/pair",{method:"POST",body:JSON.stringify({token,name:$("name").value.trim()||"Browser Test Device",deviceType:"browser-simulator",platform:navigator.platform||"browser",appVersion:$("version").value.trim()||"simulator"})});credential=result.pairingSecret;deviceId=result.deviceId;stopped=false;$("stop").disabled=false;$("deviceId").textContent=deviceId;$("scopes").textContent="Waiting for approval";setState("Pending approval","Approve this device in Connected Devices","pending");log("Device registered as pending · "+deviceId,"success");pollStatus();}catch(error){clearSession();setState("Pairing failed",error.message,"error");log("Pairing failed · "+error.message,"error");}});
+ async function pollStatus(){if(stopped||!credential)return;try{const result=await request("/connected-devices/pairing-status",{headers:{"x-device-pairing-secret":credential}});if(result.status==="active"){if(!active){active=true;log("Administrator approved the device","success");$("scopes").textContent=(result.grantedCapabilities||[]).join(", ")||"No capabilities granted";setState("Connected","Device approved · authenticated heartbeat active","connected");startHeartbeat();}}else{setState("Pending approval","Waiting for administrator approval","pending");pollTimer=setTimeout(pollStatus,4000);}}catch(error){log("Pairing status · "+error.message,"error");setState("Not authorized",error.message,"error");clearSession();}}
+ function startHeartbeat(){if(stopped||!credential)return;const beat=async()=>{if(stopped||!credential||!active)return;try{const result=await request("/connected-devices/device/heartbeat",{method:"POST",headers:{authorization:"Bearer "+credential}});const now=new Date();$("heartbeat").textContent=now.toLocaleTimeString();$("serverTime").textContent=result.serverTime||"—";setState("Connected","Last heartbeat acknowledged","connected");log("Heartbeat accepted · "+(result.serverTime||now.toISOString()),"success");}catch(error){setState("Connection lost",error.message,"error");log("Heartbeat rejected · "+error.message,"error");clearSession();}};beat();heartbeatTimer=setInterval(beat,10000);}
+ $("stop").addEventListener("click",()=>{clearSession();setState("Disconnected","Local simulator credentials cleared");$("heartbeat").textContent="—";$("serverTime").textContent="—";log("Simulator disconnected; credential cleared from memory");});
+ $("clear").addEventListener("click",()=>$("log").replaceChildren());
+ window.addEventListener("beforeunload",clearSession);
+})();
+</script>
+</body>
+</html>
