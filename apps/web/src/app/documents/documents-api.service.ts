@@ -23,7 +23,6 @@ export class DocumentsApiService {
   shareTargetsUrl(query:string):string{return this.apiBase+this.routes.shareTargets+"?q="+encodeURIComponent(query);}
   uploadFileUrl():string{return this.apiBase+this.routes.filesUpload;}
 
-  private authHeaders(token:string,extra:Record<string,string>={}):Record<string,string>{return {authorization:"Bearer "+token,...extra};}
   private async jsonRequest<T>(url:string,token:string,init:RequestInit={}):Promise<T>{
     const headers=new Headers(init.headers);
     headers.set("authorization","Bearer "+token);
@@ -49,15 +48,15 @@ export class DocumentsApiService {
     return {folders:folderResult.folders||[],documents:documentResult.documents||[]};
   }
   moveDocument(token:string,id:string,folderId:string|null):Promise<{document:DocumentsItem|null;success:boolean;unchanged?:boolean}>{
-    return this.jsonRequest(this.documentLocationUrl(id),token,{method:"PATCH",body:JSON.stringify({folderId})});
+    return this.jsonRequest<{document:DocumentsItem|null;success:boolean;unchanged?:boolean}>(this.documentLocationUrl(id),token,{method:"PATCH",body:JSON.stringify({folderId})});
   }
   moveFolder(token:string,id:string,parentId:string|null):Promise<{success:boolean;unchanged?:boolean}>{
-    return this.jsonRequest(this.folderLocationUrl(id),token,{method:"PATCH",body:JSON.stringify({parentId})});
+    return this.jsonRequest<{success:boolean;unchanged?:boolean}>(this.folderLocationUrl(id),token,{method:"PATCH",body:JSON.stringify({parentId})});
   }
   getFolderShares(token:string,id:string):Promise<DocumentsFolderShares>{return this.jsonRequest(this.folderSharesUrl(id),token);}
   searchShareTargets(token:string,query:string):Promise<DocumentsShareTargets>{return this.jsonRequest(this.shareTargetsUrl(query),token);}
   saveFolderShares(token:string,id:string,teamIds:string[],userIds:string[]):Promise<{success:boolean}>{
-    return this.jsonRequest(this.folderSharesUrl(id),token,{method:"PUT",body:JSON.stringify({teamIds,userIds})});
+    return this.jsonRequest<{success:boolean}>(this.folderSharesUrl(id),token,{method:"PUT",body:JSON.stringify({teamIds,userIds})});
   }
   async uploadTextFile(token:string,file:File):Promise<DocumentsUploadResult>{
     const headers=new Headers({"content-type":"application/octet-stream","x-file-content-type":"text/plain","x-file-name":encodeURIComponent(file.name),"authorization":"Bearer "+token});
@@ -67,10 +66,10 @@ export class DocumentsApiService {
     return data as DocumentsUploadResult;
   }
   createDocument(token:string,payload:{fileId:string;folderId:string|null;title:string}):Promise<DocumentsCreateResult>{
-    return this.jsonRequest(this.documentsUrl(null),token,{method:"POST",body:JSON.stringify(payload)});
+    return this.jsonRequest<DocumentsCreateResult>(this.documentsUrl(null),token,{method:"POST",body:JSON.stringify(payload)});
   }
   downloadDocument(token:string,doc:DocumentsItem):Promise<Response>{return this.binaryRequest(doc.downloadUrl,token,{});}
   createFolder(token:string,name:string,parentId:string|null):Promise<DocumentsCreateFolderResult>{
-    return this.jsonRequest(this.foldersUrl(),token,{method:"POST",body:JSON.stringify({name,parentId})});
+    return this.jsonRequest<DocumentsCreateFolderResult>(this.foldersUrl(),token,{method:"POST",body:JSON.stringify({name,parentId})});
   }
 }
