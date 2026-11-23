@@ -282,14 +282,14 @@ export class AppComponent implements OnInit {
     security: '/dashboard/security', system: '/dashboard/system'
   };
   private readonly allSettingsSections = [
-    {id:'settings-general',label:'General',icon:'◉',description:'Platform name, domain, identity and global configuration.'},
-    {id:'settings-tenants',label:'Tenants',icon:'▤',description:'Tenant directory, company status, subdomains and platform-level controls.'},
-    {id:'settings-plugins',label:'Plugins',icon:'▣',description:'Catalogue, authorization, versions and dependencies.'},
-    {id:'settings-integrations',label:'Integrations',icon:'⌘',description:'Available connectors, global credentials and policies.'},
-    {id:'settings-plans',label:'Plans & Licensing',icon:'◇',description:'Plans, subscriptions, pricing and licenses.'},
-    {id:'settings-security',label:'Security',icon:'⌑',description:'Global policies, authentication, sessions and audit.'},
-    {id:'settings-infrastructure',label:'Infrastructure',icon:'⌁',description:'Runtime, storage, queues, logs and services.'},
-    {id:'settings-localization',label:'Localization',icon:'◎',description:'Languages, regions, currencies and global formats.'}
+    {id:'settings-general',label:'General',icon:'general',description:'Platform name, domain, identity and global configuration.'},
+    {id:'settings-tenants',label:'Tenants',icon:'tenants',description:'Tenant directory, company status, subdomains and platform-level controls.'},
+    {id:'settings-plugins',label:'Plugins',icon:'plugins',description:'Catalogue, authorization, versions and dependencies.'},
+    {id:'settings-integrations',label:'Integrations',icon:'integrations',description:'Available connectors, global credentials and policies.'},
+    {id:'settings-plans',label:'Plans & Licensing',icon:'plans',description:'Plans, subscriptions, pricing and licenses.'},
+    {id:'settings-security',label:'Security',icon:'security',description:'Global policies, authentication, sessions and audit.'},
+    {id:'settings-infrastructure',label:'Infrastructure',icon:'infrastructure',description:'Runtime, storage, queues, logs and services.'},
+    {id:'settings-localization',label:'Localization',icon:'localization',description:'Languages, regions, currencies and global formats.'}
   ];
   private syncActiveSectionFromPath(): void {
     if (/^\/dashboard\/plugins\/[^/]+\/details\/?$/.test(this.path)) { this.activeSection = 'settings-plugins'; this.expandedMenuId = 'settings'; return; }
@@ -352,12 +352,12 @@ export class AppComponent implements OnInit {
   }
   get navigationItems(): Array<{id:string;label:string;icon:string;group:string}> {
     const base = [
-      {id:'dashboard',label:'Dashboard',icon:'▦',group:'WORKSPACE'},
-      {id:'organization',label:'Organization',icon:'♙',group:'WORKSPACE'},
-      {id:'activity',label:'Activity',icon:'◷',group:'WORKSPACE'},
-      {id:'mail',label:'Mail',icon:'✉',group:'WORKSPACE'},
-      {id:'notifications',label:'Notifications',icon:'♧',group:'WORKSPACE'},
-      {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
+      {id:'dashboard',label:'Dashboard',icon:'dashboard',group:'WORKSPACE'},
+      {id:'organization',label:'Organization',icon:'organization',group:'WORKSPACE'},
+      {id:'activity',label:'Activity',icon:'activity',group:'WORKSPACE'},
+      {id:'mail',label:'Mail',icon:'mail',group:'WORKSPACE'},
+      {id:'notifications',label:'Notifications',icon:'notifications',group:'WORKSPACE'},
+      {id:'settings',label:'Settings',icon:'settings',group:'SYSTEM'}
     ];
     if (this.isPlatformAdmin) return base.filter(item => ['dashboard','organization','activity','mail','notifications','settings'].includes(item.id));
     const role = (this.activeCompanyRole || '').toLowerCase();
