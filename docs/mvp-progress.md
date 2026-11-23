@@ -614,3 +614,14 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Kept the protected-role behavior intact: Super Admin memberships remain blocked from modification by the earlier guard, and Owner memberships cannot receive restriction roles.
 - This resolves the exact TS2367 errors reported by the VPS Docker build at `organizations.plugin.ts:321` and `:324` without weakening authorization.
 - Validation: change is based on the exact VPS compiler diagnostics. No TypeScript build, tests, Angular build, Docker build or CI have been run by the assistant; rerun `docker compose up -d --build` on the VPS.
+
+
+## Organization invitation links and self-service acceptance (2026-11-23)
+
+- Organization → Users now turns the one-time invitation token into a direct browser link (/invite/accept#token=...) and provides a Copy invitation link action. The token stays in the URL fragment and is submitted to the API in request bodies, avoiding exposure in ordinary HTTP request paths and Referer headers.
+- Added a public invitation preview that validates token state and shows the invited email, organization, assigned primary role, optional restrictions and expiry without revealing password/account data.
+- Added invitation-based account registration. New users set a password (minimum 12 characters); the backend creates the account and active organization membership using only the invitation's stored organization and role data, then consumes the token. Existing accounts sign in and accept through the authenticated invitation endpoint.
+- Invitations now retain optional primary custom grant roles and additional deny-only restriction roles. Both are validated against custom roles belonging to the active organization; only eligible organization owners / Super Organization super admins may assign them. Acceptance applies the same role/restriction assignment for existing and newly registered users.
+- No SMTP, email delivery provider, background mail job or external email dependency is required. Administrators can copy the link and share it manually.
+- Security behavior: random 256-bit URL-safe token, SHA-256 token hash at rest, seven-day expiry, one-time conditional consumption, invitation email matching, organization availability checks, duplicate-account handling and compensation if membership creation fails. The invitation link token is displayed only immediately after creation.
+- Validation: no TypeScript build, Angular build, tests, Docker build, browser test or VPS runtime check has been executed for this branch. Validate new-account registration, existing-account acceptance, expired/cancelled/replayed links, custom grant roles, multiple restrictions and clean-database bootstrap on the VPS.

@@ -12,6 +12,7 @@ import { BoundedTicketStore, realtimeConnectionLimiterFor } from "../../core/rea
 type ClientType = "backend" | "dashboard" | "public";
 type Role = "admin" | "user" | "service";
 type UserRecord = { id:string; email:string; passwordHash:string; roles:Role[]; platformRole?: "superadmin"; enabled:boolean; allowedClients:ClientType[]; tenantId?:string; mfaSecretEnc?:string; mfaPendingSecretEnc?:string; mfaPendingExpiresAt?:Date; mfaLastStep?:number; mfaRecoveryHashes?:string[]; createdAt:Date; updatedAt:Date };
+type InvitationRecord = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; restrictionRoleIds?:string[]; tokenHash:string; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
 type RefreshSession = { id:string; userId:string; tokenHash:string; usedTokenHashes?:string[]; client:ClientType; tenantId?:string; expiresAt:Date; absoluteExpiresAt?:Date; revokedAt:Date|null; mfaVerifiedAt?:Date; createdAt:Date };
 type LoginBody = { email?:string; password?:string; client?:ClientType; mfaCode?:string };
 type RefreshBody = { refreshToken?:string };
@@ -83,6 +84,53 @@ export const authPlugin:BeePlugin={
    await templatePreferences.deleteOne({_id:legacy._id});
   }
   await templatePreferences.createIndex({tenantId:1},{unique:true,name:"template_preferences_tenant_unique"});
+
+  // Public invitation preview and account creation. Tokens are submitted in request bodies.
+  const invitations:Collection<InvitationRecord>=db.collection("company_invitations");
+  ctx.server.post<{Body:{token?:string}}>("/auth/invitations/preview",async(req,reply)=>{
+   const token=String(req.body?.token??"").trim();
+   if(token.length<32)return reply.code(400).send({error:"A valid invitation link is required"});
+   const tokenHash=hashToken(token),now=new Date();
+   const invitation=await invitations.findOne({tokenHash,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:now}});
+   if(!invitation)return reply.code(404).send({error:"This invitation link is invalid, expired or already used"});
+   const company=await tenants.findOne({id:invitation.tenantId});
+   if(!company||((company as any).status==="suspended"))return reply.code(404).send({error:"The invited organization is unavailable"});
+   const customRoles=db.collection<{id:string;tenantId:string;name:string;mode:string}>("company_roles");
+   const primaryRole=invitation.customRoleId?await customRoles.findOne({id:invitation.customRoleId,tenantId:invitation.tenantId,mode:"grant"}):null;
+   const restrictionIds=invitation.restrictionRoleIds??[];
+   const restrictions=restrictionIds.length?await customRoles.find({id:{$in:restrictionIds},tenantId:invitation.tenantId,mode:"restriction"}).toArray():[];
+   const roleLabel=invitation.role==="custom"?(primaryRole?.name??"Custom role"):invitation.role.replace(/^./,value=>value.toUpperCase());
+   return {invitation:{email:invitation.email,companyName:company.name,role:roleLabel,restrictions:restrictions.map(item=>item.name),expiresAt:invitation.expiresAt}};
+  });
+  ctx.server.post<{Body:{token?:string;password?:string}}>("/auth/invitations/register",async(req,reply)=>{
+   const token=String(req.body?.token??"").trim(),password=String(req.body?.password??"");
+   if(token.length<32)return reply.code(400).send({error:"A valid invitation link is required"});
+   if(password.length<12)return reply.code(400).send({error:"Your password must contain at least 12 characters"});
+   const now=new Date(),tokenHash=hashToken(token);
+   const invitation=await invitations.findOne({tokenHash,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:now}});
+   if(!invitation)return reply.code(404).send({error:"This invitation link is invalid, expired or already used"});
+   const company=await tenants.findOne({id:invitation.tenantId});
+   if(!company||((company as any).status==="suspended"))return reply.code(404).send({error:"The invited organization is unavailable"});
+   const existingUser=await users.findOne({email:invitation.email});
+   if(existingUser)return reply.code(409).send({error:"An account already exists for this email. Choose the sign-in option instead.",accountExists:true});
+   if(invitation.role==="custom"&&!invitation.customRoleId)return reply.code(409).send({error:"The invitation has an invalid primary role"});
+   const memberships=db.collection<any>("memberships"),userId=randomUUID();
+   const user:UserRecord={id:userId,email:invitation.email,passwordHash:await bcrypt.hash(password,12),roles:["user"],enabled:true,allowedClients:["dashboard","backend","public"],tenantId:invitation.tenantId,createdAt:now,updatedAt:now};
+   try{await users.insertOne(user);}
+   catch(error){if((error as {code?:number})?.code===11000)return reply.code(409).send({error:"An account already exists for this email. Choose the sign-in option instead.",accountExists:true});throw error;}
+   const consumed=await invitations.updateOne({id:invitation.id,tokenHash,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:now}},{$set:{acceptedAt:now}});
+   if(!consumed.modifiedCount){await users.deleteOne({id:userId});return reply.code(409).send({error:"This invitation has already been used or cancelled"});}
+   try{
+    await memberships.insertOne({id:randomUUID(),userId,tenantId:invitation.tenantId,role:invitation.role,...(invitation.customRoleId?{customRoleId:invitation.customRoleId}:{}),restrictionRoleIds:invitation.restrictionRoleIds??[],status:"active",createdAt:now,updatedAt:now});
+   }catch(error){
+    await invitations.updateOne({id:invitation.id,acceptedAt:now},{$set:{acceptedAt:null}});
+    await users.deleteOne({id:userId});
+    if((error as {code?:number})?.code===11000)return reply.code(409).send({error:"This account already has a membership in the invited organization. Sign in to accept the invitation."});
+    throw error;
+   }
+   await auditAuthEvent({tenantId:invitation.tenantId,actorId:userId,action:"member.invited",outcome:"success",metadata:{role:invitation.role,restrictionRoleCount:(invitation.restrictionRoleIds??[]).length,phase:"registered_and_accepted"}});
+   return reply.code(201).send({success:true,company:{name:company.name},membership:{role:invitation.role,status:"active"}});
+  });
 
   const adminEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase(),adminPassword=String(ctx.config.authAdminPassword??"");
   if(adminEmail&&adminPassword){

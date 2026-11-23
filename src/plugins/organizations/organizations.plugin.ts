@@ -13,7 +13,7 @@ type Company = { id:string; name:string; slug?:string; kind?:"super"|"tenant"; d
 type Membership = { id:string; userId:string; tenantId:string; role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; restrictionRoleIds?:string[]; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantRef?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string; slug?:string };
-type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"|"guest"; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
+type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; restrictionRoleIds?:string[]; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
 
 export const organizationsPlugin:BeePlugin={
  manifest:{name:"organizations",version:"0.1.0",description:"Company records, user memberships and active-company session context",dependencies:["auth"]},
@@ -193,13 +193,25 @@ export const organizationsPlugin:BeePlugin={
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.deleted",outcome:"success",resourceType:"role",resourceId:req.params.roleId});
    return {success:true};
   });
-  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"|"guest"}}>("/companies/:companyId/invitations",async(req,reply)=>{
-   const auth=await authenticate(req,reply);if(!auth)return;
-   const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
-   const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
-   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["admin","manager","member","guest"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
-   if(role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can invite administrators"});
-   const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
+  ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"|"guest"|"custom";customRoleId?:string;restrictionRoleIds?:string[]}}>("/companies/:companyId/invitations",async(req,reply)=>{
+    const auth=await authenticate(req,reply);if(!auth)return;
+    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
+    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member",customRoleId=String(req.body?.customRoleId??"").trim(),restrictionRoleIds=Array.isArray(req.body?.restrictionRoleIds)?[...new Set(req.body.restrictionRoleIds.map(id=>String(id)))]:[];
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!["admin","manager","member","guest","custom"].includes(role))return reply.code(400).send({error:"A valid email and membership role are required"});
+    if(role==="custom"&&!customRoleId)return reply.code(400).send({error:"Select a primary custom grant role"});
+    if(role!=="custom"&&customRoleId)return reply.code(400).send({error:"A custom role ID is only valid with role=custom"});
+    if((role==="custom"||restrictionRoleIds.length)&&!await ownerOnly(auth,req.params.companyId,reply))return;
+    if(role==="custom"){
+     const customRole=await customRoles.findOne({id:customRoleId,tenantId:req.params.companyId,mode:"grant"});
+     if(!customRole)return reply.code(400).send({error:"The primary custom role must be a grant role in this organization"});
+    }
+    if(restrictionRoleIds.length){
+     if(restrictionRoleIds.length>10)return reply.code(400).send({error:"A maximum of 10 restriction roles can be assigned"});
+     const restrictions=await customRoles.find({id:{$in:restrictionRoleIds},tenantId:req.params.companyId,mode:"restriction"}).toArray();
+     if(restrictions.length!==restrictionRoleIds.length)return reply.code(400).send({error:"Every additional role must be a restriction role in this organization"});
+    }
+    if(role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can invite administrators"});
+const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
    if(existingMembership)return reply.code(409).send({error:"User is already a company member"});
    const invitationNow=new Date();
    await invitations.updateMany({tenantId:req.params.companyId,email,acceptedAt:null,cancelledAt:null,expiresAt:{$lte:invitationNow}},{$set:{cancelledAt:invitationNow}});
@@ -213,7 +225,7 @@ export const organizationsPlugin:BeePlugin={
     ]);
     if(activeMembers+pendingInvitations>=userLimit)return reply.code(409).send({error:"Company user limit reached for the current plan"});
    }
-   const token=randomBytes(32).toString("base64url"),now=new Date(),invitation:Invitation={id:randomUUID(),tenantId:req.params.companyId,email,role,tokenHash:createHash("sha256").update(token).digest("hex"),createdBy:auth.user!.id,createdAt:now,expiresAt:new Date(now.getTime()+7*24*60*60*1000),acceptedAt:null,cancelledAt:null};
+   const token=randomBytes(32).toString("base64url"),now=new Date(),invitation:Invitation={id:randomUUID(),tenantId:req.params.companyId,email,role,...(customRoleId?{customRoleId}:{}),...(restrictionRoleIds.length?{restrictionRoleIds}:{}),tokenHash:createHash("sha256").update(token).digest("hex"),createdBy:auth.user!.id,createdAt:now,expiresAt:new Date(now.getTime()+7*24*60*60*1000),acceptedAt:null,cancelledAt:null};
    await invitations.insertOne(invitation);
    await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"invitation",resourceId:invitation.id,metadata:{role:invitation.role,phase:"created"}});
    return reply.code(201).send({invitation:{id:mask(auth,invitation.id,"invitation"),email,role,expiresAt:invitation.expiresAt},acceptanceToken:token});
@@ -222,7 +234,7 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const rows=await invitations.find({tenantId:req.params.companyId}).sort({createdAt:-1}).toArray();
-   return {invitations:rows.map(row=>({id:mask(auth,row.id,"invitation"),email:row.email,role:row.role,createdAt:row.createdAt,expiresAt:row.expiresAt,acceptedAt:row.acceptedAt,cancelledAt:row.cancelledAt,status:row.acceptedAt?"accepted":row.cancelledAt?"cancelled":row.expiresAt<=new Date()?"expired":"pending"}))};
+   return {invitations:rows.map(row=>({id:mask(auth,row.id,"invitation"),email:row.email,role:row.role,customRoleId:row.customRoleId?mask(auth,row.customRoleId,"role"):null,restrictionRoleIds:(row.restrictionRoleIds??[]).map(id=>mask(auth,id,"role")),createdAt:row.createdAt,expiresAt:row.expiresAt,acceptedAt:row.acceptedAt,cancelledAt:row.cancelledAt,status:row.acceptedAt?"accepted":row.cancelledAt?"cancelled":row.expiresAt<=new Date()?"expired":"pending"}))};
   });
   ctx.server.delete<{Params:{companyId:string;invitationId:string}}>("/companies/:companyId/invitations/:invitationId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
@@ -244,16 +256,20 @@ export const organizationsPlugin:BeePlugin={
    if(!company)return reply.code(404).send({error:"Company is unavailable"});
    const existing=await memberships.findOne({userId:auth.user!.id,tenantId:invitation.tenantId});
    if(existing?.status==="active")return reply.code(409).send({error:"This account is already an active member of the company"});
+    if(existing&&(existing.role==="owner"||existing.role==="super_admin"))return reply.code(409).send({error:"Protected organization memberships cannot be changed through an invitation"});
    if(!existing||existing.status==="suspended"||existing.status==="invited"){
     const userLimit=await getTenantUserLimit(db,invitation.tenantId);
     if(userLimit!==null&&await memberships.countDocuments({tenantId:invitation.tenantId,status:"active"})>=userLimit)return reply.code(409).send({error:"Company user limit reached for the current plan"});
    }
    const consumed=await invitations.updateOne({id:invitation.id,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:now}},{$set:{acceptedAt:now}});
    if(!consumed.modifiedCount)return reply.code(409).send({error:"Invitation has already been used"});
-   if(existing)await memberships.updateOne({id:existing.id},{$set:{role:invitation.role,status:"active",updatedAt:now}});
-   else await memberships.insertOne({id:randomUUID(),userId:auth.user!.id,tenantId:invitation.tenantId,role:invitation.role,status:"active",createdAt:now,updatedAt:now});
-   await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"membership",resourceId:auth.user!.id,metadata:{role:invitation.role,phase:"accepted"}});
-   return {success:true,company:{id:mask(auth,company.id,"tenant"),name:company.name},membership:{role:invitation.role,status:"active"}};
+   const membershipSet:any={role:invitation.role,status:"active",restrictionRoleIds:invitation.restrictionRoleIds??[],updatedAt:now};
+    const membershipUnset:any={};
+    if(invitation.customRoleId)membershipSet.customRoleId=invitation.customRoleId;else membershipUnset.customRoleId="";
+    if(existing)await memberships.updateOne({id:existing.id},{$set:membershipSet,...(Object.keys(membershipUnset).length?{$unset:membershipUnset}:{})});
+    else await memberships.insertOne({id:randomUUID(),userId:auth.user!.id,tenantId:invitation.tenantId,role:invitation.role,...(invitation.customRoleId?{customRoleId:invitation.customRoleId}:{}),restrictionRoleIds:invitation.restrictionRoleIds??[],status:"active",createdAt:now,updatedAt:now});
+    await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"membership",resourceId:auth.user!.id,metadata:{role:invitation.role,restrictionRoleCount:(invitation.restrictionRoleIds??[]).length,phase:"accepted"}});
+    return {success:true,company:{id:mask(auth,company.id,"tenant"),name:company.name},membership:{role:invitation.role,customRoleId:invitation.customRoleId?mask(auth,invitation.customRoleId,"role"):null,restrictionRoleIds:(invitation.restrictionRoleIds??[]).map(id=>mask(auth,id,"role")),status:"active"}};
   });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/memberships",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;

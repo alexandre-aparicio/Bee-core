@@ -1,4 +1,38 @@
-@if (path === '/login' || path === '/register' || path === '/forgot') {
+@if (path === '/invite/accept') {
+  <div class="auth-page"><div class="auth-background"></div><div class="auth-shell">
+    <div class="auth-top"><a class="brand" href="/"><span class="brand-mark">✦</span><span>bee<span class="brand-muted">-core</span></span></a><a href="/login">Sign in</a></div>
+    <div class="auth-card">
+      <div class="auth-icon">✉</div><div class="eyebrow">BEE-CORE INVITATION</div>
+      <h1>Join your organization</h1>
+      @if (invitationLoading) { <p>Validating your invitation link…</p> }
+      @else if (invitationPreview) {
+        <p>You have been invited to join <strong>{{invitationPreview.companyName}}</strong>.</p>
+        <div class="auth-options"><span>Email</span><strong>{{invitationPreview.email}}</strong></div>
+        <div class="auth-options"><span>Assigned role</span><strong>{{invitationPreview.role}}</strong></div>
+        @if (invitationPreview.restrictions.length) { <p>Additional access restrictions: {{invitationPreview.restrictions.join(', ')}}</p> }
+        <p><small>This invitation expires {{invitationPreview.expiresAt | date:'medium'}} and can only be used once.</small></p>
+        <div class="auth-options"><label><input type="checkbox" name="existingAccount" [(ngModel)]="invitationExistingAccount"> I already have a Bee-Core account</label></div>
+        <form (submit)="completeInvitation($event)">
+          @if (invitationExistingAccount) {
+            <label>Account password</label><input type="password" name="invitationPassword" [(ngModel)]="invitationPassword" autocomplete="current-password" required>
+            @if (invitationMfaRequired) { <label>Authenticator or recovery code</label><input name="invitationMfaCode" [(ngModel)]="invitationMfaCode" autocomplete="one-time-code" required> }
+          } @else {
+            <label>Create a password</label><input type="password" name="invitationPassword" [(ngModel)]="invitationPassword" autocomplete="new-password" minlength="12" required>
+            <small>Use at least 12 characters.</small>
+            <label>Confirm password</label><input type="password" name="invitationPasswordConfirm" [(ngModel)]="invitationPasswordConfirm" autocomplete="new-password" minlength="12" required>
+          }
+          @if (invitationError) { <div class="auth-error" role="alert">{{invitationError}}</div> }
+          <button class="auth-submit" type="submit" [disabled]="invitationBusy">{{invitationBusy ? 'Please wait…' : invitationExistingAccount ? 'Sign in and accept invitation' : 'Create account and join'}}</button>
+        </form>
+      } @else {
+        <div class="auth-error" role="alert">{{invitationError}}</div>
+        <p>Ask the organization administrator to create a new invitation link.</p>
+        <a class="auth-submit" href="/login">Go to sign in</a>
+      }
+      <div class="auth-divider"><span>SECURE INVITATION</span></div><div class="secure-note">✓ Invitation bound to your email and organization</div>
+    </div><div class="auth-footer">© Bee-Core · All is a plugin</div>
+  </div></div>
+} @else if (path === '/login' || path === '/register' || path === '/forgot') {
   <div class="auth-page"><div class="auth-background"></div><div class="auth-shell"><div class="auth-top"><a class="brand" href="/"><span class="brand-mark">✦</span><span>bee<span class="brand-muted">-core</span></span></a><a href="/">← {{t('auth.back')}}</a></div><div class="auth-card"><div class="auth-icon">🔐</div><div class="eyebrow">BEE-CORE WORKSPACE</div><h1>{{ mode === 'register' ? t('auth.requestAccess') : mode === 'forgot' ? t('auth.resetPassword') : t('auth.welcome') }}</h1><p>{{ mode === 'register' ? 'Self-service access is not enabled. Request an account from your workspace administrator.' : mode === 'forgot' ? 'Password recovery is not configured yet. Contact your workspace administrator.' : t('auth.signInIntro') }}</p><form (submit)="signIn($event)"><label>{{t('auth.email')}}</label><input type="email" name="email" [(ngModel)]="email" placeholder="you@example.com" autocomplete="email" required>
     @if (mode !== 'forgot') { <label>{{t('auth.password')}}</label><div class="password-field"><input [type]="reveal ? 'text' : 'password'" name="password" [(ngModel)]="password" placeholder="Your password" autocomplete="current-password" required><button type="button" (click)="reveal = !reveal">{{reveal ? t('auth.hide') : t('auth.show')}}</button></div> }
     @if (mode === 'login') { <div class="auth-options"><small>Session refreshes securely for up to 7 days.</small><a href="/forgot">{{t('auth.forgot')}}</a></div> }
