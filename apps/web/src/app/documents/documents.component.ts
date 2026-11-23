@@ -23,7 +23,7 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
         </div>
       </div>
     </article>
-    <article class="documents__item" *ngFor="let doc of documents"><span class="documents__glyph">▤</span><strong>{{doc.title}}</strong><small>{{doc.description || 'Document'}}</small><div class="documents__meta"><span>{{doc.visibility==='public'?'Public':'Private'}}</span><a [href]="doc.downloadUrl" target="_blank" rel="noopener">Download ↗</a></div></article>
+    <article class="documents__item" *ngFor="let doc of documents"><span class="documents__glyph">▤</span><strong>{{doc.title}}</strong><small>{{doc.description || 'Document'}}</small><div class="documents__meta"><span>{{doc.visibility==='public'?'Public':'Private'}}</span><button type="button" class="documents__download" (click)="downloadDocument(doc)">Download ↗</button></div></article>
   </div>
   <p class="documents__empty" *ngIf="!loading && !visibleFolders.length && !documents.length">This folder is empty. Upload a text file to this folder or create a new folder.</p>
   <div class="documents__overlay" *ngIf="shareFolder" (click)="closeShareDialog()">
@@ -107,6 +107,28 @@ export class BeeDocumentsComponent implements OnChanges {
    const result=await created.json();if(!created.ok)throw new Error(result.error||"File uploaded but could not be added to Documents");
    this.uploadMessage="File uploaded successfully.";await this.load();
   }catch(e){this.error=e instanceof Error?e.message:"Could not upload the text file";}finally{this.uploading=false;}
+ }
+ async downloadDocument(doc:Doc):Promise<void>{
+  if(!this.accessToken)return;
+  this.error="";
+  try{
+   const response=await fetch(doc.downloadUrl,{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
+   if(!response.ok){
+    let message="Could not download document";
+    try{const body=await response.json();message=body.error||message;}catch{}
+    throw new Error(message);
+   }
+   const blob=await response.blob();
+   const disposition=response.headers.get("content-disposition")||"";
+   const encodedName=disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+   const plainName=disposition.match(/filename="?([^";]+)"?/i)?.[1];
+   const fileName=encodedName?decodeURIComponent(encodedName):plainName||doc.title||"document";
+   const url=URL.createObjectURL(blob);
+   const link=document.createElement("a");
+   link.href=url;link.download=fileName;link.style.display="none";
+   document.body.appendChild(link);link.click();link.remove();
+   window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){this.error=e instanceof Error?e.message:"Could not download document";}
  }
  async createFolder():Promise<void>{
   const name=this.folderName.trim();if(!name||this.busy)return;this.busy=true;this.error="";
