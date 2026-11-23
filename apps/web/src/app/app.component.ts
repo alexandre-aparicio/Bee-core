@@ -376,19 +376,12 @@ export class AppComponent implements OnInit {
     };
     const target = defaults[menuId];
     if (!target) return;
-    const belongsToMenu = menuId === 'settings'
-      ? this.activeSection.startsWith('settings-')
-      : menuId === 'notifications'
-        ? ['notifications', 'messages', 'mail'].includes(this.activeSection)
-        : this.activeSection.startsWith('organization-');
-    if (!belongsToMenu) {
-      if (menuId === 'settings' && !this.settingsNavigationItems.some(item => item.id === target)) {
-        const firstAvailable = this.settingsNavigationItems[0];
-        if (firstAvailable) this.navigateSection(firstAvailable.id);
-        return;
-      }
-      this.navigateSection(target);
+    if (menuId === 'settings' && !this.settingsNavigationItems.some(item => item.id === target)) {
+      const firstAvailable = this.settingsNavigationItems[0];
+      if (firstAvailable) this.navigateSection(firstAvailable.id);
+      return;
     }
+    this.navigateSection(target);
   }
   get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string}> {
     // One shared navigation structure for platform and tenant administrators.
