@@ -1,4 +1,5 @@
 import { Component, Input, OnChanges } from "@angular/core";
+import { DocumentsApiService } from "./documents-api.service";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from "@angular/cdk/drag-drop";
@@ -11,6 +12,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 
 @Component({
  selector:"bee-documents-workspace",
+ providers:[DocumentsApiService],
  standalone:true,
  imports:[CommonModule,FormsModule,CdkDrag,CdkDragHandle,CdkDropList],
  template:`
@@ -410,6 +412,8 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 `]
 })
 export class BeeDocumentsComponent implements OnChanges {
+ constructor(private readonly documentsApi:DocumentsApiService){}
+
  @Input() tenantId="";
  @Input() accessToken="";
  api="/api";
@@ -445,8 +449,8 @@ export class BeeDocumentsComponent implements OnChanges {
   try{
    const headers={authorization:"Bearer "+this.accessToken};
    const [fr,dr]=await Promise.all([
-    fetch(this.api+"/documents/folders",{headers,credentials:"same-origin"}),
-    fetch(this.api+"/documents"+(this.currentFolderId?"?folderId="+encodeURIComponent(this.currentFolderId):""),{headers,credentials:"same-origin"})
+    this.documentsApi.request(this.documentsApi.apiBase+"/documents/folders",{headers,credentials:"same-origin"}),
+    this.documentsApi.request(this.api+"/documents"+(this.currentFolderId?"?folderId="+encodeURIComponent(this.currentFolderId):""),{headers,credentials:"same-origin"})
    ]);
    const fj=await fr.json();const dj=await dr.json();
    if(!fr.ok)throw new Error(fj.error||"Could not load folders");
@@ -485,7 +489,7 @@ export class BeeDocumentsComponent implements OnChanges {
   if(!doc.canMove||doc.folderId===folderId)return;
   this.error="";this.uploadMessage="";
   try{
-   const response=await fetch(this.api+"/documents/"+encodeURIComponent(doc.id)+"/location",{
+   const response=await this.documentsApi.request(this.api+"/documents/"+encodeURIComponent(doc.id)+"/location",{
     method:"PATCH",credentials:"same-origin",
     headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
     body:JSON.stringify({folderId})
@@ -498,7 +502,7 @@ export class BeeDocumentsComponent implements OnChanges {
   if(!folder.canMove||folder.parentId===parentId)return;
   this.error="";this.uploadMessage="";
   try{
-   const response=await fetch(this.api+"/documents/folders/"+encodeURIComponent(folder.id)+"/location",{
+   const response=await this.documentsApi.request(this.api+"/documents/folders/"+encodeURIComponent(folder.id)+"/location",{
     method:"PATCH",credentials:"same-origin",
     headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
     body:JSON.stringify({parentId})
@@ -524,7 +528,7 @@ export class BeeDocumentsComponent implements OnChanges {
  async openShareDialog(folder:Folder,mode:"groups"|"users"):Promise<void>{
   this.folderMenuId=null;this.shareFolder=folder;this.shareMode=mode;this.shareQuery="";this.targetTeams=[];this.targetUsers=[];this.error="";
   try{
-   const response=await fetch(this.api+"/documents/folders/"+encodeURIComponent(folder.id)+"/shares",{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
+   const response=await this.documentsApi.request(this.api+"/documents/folders/"+encodeURIComponent(folder.id)+"/shares",{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
    const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not load folder sharing");
    this.shareTeams=data.teams||[];this.shareUsers=data.users||[];
   }catch(e){this.error=e instanceof Error?e.message:"Could not load folder sharing";this.shareFolder=null;}
@@ -534,7 +538,7 @@ export class BeeDocumentsComponent implements OnChanges {
  async searchShareTargets():Promise<void>{
   const q=this.shareQuery.trim();if(!q){this.targetTeams=[];this.targetUsers=[];return;}
   try{
-   const response=await fetch(this.api+"/documents/share-targets?q="+encodeURIComponent(q),{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
+   const response=await this.documentsApi.request(this.api+"/documents/share-targets?q="+encodeURIComponent(q),{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
    const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not search sharing targets");
    this.targetTeams=this.shareMode==="groups"?(data.teams||[]):[];
    this.targetUsers=this.shareMode==="users"?(data.users||[]):[];
@@ -549,7 +553,7 @@ export class BeeDocumentsComponent implements OnChanges {
   if(!this.shareFolder||this.shareSaving)return;
   this.shareSaving=true;this.error="";
   try{
-   const response=await fetch(this.api+"/documents/folders/"+encodeURIComponent(this.shareFolder.id)+"/shares",{
+   const response=await this.documentsApi.request(this.api+"/documents/folders/"+encodeURIComponent(this.shareFolder.id)+"/shares",{
     method:"PUT",credentials:"same-origin",
     headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
     body:JSON.stringify({teamIds:this.shareTeams.map(item=>item.id),userIds:this.shareUsers.map(item=>item.id)})
@@ -569,13 +573,13 @@ export class BeeDocumentsComponent implements OnChanges {
   if(file.size>10*1024*1024){this.error="The maximum file size is 10 MB.";return;}
   this.uploading=true;
   try{
-   const upload=await fetch(this.api+"/files",{
+   const upload=await this.documentsApi.request(this.api+"/files",{
     method:"POST",credentials:"same-origin",
     headers:{"content-type":"application/octet-stream","x-file-content-type":"text/plain","x-file-name":encodeURIComponent(file.name),"authorization":"Bearer "+this.accessToken},
     body:await file.arrayBuffer()
    });
    const uploaded=await upload.json();if(!upload.ok||!uploaded.file?.id)throw new Error(uploaded.error||"Could not upload the text file");
-   const created=await fetch(this.api+"/documents",{
+   const created=await this.documentsApi.request(this.api+"/documents",{
     method:"POST",credentials:"same-origin",
     headers:{"content-type":"application/json","authorization":"Bearer "+this.accessToken},
     body:JSON.stringify({fileId:uploaded.file.id,folderId:this.currentFolderId,title:file.name})
@@ -590,7 +594,7 @@ export class BeeDocumentsComponent implements OnChanges {
   if(!this.accessToken)return;
   this.error="";
   try{
-   const response=await fetch(doc.downloadUrl,{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
+   const response=await this.documentsApi.request(doc.downloadUrl,{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
    if(!response.ok){
     let message="Could not download document";
     try{const body=await response.json();message=body.error||message;}catch{}
@@ -612,7 +616,7 @@ export class BeeDocumentsComponent implements OnChanges {
   const name=this.folderName.trim();if(!name||this.busy)return;
   this.busy=true;this.error="";
   try{
-   const response=await fetch(this.api+"/documents/folders",{
+   const response=await this.documentsApi.request(this.api+"/documents/folders",{
     method:"POST",credentials:"same-origin",
     headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
     body:JSON.stringify({name,parentId:this.currentFolderId})
