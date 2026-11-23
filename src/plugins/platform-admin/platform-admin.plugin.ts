@@ -12,8 +12,7 @@ import bcrypt from "bcryptjs";
 import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
-import { enqueuePluginInstallJob, enqueuePluginUninstallJob } from "../../core/plugin-install-jobs.js";
-import { getTrustedPluginPackage, isPluginInstalled, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
+import { getTenantSubscription, getTrustedPluginPackage, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
@@ -218,6 +217,7 @@ export const platformAdminPlugin:BeePlugin={
    }
    if(!owner.enabled)return reply.code(409).send({error:"Owner account is disabled"});
    await companies.insertOne(company);
+   await getTenantSubscription(db,tenantId);
    await memberships.updateOne({userId:owner.id,tenantId},{$setOnInsert:{id:randomUUID(),userId:owner.id,tenantId,role:"owner",status:"active",createdAt:now,updatedAt:now}},{upsert:true});
    await recordPlatformAudit({actorId:actor.id,action:"company.created",tenantId,resourceType:"tenant",resourceId:tenantId,metadata:{slug}});
    return reply.code(201).send({company:{id:mask(req.platformSession!,company.id,"tenant"),name:company.name,slug:company.slug,status:company.status,createdAt:company.createdAt},owner:{id:mask(req.platformSession!,owner.id,"user"),email:owner.email}});
@@ -247,7 +247,8 @@ export const platformAdminPlugin:BeePlugin={
    return {tenantId:mask(req.platformSession!,company.id,"tenant"),plugins:TRUSTED_PLUGIN_PACKAGES.map(plugin=>{
     const installation=byPlugin.get(plugin.id);
     const installed=installation?.status==="installed";
-    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:plugin.version,system:plugin.system,installed,status:installation?.status??"uninstalled"};
+    const enabled=installed&&installation?.enabled!==false;
+    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:plugin.version,system:plugin.system,installed,enabled,status:installation?.status??"uninstalled",dependencies:plugin.dependencies};
    })};
   });
   ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{enabled?:boolean}}>("/platform/companies/:companyId/plugins/:pluginId",async(req,reply)=>{
@@ -255,20 +256,29 @@ export const platformAdminPlugin:BeePlugin={
    const company=await companies.findOne({id:req.params.companyId,status:"active"});
    if(!company)return reply.code(404).send({error:"Active company not found"});
    const plugin=getTrustedPluginPackage(req.params.pluginId);
-   if(!plugin||plugin.system)return reply.code(404).send({error:"Manageable plugin package not found"});
+   if(!plugin)return reply.code(404).send({error:"Trusted plugin package not found"});
    if(typeof req.body?.enabled!=="boolean")return reply.code(400).send({error:"enabled must be a boolean"});
-   const installed=await isPluginInstalled(db,company.id,plugin.id);
-   if(req.body.enabled===installed)return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:installed,unchanged:true};
-   if(req.body.enabled){
-    const queued=await enqueuePluginInstallJob(db.collection("plugin_install_jobs") as any,{tenantId:company.id,pluginId:plugin.id,actorId:actor.id});
-    if(queued.job.action!=="install")return reply.code(409).send({error:"A plugin lifecycle operation is already in progress"});
-    await recordPlatformAudit({actorId:actor.id,action:"plugin.install.requested",tenantId:company.id,resourceType:"plugin",resourceId:plugin.id,metadata:{jobId:queued.job.id}});
-    return reply.code(202).send({success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:true,jobId:mask(req.platformSession!,queued.job.id,"job"),status:queued.job.status});
+   const installations=db.collection("tenant_plugin_installations");
+   const installation=await installations.findOne({tenantId:company.id,pluginId:plugin.id,status:"installed"});
+   if(!installation)return reply.code(409).send({error:"Plugin must be installed before it can be activated or deactivated"});
+   const currentEnabled=installation.enabled!==false;
+   if(req.body.enabled===currentEnabled)return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:currentEnabled,unchanged:true};
+   if(!req.body.enabled){
+    const dependents=TRUSTED_PLUGIN_PACKAGES.filter(candidate=>candidate.dependencies.includes(plugin.id));
+    for(const dependent of dependents){
+     const activeDependent=await installations.findOne({tenantId:company.id,pluginId:dependent.id,status:"installed",enabled:{$ne:false}});
+     if(activeDependent)return reply.code(409).send({error:"Cannot deactivate this plugin while the dependent plugin is enabled: "+dependent.name});
+    }
+   }else{
+    for(const dependencyId of plugin.dependencies){
+     const dependency=await installations.findOne({tenantId:company.id,pluginId:dependencyId,status:"installed",enabled:{$ne:false}});
+     if(!dependency)return reply.code(409).send({error:"Activate the required plugin first: "+dependencyId});
+    }
    }
-   const queued=await enqueuePluginUninstallJob(db.collection("plugin_install_jobs") as any,{tenantId:company.id,pluginId:plugin.id,actorId:actor.id});
-   if(queued.job.action!=="uninstall")return reply.code(409).send({error:"A plugin lifecycle operation is already in progress"});
-   await recordPlatformAudit({actorId:actor.id,action:"plugin.uninstall.requested",tenantId:company.id,resourceType:"plugin",resourceId:plugin.id,metadata:{jobId:queued.job.id}});
-   return reply.code(202).send({success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:false,jobId:mask(req.platformSession!,queued.job.id,"job"),status:queued.job.status});
+   const now=new Date();
+   await installations.updateOne({tenantId:company.id,pluginId:plugin.id,status:"installed"},{$set:{enabled:req.body.enabled,enabledUpdatedAt:now,enabledUpdatedBy:actor.id,updatedAt:now}});
+   await recordPlatformAudit({actorId:actor.id,action:req.body.enabled?"plugin.enabled":"plugin.disabled",tenantId:company.id,resourceType:"plugin",resourceId:plugin.id,metadata:{enabled:req.body.enabled}});
+   return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:req.body.enabled,installed:true,status:"installed"};
   });
   ctx.logger.info("Platform admin plugin initialized",{membershipRole:"super_admin"});
  }

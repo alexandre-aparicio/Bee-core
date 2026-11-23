@@ -51,6 +51,9 @@ export type TenantPluginInstallation = Document & {
   installedAt: Date | null;
   updatedAt: Date;
   error?: string;
+  enabled?: boolean;
+  enabledUpdatedAt?: Date;
+  enabledUpdatedBy?: string;
 };
 
 type TenantPluginPurchase = Document & {
@@ -283,6 +286,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const installed = await installations.find({ status: { $in: ["installed", "updating", "uninstalling"] } }).toArray();
   const installedIds = new Set(installed.map(item => item.pluginId));
   const installedVersions = new Map(installed.map(item => [item.pluginId, item.version]));
+  const enabledByPlugin = new Map(installed.map(item => [item.pluginId, item.enabled !== false]));
 
   const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...purchasedIds])];
   const catalog = await db.collection<PluginPackageDefinition>("plugin_catalog")
@@ -302,6 +306,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
       entitled: effectivePlan.includedPluginIds.includes(plugin.id) || purchasedIds.has(plugin.id),
       accessSource: effectivePlan.includedPluginIds.includes(plugin.id) ? "plan" : purchasedIds.has(plugin.id) ? "purchase" : null,
       installed: installedIds.has(plugin.id),
+      enabled: installedIds.has(plugin.id) && (enabledByPlugin.get(plugin.id) ?? true),
       installedVersion: installedVersions.get(plugin.id) ?? null
     }));
 }
@@ -320,14 +325,20 @@ export async function isPluginInstalled(db: Db, tenantId: string, pluginId: stri
   return Boolean(installation);
 }
 
+export async function isPluginEnabled(db: Db, tenantId: string, pluginId: string): Promise<boolean> {
+  const installations = new TenantCollection<TenantPluginInstallation>(db.collection<TenantPluginInstallation>("tenant_plugin_installations"), tenantId);
+  const installation = await installations.findOne({ pluginId, status: "installed" });
+  return Boolean(installation && installation.enabled !== false);
+}
+
 export function requireInstalledPlugin(db: Db, pluginId: string) {
   return async (request: any, reply: any) => {
     const context = request.tenantContext as TenantContext | undefined;
     if (!context || !hasTenantPermission(context, pluginId + ".read")) {
       return reply.code(403).send({ error: "Plugin permission required" });
     }
-    if (!await hasPluginEntitlement(db, context.tenantId, pluginId) || !await isPluginInstalled(db, context.tenantId, pluginId)) {
-      return reply.code(403).send({ error: "Plugin is not entitled or installed for this company" });
+    if (!await hasPluginEntitlement(db, context.tenantId, pluginId) || !await isPluginInstalled(db, context.tenantId, pluginId) || !await isPluginEnabled(db, context.tenantId, pluginId)) {
+      return reply.code(403).send({ error: "Plugin is not entitled, installed or enabled for this company" });
     }
   };
 }
