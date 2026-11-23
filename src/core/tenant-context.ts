@@ -87,7 +87,7 @@ export async function resolveTenantContext(
     if (!membership.customRoleId) return null;
     const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId });
     if (!customRole) return null;
-    try { permissions = permissionsForCustomRole(customRole); } catch { return null; }
+    try { const permissionPolicy = await db.collection<{id:string;tenantAssignablePermissions:string[]}>("platform_permission_policies").findOne({id:"global"},{projection:{tenantAssignablePermissions:1}}); const allowed = permissionPolicy?.tenantAssignablePermissions; permissions = permissionsForCustomRole(customRole, Array.isArray(allowed) ? allowed : undefined); } catch { return null; }
   } else {
     if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
     permissions = COMPANY_ROLE_PERMISSIONS[membership.role];
