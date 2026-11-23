@@ -68,15 +68,13 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
     <div class="documents__grid" *ngIf="!loading && (visibleFolders.length || documents.length)">
       <article class="documents__item documents__item--folder" *ngFor="let folder of visibleFolders">
         <button class="documents__folder-open" type="button" (click)="openFolder(folder.id)" [attr.aria-label]="'Open folder ' + folder.name">
-          <span class="documents__item-symbol documents__item-symbol--folder" aria-hidden="true"></span>
           <span class="documents__item-copy">
             <strong>{{folder.name}}</strong>
             <small>Folder</small>
           </span>
-          <span class="documents__item-chevron" aria-hidden="true">›</span>
         </button>
         <div class="documents__folder-actions" *ngIf="folder.canManageShares">
-          <button type="button" class="documents__icon-button" aria-label="Folder sharing options" title="Folder sharing options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)">•••</button>
+          <button type="button" class="documents__icon-button" aria-label="Folder sharing options" title="Folder sharing options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)">More</button>
           <div class="documents__menu" *ngIf="folderMenuId===folder.id">
             <button type="button" (click)="openShareDialog(folder,'groups')">Share with group</button>
             <button type="button" (click)="openShareDialog(folder,'users')">Share with user</button>
@@ -86,7 +84,6 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
 
       <article class="documents__item documents__item--document" *ngFor="let doc of documents">
         <div class="documents__item-main">
-          <span class="documents__item-symbol documents__item-symbol--document" aria-hidden="true"></span>
           <div class="documents__item-copy">
             <strong [title]="doc.title">{{doc.title}}</strong>
             <small>{{doc.description || 'Document'}}</small>
@@ -100,7 +97,6 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
     </div>
 
     <div class="documents__empty bee-panel" *ngIf="!loading && !visibleFolders.length && !documents.length">
-      <span class="documents__empty-symbol" aria-hidden="true"></span>
       <h2>{{currentFolderId ? 'This folder is empty' : 'No documents yet'}}</h2>
       <p>{{currentFolderId ? 'Add a text document or create a subfolder to organize this location.' : 'Start by creating a folder or uploading a plain text document.'}}</p>
       <div class="documents__empty-actions">
@@ -111,7 +107,7 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
   </section>
 
   <div class="documents__overlay" *ngIf="shareFolder" (click)="closeShareDialog()">
-    <section class="documents__share-dialog" role="dialog" aria-modal="true" aria-labelledby="share-title" aria-describedby="share-description" (click)="$event.stopPropagation()">
+    <section class="documents__share-dialog" (keydown.escape)="closeShareDialog()" role="dialog" aria-modal="true" aria-labelledby="share-title" aria-describedby="share-description" (click)="$event.stopPropagation()">
       <header class="documents__dialog-header">
         <div>
           <p class="documents__eyebrow">FOLDER ACCESS</p>
@@ -120,6 +116,7 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
         </div>
         <button type="button" class="documents__icon-button" (click)="closeShareDialog()" aria-label="Close sharing dialog">×</button>
       </header>
+      <p *ngIf="error" class="documents__notice documents__notice--error" role="alert">{{error}}</p>
       <div class="documents__share-tabs" role="group" aria-label="Sharing target type">
         <button type="button" [attr.aria-pressed]="shareMode==='groups'" [class.is-active]="shareMode==='groups'" (click)="shareMode='groups';shareQuery='';targetTeams=[];targetUsers=[];">Groups</button>
         <button type="button" [attr.aria-pressed]="shareMode==='users'" [class.is-active]="shareMode==='users'" (click)="shareMode='users';shareQuery='';targetTeams=[];targetUsers=[];">Users</button>
@@ -210,7 +207,7 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
 .documents__item-symbol--document:before{content:"";width:14px;height:19px;border:1.5px solid var(--cyan);border-radius:3px;background:linear-gradient(to bottom,transparent 0 5px,var(--cyan) 5px 6px,transparent 6px 10px,var(--cyan) 10px 11px,transparent 11px)}
 .documents__item-chevron{margin-left:auto;color:var(--muted);font-size:22px;line-height:1}
 .documents__folder-actions{position:absolute;top:12px;right:12px;z-index:2}
-.documents__icon-button{display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:14px;letter-spacing:1px;cursor:pointer}
+.documents__icon-button{display:inline-flex;min-width:38px;height:32px;align-items:center;justify-content:center;padding:0 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:11px;font-weight:600;cursor:pointer}
 .documents__icon-button:hover{border-color:var(--border);background:var(--bg);color:inherit}
 .documents__menu{position:absolute;top:36px;right:0;z-index:5;display:flex;min-width:185px;flex-direction:column;gap:3px;padding:5px;border:1px solid var(--border);border-radius:10px;background:var(--panel);box-shadow:0 12px 30px color-mix(in srgb,var(--bg) 35%,transparent)}
 .documents__menu button{padding:9px 10px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;font-size:12px;text-align:left;cursor:pointer}
