@@ -688,7 +688,7 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 ## Organization → Company profile workspace (2026-11-23)
 
 - Added a tenant-scoped Company profile screen to Organization → Company, using the shared settings-page layout and theme tokens so it renders across Glass, Midnight and Paper.
-- Company profile fields: legal name, tax/VAT identifier, business email and phone, website, industry, company description, address lines, city, region, postal code and country.
+- Company profile fields: editable company display name, legal name, tax/VAT identifier, business email and phone, website, industry, company description, address lines, city, region, postal code and country.
 - Persisted tenant-specific profile data on the existing tenant record through authenticated GET/PATCH `/companies/:companyId/profile`. Read access requires `members.read`; editing requires `members.manage`. Backend trims and length-limits fields, validates email and HTTP(S) website URLs, and scopes writes to the active organization.
 - Members without Owner/Admin editing authority see a read-only profile. Added English and Spanish catalog labels.
 - Configuration overlap reviewed: platform identity/branding and themes remain in Settings → General/Appearance; localization remains in Settings → Localization. Company profile does not duplicate those settings.
