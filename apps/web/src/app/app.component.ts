@@ -465,10 +465,14 @@ export class AppComponent implements OnInit {
     }
     this.navigateSection(target);
   }
+  get canReadActivity(): boolean {
+    // Keep navigation visibility aligned with AuditLogComponent.canRead.
+    return ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase());
+  }
   get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string}> {
     // One shared navigation structure for platform and tenant administrators.
     // Privileged areas are restricted within Settings and by section access checks.
-    return [
+    const items = [
       {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
       {id:'documents',label:'Documents',labelKey:'nav.documents',icon:'documentation',group:'WORKSPACE'},
       {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
@@ -477,6 +481,7 @@ export class AppComponent implements OnInit {
       {id:'notifications',label:this.i18n.t('nav.notifications'),labelKey:'nav.notifications',icon:'notifications',group:'WORKSPACE'},
       {id:'settings',label:this.i18n.t('nav.settings'),labelKey:'nav.settings',icon:'settings',group:'SYSTEM'}
     ];
+    return items.filter(item => item.id !== 'activity' || this.canReadActivity);
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void {
