@@ -15,9 +15,9 @@ User type and team membership are separate from custom role assignment. User typ
 
 ## Organization → Users: current baseline
 
-The current Users management component already supports listing company memberships, updating membership roles, suspending memberships, creating custom roles (owner), creating/copying invitation tokens, accepting an invitation token and cancelling pending invitations. Invitation creation currently returns a one-time token for the administrator to copy and share manually; the UI says it expires after seven days. This is not email-based delivery and does not provide an invitation-email registration experience.
+The shared Organization → Users screen now renders the existing membership component in Glass, Midnight and Paper. It supports listing company memberships, updating membership roles (including Guest), suspending memberships, creating custom roles (owner), creating/copying invitation tokens, accepting an invitation token and cancelling pending invitations. Invitation creation currently returns a one-time token for the administrator to copy and share manually; the UI says it expires after seven days. This is not email-based delivery and does not provide an invitation-email registration experience.
 
-Current company membership roles in the implementation include `owner`, `admin`, `manager`, `member`, and custom roles. The proposed `guest/external` type is not currently implemented as a built-in membership role. Platform `superadmin` remains a platform-level identity and must not be offered as a company user type.
+Current company membership roles in the implementation include `owner`, `admin`, `manager`, `member`, and custom roles. `guest` is now a built-in membership role. It receives only `plugins.read` by default, cannot administer members or invitations, and is available in invitation and membership role assignment. Platform `superadmin` remains a platform-level identity and must not be offered as a company user type.
 
 ### Planned Add User entry point
 
@@ -79,7 +79,7 @@ Both methods should create a user membership within the currently selected compa
 - Deliver temporary credentials securely; never log secrets. A mandatory password-change-on-first-login is explicitly deferred for now.
 - Configure email delivery and implement invitation email/link delivery. Existing token creation, acceptance and cancellation remain the baseline; verify the current token-storage and expiry implementation before modifying it.
 - Add the self-service invitation registration page and password creation only if the current accept-token endpoint does not already cover the intended UX.
-- Extend membership user-type options to include Guest/External only when a clear permission policy is defined; this is a proposed category, not currently a built-in role.
+- Align the platform Superadmin identity with a first-class Super Organization membership. The current platformRole/superadmin bootstrap remains platform-scoped and is not yet enrolled as an organization membership; this is required before the Super Organization can use the same organization member-management model.
 - Add end-to-end UI/backend tests for both onboarding paths, tenant isolation, token replay/expiry and secret redaction.
 
 These are future implementation tasks. This specification does not change current authentication or organization functionality.
