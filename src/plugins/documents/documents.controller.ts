@@ -5,20 +5,20 @@ import type { Folder } from "./documents.service.js";
 /** Module-owned HTTP controller/route registration. Domain helpers and infrastructure
  * are injected from the Documents plugin initialization scope. */
 export function registerDocumentsRoutes(ctx:any,deps:any):void {
- const {db,secret,storage,folderCollection,documentCollection,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,MAX_DEPTH,clean,validPublicId}=deps;
+ const {db,secret,storage,folderCollection,documentCollection,repository,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,MAX_DEPTH,clean,validPublicId}=deps;
   ctx.server.get(documentsRoutes.shareTargets,async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"members.read"))return reply.code(403).send({error:"Organization member read permission required"});
    const query=clean(req.query?.q,100).toLowerCase();
    const [teamRows,memberships]=await Promise.all([
-    db.collection<{id:string;name:string;status:string}>("company_teams").find({tenantId:tenant.tenantId,status:"active"}).sort({name:1}).toArray(),
-    db.collection<{userId:string}>("memberships").find({tenantId:tenant.tenantId,status:"active"}).toArray()
+    repository.companyTeams.find({tenantId:tenant.tenantId,status:"active"}).sort({name:1}).toArray(),
+    repository.memberships.find({tenantId:tenant.tenantId,status:"active"}).toArray()
    ]);
-   const assignments=await db.collection<{teamId:string}>("team_app_assignments").find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true}).toArray();
+   const assignments=await repository.teamAppAssignments.find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true}).toArray();
    const enabled=new Set(assignments.map(item=>item.teamId));
    const teams=teamRows.filter(team=>enabled.has(team.id)&&(!query||team.name.toLowerCase().includes(query))).map(team=>({id:team.id,name:team.name}));
    const userIds=[...new Set(memberships.map(item=>item.userId).filter(id=>id!==tenant.userId))];
-   const allUsers=userIds.length?await db.collection<{id:string;email:string;enabled:boolean}>("users").find({id:{$in:userIds},enabled:true},{projection:{id:1,email:1}}).sort({email:1}).limit(500).toArray():[];
+   const allUsers=userIds.length?await repository.users.find({id:{$in:userIds},enabled:true},{projection:{id:1,email:1}}).sort({email:1}).limit(500).toArray():[];
    const users=allUsers.filter(user=>!query||user.email.toLowerCase().includes(query)).slice(0,50);
    return {teams,users:users.map(user=>({id:userRef(user.id,tenant),email:user.email}))};
   });
@@ -30,8 +30,8 @@ export function registerDocumentsRoutes(ctx:any,deps:any):void {
    const teamIds=(policy?.teamGrants??[]).filter((grant:any)=>grant.permissions.includes("read")).map((grant:any)=>grant.teamId);
    const userIds=(policy?.userOverrides??[]).filter((item:any)=>item.effect==="allow"&&item.permissions.includes("read")&&item.userId!==tenant.userId).map((item:any)=>item.userId);
    const [teamRows,userRows]=await Promise.all([
-    teamIds.length?db.collection<{id:string;name:string}>("company_teams").find({tenantId:tenant.tenantId,id:{$in:teamIds}}).toArray():[],
-    userIds.length?db.collection<{id:string;email:string}>("users").find({id:{$in:userIds}},{projection:{id:1,email:1}}).toArray():[]
+    teamIds.length?repository.companyTeams.find({tenantId:tenant.tenantId,id:{$in:teamIds}}).toArray():[],
+    userIds.length?repository.users.find({id:{$in:userIds}},{projection:{id:1,email:1}}).toArray():[]
    ]);
    return {teams:teamRows.map(team=>({id:team.id,name:team.name})),users:userRows.map(user=>({id:userRef(user.id,tenant),email:user.email}))};
   });
@@ -45,12 +45,12 @@ export function registerDocumentsRoutes(ctx:any,deps:any):void {
    const userRefs:string[]=[...new Set(rawUserRefs.map((value:unknown)=>String(value??"").trim()).filter((value:string)=>value.length>0))];
    let userIds:string[];try{userIds=userRefs.map(value=>unmaskResourceId(value,"user",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret));}catch{return reply.code(400).send({error:"Invalid organization member reference"});}
    const [validTeams,validUsers]=await Promise.all([
-    teamIds.length?db.collection("company_teams").countDocuments({tenantId:tenant.tenantId,id:{$in:teamIds},status:"active"}):0,
-    userIds.length?db.collection("memberships").countDocuments({tenantId:tenant.tenantId,status:"active",userId:{$in:userIds}}):0
+    teamIds.length?repository.companyTeams.countDocuments({tenantId:tenant.tenantId,id:{$in:teamIds},status:"active"}):0,
+    userIds.length?repository.memberships.countDocuments({tenantId:tenant.tenantId,status:"active",userId:{$in:userIds}}):0
    ]);
    if(validTeams!==teamIds.length)return reply.code(400).send({error:"All selected teams must be active in this organization"});
    if(validUsers!==userIds.length)return reply.code(400).send({error:"All selected users must be active members of this organization"});
-   const assigned=teamIds.length?await db.collection<{teamId:string}>("team_app_assignments").find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true,teamId:{$in:teamIds}}).toArray():[];
+   const assigned=teamIds.length?await repository.teamAppAssignments.find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true,teamId:{$in:teamIds}}).toArray():[];
    if(new Set(assigned.map(item=>item.teamId)).size!==teamIds.length)return reply.code(400).send({error:"Every shared team must have Documents enabled"});
    const key={tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder",resourceId:id};
    const existing=await policies.findOne(key);
