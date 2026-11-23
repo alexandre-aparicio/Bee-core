@@ -61,7 +61,7 @@ export const documentsPlugin:BeePlugin={
    const decision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"documents",resourceType:type,resourceId:id,permission,ancestorResources:parents.map(f=>({resourceType:"folder",resourceId:f.id}))});
    return decision!==false;
   };
-  const present=(item:BeeDocument,tenant:TenantContext)=>({id:ref(item.id,"document",tenant),title:item.title,description:item.description,tags:item.tags,folderId:item.folderId?ref(item.folderId,"folder",tenant):null,visibility:item.visibility,publishedAt:item.publishedAt,publicUrl:item.visibility==="public"&&item.publicId?"/api/public/documents/"+item.publicId:null,createdAt:item.createdAt,updatedAt:item.updatedAt});
+  const present=(item:BeeDocument,tenant:TenantContext)=>({id:ref(item.id,"document",tenant),title:item.title,description:item.description,tags:item.tags,folderId:item.folderId?ref(item.folderId,"folder",tenant):null,visibility:item.visibility,publishedAt:item.publishedAt,publicUrl:item.visibility==="public"&&item.publicId?"/api/public/documents/"+item.publicId:null,downloadUrl:"/api/documents/"+ref(item.id,"document",tenant)+"/download",createdAt:item.createdAt,updatedAt:item.updatedAt});
 
   ctx.server.get("/documents/folders",async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
@@ -94,6 +94,8 @@ export const documentsPlugin:BeePlugin={
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let fileId:string;try{fileId=unmaskResourceId(String(req.body?.fileId??""),"file",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);}catch{return reply.code(400).send({error:"A valid uploaded Files reference is required"});}
    const file=await storage.getMetadata(tenant.tenantId,fileId);if(!file)return reply.code(404).send({error:"Stored file not found"});
+   const fileDecision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"files",resourceType:"file",resourceId:fileId,permission:"read"});
+   if(fileDecision===false)return reply.code(404).send({error:"Stored file not found"});
    let folderId:string|null=null;let parents:Folder[]=[];
    if(req.body?.folderId){try{folderId=unref(String(req.body.folderId),"folder",tenant);parents=await ancestors(tenant.tenantId,folderId);}catch{return reply.code(404).send({error:"Folder not found"});}
     if(!await canAccess(tenant,"folder",folderId,"write",parents.slice(1)))return reply.code(404).send({error:"Folder not found"});}
@@ -112,6 +114,18 @@ export const documentsPlugin:BeePlugin={
    const published=req.body.published;const publicId=published?(item.visibility==="public"?item.publicId:randomBytes(32).toString("base64url")):null;const now=new Date();
    await docs(tenant.tenantId).updateOne({id},{$set:{visibility:published?"public":"private",publicId,publishedAt:published?(item.publishedAt??now):null,updatedAt:now}});
    const updated=await docs(tenant.tenantId).findOne({id});return {document:updated?present(updated,tenant):null};
+  });
+  ctx.server.get<{Params:{documentId:string}}>("/documents/:documentId/download",async(req,reply)=>{
+   const tenant=await authenticate(req,reply);if(!tenant)return;
+   let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
+   const item=await docs(tenant.tenantId).findOne({id});if(!item)return reply.code(404).send({error:"Document not found"});
+   const parents=await ancestors(tenant.tenantId,item.folderId);
+   if(!await canAccess(tenant,"document",id,"read",parents))return reply.code(404).send({error:"Document not found"});
+   const file=await storage.getMetadata(tenant.tenantId,item.fileId);if(!file)return reply.code(404).send({error:"Document content not found"});
+   let data:Buffer;try{data=await storage.read(tenant.tenantId,file);}catch{return reply.code(404).send({error:"Document content not found"});}
+   reply.header("content-type",file.contentType);reply.header("content-length",String(data.length));
+   reply.header("content-disposition","attachment; filename=\""+file.originalName.replace(/["\\\\\\r\\n]/g,"_")+"\"");
+   reply.header("cache-control","private, no-store");reply.header("x-content-type-options","nosniff");return reply.send(data);
   });
   ctx.server.get<{Params:{publicId:string}}>("/public/documents/:publicId",async(req,reply)=>{
    const publicId=validPublicId(req.params.publicId);if(!publicId)return reply.code(404).send({error:"Document not found"});

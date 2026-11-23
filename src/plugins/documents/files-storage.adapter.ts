@@ -1,9 +1,9 @@
-import type { Db } from "mongodb";
+import type { Db, Document } from "mongodb";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-type StoredFile = { id: string; tenantId: string; originalName: string; contentType: string; size: number; storageKey: string };
+type StoredFile = Document & { id: string; tenantId: string; originalName: string; contentType: string; size: number; storageKey: string };
 
 /** Transitional boundary around the existing Files storage implementation. */
 export class FilesStorageAdapter {
