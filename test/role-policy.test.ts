@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeCustomRolePermissions, normalizeTenantCustomRolePermissions, normalizeCustomRoleName, hasPolicyPermission } from "../src/core/role-policy.js";
+import { normalizeCustomRolePermissions, normalizeTenantCustomRolePermissions, normalizeCustomRoleName, hasPolicyPermission, permissionsForCustomRole } from "../src/core/role-policy.js";
 import { CORE_PERMISSION_CATALOG, CORE_PERMISSION_KEYS } from "../src/core/permission-catalog.js";
 import { COMPANY_ROLE_PERMISSIONS } from "../src/core/tenant-context.js";
 
@@ -51,3 +51,5 @@ test("platform policy can narrow tenant custom-role delegation without changing 
   assert.throws(() => normalizeTenantCustomRolePermissions(["mail.send"], allowed), /protected permissions/);
   assert.throws(() => normalizeTenantCustomRolePermissions(["members.manage"], allowed), /protected permissions/);
 });
+
+test("custom role effective permissions honor the current platform delegation policy", () => {\n  const role = { permissions: ["notes.read", "files.write", "mail.send"] };\n  assert.deepEqual(permissionsForCustomRole(role, ["notes.read", "files.write"]), ["notes.read", "files.write"]);\n  assert.throws(() => permissionsForCustomRole(role, ["notes.read"]), /protected permissions/);\n});\n
