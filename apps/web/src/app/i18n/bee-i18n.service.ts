@@ -50,6 +50,11 @@ export class BeeI18nService {
     this.activeNamespaces.clear();
     this.activeNamespaces.add('core');
     this.activeNamespaces.add('settings');
+    this.activeNamespaces.add('organization');
+    this.activeNamespaces.add('marketplace');
+    this.activeNamespaces.add('notifications');
+    this.activeNamespaces.add('mail');
+    this.activeNamespaces.add('platform-admin');
     for (const id of moduleIds) this.activeNamespaces.add(String(id).toLowerCase());
   }
 
