@@ -370,3 +370,22 @@ button.dash-nav:focus-visible{outline:2px solid var(--purple);outline-offset:2px
 
 /* Settings workspace must use the full available width. */
 html body .settings-page.settings-page{display:block;width:100%;max-width:none;min-width:0;box-sizing:border-box}
+
+
+/* Invitation cards and per-card overflow actions */
+.bee-company-members__invitation-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
+.bee-company-members__invitation-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface, #ffffff04)}
+.bee-company-members__invitation-card-head{display:flex;align-items:center;justify-content:space-between;width:100%;gap:6px}
+.bee-company-members__invitation-role{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.bee-company-members__invitation-email{display:block;width:100%;overflow-wrap:anywhere;font-size:10px}
+.bee-company-members__invitation-date{font-size:9px;color:var(--muted)}
+.bee-company-members__invitation-menu-wrap{position:relative}
+.bee-company-members__invitation-menu-trigger{display:grid;place-items:center;width:25px;height:25px;border:1px solid var(--border);border-radius:7px;background:transparent;color:inherit;font-size:16px;line-height:1;cursor:pointer}
+.bee-company-members__invitation-menu{position:absolute;right:0;top:28px;z-index:5;display:grid;gap:2px;min-width:150px;padding:5px;border:1px solid var(--border);border-radius:9px;background:var(--panel, #181a24);box-shadow:0 8px 24px #0004}
+.bee-company-members__invitation-menu button{width:100%;text-align:left;border:0;border-radius:6px;padding:8px;background:transparent;color:inherit;font-size:10px}
+.bee-company-members__invitation-menu button:disabled{opacity:.4;cursor:not-allowed}
+.bee-company-members__invitation-menu button.is-danger{color:#f0aaaa}
+.bee-company-members__status.is-revoked{background:#e58a8a16;color:#e58a8a}
+@media(max-width:1100px){.bee-company-members__invitation-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.bee-company-members__invitation-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.bee-company-members__invitation-grid{grid-template-columns:minmax(0,1fr)}}

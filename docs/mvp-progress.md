@@ -642,3 +642,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Removes the masked user resource ID from the member table; the email is the visible member identity, avoiding the opaque token-like ID shown below the email.
 - Keeps the restriction that an Admin cannot change another Admin's role; Owner and Super Admin protections remain unchanged.
 - Validation: no build, tests, browser checks, CI, or VPS validation performed.
+
+
+## Organization invitation cards and revoke action (2026-11-23)
+
+- Removed the redundant token input from Organization → Users; invitation acceptance is handled through the generated invitation link flow.
+- Replaced the invitation list with a responsive card grid (five columns on wide desktop, collapsing for tablet/mobile).
+- Added a vertical three-dot action menu per invitation. Placeholder actions remain disabled; Revoke invitation uses the existing cancellation endpoint.
+- Revoked invitations are labeled **revoked** in the status badge, replacing the prior cancelled wording; accepted, pending and expired states remain distinct.
+- Validation: no build, tests, browser checks, CI or VPS runtime validation performed.

@@ -4,7 +4,7 @@ import { FormsModule } from "@angular/forms";
 
 type CompanyMember = { userId: string; email: string | null; role: string; customRoleId?: string | null; restrictionRoleIds?: string[]; status: "active" | "suspended"; createdAt: string };
 type CustomRole = { id: string; name: string; description: string; permissions: string[]; mode?: "grant" | "restriction" };
-type CompanyInvitation = { id: string; email: string; role: string; customRoleId?: string | null; restrictionRoleIds?: string[]; createdAt: string; expiresAt: string; acceptedAt: string | null; cancelledAt: string | null };
+type CompanyInvitation = { id: string; email: string; role: string; customRoleId?: string | null; restrictionRoleIds?: string[]; createdAt: string; expiresAt: string; acceptedAt: string | null; cancelledAt: string | null; status?: "pending" | "accepted" | "cancelled" | "expired" };
 
 @Component({
   selector: "bee-company-members",
@@ -13,14 +13,8 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
   template: `
     <section id="users" class="panel bee-dashboard-card bee-company-members">
       <div class="panel-heading">
-        <div><h2>{{canRead ? "Organization members" : "Join an organization"}}</h2><p>{{canRead ? "Memberships and roles apply only to the active organization." : "Have an invitation token? Accept it to join another company."}}</p></div>
+        <div><h2>{{canRead ? "Organization members" : "Join an organization"}}</h2><p>{{canRead ? "Memberships and roles apply only to the active organization." : "Select an invitation link to join an organization."}}</p></div>
         <button class="bee-company-members__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
-      </div>
-      <div class="bee-company-members__accept">
-        <form (submit)="acceptInvitation($event)">
-          <input type="text" name="acceptInvitationToken" [(ngModel)]="inviteTokenInput" placeholder="Paste a company invitation token">
-          <button type="submit" [disabled]="busyId === 'accept' || !inviteTokenInput.trim()">{{busyId === 'accept' ? 'Joining…' : 'Accept invitation'}}</button>
-        </form>
       </div>
       <div *ngIf="canRead && loading" class="bee-company-members__state">Loading members…</div>
       <div *ngIf="error" class="bee-company-members__error" role="alert">{{error}}</div>
@@ -66,10 +60,23 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
 
       <div *ngIf="canInvite && invitations.length" class="bee-company-members__invitations">
         <h3>Invitations</h3>
-        <div class="bee-company-members__invitation" *ngFor="let invitation of invitations; trackBy: trackInvitation">
-          <span><strong>{{invitation.email}}</strong><small>{{invitation.role === 'custom' ? customRoleName(invitation.customRoleId) : invitation.role}} · expires {{invitation.expiresAt | date:'mediumDate'}}</small></span>
-          <span class="bee-company-members__status" [class.is-suspended]="invitation.cancelledAt || invitation.acceptedAt">{{invitation.acceptedAt ? 'accepted' : invitation.cancelledAt ? 'cancelled' : 'pending'}}</span>
-          <button *ngIf="!invitation.acceptedAt && !invitation.cancelledAt" type="button" class="bee-company-members__danger" (click)="cancelInvitation(invitation)" [disabled]="busyId === invitation.id">Cancel</button>
+        <div class="bee-company-members__invitation-grid">
+          <article class="bee-company-members__invitation-card" *ngFor="let invitation of invitations; trackBy: trackInvitation">
+            <div class="bee-company-members__invitation-card-head">
+              <span class="bee-company-members__invitation-role">{{invitation.role === 'custom' ? customRoleName(invitation.customRoleId) : invitation.role}}</span>
+              <div class="bee-company-members__invitation-menu-wrap">
+                <button type="button" class="bee-company-members__invitation-menu-trigger" [attr.aria-label]="'Invitation options for ' + invitation.email" [attr.aria-expanded]="openInvitationMenuId === invitation.id" (click)="toggleInvitationMenu(invitation.id)">⋮</button>
+                <div *ngIf="openInvitationMenuId === invitation.id" class="bee-company-members__invitation-menu">
+                  <button type="button" disabled>Edit invitation</button>
+                  <button type="button" disabled>Resend invitation</button>
+                  <button type="button" class="is-danger" (click)="cancelInvitation(invitation)" [disabled]="busyId === invitation.id || invitation.acceptedAt || invitation.cancelledAt || invitation.status === 'expired'">Revoke invitation</button>
+                </div>
+              </div>
+            </div>
+            <strong class="bee-company-members__invitation-email">{{invitation.email}}</strong>
+            <small class="bee-company-members__invitation-date">Expires {{invitation.expiresAt | date:'mediumDate'}}</small>
+            <span class="bee-company-members__status" [class.is-suspended]="invitationState(invitation) !== 'pending'" [class.is-revoked]="invitationState(invitation) === 'revoked'">{{invitationState(invitation)}}</span>
+          </article>
         </div>
       </div>
     </section>
@@ -92,7 +99,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   inviteRole = "member";
   inviteRestrictionRoleIds: string[] = [];
   acceptanceLink = "";
-  inviteTokenInput = "";
+  openInvitationMenuId = "";
   loading = false;
   private requestSequence = 0;
   busyId = "";
@@ -124,6 +131,8 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
 
   trackMember(_index: number, member: CompanyMember): string { return member.userId; }
   trackInvitation(_index: number, invitation: CompanyInvitation): string { return invitation.id; }
+  invitationState(invitation: CompanyInvitation): "pending" | "accepted" | "revoked" | "expired" { return invitation.acceptedAt ? "accepted" : invitation.cancelledAt || invitation.status === "cancelled" ? "revoked" : invitation.status === "expired" || new Date(invitation.expiresAt).getTime() <= Date.now() ? "expired" : "pending"; }
+  toggleInvitationMenu(id: string): void { this.openInvitationMenuId = this.openInvitationMenuId === id ? "" : id; }
   trackCustomRole(_index:number, role:CustomRole):string { return role.id; }
   customRoleName(roleId?:string|null):string { return this.customRoles.find(item=>item.id===roleId)?.name || "Custom role"; }
 
@@ -206,26 +215,6 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
     }
   }
 
-  async acceptInvitation(event: Event): Promise<void> {
-    event.preventDefault();
-    const token = this.inviteTokenInput.trim();
-    if (!token || this.busyId) return;
-    this.busyId = "accept";
-    this.error = "";
-    this.message = "";
-    try {
-      const result = await this.request("/invitations/accept", "POST", { token });
-      this.inviteTokenInput = "";
-      this.message = "Invitation accepted for " + result.company.name + ". Select that company in the workspace switcher.";
-      this.membershipChanged.emit();
-      await this.load();
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : "Could not accept invitation";
-    } finally {
-      this.busyId = "";
-    }
-  }
-
   toggleInviteRestriction(roleId: string, checked: boolean): void {
     const selected = new Set(this.inviteRestrictionRoleIds);
     if (checked) selected.add(roleId); else selected.delete(roleId);
@@ -281,10 +270,11 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
 
   async cancelInvitation(invitation: CompanyInvitation): Promise<void> {
     this.busyId = invitation.id;
+    this.openInvitationMenuId = "";
     this.error = "";
     try {
       await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/invitations/" + encodeURIComponent(invitation.id), "DELETE");
-      this.message = "Invitation cancelled.";
+      this.message = "Invitation revoked.";
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not cancel invitation";
