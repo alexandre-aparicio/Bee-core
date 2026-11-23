@@ -92,7 +92,7 @@ export class AppComponent implements OnInit {
       const response = await fetch(this.api + '/marketplace/plugins', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not load enabled company plugins');
-      const enabledIds = (Array.isArray(result.plugins) ? result.plugins : []).filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true).map((plugin: any) => String(plugin.id || '')).filter(Boolean);
+      const enabledIds = (Array.isArray(result.plugins) ? result.plugins : []).filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true).map((plugin: any) => String(plugin.pluginKey || plugin.id || '')).filter(Boolean);
       this.setActivePlugins(enabledIds);
     } catch { this.setActivePlugins([]); }
   }
