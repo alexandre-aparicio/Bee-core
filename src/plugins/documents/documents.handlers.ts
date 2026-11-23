@@ -18,12 +18,12 @@ export function createDocumentsHandlers(deps:any) {
     repository.memberships.find({tenantId:tenant.tenantId,status:"active"}).toArray()
    ]);
    const assignments=await repository.teamAppAssignments.find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true}).toArray();
-   const enabled=new Set(assignments.map(item=>item.teamId));
-   const teams=teamRows.filter(team=>enabled.has(team.id)&&(!query||team.name.toLowerCase().includes(query))).map(team=>({id:team.id,name:team.name}));
-   const userIds=[...new Set(memberships.map(item=>item.userId).filter(id=>id!==tenant.userId))];
-   const allUsers=userIds.length?await repository.users.find({id:{$in:userIds},enabled:true},{projection:{id:1,email:1}}).sort({email:1}).limit(500).toArray():[];
-   const users=allUsers.filter(user=>!query||user.email.toLowerCase().includes(query)).slice(0,50);
-   return {teams,users:users.map(user=>({id:userRef(user.id,tenant),email:user.email}))};
+   const enabled=new Set(assignments.map((item:any)=>item.teamId));
+   const teams=teamRows.filter((team:any)=>enabled.has(team.id)&&(!query||team.name.toLowerCase().includes(query))).map((team:any)=>({id:team.id,name:team.name}));
+   const userIds=[...new Set(memberships.map((item:any)=>item.userId).filter((id:any)=>id!==tenant.userId))];
+   const allUsers:any[]=userIds.length?await repository.users.find({id:{$in:userIds},enabled:true},{projection:{id:1,email:1}}).sort({email:1}).limit(500).toArray():[];
+   const users=allUsers.filter((user:any)=>!query||user.email.toLowerCase().includes(query)).slice(0,50);
+   return {teams,users:users.map((user:any)=>({id:userRef(user.id,tenant),email:user.email}))};
   },
   folderSharesGet: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
@@ -32,11 +32,11 @@ export function createDocumentsHandlers(deps:any) {
    const policy=await sharePolicy(tenant,id);
    const teamIds=(policy?.teamGrants??[]).filter((grant:any)=>grant.permissions.includes("read")).map((grant:any)=>grant.teamId);
    const userIds=(policy?.userOverrides??[]).filter((item:any)=>item.effect==="allow"&&item.permissions.includes("read")&&item.userId!==tenant.userId).map((item:any)=>item.userId);
-   const [teamRows,userRows]=await Promise.all([
+   const [teamRows,userRows]:[any[],any[]]=await Promise.all([
     teamIds.length?repository.companyTeams.find({tenantId:tenant.tenantId,id:{$in:teamIds}}).toArray():[],
     userIds.length?repository.users.find({id:{$in:userIds}},{projection:{id:1,email:1}}).toArray():[]
    ]);
-   return {teams:teamRows.map(team=>({id:team.id,name:team.name})),users:userRows.map(user=>({id:userRef(user.id,tenant),email:user.email}))};
+   return {teams:teamRows.map((team:any)=>({id:team.id,name:team.name})),users:userRows.map((user:any)=>({id:userRef(user.id,tenant),email:user.email}))};
   },
   folderSharesPut: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
@@ -54,7 +54,7 @@ export function createDocumentsHandlers(deps:any) {
    if(validTeams!==teamIds.length)return reply.code(400).send({error:"All selected teams must be active in this organization"});
    if(validUsers!==userIds.length)return reply.code(400).send({error:"All selected users must be active members of this organization"});
    const assigned=teamIds.length?await repository.teamAppAssignments.find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true,teamId:{$in:teamIds}}).toArray():[];
-   if(new Set(assigned.map(item=>item.teamId)).size!==teamIds.length)return reply.code(400).send({error:"Every shared team must have Documents enabled"});
+   if(new Set(assigned.map((item:any)=>item.teamId)).size!==teamIds.length)return reply.code(400).send({error:"Every shared team must have Documents enabled"});
    const key={tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder",resourceId:id};
    const existing=await policies.findOne(key);
    const retainedDenials=(existing?.userOverrides??[]).filter((item:any)=>item.effect==="deny"&&item.userId!==tenant.userId);
@@ -69,19 +69,19 @@ export function createDocumentsHandlers(deps:any) {
    const visible:any[]=[];const countByFolder=new Map<string,number>();
    const [documentRows,userRows,folderPolicies]=await Promise.all([
     docs(tenant.tenantId).find({folderId:{$ne:null}}).toArray(),
-    repository.users.find({id:{$in:[...new Set(rows.map(folder=>folder.createdBy))]}},{projection:{id:1,email:1}}).toArray(),
+    repository.users.find({id:{$in:[...new Set(rows.map((folder:any)=>folder.createdBy))]}},{projection:{id:1,email:1}}).toArray(),
     repository.resourcePolicies.find({tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder"}).toArray()
    ]);
-   const usersById=new Map(userRows.map(user=>[user.id,user]));
-   const folderOwnerById=new Map(rows.map(folder=>[folder.id,folder.createdBy]));
-   const sharedPolicies=folderPolicies.filter(policy=>(policy.teamGrants??[]).some(grant=>grant.permissions?.includes("read"))||(policy.userOverrides??[]).some(grant=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read")));
-   const sharedFolderIds=new Set(sharedPolicies.map(policy=>policy.resourceId));
-   for(const item of documentRows){
+   const usersById=new Map(userRows.map((user:any)=>[user.id,user]));
+   const folderOwnerById=new Map(rows.map((folder:any)=>[folder.id,folder.createdBy]));
+   const sharedPolicies=folderPolicies.filter((policy:any)=>((policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read")))||((policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read"))));
+   const sharedFolderIds=new Set(sharedPolicies.map((policy:any)=>policy.resourceId));
+   for(const item of documentRows as any[]){
     const parents=await ancestors(tenant.tenantId,item.folderId);
     if(!await canAccess(tenant,"document",item.id,"read",parents))continue;
-    for(const parent of parents)countByFolder.set(parent.id,(countByFolder.get(parent.id)??0)+1);
+    for(const parent of parents as Folder[])countByFolder.set(parent.id,(countByFolder.get(parent.id)??0)+1);
    }
-   for(const folder of rows){
+   for(const folder of rows as any[]){
     const parents=await ancestors(tenant.tenantId,folder.parentId);
     if(await canAccess(tenant,"folder",folder.id,"read",parents)){
      visible.push({id:ref(folder.id,"folder",tenant),name:folder.name,parentId:folder.parentId?ref(folder.parentId,"folder",tenant):null,
@@ -93,7 +93,7 @@ export function createDocumentsHandlers(deps:any) {
    }
    return {folders:visible};
   },
-  foldersPost: async(req,reply)=>{
+  foldersPost: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    const name=clean(req.body?.name,120);if(!name)return reply.code(400).send({error:"Folder name required"});
@@ -102,11 +102,11 @@ export function createDocumentsHandlers(deps:any) {
     if(!await canAccess(tenant,"folder",parentId,"write",parents.slice(1)))return reply.code(404).send({error:"Parent folder not found"});}
    const now=new Date();const row:Folder={id:randomUUID(),tenantId:tenant.tenantId,name,parentId,createdBy:tenant.userId,createdAt:now,updatedAt:now};
    await folders(tenant.tenantId).insertOne(row);
-   const creator=await repository.users.findOne({id:tenant.userId},{projection:{id:1,email:1}});
+   const creator:any=await repository.users.findOne({id:tenant.userId},{projection:{id:1,email:1}});
    return reply.code(201).send({folder:{id:ref(row.id,"folder",tenant),name,parentId:parentId?ref(parentId,"folder",tenant):null,
     uploadedBy:{email:creator?.email??"Unknown user"},createdAt:now,updatedAt:now,access:"private",documentCount:0}});
   },
-  documentLocation: async(req,reply)=>{
+  documentLocation: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
@@ -125,7 +125,7 @@ export function createDocumentsHandlers(deps:any) {
    const updated=await docs(tenant.tenantId).findOne({id});
    return {success:true,document:updated?await present(updated,tenant):null};
   },
-  folderLocation: async(req,reply)=>{
+  folderLocation: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let id:string;try{id=unref(req.params.folderId,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
@@ -138,9 +138,9 @@ export function createDocumentsHandlers(deps:any) {
     try{parentId=unref(String(req.body.parentId),"folder",tenant);targetParents=await ancestors(tenant.tenantId,parentId);}
     catch{return reply.code(404).send({error:"Destination folder not found"});}
     if(targetParents.some(parent=>parent.id===id))return reply.code(400).send({error:"A folder cannot be moved into itself or one of its descendants"});
-    const allFolders=await folders(tenant.tenantId).find({}).toArray();
+    const allFolders:any[]=await folders(tenant.tenantId).find({}).toArray();
     const childrenByParent=new Map<string,string[]>();
-    for(const child of allFolders){if(child.parentId){const siblings=childrenByParent.get(child.parentId)??[];siblings.push(child.id);childrenByParent.set(child.parentId,siblings);}}
+    for(const child of allFolders as any[]){if(child.parentId){const siblings=childrenByParent.get(child.parentId)??[];siblings.push(child.id);childrenByParent.set(child.parentId,siblings);}}
     const queue:Array<{folderId:string;depth:number}>=[{folderId:id,depth:0}];const visited=new Set<string>();let maxDescendantDepth=0;
     while(queue.length){
      const current=queue.shift()!;if(visited.has(current.folderId))return reply.code(400).send({error:"Invalid folder hierarchy"});
@@ -164,7 +164,7 @@ export function createDocumentsHandlers(deps:any) {
    for(const item of rows){const parents=await ancestors(tenant.tenantId,item.folderId);if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(await present(item,tenant));}
    return {documents:visible};
   },
-  documentsPost: async(req,reply)=>{
+  documentsPost: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let fileId:string;try{fileId=unmaskResourceId(String(req.body?.fileId??""),"file",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);}catch{return reply.code(400).send({error:"A valid uploaded Files reference is required"});}
@@ -179,7 +179,7 @@ export function createDocumentsHandlers(deps:any) {
    const item:BeeDocument={id:randomUUID(),tenantId:tenant.tenantId,fileId,folderId,title,description:clean(req.body?.description,2000),tags,visibility:"private",publicId:null,publishedAt:null,createdBy:tenant.userId,createdAt:now,updatedAt:now};
    await docs(tenant.tenantId).insertOne(item);return reply.code(201).send({document:await present(item,tenant)});
   },
-  publication: async(req,reply)=>{
+  publication: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
@@ -190,7 +190,7 @@ export function createDocumentsHandlers(deps:any) {
    await docs(tenant.tenantId).updateOne({id},{$set:{visibility:published?"public":"private",publicId,publishedAt:published?(item.publishedAt??now):null,updatedAt:now}});
    const updated=await docs(tenant.tenantId).findOne({id});return {document:updated?await present(updated,tenant):null};
   },
-  download: async(req,reply)=>{
+  download: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    let id:string;try{id=unref(req.params.documentId,"document",tenant);}catch{return reply.code(404).send({error:"Document not found"});}
    const item=await docs(tenant.tenantId).findOne({id});if(!item)return reply.code(404).send({error:"Document not found"});
@@ -204,9 +204,9 @@ export function createDocumentsHandlers(deps:any) {
    reply.header("content-disposition","attachment; filename=\""+file.originalName.replace(/["\\\\\\r\\n]/g,"_")+"\"");
    reply.header("cache-control","private, no-store");reply.header("x-content-type-options","nosniff");return reply.send(data);
   },
-  publicDownload: async(req,reply)=>{
+  publicDownload: async(req:any,reply:any)=>{
    const publicId=validPublicId(req.params.publicId);if(!publicId)return reply.code(404).send({error:"Document not found"});
-   const item=await documentCollection.findOne({publicId,visibility:"public",publishedAt:{$ne:null}});if(!item)return reply.code(404).send({error:"Document not found"});
+   const item=await repository.documentCollection.findOne({publicId,visibility:"public",publishedAt:{$ne:null}});if(!item)return reply.code(404).send({error:"Document not found"});
    const file=await storage.getMetadata(item.tenantId,item.fileId);if(!file)return reply.code(404).send({error:"Document content not found"});
    let data:Buffer;try{data=await storage.read(item.tenantId,file);}catch{return reply.code(404).send({error:"Document content not found"});}
    reply.header("content-type",file.contentType);reply.header("content-length",String(data.length));
