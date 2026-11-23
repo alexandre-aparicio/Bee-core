@@ -16,7 +16,7 @@ import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
-type Membership={id:string;userId:string;tenantId:string;role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom";status:"active";createdAt:Date;updatedAt:Date};
+type Membership={id:string;userId:string;tenantId:string;role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom";status:"active"|"invited"|"suspended";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string};
 export const platformAdminPlugin:BeePlugin={
  manifest:{name:"platform-admin",version:"0.1.0",description:"Platform-wide administration protected by Super Organization super_admin membership",dependencies:["auth","organizations","marketplace"]},
@@ -36,16 +36,19 @@ export const platformAdminPlugin:BeePlugin={
   let superOrganization=await companies.findOne({kind:"super"});
   if(!superOrganization){
    const superOrganizationId="bee-core-super-organization";
-   superOrganization=await companies.findOne({id:superOrganizationId});
-   if(!superOrganization){
+   let existingOrganization=await companies.findOne({id:superOrganizationId});
+   if(!existingOrganization){
     let slug="super-organization";
     if(await companies.findOne({slug}))slug="bee-core-super-organization";
     if(await companies.findOne({slug}))slug="bee-core-root-organization";
     if(await companies.findOne({slug}))slug="bee-core-root-"+randomUUID().slice(0,8);
-    superOrganization={id:superOrganizationId,name:"Bee-Core Super Organization",slug,kind:"super",createdAt:new Date(),status:"active",settings:{defaultLanguage:"en"}};
-    await companies.insertOne(superOrganization);
+    const newSuperOrganization:Company={id:superOrganizationId,name:"Bee-Core Super Organization",slug,kind:"super",createdAt:new Date(),status:"active",settings:{defaultLanguage:"en"}};
+    await companies.insertOne(newSuperOrganization);
+    existingOrganization=await companies.findOne({id:superOrganizationId});
    }
+   superOrganization=existingOrganization;
   }
+  if(!superOrganization)throw new Error("Platform admin: failed to initialize the Super Organization.");
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
