@@ -12,7 +12,7 @@ import bcrypt from "bcryptjs";
 import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
-import { getTenantSubscription, getTrustedPluginPackage, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
+import { getTenantSubscription, getTrustedPluginPackage, hasPluginEntitlement, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
@@ -288,6 +288,7 @@ export const platformAdminPlugin:BeePlugin={
      await installations.updateOne({tenantId:company.id,pluginId:plugin.id,status:"installed"},{$set:{enabled:false,enabledUpdatedAt:now,enabledUpdatedBy:actor.id,updatedAt:now}});
     }
    }else{
+    if(!await hasPluginEntitlement(db,company.id,plugin.id))return reply.code(402).send({error:"This company plan or an active plugin purchase does not include this package"});
     for(const dependencyId of plugin.dependencies){
      const dependencyGlobal=await installations.findOne({tenantId:superOrganization.id,pluginId:dependencyId,status:"installed"});
      const dependencyTenant=await installations.findOne({tenantId:company.id,pluginId:dependencyId,status:"installed",enabled:{$ne:false}});
