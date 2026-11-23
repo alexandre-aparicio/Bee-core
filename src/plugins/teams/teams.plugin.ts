@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { isPluginInstalled } from "../../core/plugin-entitlements.js";
 import { type ResourceAccessPolicy, type TeamResourceGrant, type UserResourceOverride } from "../../core/resource-access.js";
-import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
+import { maskResourceId, unmaskResourceId, unmaskTenantId } from "../../core/session-id.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 
 type Team = { id:string; tenantId:string; name:string; description:string; status:"active"|"archived"; parentTeamId?:string|null; createdAt:Date; updatedAt:Date; createdBy:string };
@@ -45,6 +45,17 @@ export const teamsPlugin:BeePlugin = {
     await req.jwtVerify();
     const tenant=await resolveTenantContext(db,req.user,{},secret);
     if(!tenant||tenant.client!=="dashboard"){reply.code(401).send({error:"Active organization dashboard session required"});return null;}
+    // Company IDs in dashboard URLs are session-bound masked references.
+    // Resolve them exactly as the organizations plugin does before applying
+    // the active-tenant scope check or using the parameter in database queries.
+    if(typeof req.params?.companyId==="string"){
+     try{
+      req.params.companyId=unmaskTenantId(req.params.companyId,sessionOf(tenant),secret);
+     }catch{
+      reply.code(404).send({error:"Organization not found"});
+      return null;
+     }
+    }
     return tenant;
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
