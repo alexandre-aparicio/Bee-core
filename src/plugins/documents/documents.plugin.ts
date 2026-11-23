@@ -63,10 +63,64 @@ export const documentsPlugin:BeePlugin={
   };
   const present=(item:BeeDocument,tenant:TenantContext)=>({id:ref(item.id,"document",tenant),title:item.title,description:item.description,tags:item.tags,folderId:item.folderId?ref(item.folderId,"folder",tenant):null,visibility:item.visibility,publishedAt:item.publishedAt,publicUrl:item.visibility==="public"&&item.publicId?"/api/public/documents/"+item.publicId:null,downloadUrl:"/api/documents/"+ref(item.id,"document",tenant)+"/download",createdAt:item.createdAt,updatedAt:item.updatedAt});
 
+  const sharePolicy=async(tenant:TenantContext,folderId:string)=>policies.findOne({tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder",resourceId:folderId});
+  const policies=db.collection<any>("resource_access_policies");
+  const ownedFolder=async(tenant:TenantContext,folderId:string)=>folders(tenant.tenantId).findOne({id:folderId,createdBy:tenant.userId});
+  ctx.server.get("/documents/share-targets",async(req:any,reply:any)=>{
+   const tenant=await authenticate(req,reply);if(!tenant)return;
+   if(!hasTenantPermission(tenant,"members.read"))return reply.code(403).send({error:"Organization member read permission required"});
+   const query=clean(req.query?.q,100).toLowerCase();
+   const [teamRows,memberships]=await Promise.all([
+    db.collection<{id:string;name:string;status:string}>("company_teams").find({tenantId:tenant.tenantId,status:"active"}).sort({name:1}).toArray(),
+    db.collection<{userId:string}>("memberships").find({tenantId:tenant.tenantId,status:"active"}).toArray()
+   ]);
+   const assignments=await db.collection<{teamId:string}>("team_app_assignments").find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true}).toArray();
+   const enabled=new Set(assignments.map(item=>item.teamId));
+   const teams=teamRows.filter(team=>enabled.has(team.id)&&(!query||team.name.toLowerCase().includes(query))).map(team=>({id:team.id,name:team.name}));
+   const userIds=[...new Set(memberships.map(item=>item.userId).filter(id=>id!==tenant.userId))];
+   const users=userIds.length?await db.collection<{id:string;email:string;enabled:boolean}>("users").find({id:{$in:userIds},enabled:true,...(query?{email:{$regex:query.replace(/[.*+?^${}()|[\]\\]/g,"\\  ctx.server.get("/documents/folders",async(req:any,reply:any)=>{"),$options:"i"}}:{})},{projection:{id:1,email:1}}).sort({email:1}).limit(50).toArray():[];
+   return {teams,users:users.map(user=>({id:ref(user.id,"document",tenant),email:user.email}))};
+  });
+  ctx.server.get<{Params:{folderId:string}}>("/documents/folders/:folderId/shares",async(req:any,reply:any)=>{
+   const tenant=await authenticate(req,reply);if(!tenant)return;
+   let id:string;try{id=unref(req.params.folderId,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
+   const folder=await ownedFolder(tenant,id);if(!folder)return reply.code(404).send({error:"Folder not found"});
+   const policy=await sharePolicy(tenant,id);
+   const teamIds=(policy?.teamGrants??[]).filter((grant:any)=>grant.permissions.includes("read")).map((grant:any)=>grant.teamId);
+   const userIds=(policy?.userOverrides??[]).filter((item:any)=>item.effect==="allow"&&item.permissions.includes("read")).map((item:any)=>item.userId);
+   const [teamRows,userRows]=await Promise.all([
+    teamIds.length?db.collection<{id:string;name:string}>("company_teams").find({tenantId:tenant.tenantId,id:{$in:teamIds}}).toArray():[],
+    userIds.length?db.collection<{id:string;email:string}>("users").find({id:{$in:userIds}},{projection:{id:1,email:1}}).toArray():[]
+   ]);
+   return {teams:teamRows.map(team=>({id:team.id,name:team.name})),users:userRows.map(user=>({id:ref(user.id,"document",tenant),email:user.email}))};
+  });
+  ctx.server.put<{Params:{folderId:string};Body:{teamIds?:unknown;userIds?:unknown}}>("/documents/folders/:folderId/shares",async(req:any,reply:any)=>{
+   const tenant=await authenticate(req,reply);if(!tenant)return;
+   let id:string;try{id=unref(req.params.folderId,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
+   const folder=await ownedFolder(tenant,id);if(!folder)return reply.code(404).send({error:"Folder not found"});
+   const teamIds=Array.isArray(req.body?.teamIds)?[...new Set(req.body.teamIds.map((value:unknown)=>clean(value,80)).filter(Boolean))]:[];
+   const userRefs=Array.isArray(req.body?.userIds)?[...new Set(req.body.userIds.map((value:unknown)=>String(value??"").trim()).filter(Boolean))]:[];
+   let userIds:string[];try{userIds=userRefs.map(value=>unmaskResourceId(value,"document",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret));}catch{return reply.code(400).send({error:"Invalid organization member reference"});}
+   const [validTeams,validUsers]=await Promise.all([
+    teamIds.length?db.collection("company_teams").countDocuments({tenantId:tenant.tenantId,id:{$in:teamIds},status:"active"}):0,
+    userIds.length?db.collection("memberships").countDocuments({tenantId:tenant.tenantId,status:"active",userId:{$in:userIds}}):0
+   ]);
+   if(validTeams!==teamIds.length)return reply.code(400).send({error:"All selected teams must be active in this organization"});
+   if(validUsers!==userIds.length)return reply.code(400).send({error:"All selected users must be active members of this organization"});
+   const assigned=teamIds.length?await db.collection<{teamId:string}>("team_app_assignments").find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true,teamId:{$in:teamIds}}).toArray():[];
+   if(new Set(assigned.map(item=>item.teamId)).size!==teamIds.length)return reply.code(400).send({error:"Every shared team must have Documents enabled"});
+   const key={tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder",resourceId:id};
+   const existing=await policies.findOne(key);
+   const retainedDenials=(existing?.userOverrides??[]).filter((item:any)=>item.effect==="deny");
+   const userOverrides=[...retainedDenials,...userIds.map(userId=>({userId,effect:"allow",permissions:["read"]}))];
+   const policy={...key,teamGrants:teamIds.map(teamId=>({teamId,permissions:["read"]})),userOverrides,updatedAt:new Date(),updatedBy:tenant.userId};
+   await policies.updateOne(key,{$set:policy},{upsert:true});
+   return {success:true,teamIds,userIds:userRefs};
+  });
   ctx.server.get("/documents/folders",async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    const rows=await folders(tenant.tenantId).find({}).sort({name:1}).limit(500).toArray();const visible=[];
-   for(const folder of rows){const parents=await ancestors(tenant.tenantId,folder.parentId);if(await canAccess(tenant,"folder",folder.id,"read",parents))visible.push({id:ref(folder.id,"folder",tenant),name:folder.name,parentId:folder.parentId?ref(folder.parentId,"folder",tenant):null,createdAt:folder.createdAt,updatedAt:folder.updatedAt});}
+   for(const folder of rows){const parents=await ancestors(tenant.tenantId,folder.parentId);if(await canAccess(tenant,"folder",folder.id,"read",parents))visible.push({id:ref(folder.id,"folder",tenant),name:folder.name,parentId:folder.parentId?ref(folder.parentId,"folder",tenant):null,canManageShares:folder.createdBy===tenant.userId,createdAt:folder.createdAt,updatedAt:folder.updatedAt});}
    return {folders:visible};
   });
   ctx.server.post<{Body:{name?:unknown;parentId?:unknown}}>("/documents/folders",async(req,reply)=>{
