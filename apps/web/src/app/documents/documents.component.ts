@@ -1,16 +1,14 @@
 import { Component, Input, OnChanges } from "@angular/core";
+import { DocumentsApiService, type DocumentsFolder as Folder, type DocumentsShareTeam as ShareTeam, type DocumentsShareUser as ShareUser, type DocumentsItem as Doc } from "./documents-api.service";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from "@angular/cdk/drag-drop";
 
-type Folder={id:string;name:string;parentId:string|null;canManageShares?:boolean;canMove?:boolean;documentCount?:number};
-type ShareTeam={id:string;name:string};
-type ShareUser={id:string;email:string};
-type Doc={id:string;title:string;description:string;tags:string[];visibility:"private"|"public";downloadUrl:string;publicUrl:string|null;folderId:string|null;canMove?:boolean;originalName:string;fileContentType:string;fileSize:number;uploadedBy:{email:string};uploadedAt:string;createdAt:string;updatedAt:string};
 type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 
 @Component({
  selector:"bee-documents-workspace",
+ providers:[DocumentsApiService],
  standalone:true,
  imports:[CommonModule,FormsModule,CdkDrag,CdkDragHandle,CdkDropList],
  template:`
@@ -410,9 +408,11 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 `]
 })
 export class BeeDocumentsComponent implements OnChanges {
+ constructor(private readonly documentsApi:DocumentsApiService){}
+
  @Input() tenantId="";
  @Input() accessToken="";
- api="/api";
+
  folders:Folder[]=[];
  documents:Doc[]=[];
  currentFolderId:string|null=null;
@@ -439,22 +439,13 @@ export class BeeDocumentsComponent implements OnChanges {
 
  ngOnChanges():void{void this.load();}
 
- async load():Promise<void>{
+  async load():Promise<void>{
   if(!this.accessToken)return;
   this.loading=true;this.error="";
-  try{
-   const headers={authorization:"Bearer "+this.accessToken};
-   const [fr,dr]=await Promise.all([
-    fetch(this.api+"/documents/folders",{headers,credentials:"same-origin"}),
-    fetch(this.api+"/documents"+(this.currentFolderId?"?folderId="+encodeURIComponent(this.currentFolderId):""),{headers,credentials:"same-origin"})
-   ]);
-   const fj=await fr.json();const dj=await dr.json();
-   if(!fr.ok)throw new Error(fj.error||"Could not load folders");
-   if(!dr.ok)throw new Error(dj.error||"Could not load documents");
-   this.folders=fj.folders||[];this.documents=dj.documents||[];this.rebuildBreadcrumbs();
-  }catch(e){this.error=e instanceof Error?e.message:"Could not load Documents";}
+  try{const workspace=await this.documentsApi.loadWorkspace(this.accessToken,this.currentFolderId);this.folders=workspace.folders;this.documents=workspace.documents;this.rebuildBreadcrumbs();}
+  catch(e){this.error=e instanceof Error?e.message:"Could not load Documents";}
   finally{this.loading=false;}
- }
+}
 
  get visibleFolders():Folder[]{return this.folders.filter(f=>f.parentId===this.currentFolderId);}
  get dropListIds():string[]{const sourceId=this.viewMode==="cards"?"documents-cards-source":"documents-table-source";return ["documents-root-drop",sourceId,...this.visibleFolders.map(folder=>this.folderDropId(folder.id))];}
@@ -481,32 +472,18 @@ export class BeeDocumentsComponent implements OnChanges {
   const parent=this.folders.find(item=>item.id===folder.parentId);
   await this.moveFolder(folder,parent?.parentId??null);
  }
- async moveDocument(doc:Doc,folderId:string|null):Promise<void>{
+  async moveDocument(doc:Doc,folderId:string|null):Promise<void>{
   if(!doc.canMove||doc.folderId===folderId)return;
   this.error="";this.uploadMessage="";
-  try{
-   const response=await fetch(this.api+"/documents/"+encodeURIComponent(doc.id)+"/location",{
-    method:"PATCH",credentials:"same-origin",
-    headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
-    body:JSON.stringify({folderId})
-   });
-   const result=await response.json();if(!response.ok)throw new Error(result.error||"Could not move document");
-   this.documentMenuId=null;this.uploadMessage="Document moved successfully.";await this.load();
-  }catch(e){this.error=e instanceof Error?e.message:"Could not move document";}
- }
- async moveFolder(folder:Folder,parentId:string|null):Promise<void>{
+  try{await this.documentsApi.moveDocument(this.accessToken,doc.id,folderId);this.documentMenuId=null;this.uploadMessage="Document moved successfully.";await this.load();}
+  catch(e){this.error=e instanceof Error?e.message:"Could not move document";}
+}
+  async moveFolder(folder:Folder,parentId:string|null):Promise<void>{
   if(!folder.canMove||folder.parentId===parentId)return;
   this.error="";this.uploadMessage="";
-  try{
-   const response=await fetch(this.api+"/documents/folders/"+encodeURIComponent(folder.id)+"/location",{
-    method:"PATCH",credentials:"same-origin",
-    headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
-    body:JSON.stringify({parentId})
-   });
-   const result=await response.json();if(!response.ok)throw new Error(result.error||"Could not move folder");
-   this.folderMenuId=null;this.uploadMessage="Folder moved successfully.";await this.load();
-  }catch(e){this.error=e instanceof Error?e.message:"Could not move folder";}
- }
+  try{await this.documentsApi.moveFolder(this.accessToken,folder.id,parentId);this.folderMenuId=null;this.uploadMessage="Folder moved successfully.";await this.load();}
+  catch(e){this.error=e instanceof Error?e.message:"Could not move folder";}
+}
  openFolder(id:string|null):void{this.currentFolderId=id;this.rebuildBreadcrumbs();void this.load();}
  private rebuildBreadcrumbs():void{
   const chain:Folder[]=[];let id=this.currentFolderId;
@@ -521,46 +498,32 @@ export class BeeDocumentsComponent implements OnChanges {
  formatDate(value:string|Date|null|undefined):string{if(!value)return "—";const date=new Date(value);return Number.isNaN(date.getTime())?"—":new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(date);}
  formatBytes(value:number):string{if(!Number.isFinite(value)||value<0)return "—";if(value<1024)return value+" B";const units=["KB","MB","GB"];let size=value/1024,index=0;while(size>=1024&&index<units.length-1){size/=1024;index++;}return size.toFixed(size>=10?1:2)+" "+units[index];}
 
- async openShareDialog(folder:Folder,mode:"groups"|"users"):Promise<void>{
+  async openShareDialog(folder:Folder,mode:"groups"|"users"):Promise<void>{
   this.folderMenuId=null;this.shareFolder=folder;this.shareMode=mode;this.shareQuery="";this.targetTeams=[];this.targetUsers=[];this.error="";
-  try{
-   const response=await fetch(this.api+"/documents/folders/"+encodeURIComponent(folder.id)+"/shares",{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
-   const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not load folder sharing");
-   this.shareTeams=data.teams||[];this.shareUsers=data.users||[];
-  }catch(e){this.error=e instanceof Error?e.message:"Could not load folder sharing";this.shareFolder=null;}
- }
+  try{const data=await this.documentsApi.getFolderShares(this.accessToken,folder.id);this.shareTeams=data.teams||[];this.shareUsers=data.users||[];}
+  catch(e){this.error=e instanceof Error?e.message:"Could not load folder sharing";this.shareFolder=null;}
+}
  closeShareDialog():void{this.shareFolder=null;this.shareQuery="";this.targetTeams=[];this.targetUsers=[];}
 
- async searchShareTargets():Promise<void>{
+  async searchShareTargets():Promise<void>{
   const q=this.shareQuery.trim();if(!q){this.targetTeams=[];this.targetUsers=[];return;}
-  try{
-   const response=await fetch(this.api+"/documents/share-targets?q="+encodeURIComponent(q),{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
-   const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not search sharing targets");
-   this.targetTeams=this.shareMode==="groups"?(data.teams||[]):[];
-   this.targetUsers=this.shareMode==="users"?(data.users||[]):[];
-  }catch(e){this.error=e instanceof Error?e.message:"Could not search sharing targets";}
- }
+  try{const data=await this.documentsApi.searchShareTargets(this.accessToken,q);this.targetTeams=this.shareMode==="groups"?(data.teams||[]):[];this.targetUsers=this.shareMode==="users"?(data.users||[]):[];}
+  catch(e){this.error=e instanceof Error?e.message:"Could not search sharing targets";}
+}
  addShareTeam(team:ShareTeam):void{if(!this.shareTeams.some(item=>item.id===team.id))this.shareTeams=[...this.shareTeams,team];this.shareQuery="";this.targetTeams=[];}
  addShareUser(user:ShareUser):void{if(!this.shareUsers.some(item=>item.id===user.id))this.shareUsers=[...this.shareUsers,user];this.shareQuery="";this.targetUsers=[];}
  removeShareTeam(team:ShareTeam):void{this.shareTeams=this.shareTeams.filter(item=>item.id!==team.id);}
  removeShareUser(user:ShareUser):void{this.shareUsers=this.shareUsers.filter(item=>item.id!==user.id);}
 
- async saveFolderShares():Promise<void>{
+  async saveFolderShares():Promise<void>{
   if(!this.shareFolder||this.shareSaving)return;
   this.shareSaving=true;this.error="";
-  try{
-   const response=await fetch(this.api+"/documents/folders/"+encodeURIComponent(this.shareFolder.id)+"/shares",{
-    method:"PUT",credentials:"same-origin",
-    headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
-    body:JSON.stringify({teamIds:this.shareTeams.map(item=>item.id),userIds:this.shareUsers.map(item=>item.id)})
-   });
-   const data=await response.json();if(!response.ok)throw new Error(data.error||"Could not save folder sharing");
-   this.closeShareDialog();
-  }catch(e){this.error=e instanceof Error?e.message:"Could not save folder sharing";}
+  try{await this.documentsApi.saveFolderShares(this.accessToken,this.shareFolder.id,this.shareTeams.map(item=>item.id),this.shareUsers.map(item=>item.id));this.closeShareDialog();}
+  catch(e){this.error=e instanceof Error?e.message:"Could not save folder sharing";}
   finally{this.shareSaving=false;}
- }
+}
 
- async uploadTextFile(event:Event):Promise<void>{
+  async uploadTextFile(event:Event):Promise<void>{
   const input=event.target as HTMLInputElement;const file=input.files?.[0];input.value="";
   if(!file)return;
   this.error="";this.uploadMessage="";
@@ -569,33 +532,19 @@ export class BeeDocumentsComponent implements OnChanges {
   if(file.size>10*1024*1024){this.error="The maximum file size is 10 MB.";return;}
   this.uploading=true;
   try{
-   const upload=await fetch(this.api+"/files",{
-    method:"POST",credentials:"same-origin",
-    headers:{"content-type":"application/octet-stream","x-file-content-type":"text/plain","x-file-name":encodeURIComponent(file.name),"authorization":"Bearer "+this.accessToken},
-    body:await file.arrayBuffer()
-   });
-   const uploaded=await upload.json();if(!upload.ok||!uploaded.file?.id)throw new Error(uploaded.error||"Could not upload the text file");
-   const created=await fetch(this.api+"/documents",{
-    method:"POST",credentials:"same-origin",
-    headers:{"content-type":"application/json","authorization":"Bearer "+this.accessToken},
-    body:JSON.stringify({fileId:uploaded.file.id,folderId:this.currentFolderId,title:file.name})
-   });
-   const result=await created.json();if(!created.ok)throw new Error(result.error||"File uploaded but could not be added to Documents");
+   const uploaded=await this.documentsApi.uploadTextFile(this.accessToken,file);
+   if(!uploaded.file?.id)throw new Error("Could not upload the text file");
+   await this.documentsApi.createDocument(this.accessToken,{fileId:uploaded.file.id,folderId:this.currentFolderId,title:file.name});
    this.uploadMessage="File uploaded successfully.";await this.load();
   }catch(e){this.error=e instanceof Error?e.message:"Could not upload the text file";}
   finally{this.uploading=false;}
- }
+}
 
- async downloadDocument(doc:Doc):Promise<void>{
+  async downloadDocument(doc:Doc):Promise<void>{
   if(!this.accessToken)return;
   this.error="";
   try{
-   const response=await fetch(doc.downloadUrl,{headers:{authorization:"Bearer "+this.accessToken},credentials:"same-origin"});
-   if(!response.ok){
-    let message="Could not download document";
-    try{const body=await response.json();message=body.error||message;}catch{}
-    throw new Error(message);
-   }
+   const response=await this.documentsApi.downloadDocument(this.accessToken,doc);
    const blob=await response.blob();
    const disposition=response.headers.get("content-disposition")||"";
    const encodedName=disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
@@ -606,20 +555,13 @@ export class BeeDocumentsComponent implements OnChanges {
    document.body.appendChild(link);link.click();link.remove();
    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
   }catch(e){this.error=e instanceof Error?e.message:"Could not download document";}
- }
+}
 
- async createFolder():Promise<void>{
+  async createFolder():Promise<void>{
   const name=this.folderName.trim();if(!name||this.busy)return;
   this.busy=true;this.error="";
-  try{
-   const response=await fetch(this.api+"/documents/folders",{
-    method:"POST",credentials:"same-origin",
-    headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
-    body:JSON.stringify({name,parentId:this.currentFolderId})
-   });
-   const result=await response.json();if(!response.ok)throw new Error(result.error||"Could not create folder");
-   this.folderName="";this.showCreateFolder=false;await this.load();
-  }catch(e){this.error=e instanceof Error?e.message:"Could not create folder";}
+  try{await this.documentsApi.createFolder(this.accessToken,name,this.currentFolderId);this.folderName="";this.showCreateFolder=false;await this.load();}
+  catch(e){this.error=e instanceof Error?e.message:"Could not create folder";}
   finally{this.busy=false;}
- }
+}
 }

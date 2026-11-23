@@ -732,3 +732,32 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Harmonized folder/document cards and hover, overflow menus, share/detail dialogs, share tabs, search suggestions, chips, hints, empty state and table surface. Primary actions and selected view controls now retain readable white text over the accent background.
 - Styles remain scoped to Documents; Midnight Dark and unrelated dashboard features are not intentionally altered.
 - Validation: source/documentation review only. No Angular build, tests, browser visual/responsive QA, CI or VPS runtime verification executed. Check Cards/Table and all open menus/dialogs in both Light and Dark after deploy.
+
+
+## Documents modular API refactor — phases 1–4 underway (2026-11-23)
+- Started a dedicated refactor branch from the verified latest `main` commit (`eb593928736899043ec997795baf19eae323abbf`); no changes are merged to `main`.
+- Completed phase 1 source inventory and documented the current API contract, plugin/Core/Files responsibilities, frontend transport coupling, security invariants and target separation in `docs/modules/documents-modularization-audit.md`.
+- Source review confirms the backend is already an isolated Bee plugin registered into the existing API runtime. The remaining backend coupling is internal: the plugin initializer currently bundles route handlers, domain logic, persistence and presenters. The Angular component still owns raw HTTP transport and endpoint strings.
+- Phases 2–4 are next: extract backend routes/domain helpers into module-owned files, add typed frontend Documents API service/contracts, and formalize the module/Core/Files/permission boundary while preserving existing paths and UX.
+- Phase 5 is intentionally deferred until after you authorize merging to `main`. No builds, tests, browser QA, API smoke checks, Docker build or VPS runtime verification have been executed.
+
+
+## Documents modular API refactor — phases 1–4 source work (2026-11-23)
+- Phase 1 complete: audited module ownership, current endpoint contract, frontend transport coupling, security/tenant invariants and migration target. See `docs/modules/documents-modularization-audit.md`.
+- Phase 2 progress: created `src/plugins/documents/documents.routes.ts` as a module-owned route contract and switched existing Fastify registrations to those route constants. Documents routes continue to register within the existing isolated plugin/API runtime; there is no duplicate API server or new prefix. **The route handler bodies are still in `documents.plugin.ts`; extracting handler/controller/domain layers is not yet complete.**
+- Phase 3 progress: introduced `DocumentsApiService` with typed DTO declarations, centralized API base, URL builders for folder/document location, sharing, search and Files upload, and request transport. Component now uses the service for all 11 network dispatches; no direct fetch calls remain in the component. **Response parsing, operation orchestration, UI error handling and download-blob presentation still live in the component and are candidates for further extraction.**
+- Phase 4 documentation complete: `docs/modules/documents-module-boundary.md` formalizes module-owned domain/API/permissions vs Core auth, tenant context, shared ACL, plugin lifecycle and Files infrastructure, and lists security invariants that must be retained.
+- No merge to `main`. The branch is a review checkpoint; phases 2 and 3 are partially completed rather than claimed fully decoupled. No Angular/API builds, tests, browser, Docker/CI or VPS validation has been performed. Phase 5 remains reserved for after merge approval.
+
+
+## Documents refactor — phases 2 and 3 implemented on branch (2026-11-23)
+- **Phase 2 backend source separation implemented:** `documents.plugin.ts` now performs bootstrap only; the module route contract is in `documents.routes.ts`; 12 handler registrations are in `documents.controller.ts`; tenant/auth/resource access and presentation helpers are in `documents.service.ts`; Mongo collections/indexes and tenant-scoped collection wrappers are centralized in `documents.repository.ts`; sanitization, public ID validation and tag normalization are in `documents.validators.ts`. Existing route paths and plugin runtime remain in place. The controller no longer calls `db.collection()`; repository is the persistence boundary. It still uses Core shared permission/resource-access evaluators as expected.
+- **Phase 3 frontend API separation implemented at source level:** `DocumentsApiService` owns typed DTOs, route paths and URL builders, auth headers, HTTP dispatch, JSON parsing and error normalization, folder/document operations, share calls, upload and download API response. The Angular component has no direct `fetch()`, endpoint literals, API URL construction, `.json()` response parsing, or API request setup. Component retains view state, event handlers and browser-specific blob download presentation.
+- Phase 4 architecture documentation updated to match actual layers and dependency boundaries.
+- Branch remains unmerged; PR #132 is still draft pending final source review. No TypeScript/Angular build, tests, browser interaction, API smoke test, Docker/CI or VPS runtime verification has been executed. Phase 5 is still explicitly deferred until after merge approval.
+
+
+## Documents backend controller/handler split completed (2026-11-23)
+- Further reduced `documents.controller.ts` to route mounting only. The 12 endpoint callbacks have been moved into module-owned `documents.handlers.ts`; controller now mounts route constants against the handler factory.
+- Phase 2 structure now comprises plugin bootstrap → routes contract → controller → handlers → service helpers → repository → validators, with Core shared auth/ACL/Files capabilities injected.
+- **Important verification caveat:** extraction was reviewed by source and route count checks only. No TypeScript parsing/compile or runtime tests were available; therefore this means architectural source separation, not verified functional completion.
