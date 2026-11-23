@@ -44,3 +44,10 @@ test("tenant custom roles accept delegable permissions and reject protected capa
   assert.throws(() => normalizeTenantCustomRolePermissions(["platform.super_admin"]), /protected permissions/);
   assert.throws(() => normalizeTenantCustomRolePermissions(["tenants.manage"]), /protected permissions/);
 });
+
+test("platform policy can narrow tenant custom-role delegation without changing protected capabilities", () => {
+  const allowed = ["members.read", "plugins.read", "notes.read"];
+  assert.deepEqual(normalizeTenantCustomRolePermissions(["members.read", "notes.read"], allowed), ["members.read", "notes.read"]);
+  assert.throws(() => normalizeTenantCustomRolePermissions(["mail.send"], allowed), /protected permissions/);
+  assert.throws(() => normalizeTenantCustomRolePermissions(["members.manage"], allowed), /protected permissions/);
+});
