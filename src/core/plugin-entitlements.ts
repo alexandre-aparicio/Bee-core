@@ -338,7 +338,7 @@ export function requireInstalledPlugin(db: Db, pluginId: string) {
       return reply.code(403).send({ error: "Plugin permission required" });
     }
     if (!await hasPluginEntitlement(db, context.tenantId, pluginId) || !await isPluginInstalled(db, context.tenantId, pluginId) || !await isPluginEnabled(db, context.tenantId, pluginId)) {
-      return reply.code(403).send({ error: "Plugin is not entitled or installed for this company" });
+      return reply.code(403).send({ error: "Plugin is not entitled, installed or enabled for this company" });
     }
   };
 }
