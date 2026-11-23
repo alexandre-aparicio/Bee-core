@@ -57,6 +57,9 @@ export const platformAdminPlugin:BeePlugin={
     {upsert:true}
    );
    const moved=legacyAdmin.tenantId!==superOrganization.id||legacyAdmin.platformRole==="superadmin";
+   // Platform superadmins are not tenant owners: retain the historical rows
+   // but suspend every old tenant membership before changing their home org.
+   await memberships.updateMany({userId:legacyAdmin.id,tenantId:{$ne:superOrganization.id},status:"active"},{$set:{status:"suspended",updatedAt:now}});
    await users.updateOne({id:legacyAdmin.id},{$set:{tenantId:superOrganization.id,updatedAt:now},$unset:{platformRole:""}});
    if(moved)await sessions.updateMany({userId:legacyAdmin.id,revokedAt:null},{$set:{revokedAt:now}});
   }
