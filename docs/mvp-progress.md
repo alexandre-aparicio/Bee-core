@@ -813,3 +813,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Dependency checks now require the dependency to be installed globally and enabled for the target tenant. Existing protection against disabling dependencies of active plugins is retained.
 - Added integration coverage for the reported regression: a package installed in Super Organization is visible as globally installed to a separate company, starts disabled there, can be activated, and can be deactivated without deleting its tenant registration.
 - **Validation pending:** no backend test, TypeScript build, Angular build, CI run or live tenant verification has been executed yet. The change is prepared on a feature branch and must pass those checks before release.
+
+
+## Connected Device browser simulator — prepared (2026-11-23)
+
+- Added a minimal browser companion at `/assets/device-simulator/index.html`, published as a static Angular asset. It accepts the one-time `bee-device://pair?token=...` QR payload, exchanges it through the public pairing endpoint, polls approval, and sends authenticated device heartbeats after approval.
+- The simulator shows API reachability, pairing/approval state, device ID, granted capabilities, heartbeat acknowledgements and a timestamped request log. The generated device credential remains in page memory only and is cleared on disconnect/reload.
+- This exercises the **implemented REST pairing and heartbeat contract**. It is not a WebSocket simulator: the current Connected Devices plugin has no device WebSocket endpoint or realtime channel yet.
+- **Validation pending:** Angular asset-copy/build, browser test, CORS/same-origin deployment check and end-to-end QR/approval/heartbeat test have not been run. The utility is on a feature branch and is not yet in `main`.
