@@ -1,4 +1,12 @@
 export const ORGANIZATION_EN = {
+  "users.invitationCreated": "Invitation created. Copy the link and share it with the invited person.",
+  "users.invitationCopied": "Invitation link copied. Share it with the invited person.",
+  "users.clipboardUnavailable": "Clipboard access is unavailable. Select and copy the invitation link manually.",
+  "users.roleUpdated": "Membership role updated. The member must sign in again.",
+  "users.restrictionUpdated": "Restriction updated. The member’s active sessions were revoked.",
+  "users.memberSuspended": "Membership suspended and active sessions revoked.",
+  "users.memberRestored": "Membership reactivated and active sessions revoked.",
+  "users.invitationRevoked": "Invitation revoked.",
   "users.eyebrow": "ORGANIZATION / ACCESS",
   "users.overview": "Membership overview",
   "users.title": "Users",
@@ -91,6 +99,14 @@ export const ORGANIZATION_EN = {
   "company.profile":"Company profile","company.name":"Company name","company.details":"Company information","company.detailsIntro":"Maintain your company’s business, legal and contact information. This is tenant-specific and separate from platform settings.","company.basic":"Business information","company.legalName":"Legal name","company.taxId":"Tax ID / VAT","company.email":"Business email","company.phone":"Phone","company.website":"Website","company.industry":"Industry","company.description":"Company description","company.address":"Address","company.addressLine1":"Address line 1","company.addressLine2":"Address line 2","company.city":"City","company.region":"State / Region","company.postalCode":"Postal code","company.country":"Country","company.saved":"Company profile saved.","company.loading":"Loading company profile…","company.saving":"Saving…","company.save":"Save changes","company.note":"Company information is only visible within this organization.","company.readOnly":"You can view company details, but only Owners and Admins can edit them.","company.errorLoad":"Could not load company profile.","company.errorSave":"Could not save company profile."
 } as const;
 export const ORGANIZATION_ES = {
+  "users.invitationCreated": "Invitación creada. Copia el enlace y compártelo con la persona invitada.",
+  "users.invitationCopied": "Enlace de invitación copiado. Compártelo con la persona invitada.",
+  "users.clipboardUnavailable": "El portapapeles no está disponible. Selecciona y copia manualmente el enlace.",
+  "users.roleUpdated": "Rol actualizado. El miembro debe volver a iniciar sesión.",
+  "users.restrictionUpdated": "Restricciones actualizadas. Se han revocado las sesiones activas del miembro.",
+  "users.memberSuspended": "Membresía suspendida y sesiones activas revocadas.",
+  "users.memberRestored": "Membresía reactivada y sesiones activas revocadas.",
+  "users.invitationRevoked": "Invitación revocada.",
   "users.eyebrow": "ORGANIZACIÓN / ACCESOS",
   "users.overview": "Resumen de miembros",
   "users.title": "Usuarios",
