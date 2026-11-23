@@ -533,7 +533,7 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Custom roles can select every registered current Core permission, including mail, billing and management capabilities previously excluded by the custom-role allow-list.
 - Unregistered keys such as platform.super_admin and tenants.manage remain rejected. Platform-global super-admin authority is outside the tenant-customizable catalogue.
 - Added a dedicated Organization → Roles & Permissions workspace to Glass, Midnight and Paper. Role editing is removed from Users; Users retains invitation and membership workflows.
-- The editor groups permissions by module, explains each action and marks sensitive operations. Backend owner-only checks remain authoritative for creating, editing and deleting custom roles.
+- The editor groups permissions by module, explains each action, and marks protected/sensitive operations. Protected capabilities are visible but disabled for custom roles. Backend validation remains authoritative, and custom-role administration remains owner-only.
 - Added regression coverage for catalogue uniqueness, built-in role coverage and rejection of unregistered privilege keys.
 - This first pass includes only permissions backed by current Core authorization checks. It does not invent Teams/Company CRUD permissions or claim record-level scopes (own, team, assigned) are implemented.
 - Validation: no tests, TypeScript build, Angular build, Docker build or VPS runtime validation have been executed here. Run backend npm test/build and Angular production build before deployment.
