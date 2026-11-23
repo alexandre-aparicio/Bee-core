@@ -19,7 +19,7 @@ type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:s
 type Membership={id:string;userId:string;tenantId:string;role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom";status:"active";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string};
 export const platformAdminPlugin:BeePlugin={
- manifest:{name:"platform-admin",version:"0.1.0",description:"Platform-wide administration for the bootstrap superadministrator",dependencies:["auth","organizations","marketplace"]},
+ manifest:{name:"platform-admin",version:"0.1.0",description:"Platform-wide administration protected by Super Organization super_admin membership",dependencies:["auth","organizations","marketplace"]},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
@@ -35,19 +35,18 @@ export const platformAdminPlugin:BeePlugin={
   const bootstrapEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase();
   let superOrganization=await companies.findOne({kind:"super"});
   if(!superOrganization){
-   const existingSlug=await companies.findOne({slug:"super-organization"});
-   const now=new Date();
    const superOrganizationId="bee-core-super-organization";
    superOrganization=await companies.findOne({id:superOrganizationId});
    if(!superOrganization){
-    const slug=existingSlug?"bee-core-super-organization":"super-organization";
-    superOrganization={id:superOrganizationId,name:"Bee-Core Super Organization",slug,kind:"super",createdAt:now,status:"active",settings:{defaultLanguage:"en"}};
+    let slug="super-organization";
+    if(await companies.findOne({slug}))slug="bee-core-super-organization";
+    if(await companies.findOne({slug}))slug="bee-core-root-organization";
+    if(await companies.findOne({slug}))slug="bee-core-root-"+randomUUID().slice(0,8);
+    superOrganization={id:superOrganizationId,name:"Bee-Core Super Organization",slug,kind:"super",createdAt:new Date(),status:"active",settings:{defaultLanguage:"en"}};
     await companies.insertOne(superOrganization);
-   }else{
-    await companies.updateOne({id:superOrganizationId},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
-    superOrganization={...superOrganization,kind:"super",status:"active"};
    }
   }
+  await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   const legacyFilter:any={$or:[{platformRole:"superadmin"},...(bootstrapEmail?[{email:bootstrapEmail}]:[])]};
   const legacyAdmins=await users.find(legacyFilter).toArray();
   for(const legacyAdmin of legacyAdmins){
@@ -208,6 +207,6 @@ export const platformAdminPlugin:BeePlugin={
    await recordPlatformAudit({actorId:actor.id,action:"plugin.uninstall.requested",tenantId:company.id,resourceType:"plugin",resourceId:plugin.id,metadata:{jobId:queued.job.id}});
    return reply.code(202).send({success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),enabled:false,jobId:mask(req.platformSession!,queued.job.id,"job"),status:queued.job.status});
   });
-  ctx.logger.info("Platform admin plugin initialized",{platformRole:"superadmin"});
+  ctx.logger.info("Platform admin plugin initialized",{membershipRole:"super_admin"});
  }
 };
