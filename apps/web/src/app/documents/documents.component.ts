@@ -196,16 +196,11 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
 .documents__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,245px),1fr));gap:12px;min-width:0}
 .documents__item{position:relative;display:flex;min-width:0;min-height:142px;flex-direction:column;justify-content:space-between;gap:18px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--panel);transition:border-color .16s ease,background-color .16s ease}
 .documents__item:hover{border-color:color-mix(in srgb,var(--purple) 48%,var(--border));background:color-mix(in srgb,var(--panel) 92%,var(--purple))}
-.documents__folder-open{display:flex;align-items:flex-start;gap:13px;width:100%;min-width:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
-.documents__item-main{display:flex;align-items:flex-start;gap:13px;min-width:0}
-.documents__item-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:6px;padding-right:24px}
+.documents__folder-open{display:flex;align-items:flex-start;gap:0;width:100%;min-width:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.documents__item-main{display:flex;align-items:flex-start;gap:0;min-width:0}
+.documents__item-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:6px;padding-right:0}
 .documents__item-copy strong{overflow-wrap:anywhere;color:inherit;font-size:13px;font-weight:650;line-height:1.45}
 .documents__item-copy small{overflow-wrap:anywhere;color:var(--muted);font-size:11px;line-height:1.5}
-.documents__item-symbol{position:relative;display:inline-flex;flex:0 0 36px;width:36px;height:36px;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;background:color-mix(in srgb,var(--purple) 10%,var(--bg))}
-.documents__item-symbol--folder:before{content:"";position:absolute;left:8px;top:11px;width:18px;height:13px;border:1.5px solid var(--purple);border-radius:3px}
-.documents__item-symbol--folder:after{content:"";position:absolute;left:9px;top:8px;width:8px;height:5px;border:1.5px solid var(--purple);border-bottom:0;border-radius:2px 2px 0 0}
-.documents__item-symbol--document:before{content:"";width:14px;height:19px;border:1.5px solid var(--cyan);border-radius:3px;background:linear-gradient(to bottom,transparent 0 5px,var(--cyan) 5px 6px,transparent 6px 10px,var(--cyan) 10px 11px,transparent 11px)}
-.documents__item-chevron{margin-left:auto;color:var(--muted);font-size:22px;line-height:1}
 .documents__folder-actions{position:absolute;top:12px;right:12px;z-index:2}
 .documents__icon-button{display:inline-flex;min-width:38px;height:32px;align-items:center;justify-content:center;padding:0 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:11px;font-weight:600;cursor:pointer}
 .documents__icon-button:hover{border-color:var(--border);background:var(--bg);color:inherit}
@@ -218,8 +213,6 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
 .documents__text-action{padding:4px 0;border:0;background:transparent;color:var(--purple);font:inherit;font-size:12px;font-weight:650;cursor:pointer}
 .documents__text-action:hover{text-decoration:underline;text-underline-offset:3px}
 .documents__empty{display:flex;min-height:260px;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:30px 20px;border:1px dashed var(--border);border-radius:14px;background:color-mix(in srgb,var(--panel) 72%,transparent);text-align:center}
-.documents__empty-symbol{position:relative;width:46px;height:46px;border:1px solid var(--border);border-radius:13px;background:var(--panel)}
-.documents__empty-symbol:before{content:"";position:absolute;left:13px;top:12px;width:18px;height:21px;border:1.5px solid var(--muted);border-radius:3px}
 .documents__empty h2{margin:0;font-size:16px;font-weight:650}
 .documents__empty p{max-width:430px;margin:0;color:var(--muted);font-size:13px;line-height:1.6}
 .documents__empty-actions{margin-top:6px;justify-content:center}
