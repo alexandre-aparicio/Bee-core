@@ -651,3 +651,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added a vertical three-dot action menu per invitation. Placeholder actions remain disabled; Revoke invitation uses the existing cancellation endpoint.
 - Revoked invitations are labeled **revoked** in the status badge, replacing the prior cancelled wording; accepted, pending and expired states remain distinct.
 - Validation: no build, tests, browser checks, CI or VPS runtime validation performed.
+
+
+## Platform Admin tenant detail tabs (2026-11-23)
+- Reworked the tenant detail view into Settings-style tabs (`General`, `Users`, `Plugins`) using existing theme variables and platform-admin component styling; the summary cards remain visible above the tabs.
+- Added a platform endpoint to enumerate a tenant's memberships and their user email, role and status (including invited/suspended memberships), without exposing raw IDs in the UI.
+- Expanded the tenant plugins endpoint to list trusted plugin catalogue entries with installed lifecycle status, version, system flag and description; UI activation controls are limited to non-system plugins.
+- The General tab retains the real tenant identity and platform suspension/activation control. No speculative configuration fields were added because tenant configuration APIs are not available yet.
+- Validation: no build, tests, browser, CI or VPS runtime validation performed.
