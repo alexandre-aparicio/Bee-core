@@ -120,9 +120,9 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
         </div>
         <button type="button" class="documents__icon-button" (click)="closeShareDialog()" aria-label="Close sharing dialog">×</button>
       </header>
-      <div class="documents__share-tabs" role="tablist" aria-label="Sharing target type">
-        <button type="button" role="tab" [attr.aria-selected]="shareMode==='groups'" [class.is-active]="shareMode==='groups'" (click)="shareMode='groups';shareQuery='';targetTeams=[];targetUsers=[];">Groups</button>
-        <button type="button" role="tab" [attr.aria-selected]="shareMode==='users'" [class.is-active]="shareMode==='users'" (click)="shareMode='users';shareQuery='';targetTeams=[];targetUsers=[];">Users</button>
+      <div class="documents__share-tabs" role="group" aria-label="Sharing target type">
+        <button type="button" [attr.aria-pressed]="shareMode==='groups'" [class.is-active]="shareMode==='groups'" (click)="shareMode='groups';shareQuery='';targetTeams=[];targetUsers=[];">Groups</button>
+        <button type="button" [attr.aria-pressed]="shareMode==='users'" [class.is-active]="shareMode==='users'" (click)="shareMode='users';shareQuery='';targetTeams=[];targetUsers=[];">Users</button>
       </div>
       <label class="documents__field documents__share-field">
         <span>{{shareMode==='groups'?'Find a group':'Find an organization member'}}</span>
@@ -402,7 +402,7 @@ export class BeeDocumentsComponent implements OnChanges {
    }
    const blob=await response.blob();
    const disposition=response.headers.get("content-disposition")||"";
-   const encodedName=disposition.match(/filename\\*=UTF-8''([^;]+)/i)?.[1];
+   const encodedName=disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
    const plainName=disposition.match(/filename="?([^";]+)"?/i)?.[1];
    const fileName=encodedName?decodeURIComponent(encodedName):plainName||doc.title||"document";
    const url=URL.createObjectURL(blob);
