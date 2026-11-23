@@ -635,3 +635,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Applied theme-token-based surfaces, borders, foregrounds and accent styling so the shared component remains consistent across Glass, Midnight and Paper. Responsive layouts collapse cards and editor columns on narrower screens.
 - No backend routes, permission keys, role defaults, delegation policy, membership assignments or authorization behavior were changed.
 - Validation: no Angular build, tests, browser checks or VPS runtime validation have been executed. Verify tab navigation, role CRUD, permission-policy states and all three dashboard themes on the VPS.
+
+## Organization members role display correction (2026-11-23)
+
+- Fixes the empty Role cell for Admin members when viewed by another Admin: the role selector is intentionally hidden for peer administrators, but the fallback label was also missing. The read-only role label now appears in that case.
+- Removes the masked user resource ID from the member table; the email is the visible member identity, avoiding the opaque token-like ID shown below the email.
+- Keeps the restriction that an Admin cannot change another Admin's role; Owner and Super Admin protections remain unchanged.
+- Validation: no build, tests, browser checks, CI, or VPS validation performed.
