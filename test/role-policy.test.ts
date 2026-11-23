@@ -84,5 +84,9 @@ test("predefined Super Organization roles have safe defaults in source control",
   assert.ok(COMPANY_ROLE_PERMISSIONS.owner.includes("members.manage"));
   assert.ok(COMPANY_ROLE_PERMISSIONS.admin.includes("members.invite"));
   assert.ok(!COMPANY_ROLE_PERMISSIONS.admin.includes("billing.manage"));
+  assert.ok(COMPANY_ROLE_PERMISSIONS.manager.includes("files.write"));
+  assert.ok(!COMPANY_ROLE_PERMISSIONS.manager.includes("members.invite"));
+  assert.ok(COMPANY_ROLE_PERMISSIONS.member.includes("members.read"));
+  assert.ok(!COMPANY_ROLE_PERMISSIONS.member.includes("members.invite"));
   assert.deepEqual(COMPANY_ROLE_PERMISSIONS.guest, ["plugins.read"]);
 });
