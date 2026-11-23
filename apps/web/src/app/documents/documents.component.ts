@@ -579,7 +579,7 @@ export class BeeDocumentsComponent implements OnChanges {
     body:await file.arrayBuffer()
    });
    const uploaded=await upload.json();if(!upload.ok||!uploaded.file?.id)throw new Error(uploaded.error||"Could not upload the text file");
-   const created=await this.documentsApi.request(this.documentsApi.routes.documents,{
+   const created=await this.documentsApi.request(this.documentsApi.documentsUrl(null),{
     method:"POST",credentials:"same-origin",
     headers:{"content-type":"application/json","authorization":"Bearer "+this.accessToken},
     body:JSON.stringify({fileId:uploaded.file.id,folderId:this.currentFolderId,title:file.name})
