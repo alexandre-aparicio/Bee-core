@@ -5,7 +5,7 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
-import { getTenantStorageLimitBytes, hasPluginEntitlement, isPluginInstalled, seedPluginCommerce } from "../../core/plugin-entitlements.js";
+import { getTenantStorageLimitBytes, hasPluginEntitlement, isPluginEnabled, isPluginInstalled, seedPluginCommerce } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { evaluateResourceAccess } from "../../core/resource-access.js";
 
@@ -84,8 +84,8 @@ export const filesPlugin: BeePlugin = {
           reply.code(403).send({ error: "File read permission required" });
           return null;
         }
-        if (!await hasPluginEntitlement(db, tenant.tenantId, "files") || !await isPluginInstalled(db, tenant.tenantId, "files")) {
-          reply.code(403).send({ error: "Files is not entitled or installed for this company" });
+        if (!await hasPluginEntitlement(db, tenant.tenantId, "files") || !await isPluginInstalled(db, tenant.tenantId, "files") || !await isPluginEnabled(db, tenant.tenantId, "files")) {
+          reply.code(403).send({ error: "Files is not entitled, installed or enabled for this company" });
           return null;
         }
         return tenant;

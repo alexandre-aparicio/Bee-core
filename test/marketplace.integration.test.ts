@@ -139,6 +139,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["files", "notes"]);
     const alphaNotesOffer = alphaCatalog.json().plugins.find((plugin: { name: string }) => plugin.name.toLowerCase() === "notes");
     const alphaNotesPluginRef = alphaNotesOffer.id as string;
+    assert.equal(alphaNotesOffer.pluginKey, "notes", "frontend registry key must remain stable while the resource reference stays opaque");
     assert.equal(alphaNotesOffer.entitled, false);
     assert.equal(alphaNotesOffer.purchasable, true);
     const alphaCannotInstallNotes = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(alphaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + alphaToken } });
@@ -178,6 +179,12 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaNotesList = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaNotesList.statusCode, 200);
     assert.deepEqual(betaNotesList.json().notes, []);
+    await db.collection("tenant_plugin_installations").updateOne({ tenantId: "market-beta", pluginId: "notes" }, { $set: { enabled: false } });
+    const betaDisabledCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaDisabledCatalog.json().plugins.find((plugin: { pluginKey: string }) => plugin.pluginKey === "notes").enabled, false);
+    const betaDisabledNotes = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaDisabledNotes.statusCode, 403, "installed but disabled plugins must reject API access");
+    await db.collection("tenant_plugin_installations").updateOne({ tenantId: "market-beta", pluginId: "notes" }, { $set: { enabled: true } });
     const betaNoteCreate = await app.inject({
       method: "POST",
       url: "/notes",
