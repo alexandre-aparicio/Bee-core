@@ -142,7 +142,7 @@ export const platformAdminPlugin:BeePlugin={
    await permissionPolicyCollection.updateOne({id:"global"},{$set:{tenantAssignablePermissions,updatedAt,updatedBy:actor.id}},{upsert:true});
    // A global revocation is immediate: remove the revoked capability from every
    // tenant custom role so existing assignments cannot retain stale authority.
-   await db.collection("company_roles").updateMany({},{$pull:{permissions:{$nin:tenantAssignablePermissions}}} as any);
+   await db.collection("company_roles").updateMany({mode:{$ne:"restriction"}},{$pull:{permissions:{$nin:tenantAssignablePermissions}}} as any);
    await recordPlatformAudit({actorId:actor.id,action:"platform.permissions.updated",resourceType:"permission_policy",metadata:{tenantAssignablePermissions,updatedAt:updatedAt.toISOString()}});
    return {success:true,tenantAssignablePermissions};
   });

@@ -73,7 +73,33 @@ test("tenant context requires a valid session, active membership and company", {
     assert.equal(customContext.customRoleId, "role-reader");
     assert.ok(hasTenantPermission(customContext, "notes.read"));
     assert.equal(hasTenantPermission(customContext, "notes.write"), false);
-    await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { role: "manager" }, $unset: { customRoleId: "" } });
+    await db.collection("company_roles").insertOne({
+      id: "role-no-member-management",
+      tenantId: "company-one",
+      name: "User Restricted",
+      description: "Deny member invitations while retaining the base role.",
+      mode: "restriction",
+      permissions: ["members.invite", "files.write"],
+      createdBy: "user-one",
+      updatedBy: "user-one",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    await db.collection("memberships").updateOne({ id: "membership-one" }, {
+      $set: { role: "admin", restrictionRoleIds: ["role-no-member-management"] },
+      $unset: { customRoleId: "" }
+    });
+    const restrictedContext = await resolveTenantContext(db, claims, {}, secret);
+    assert.ok(restrictedContext);
+    assert.ok(hasTenantPermission(restrictedContext, "members.read"));
+    assert.ok(hasTenantPermission(restrictedContext, "plugins.install"));
+    assert.equal(hasTenantPermission(restrictedContext, "members.invite"), false);
+    assert.equal(hasTenantPermission(restrictedContext, "files.write"), false);
+
+    await db.collection("memberships").updateOne({ id: "membership-one" }, {
+      $set: { role: "manager" },
+      $unset: { customRoleId: "", restrictionRoleIds: "" }
+    });
 
     assert.equal(await resolveTenantContext(db, { ...claims, tenantRef: maskTenantId("company-two",sessionContext,secret) }, {}, secret), null);
     assert.equal(await resolveTenantContext(db, { ...claims, sid: "unknown-session" }, {}, secret), null);

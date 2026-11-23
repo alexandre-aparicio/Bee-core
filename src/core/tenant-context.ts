@@ -1,5 +1,5 @@
 import type { Db } from "mongodb";
-import { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
+import { applyPermissionRestrictions, permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
 import { unmaskTenantId, unmaskUserId } from "./session-id.js";
 
 export type CompanyRole = "super_admin" | "owner" | "admin" | "manager" | "member" | "guest";
@@ -72,7 +72,7 @@ export async function resolveTenantContext(
   if (!user || !Array.isArray(user.allowedClients) || !user.allowedClients.includes(claims.client)) return null;
   if (!tenantId || tenantId !== session.tenantId) return null;
 
-  const membership = await db.collection<{ role: MembershipRole; customRoleId?: string; status: string }>("memberships").findOne({
+  const membership = await db.collection<{ role: MembershipRole; customRoleId?: string; restrictionRoleIds?: string[]; status: string }>("memberships").findOne({
     userId: user.id,
     tenantId,
     status: "active"
@@ -86,11 +86,22 @@ export async function resolveTenantContext(
   if (membership.role === "custom") {
     if (!membership.customRoleId) return null;
     const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId });
-    if (!customRole) return null;
+    if (!customRole || customRole.mode === "restriction") return null;
     try { const permissionPolicy = await db.collection<{id:string;tenantAssignablePermissions:string[]}>("platform_permission_policies").findOne({id:"global"},{projection:{tenantAssignablePermissions:1}}); const allowed = permissionPolicy?.tenantAssignablePermissions; permissions = permissionsForCustomRole(customRole, Array.isArray(allowed) ? allowed : undefined); } catch { return null; }
   } else {
     if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
     permissions = COMPANY_ROLE_PERMISSIONS[membership.role];
+  }
+
+  const restrictionRoleIds = Array.isArray(membership.restrictionRoleIds) ? [...new Set(membership.restrictionRoleIds)] : [];
+  if (restrictionRoleIds.length) {
+    // Owner and super_admin are protected system identities, never constrained
+    // by tenant-authored role documents.
+    if (membership.role === "owner" || membership.role === "super_admin") return null;
+    const restrictionRoles = await db.collection<CustomRolePolicy>("company_roles")
+      .find({ id: { $in: restrictionRoleIds }, tenantId, mode: "restriction" }).toArray();
+    if (restrictionRoles.length !== restrictionRoleIds.length) return null;
+    try { permissions = applyPermissionRestrictions(permissions, restrictionRoles); } catch { return null; }
   }
 
   if (!options.allowSuspendedCompany) {

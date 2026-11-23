@@ -1,6 +1,8 @@
 import type { CompanyRole } from "./tenant-context.js";
 import { CORE_PERMISSION_CATALOG } from "./permission-catalog.js";
 
+export type CustomRoleMode = "grant" | "restriction";
+
 export const CUSTOM_ROLE_PERMISSION_PATTERN = /^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*$/;
 export const MAX_CUSTOM_ROLE_PERMISSIONS = 100;
 export const CUSTOM_ROLE_ALLOWED_PERMISSIONS = CORE_PERMISSION_CATALOG.filter(permission => permission.customRoleAssignable).map(permission => permission.key);
@@ -19,6 +21,7 @@ export type CustomRolePolicy = {
   name: string;
   description?: string;
   permissions: string[];
+  mode?: CustomRoleMode;
   createdBy: string;
   updatedBy: string;
   createdAt: Date;
@@ -50,9 +53,24 @@ export function normalizeCustomRoleName(input: unknown): string {
   return name;
 }
 
-export function permissionsForCustomRole(role: Pick<CustomRolePolicy, "permissions">, allowedPermissions: readonly string[] = CUSTOM_ROLE_ALLOWED_PERMISSIONS): readonly string[] {
+export function normalizeRestrictionPermissions(input: unknown): string[] {
+  const permissions = normalizeCustomRolePermissions(input);
+  const known = new Set(CORE_PERMISSION_CATALOG.map(permission => permission.key));
+  const unknown = permissions.filter(permission => !known.has(permission));
+  if (unknown.length) throw new Error("Restriction roles can only deny registered permissions: " + unknown.join(", "));
+  return permissions;
+}
+
+export function permissionsForCustomRole(role: Pick<CustomRolePolicy, "permissions" | "mode">, allowedPermissions: readonly string[] = CUSTOM_ROLE_ALLOWED_PERMISSIONS): readonly string[] {
+  if (role.mode === "restriction") return [];
   const allowed = new Set(allowedPermissions);
   return normalizeCustomRolePermissions(role.permissions).filter(permission => allowed.has(permission));
+}
+
+/** Explicit denials from any assigned restriction role override base-role grants. */
+export function applyPermissionRestrictions(granted: readonly string[], restrictions: readonly Pick<CustomRolePolicy, "permissions" | "mode">[]): readonly string[] {
+  const denied = new Set(restrictions.filter(role => role.mode === "restriction").flatMap(role => normalizeRestrictionPermissions(role.permissions)));
+  return granted.filter(permission => !denied.has(permission));
 }
 
 export function hasPolicyPermission(policy: RolePolicy, permission: string): boolean {
