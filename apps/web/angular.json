@@ -48,6 +48,11 @@
                 "glob": "preview.svg",
                 "input": "src/app/templates/packages/studio/assets",
                 "output": "assets/templates/studio"
+              },
+              {
+                "glob": "index.html",
+                "input": "src/assets/device-simulator",
+                "output": "assets/device-simulator"
               }
             ],
             "scripts": [
