@@ -384,6 +384,10 @@ html body .settings-page.settings-page{display:block;width:100%;max-width:none;m
 .bee-company-members__invitation-menu{position:absolute;right:0;top:28px;z-index:5;display:grid;gap:2px;min-width:150px;padding:5px;border:1px solid var(--border);border-radius:9px;background:var(--panel, #181a24);box-shadow:0 8px 24px #0004}
 .bee-company-members__invitation-menu button{width:100%;text-align:left;border:0;border-radius:6px;padding:8px;background:transparent;color:inherit;font-size:10px}
 .bee-company-members__invitation-menu button:disabled{opacity:.4;cursor:not-allowed}
+.bee-company-members__member-menu-wrap{display:flex;justify-content:flex-end}
+.bee-company-members__member-menu-wrap .bee-company-members__invitation-menu{right:0;left:auto}
+.bee-company-members__invitation-menu button:not(:disabled):hover{background:color-mix(in srgb,var(--border) 55%,transparent)}
+
 .bee-company-members__invitation-menu button.is-danger{color:#f0aaaa}
 .bee-company-members__status.is-revoked{background:#e58a8a16;color:#e58a8a}
 @media(max-width:1100px){.bee-company-members__invitation-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
