@@ -20,7 +20,7 @@ const EMPTY_PROFILE: CompanyProfile = {
   standalone: true,
   imports: [CommonModule, FormsModule, BeeIconComponent],
   template: `
-    <section class="bee-company" aria-label="Company profile">
+    <section class="bee-company">
       @if (loading) {
         <div class="bee-company__loading" role="status">
           <span class="bee-company__spinner" aria-hidden="true"></span>
@@ -37,7 +37,7 @@ const EMPTY_PROFILE: CompanyProfile = {
         }
         @if (saved) {
           <div class="bee-company__notice bee-company__notice--success" role="status">
-            <bee-icon name="check" size="15px" aria-hidden="true"></bee-icon>{{t('company.saved')}}
+            {{t('company.saved')}}
           </div>
         }
 
@@ -55,7 +55,7 @@ const EMPTY_PROFILE: CompanyProfile = {
           <section class="bee-company__section">
             <header class="bee-company__section-head">
               <div><h3>{{t('company.basic')}}</h3><p>{{t('company.basicDescription')}}</p></div>
-              <bee-icon name="building2" size="18px" aria-hidden="true"></bee-icon>
+              <bee-icon name="company" size="18px" aria-hidden="true"></bee-icon>
             </header>
             <div class="bee-company__fields">
               <label class="bee-company__field bee-company__field--wide">
@@ -155,7 +155,7 @@ const EMPTY_PROFILE: CompanyProfile = {
   `,
   styles: [`
     :host{display:block;width:100%;min-width:0;color:inherit}
-    .bee-company{display:grid;gap:16px;min-width:0;color:var(--bee-text,inherit)}
+    .bee-company{display:grid;gap:16px;min-width:0;color:inherit}
     .bee-company__identity{display:flex;align-items:center;gap:14px;padding:18px 20px;border:1px solid var(--border);border-radius:14px;background:var(--panel);min-width:0}
     .bee-company__identity-mark{width:46px;height:46px;display:grid;place-items:center;flex:none;border:1px solid color-mix(in srgb,var(--purple) 32%,var(--border));border-radius:12px;background:color-mix(in srgb,var(--purple) 10%,var(--panel));color:var(--purple)}
     .bee-company__identity-copy{min-width:0;flex:1}
