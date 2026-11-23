@@ -271,7 +271,7 @@ export class AppComponent implements OnInit {
   activeSection = 'dashboard';
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
-    dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization',
+    dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans-licensing',
@@ -323,7 +323,7 @@ export class AppComponent implements OnInit {
   navigatePlatformList(): void { this.navigateSection('settings-tenants'); }
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
-  get sectionTitle(): string { return this.activeSection === 'notifications' ? 'Notifications' : this.activeSection === 'messages' ? 'Chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'; }
+  get sectionTitle(): string { const organizationTitles: Record<string,string> = {'organization-company':'Company','organization-users':'Users','organization-teams':'Teams','organization-roles':'Roles & Permissions'}; return organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'Notifications' : this.activeSection === 'messages' ? 'Chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || this.navigationItems.find(item => item.id === this.activeSection)?.label || 'Dashboard'); }
   get settingsNavigationItems(): Array<{id:string;label:string;icon:string;description:string}> {
     const role = (this.activeCompanyRole || '').toLowerCase();
     const allowed = this.isPlatformAdmin
@@ -359,7 +359,7 @@ export class AppComponent implements OnInit {
       {id:'notifications',label:'Notifications',icon:'♧',group:'WORKSPACE'},
       {id:'settings',label:'Settings',icon:'⚙',group:'SYSTEM'}
     ];
-    if (this.isPlatformAdmin) return base.filter(item => ['dashboard','activity','mail','notifications','settings'].includes(item.id));
+    if (this.isPlatformAdmin) return base.filter(item => ['dashboard','organization','activity','mail','notifications','settings'].includes(item.id));
     const role = (this.activeCompanyRole || '').toLowerCase();
     if (role === 'manager') return base;
     if (role === 'owner' || role === 'admin') return base;
