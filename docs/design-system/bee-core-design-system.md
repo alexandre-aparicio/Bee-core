@@ -480,3 +480,10 @@ This guide changes when the shared design system changes, not whenever an indivi
 ## 15. Definition of done
 
 A feature is not visually complete merely because it renders. It is design-system complete when it uses the common page/component contracts, respects the active template, covers its relevant states, is responsive and accessible, uses localization, and has no unexplained visual outliers.
+
+### Light/dark theme compatibility for collection workspaces
+
+- Shared collection workspaces (including Documents) MUST use the active template's semantic surface, foreground, muted, border and accent tokens. Avoid hard-coded light/dark card, text, menu or input colors.
+- Overlays are the exception to surface token mixing: modal backdrops should use a neutral dark translucent layer in both light and dark modes so the underlying page is consistently dimmed; do not mix the backdrop from the page background token, which can turn it pale in light mode.
+- Dialog shadows should use a neutral dark shadow rather than the active background token. Check dialogs, menus, selected segmented controls, empty states, tables and forms in both modes for contrast.
+- Light-mode checks are required alongside dark-mode checks for first-party collection pages: primary action text, muted labels, table headers, hover rows, menu surfaces, selected/unselected view controls, borders and keyboard focus must remain readable.

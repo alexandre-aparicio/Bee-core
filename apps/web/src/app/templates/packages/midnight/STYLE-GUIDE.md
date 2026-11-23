@@ -342,3 +342,9 @@ This guide intentionally distinguishes current code from the desired stable cont
 6. Add automated or documented visual regression checks for Midnight at mobile/tablet/desktop breakpoints.
 
 Do not mark these gaps complete merely because this guide documents them. Update this document when the implementation contract changes.
+
+### Light appearance refinements for shared workspace pages
+
+- Shared components MUST adapt to the active appearance mode through semantic tokens; the Midnight package must not force its dark surface palette into light mode.
+- Modal overlays should remain neutral dark translucent layers in both modes; dialogs and menus use the active panel/background tokens, while dialog shadows remain neutral dark.
+- Validate the collection toolbar, active/inactive view control, cards, table row hover, overflow menus, forms, empty states and modal details in both light and dark appearance. Violet/cyan accents are preserved as functional states, not decorative gradients or glow.
