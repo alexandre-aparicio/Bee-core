@@ -732,3 +732,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Harmonized folder/document cards and hover, overflow menus, share/detail dialogs, share tabs, search suggestions, chips, hints, empty state and table surface. Primary actions and selected view controls now retain readable white text over the accent background.
 - Styles remain scoped to Documents; Midnight Dark and unrelated dashboard features are not intentionally altered.
 - Validation: source/documentation review only. No Angular build, tests, browser visual/responsive QA, CI or VPS runtime verification executed. Check Cards/Table and all open menus/dialogs in both Light and Dark after deploy.
+
+
+## Documents modular API refactor — phases 1–4 underway (2026-11-23)
+- Started a dedicated refactor branch from the verified latest `main` commit (`eb593928736899043ec997795baf19eae323abbf`); no changes are merged to `main`.
+- Completed phase 1 source inventory and documented the current API contract, plugin/Core/Files responsibilities, frontend transport coupling, security invariants and target separation in `docs/modules/documents-modularization-audit.md`.
+- Source review confirms the backend is already an isolated Bee plugin registered into the existing API runtime. The remaining backend coupling is internal: the plugin initializer currently bundles route handlers, domain logic, persistence and presenters. The Angular component still owns raw HTTP transport and endpoint strings.
+- Phases 2–4 are next: extract backend routes/domain helpers into module-owned files, add typed frontend Documents API service/contracts, and formalize the module/Core/Files/permission boundary while preserving existing paths and UX.
+- Phase 5 is intentionally deferred until after you authorize merging to `main`. No builds, tests, browser QA, API smoke checks, Docker build or VPS runtime verification have been executed.
