@@ -220,13 +220,13 @@ export const organizationsPlugin:BeePlugin={
   });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/invitations",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
-   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const rows=await invitations.find({tenantId:req.params.companyId}).sort({createdAt:-1}).toArray();
    return {invitations:rows.map(row=>({id:mask(auth,row.id,"invitation"),email:row.email,role:row.role,createdAt:row.createdAt,expiresAt:row.expiresAt,acceptedAt:row.acceptedAt,cancelledAt:row.cancelledAt,status:row.acceptedAt?"accepted":row.cancelledAt?"cancelled":row.expiresAt<=new Date()?"expired":"pending"}))};
   });
   ctx.server.delete<{Params:{companyId:string;invitationId:string}}>("/companies/:companyId/invitations/:invitationId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
-   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const result=await invitations.updateOne({id:req.params.invitationId,tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null},{$set:{cancelledAt:new Date()}});
    if(!result.matchedCount)return reply.code(404).send({error:"Pending invitation not found"});
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"invitation.cancelled",outcome:"success",resourceType:"invitation",resourceId:req.params.invitationId});
@@ -260,13 +260,16 @@ export const organizationsPlugin:BeePlugin={
    const companyId=req.params.companyId;
    const actor=await requireCompanyPermission(auth,companyId,"members.read",reply);if(!actor)return;
    const rows=await memberships.find({tenantId:companyId}).toArray();
+   const company=await companies.findOne({id:companyId});
+   const activeOwner=await memberships.findOne({tenantId:companyId,role:"owner",status:"active"});
+   const canAssignOwner=company?.kind==="super"&&actor.role==="super_admin"&&!activeOwner;
    const memberUsers=await users.find({id:{$in:rows.map(row=>row.userId)}}).project({id:1,email:1}).toArray();
    const emails=new Map(memberUsers.map(user=>[user.id,user.email]));
-   return {memberships:rows.map(row=>({userId:mask(auth,row.userId,"user"),email:emails.get(row.userId)??null,role:row.role,customRoleId:row.customRoleId?mask(auth,row.customRoleId,"role"):null,restrictionRoleIds:(row.restrictionRoleIds??[]).map(id=>mask(auth,id,"role")),status:row.status,createdAt:row.createdAt}))};
+   return {canAssignOwner,memberships:rows.map(row=>({userId:mask(auth,row.userId,"user"),email:emails.get(row.userId)??null,role:row.role,customRoleId:row.customRoleId?mask(auth,row.customRoleId,"role"):null,restrictionRoleIds:(row.restrictionRoleIds??[]).map(id=>mask(auth,id,"role")),status:row.status,createdAt:row.createdAt}))};
   });
   ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"|"guest"}}>("/companies/:companyId/memberships",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
-   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const actor=await requireCompanyPermission(auth,req.params.companyId,"members.invite",reply);if(!actor)return;
    const email=String(req.body?.email??"").trim().toLowerCase(),role=req.body?.role??"member";
    if(!email||!["admin","manager","member","guest"].includes(role))return reply.code(400).send({error:"A valid email and role are required"});
    if(role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can assign administrators"});
@@ -287,7 +290,7 @@ export const organizationsPlugin:BeePlugin={
    // Unknown, disabled, already-active and over-limit addresses receive the same response.
    return reply.code(202).send({success:true,message:"The membership request has been accepted for processing."});
   });
-  ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"admin"|"manager"|"member"|"guest";customRoleId?:string;restrictionRoleIds?:string[]}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
+  ctx.server.put<{Params:{companyId:string;userId:string};Body:{role?:"owner"|"admin"|"manager"|"member"|"guest";customRoleId?:string;restrictionRoleIds?:string[]}}>("/companies/:companyId/memberships/:userId",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
    const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:"active"});
@@ -305,11 +308,17 @@ export const organizationsPlugin:BeePlugin={
     if(customRole.mode==="restriction")return reply.code(400).send({error:"Restriction roles must be assigned as additional restrictions, not as the primary role"});
     nextRole="custom";nextCustomRoleId=customRole.id;
    }else if(body.role){
-    if(!["admin","manager","member","guest"].includes(body.role))return reply.code(400).send({error:"A built-in membership role or customRoleId is required"});
+    if(!["owner","admin","manager","member","guest"].includes(body.role))return reply.code(400).send({error:"A built-in membership role or customRoleId is required"});
+    if(body.role==="owner"){
+     const superOrganization=await companies.findOne({id:req.params.companyId,kind:"super"});
+     if(actor.role!=="super_admin"||!superOrganization)return reply.code(403).send({error:"Only a Super Organization super_admin can appoint its owner"});
+     const existingOwner=await memberships.findOne({tenantId:req.params.companyId,role:"owner",status:"active"});
+     if(existingOwner&&existingOwner.userId!==target.userId)return reply.code(409).send({error:"A Super Organization owner already exists; ownership transfer requires a separate protected workflow"});
+    }
     if(body.role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can assign administrators"});
     nextRole=body.role;nextCustomRoleId=undefined;
    }
-   let restrictionRoleIds=target.restrictionRoleIds??[];
+   let restrictionRoleIds=nextRole==="owner"||nextRole==="super_admin"?[]:target.restrictionRoleIds??[];
    if(hasRestrictions){
     if(actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the owner or Super Organization super_admin can assign restriction roles"});
     if(nextRole==="owner"||nextRole==="super_admin")return reply.code(409).send({error:"Owner and Super Admin memberships cannot receive restriction roles"});
