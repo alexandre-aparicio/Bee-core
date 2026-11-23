@@ -517,3 +517,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Linked the specification from the README and the SaaS/plugin platform roadmap.
 - This is a product/architecture proposal only. No device service, QR pairing flow, mobile app, location tracking, POS device integration, API, or UI has been implemented or verified.
 - It is explicitly excluded from MVP implementation and release-readiness percentages until scope is approved, implemented, and tested.
+
+## VPS build feedback — Super Organization MongoDB typing (2026-11-23)
+
+- The VPS backend image build failed in `src/plugins/platform-admin/platform-admin.plugin.ts` during TypeScript compilation. The Super Organization bootstrap assigned a plain insert document to a variable inferred from `findOne()` as `WithId<Company> | null`, which incorrectly required MongoDB's generated `_id`; the code also used that nullable lookup result without an explicit existence guard.
+- Corrected bootstrap to keep the new organization as a plain `Company` insert document, insert it, re-read the persisted MongoDB record, and fail explicitly if initialization still returns no organization.
+- Expanded the platform-admin membership status type to include the persisted `invited` and `suspended` states used by the migration and membership lifecycle.
+- Fix is isolated on branch `fix/super-organization-mongodb-types`. No build, tests or CI were run here. Rebuild on the VPS is required to confirm the TypeScript diagnostics are resolved; subsequent runtime migration and MFA flows remain unverified.
