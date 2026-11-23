@@ -147,7 +147,8 @@ export const documentsPlugin:BeePlugin={
     policies.find({tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder"}).toArray()
    ]);
    const usersById=new Map(userRows.map(user=>[user.id,user]));
-   const sharedFolderIds=new Set(folderPolicies.filter((policy:any)=>(policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read"))||(policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==tenant.userId&&grant.permissions?.includes("read"))).map((policy:any)=>policy.resourceId));
+   const folderOwnerById=new Map(rows.map(folder=>[folder.id,folder.createdBy]));
+   const sharedFolderIds=new Set(folderPolicies.filter((policy:any)=>(policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read"))||(policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read"))).map((policy:any)=>policy.resourceId));
    for(const item of documentRows){
     const parents=await ancestors(tenant.tenantId,item.folderId);
     if(!await canAccess(tenant,"document",item.id,"read",parents))continue;
