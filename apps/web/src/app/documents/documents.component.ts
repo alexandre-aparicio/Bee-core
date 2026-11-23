@@ -3,7 +3,7 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from "@angular/cdk/drag-drop";
 
-type Folder={id:string;name:string;parentId:string|null;canManageShares?:boolean;canMove?:boolean;documentCount?:number};
+type Folder={id:string;name:string;parentId:string|null;canManageShares?:boolean;canMove?:boolean;documentCount?:number;uploadedBy?:{email:string};createdAt?:string;updatedAt?:string;access?:"private"|"shared"};
 type ShareTeam={id:string;name:string};
 type ShareUser={id:string;email:string};
 type Doc={id:string;title:string;description:string;tags:string[];visibility:"private"|"public";downloadUrl:string;publicUrl:string|null;folderId:string|null;canMove?:boolean;originalName:string;fileContentType:string;fileSize:number;uploadedBy:{email:string};uploadedAt:string;createdAt:string;updatedAt:string};
@@ -77,6 +77,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
           <span class="documents__item-copy">
             <strong>{{folder.name}}</strong>
             <small>Folder · {{folder.documentCount || 0}} documents</small>
+            <small>Created by {{folder.uploadedBy?.email || 'Unknown user'}} · {{formatDate(folder.createdAt)}}</small>
             <span class="documents__folder-count" [attr.aria-label]="(folder.documentCount || 0) + ' documents'">{{folder.documentCount || 0}}</span>
           </span>
         </button>
@@ -119,7 +120,11 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
         <thead><tr><th scope="col">Title / original file</th><th scope="col">Type</th><th scope="col">Uploaded by</th><th scope="col">Uploaded</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
         <tbody cdkDropList id="documents-table-source" [cdkDropListSortingDisabled]="true" [cdkDropListConnectedTo]="sourceDropListIds('documents-table-source')" (cdkDropListDropped)="dropOnSource($event)">
           <tr *ngFor="let folder of visibleFolders" cdkDropList [cdkDropListSortingDisabled]="true" [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="folderDropListIds(folder.id)" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
-            <td colspan="5"><button class="documents__table-name" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)">{{folder.name}} <span class="documents__folder-count documents__folder-count--table">{{folder.documentCount || 0}}</span></button></td>
+            <td cdkDragHandle><button class="documents__table-name" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)">{{folder.name}} <span class="documents__folder-count documents__folder-count--table">{{folder.documentCount || 0}}</span></button><small class="documents__table-description">Folder · {{folder.documentCount || 0}} documents</small></td>
+            <td>Folder</td>
+            <td>{{folder.uploadedBy?.email || 'Unknown user'}}</td>
+            <td>{{formatDate(folder.createdAt)}}</td>
+            <td><span class="documents__visibility" [class.is-public]="folder.access==='shared'">{{folder.access==='shared'?'Shared':'Private'}}</span></td>
             <td>
               <div class="documents__table-actions" *ngIf="folder.canManageShares || folder.canMove">
                 <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
