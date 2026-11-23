@@ -2,7 +2,7 @@ import type { Db } from "mongodb";
 import { permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
 import { unmaskTenantId, unmaskUserId } from "./session-id.js";
 
-export type CompanyRole = "owner" | "admin" | "manager" | "member";
+export type CompanyRole = "owner" | "admin" | "manager" | "member" | "guest";
 export type MembershipRole = CompanyRole | "custom";
 export type TenantClaims = {
   sub?: string;
@@ -17,7 +17,8 @@ export const COMPANY_ROLE_PERMISSIONS: Record<CompanyRole, readonly string[]> = 
   owner: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "billing.manage", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send", "mail.manage"],
   admin: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send", "mail.manage"],
   manager: ["members.read", "plugins.read", "files.read", "files.write", "notes.read", "notes.write", "mail.read", "mail.send"],
-  member: ["members.read", "plugins.read", "files.read", "notes.read", "mail.read"]
+  member: ["members.read", "plugins.read", "files.read", "notes.read", "mail.read"],
+  guest: ["plugins.read"]
 };
 
 export type TenantContext = {
