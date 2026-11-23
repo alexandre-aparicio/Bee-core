@@ -284,7 +284,7 @@ export class AppComponent implements OnInit {
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-plans': '/dashboard/settings/plans-licensing',
-    'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
+    'settings-infrastructure': '/dashboard/settings/infrastructure',
     'settings-localization': '/dashboard/settings/localization',
     'themes-dashboard': '/dashboard/themes', 'themes-public': '/dashboard/public-theme',
     branding: '/dashboard/branding', domains: '/dashboard/domains', integrations: '/dashboard/integrations',
@@ -297,7 +297,6 @@ export class AppComponent implements OnInit {
     {id:'settings-users',label:'Platform Users',icon:'users',description:'Global user administration and company membership onboarding.'},
     {id:'settings-plugins',label:'Plugins',icon:'plugins',description:'Catalogue, authorization, versions and dependencies.'},
     {id:'settings-plans',label:'Plans & Licensing',icon:'plans',description:'Plans, subscriptions, pricing and licenses.'},
-    {id:'settings-security',label:'Security',icon:'security',description:'Global policies, authentication, sessions and audit.'},
     {id:'settings-infrastructure',label:'Infrastructure',icon:'infrastructure',description:'Runtime, storage, queues, logs and services.'},
     {id:'settings-localization',label:'Localization',icon:'localization',description:'Languages, regions, currencies and global formats.'}
   ];
@@ -349,7 +348,7 @@ export class AppComponent implements OnInit {
     const allowed = this.isPlatformAdmin
       ? this.allSettingsSections.map(item => item.id)
       : ['owner','admin'].includes(role)
-        ? ['settings-general','settings-plugins','settings-security','settings-localization']
+        ? ['settings-general','settings-plugins','settings-localization']
         : ['settings-localization'];
     return this.allSettingsSections.filter(item => allowed.includes(item.id)).map(item => ({
       ...item,
