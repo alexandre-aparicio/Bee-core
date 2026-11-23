@@ -1,6 +1,6 @@
 # Bee-Core MVP progress
 
-Updated: 2026-11-23 — tenant subdomain routing is included. Future company user onboarding via temporary credentials and expiring invitation/self-registration is specified in `docs/company-user-onboarding.md`; these flows are documentation-only and not implemented by this change. No tests or CI were run for this documentation update.
+Updated: 2026-11-23 — tenant subdomain routing is included. Company invitation tokens, acceptance and cancellation already exist in the current Users UI/backend (manual token sharing; seven-day expiry shown by UI). Future temporary-password account creation and email-delivered invitation/registration UX are specified in `docs/company-user-onboarding.md`. This is documentation-only; no tests or CI were run.
 
 ## How progress is measured
 
