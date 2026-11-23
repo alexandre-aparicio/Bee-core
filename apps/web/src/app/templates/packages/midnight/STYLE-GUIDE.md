@@ -4,7 +4,7 @@
 > **Template ID:** `midnight`  
 > **Target:** Dashboard  
 > **Current package:** `apps/web/src/app/templates/packages/midnight/`  
-> **Required companion:** [Bee-Core Global UI & Page System](../../../../../../docs/design-system/bee-core-design-system.md)
+> **Required companion:** [Bee-Core Global UI & Page System](../../../../../../../docs/design-system/bee-core-design-system.md)
 
 ## 1. Purpose and authority
 
