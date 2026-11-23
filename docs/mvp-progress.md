@@ -740,3 +740,9 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Backend modular layers include route contract, thin controller, handlers, service helpers, repository/indexes, and validators. Plugin bootstrap uses the shared Fastify runtime and Files adapter.
 - Frontend API service centralizes Documents transport and typed responses; component retains UI state and browser download presentation.
 - **Verification:** source changes only. No TypeScript/Angular compile, tests, browser checks, API smoke tests, Docker/CI or VPS runtime verification was run. This is source-ported, not runtime-verified.
+
+
+## Documents TypeScript build error corrections — 2026-11-23
+- Responds to the VPS Docker build diagnostics after the Documents modularization merge: removed generic route type arguments from the untyped shared runtime route registration (TS2347), added explicit types for handler callback parameters and Mongo result collections (TS7006), typed uploader/user result access (TS2339), and replaced the invalid `documentCollection` reference with the repository-owned collection (TS2304).
+- Reviewed the affected source callbacks and shared-folder policy filtering for syntax consistency while preparing the fix branch.
+- **Validation:** changes are based on the exact compiler output and source review only. No local TypeScript build, tests, Docker build, CI, or VPS runtime check was run. Re-run the VPS Docker build before treating the fix as confirmed.
