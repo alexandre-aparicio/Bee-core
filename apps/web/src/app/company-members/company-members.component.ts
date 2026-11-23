@@ -33,11 +33,11 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
               <td><strong>{{member.email || member.userId}}</strong><small>{{member.userId}}</small></td>
               <td>
                 <select *ngIf="canManage && member.role !== 'owner' && (role === 'owner' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member, $any($event.target).value)" [disabled]="busyId === member.userId">
-                  <option value="guest">Guest</option><option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option>
-                  <option *ngIf="role === 'owner'" value="admin">Admin</option>
+                  <option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option>
+                  <option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">Admin</option>
                   <option *ngFor="let customRole of customRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
                 </select>
-                <span *ngIf="!canManage || member.role === 'owner'">{{member.role === 'custom' ? customRoleName(member.customRoleId) : member.role}}</span>
+                <span *ngIf="!canManage || member.role === 'owner'">{{member.role === 'super_admin' ? 'Super Admin' : (member.role === 'custom' ? customRoleName(member.customRoleId) : member.role)}}</span>
               </td>
               <td><span class="bee-company-members__status" [class.is-suspended]="member.status !== 'active'">{{member.status}}</span></td>
               <td *ngIf="canManage"><button *ngIf="member.role !== 'owner' && member.status === 'active' && (role === 'owner' || member.role !== 'admin')" class="bee-company-members__danger" type="button" (click)="suspend(member)" [disabled]="busyId === member.userId">Suspend</button></td>
@@ -118,10 +118,10 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   error = "";
   message = "";
 
-  get canRead(): boolean { return this.role === "owner" || this.role === "admin" || this.role === "manager"; }
-  get canManage(): boolean { return this.role === "owner" || this.role === "admin"; }
+  get canRead(): boolean { return this.role === "super_admin" || this.role === "owner" || this.role === "admin" || this.role === "manager"; }
+  get canManage(): boolean { return this.role === "super_admin" || this.role === "owner" || this.role === "admin"; }
   get canInvite(): boolean { return this.canManage; }
-  get canManageCustomRoles(): boolean { return this.role === "owner"; }
+  get canManageCustomRoles(): boolean { return this.role === "super_admin" || this.role === "owner"; }
 
   ngOnInit(): void { void this.load(); }
   ngOnChanges(changes: SimpleChanges): void {
