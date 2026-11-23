@@ -714,3 +714,14 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Root cause of the Company/Organization page rendering translation keys instead of labels: the organization catalog was registered but not active in the i18n service's initial active namespace set. The namespace only became active after setInstalledModules() ran.
 - Activated the built-in Organization namespace (and other already-registered built-in catalogs) during service initialization, so labels translate before module activation/plugin loading.
 - Validation: source-level change only. Angular build, browser locale switch, and Docker runtime verification remain pending.
+
+## Documents workspace cards/table and file metadata (PR #127 — merged 2026-11-23)
+
+- Added Cards and Table presentation modes for the same tenant-scoped folders and documents, with the compact view switcher immediately before the Upload text file action. The selected view is indicated accessibly with button names, tooltips and `aria-pressed`.
+- Restored the vertical three-dot (⋮) folder action and added matching document action menus in both views. Document actions include Document details and Download; folder sharing actions remain permission-gated.
+- Added a document details dialog showing document title, original filename, uploader email, upload timestamp, record creation/update timestamps, MIME type, file size, visibility, description and tags when available.
+- Extended the Documents API presenter to enrich responses using tenant-scoped stored-file metadata and the uploader account record. Existing tenant scoping, resource access checks and authenticated download route are retained.
+- Updated the global Bee-Core design system and Midnight style guide with collection view-switcher placement and vertical-ellipsis conventions.
+- Corrected three literal escaped newline sequences in the Angular component before merge; verified the component file no longer contains those accidental sequences.
+- PR #127 was squash-merged into `main` at `6e2cd04f7fa5f845c04b3adcf46d3293a7c79874`.
+- Validation status: source-level checks only. No TypeScript/Angular build, tests, CI, browser/responsive checks or VPS runtime verification were run. The Documents feature must not be considered build- or production-verified until those checks pass.
