@@ -282,7 +282,7 @@ export class AppComponent implements OnInit {
   private readonly sectionRoutes: Record<string, string> = {
     dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
-    'settings-tenants': '/dashboard/settings/tenants', 'settings-plugins': '/dashboard/settings/plugins',
+    'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-integrations': '/dashboard/settings/integrations', 'settings-plans': '/dashboard/settings/plans-licensing',
     'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
     'settings-localization': '/dashboard/settings/localization',
@@ -293,6 +293,7 @@ export class AppComponent implements OnInit {
   private readonly allSettingsSections = [
     {id:'settings-general',label:'General',icon:'general',description:'Platform name, domain, identity and global configuration.'},
     {id:'settings-tenants',label:'Tenants',icon:'tenants',description:'Tenant directory, company status, subdomains and platform-level controls.'},
+    {id:'settings-users',label:'Users',icon:'users',description:'Global user administration and company membership onboarding.'},
     {id:'settings-plugins',label:'Plugins',icon:'plugins',description:'Catalogue, authorization, versions and dependencies.'},
     {id:'settings-integrations',label:'Integrations',icon:'integrations',description:'Available connectors, global credentials and policies.'},
     {id:'settings-plans',label:'Plans & Licensing',icon:'plans',description:'Plans, subscriptions, pricing and licenses.'},
