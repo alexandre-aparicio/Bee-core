@@ -5,7 +5,7 @@ import { FormsModule } from "@angular/forms";
 type Folder={id:string;name:string;parentId:string|null;canManageShares?:boolean};
 type ShareTeam={id:string;name:string};
 type ShareUser={id:string;email:string};
-type Doc={id:string;title:string;description:string;visibility:"private"|"public";downloadUrl:string;publicUrl:string|null;folderId:string|null;createdAt:string};
+type Doc={id:string;title:string;description:string;tags:string[];visibility:"private"|"public";downloadUrl:string;publicUrl:string|null;folderId:string|null;originalName:string;fileContentType:string;fileSize:number;uploadedBy:{email:string};uploadedAt:string;createdAt:string;updatedAt:string};
 
 @Component({
  selector:"bee-documents-workspace",
@@ -87,10 +87,18 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
       </article>
 
       <article class="documents__item documents__item--document" *ngFor="let doc of documents">
+        <div class="documents__document-actions">
+          <button type="button" class="documents__icon-button" aria-label="Document options" title="Document options" [attr.aria-expanded]="documentMenuId===doc.id" (click)="toggleDocumentMenu(doc.id,$event)"><span aria-hidden="true">⋮</span></button>
+          <div class="documents__menu" *ngIf="documentMenuId===doc.id">
+            <button type="button" (click)="openDocumentDetails(doc)">Document details</button>
+            <button type="button" (click)="downloadDocument(doc)">Download</button>
+          </div>
+        </div>
         <div class="documents__item-main">
           <div class="documents__item-copy">
             <strong [title]="doc.title">{{doc.title}}</strong>
             <small>{{doc.description || 'Document'}}</small>
+            <small>Uploaded by {{doc.uploadedBy?.email || 'Unknown user'}} · {{formatDate(doc.uploadedAt)}}</small>
           </div>
         </div>
         <div class="documents__meta">
@@ -103,7 +111,7 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
     
     <div class="documents__table-wrap" *ngIf="!loading && viewMode==='table' && (visibleFolders.length || documents.length)">
       <table class="documents__table">
-        <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
+        <thead><tr><th scope="col">Title / original file</th><th scope="col">Type</th><th scope="col">Uploaded by</th><th scope="col">Uploaded</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
         <tbody>
           <tr *ngFor="let folder of visibleFolders">
             <td><button class="documents__table-name" type="button" (click)="openFolder(folder.id)">{{folder.name}}</button></td>
@@ -120,10 +128,18 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
             </td>
           </tr>
           <tr *ngFor="let doc of documents">
-            <td><strong class="documents__table-name-text">{{doc.title}}</strong><small class="documents__table-description">{{doc.description || 'Document'}}</small></td>
-            <td>Document</td>
+            <td><strong class="documents__table-name-text">{{doc.title}}</strong><small class="documents__table-description">Original: {{doc.originalName}}</small></td>
+            <td>{{doc.fileContentType}}</td>
+            <td>{{doc.uploadedBy?.email || 'Unknown user'}}</td>
+            <td>{{formatDate(doc.uploadedAt)}}</td>
             <td><span class="documents__visibility" [class.is-public]="doc.visibility==='public'">{{doc.visibility==='public'?'Public':'Private'}}</span></td>
-            <td><button type="button" class="documents__text-action" (click)="downloadDocument(doc)">Download <span aria-hidden="true">↗</span></button></td>
+            <td><div class="documents__table-actions">
+              <button type="button" class="documents__icon-button" aria-label="Document options" title="Document options" [attr.aria-expanded]="documentMenuId===doc.id" (click)="toggleDocumentMenu(doc.id,$event)"><span aria-hidden="true">⋮</span></button>
+              <div class="documents__menu" *ngIf="documentMenuId===doc.id">
+                <button type="button" (click)="openDocumentDetails(doc)">Document details</button>
+                <button type="button" (click)="downloadDocument(doc)">Download</button>
+              </div>
+            </div></td>
           </tr>
         </tbody>
       </table>
@@ -185,6 +201,31 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
       </footer>
     </section>
   </div>
+  <div class="documents__overlay" *ngIf="detailDocument" (click)="closeDocumentDetails()">
+    <section class="documents__share-dialog documents__details-dialog" (keydown.escape)="closeDocumentDetails()" role="dialog" aria-modal="true" aria-labelledby="document-details-title" (click)="$event.stopPropagation()">
+      <header class="documents__dialog-header">
+        <div><p class="documents__eyebrow">DOCUMENT INFORMATION</p><h2 id="document-details-title">{{detailDocument.title}}</h2><p>File metadata and upload history.</p></div>
+        <button type="button" class="documents__icon-button" (click)="closeDocumentDetails()" aria-label="Close document details">×</button>
+      </header>
+      <dl class="documents__details-list">
+        <div><dt>Document title</dt><dd>{{detailDocument.title}}</dd></div>
+        <div><dt>Original filename</dt><dd>{{detailDocument.originalName}}</dd></div>
+        <div><dt>Uploaded by</dt><dd>{{detailDocument.uploadedBy?.email || 'Unknown user'}}</dd></div>
+        <div><dt>Uploaded on</dt><dd>{{formatDate(detailDocument.uploadedAt)}}</dd></div>
+        <div><dt>Document record created</dt><dd>{{formatDate(detailDocument.createdAt)}}</dd></div>
+        <div><dt>Last updated</dt><dd>{{formatDate(detailDocument.updatedAt)}}</dd></div>
+        <div><dt>File type</dt><dd>{{detailDocument.fileContentType}}</dd></div>
+        <div><dt>File size</dt><dd>{{formatBytes(detailDocument.fileSize)}}</dd></div>
+        <div><dt>Access</dt><dd>{{detailDocument.visibility==='public'?'Public':'Private'}}</dd></div>
+        <div *ngIf="detailDocument.description"><dt>Description</dt><dd>{{detailDocument.description}}</dd></div>
+        <div *ngIf="detailDocument.tags?.length"><dt>Tags</dt><dd>{{detailDocument.tags.join(', ')}}</dd></div>
+      </dl>
+      <footer class="documents__dialog-footer">
+        <button type="button" class="documents__button documents__button--secondary" (click)="closeDocumentDetails()">Close</button>
+        <button type="button" class="documents__button documents__button--primary" (click)="downloadDocument(detailDocument)">Download file</button>
+      </footer>
+    </section>
+  </div>
 </section>`,
  styles:[`
 :host{display:block;min-width:0;color:inherit}
@@ -231,7 +272,7 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
 @keyframes documents-spin{to{transform:rotate(360deg)}}
 .documents__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,245px),1fr));gap:12px;min-width:0}
 .documents__table-wrap{width:100%;min-width:0;overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
-.documents__table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}
+.documents__table{width:100%;min-width:900px;border-collapse:collapse;text-align:left;font-size:13px}
 .documents__table th,.documents__table td{padding:13px 15px;border-bottom:1px solid var(--border);vertical-align:middle}
 .documents__table th{color:var(--muted);font-size:11px;font-weight:650;white-space:nowrap}
 .documents__table tbody tr:last-child td{border-bottom:0}
@@ -240,18 +281,23 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
 .documents__table-name:hover{text-decoration:underline;text-underline-offset:3px}
 .documents__table-name-text{display:block;font-weight:650;overflow-wrap:anywhere}
 .documents__table-description{display:block;margin-top:4px;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
-.documents__table-actions{position:relative;display:inline-flex;align-items:center}
+.documents__table-actions{position:relative;display:inline-flex;align-items:center}\n.documents__document-actions{position:absolute;top:12px;right:12px;z-index:3}
 .documents__table-actions .documents__menu{top:calc(100% + 4px)}
 .documents__table .documents__text-action{white-space:nowrap}
+.documents__details-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;margin:0}
+.documents__details-list>div{min-width:0;padding:11px 0;border-bottom:1px solid var(--border)}
+.documents__details-list dt{margin:0 0 5px;color:var(--muted);font-size:11px;font-weight:600}
+.documents__details-list dd{margin:0;color:inherit;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:520px){.documents__details-list{grid-template-columns:minmax(0,1fr)}}
 .documents__item{position:relative;display:flex;min-width:0;min-height:142px;flex-direction:column;justify-content:space-between;gap:18px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--panel);transition:border-color .16s ease,background-color .16s ease}
 .documents__item:hover{border-color:color-mix(in srgb,var(--purple) 48%,var(--border));background:color-mix(in srgb,var(--panel) 92%,var(--purple))}
 .documents__folder-open{display:flex;align-items:flex-start;gap:0;width:100%;min-width:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
 .documents__item-main{display:flex;align-items:flex-start;gap:0;min-width:0}
-.documents__item--folder .documents__item-copy{padding-right:54px}
+.documents__item--folder .documents__item-copy,.documents__item--document .documents__item-copy{padding-right:48px}
 .documents__item-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:6px;padding-right:0}
 .documents__item-copy strong{overflow-wrap:anywhere;color:inherit;font-size:13px;font-weight:650;line-height:1.45}
 .documents__item-copy small{overflow-wrap:anywhere;color:var(--muted);font-size:11px;line-height:1.5}
-.documents__folder-actions{position:absolute;top:12px;right:12px;z-index:2}
+.documents__folder-actions,.documents__document-actions{position:absolute;top:12px;right:12px;z-index:2}
 .documents__icon-button{display:inline-flex;min-width:38px;height:32px;align-items:center;justify-content:center;padding:0 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:11px;font-weight:600;cursor:pointer}
 .documents__icon-button:hover{border-color:var(--border);background:var(--bg);color:inherit}
 .documents__menu{position:absolute;top:36px;right:0;z-index:5;display:flex;min-width:185px;flex-direction:column;gap:3px;padding:5px;border:1px solid var(--border);border-radius:10px;background:var(--panel);box-shadow:0 12px 30px color-mix(in srgb,var(--bg) 35%,transparent)}
@@ -331,7 +377,7 @@ export class BeeDocumentsComponent implements OnChanges {
  showCreateFolder=false;
  folderName="";
  viewMode:"cards"|"table"="cards";
- folderMenuId:string|null=null;
+ folderMenuId:string|null=null;\n documentMenuId:string|null=null;\n detailDocument:Doc|null=null;
  shareFolder:Folder|null=null;
  shareMode:"groups"|"users"="groups";
  shareQuery="";
@@ -368,7 +414,12 @@ export class BeeDocumentsComponent implements OnChanges {
   this.breadcrumbs=chain;
  }
 
- toggleFolderMenu(id:string,event:Event):void{event.stopPropagation();this.folderMenuId=this.folderMenuId===id?null:id;}
+ toggleFolderMenu(id:string,event:Event):void{event.stopPropagation();this.documentMenuId=null;this.folderMenuId=this.folderMenuId===id?null:id;}
+ toggleDocumentMenu(id:string,event:Event):void{event.stopPropagation();this.folderMenuId=null;this.documentMenuId=this.documentMenuId===id?null:id;}
+ openDocumentDetails(doc:Doc):void{this.documentMenuId=null;this.detailDocument=doc;}
+ closeDocumentDetails():void{this.detailDocument=null;}
+ formatDate(value:string|Date|null|undefined):string{if(!value)return "—";const date=new Date(value);return Number.isNaN(date.getTime())?"—":new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(date);}
+ formatBytes(value:number):string{if(!Number.isFinite(value)||value<0)return "—";if(value<1024)return value+" B";const units=["KB","MB","GB"];let size=value/1024,index=0;while(size>=1024&&index<units.length-1){size/=1024;index++;}return size.toFixed(size>=10?1:2)+" "+units[index];}
 
  async openShareDialog(folder:Folder,mode:"groups"|"users"):Promise<void>{
   this.folderMenuId=null;this.shareFolder=folder;this.shareMode=mode;this.shareQuery="";this.targetTeams=[];this.targetUsers=[];this.error="";
