@@ -470,7 +470,7 @@ export class AppComponent implements OnInit {
     // Privileged areas are restricted within Settings and by section access checks.
     return [
       {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
-      {id:'documents',label:'Documents',labelKey:'documents:title',icon:'files',group:'WORKSPACE'},
+      {id:'documents',label:'Documents',labelKey:'nav.documents',icon:'documentation',group:'WORKSPACE'},
       {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
       {id:'activity',label:this.i18n.t('nav.activity'),labelKey:'nav.activity',icon:'activity',group:'WORKSPACE'},
       {id:'mail',label:this.i18n.t('nav.mail'),labelKey:'nav.mail',icon:'mail',group:'WORKSPACE'},
