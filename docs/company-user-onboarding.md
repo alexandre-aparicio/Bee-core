@@ -1,6 +1,6 @@
 # Company user onboarding
 
-This specification is reconciled against the current `main` branch. Company membership management and token-based invitations already exist in the backend/UI; a new Superadmin-only **Admin → Users** overview has now been added to the Glass, Midnight and Paper dashboard shells. It documents onboarding methods but does not create users or send emails. Manual account creation with a temporary password and email delivery of invitations remain future work. This document separates implemented behavior from deferred requirements so it does not imply features that are not present.
+This specification describes the shared organization-membership model. Both the Super Organization and each Tenant use the same Organization → Users experience and membership records. The reserved `super_admin` membership exists only in the Super Organization; its global platform privileges are enforced by backend checks and are not inherited by ordinary organization owners or admins. Invitation tokens are manually shared; account creation with temporary passwords and email delivery remain future work.
 
 ## Who can create company users?
 
@@ -9,7 +9,7 @@ This specification is reconciled against the current `main` branch. Company memb
 - **Manager**: manages their assigned team only if a specific permission is granted; no default company-wide user creation.
 - **Employee**: regular company account; cannot create company users by default.
 - **Guest / External**: limited account for explicitly granted access; no user administration by default.
-- **Platform Superadmin**: platform-level identity. It is not a company member type and must not appear as an option in a company's Add User form.
+- **Super Admin**: reserved `super_admin` membership in the Super Organization only. It is not assignable through tenant invitations or ordinary role changes. Its global access is protected by a separate backend authorization guard and mandatory MFA.
 
 User type and team membership are separate from custom role assignment. User type supplies a sensible starting role/permission profile; the owner can assign an available custom role separately, subject to the authorization model.
 
@@ -17,7 +17,7 @@ User type and team membership are separate from custom role assignment. User typ
 
 The shared Organization → Users screen now renders the existing membership component in Glass, Midnight and Paper. It supports listing company memberships, updating membership roles (including Guest), suspending memberships, creating custom roles (owner), creating/copying invitation tokens, accepting an invitation token and cancelling pending invitations. Invitation creation currently returns a one-time token for the administrator to copy and share manually; the UI says it expires after seven days. This is not email-based delivery and does not provide an invitation-email registration experience.
 
-Current company membership roles in the implementation include `owner`, `admin`, `manager`, `member`, and custom roles. `guest` is now a built-in membership role. It receives only `plugins.read` by default, cannot administer members or invitations, and is available in invitation and membership role assignment. Platform `superadmin` remains a platform-level identity and must not be offered as a company user type.
+Current company membership roles in the implementation include `owner`, `admin`, `manager`, `member`, and custom roles. `guest` is now a built-in membership role. It receives only `plugins.read` by default, cannot administer members or invitations, and is available in invitation and membership role assignment. `super_admin` is reserved for the Super Organization and is protected from ordinary role changes and removal. The same membership manager is used for the Super Organization and Tenants.
 
 ### Planned Add User entry point
 
