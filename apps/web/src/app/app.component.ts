@@ -75,6 +75,10 @@ export class AppComponent implements OnInit {
   get mode(): 'login'|'register'|'forgot' { return this.path === '/register' ? 'register' : this.path === '/forgot' ? 'forgot' : 'login'; }
   get dashboard(): boolean { return this.path === '/dashboard' || this.path.startsWith('/dashboard/'); }
   get signedEmail(): string { return this.auth?.user?.email || 'Workspace user'; }
+  get firstName(): string { const name = this.auth?.user?.firstName || this.auth?.user?.first_name || this.auth?.user?.name || this.auth?.user?.displayName || ''; return name.trim().split(/\s+/)[0] || this.signedEmail.split('@')[0].split(/[._-]/)[0] || 'User'; }
+  get avatarInitial(): string { return this.firstName.charAt(0).toUpperCase(); }
+  userMenuOpen = false;
+  toggleUserMenu(): void { this.userMenuOpen = !this.userMenuOpen; }
   get initial(): string { return this.signedEmail.charAt(0).toUpperCase(); }
   async signIn(e: Event): Promise<void> {
     e.preventDefault();
