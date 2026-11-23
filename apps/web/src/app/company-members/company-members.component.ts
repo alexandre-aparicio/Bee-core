@@ -270,10 +270,11 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
 
   async cancelInvitation(invitation: CompanyInvitation): Promise<void> {
     this.busyId = invitation.id;
+    this.openInvitationMenuId = "";
     this.error = "";
     try {
       await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/invitations/" + encodeURIComponent(invitation.id), "DELETE");
-      this.message = "Invitation cancelled.";
+      this.message = "Invitation revoked.";
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not cancel invitation";
