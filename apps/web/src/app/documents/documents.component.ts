@@ -13,7 +13,7 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
   <p *ngIf="error" class="documents__error" role="alert">{{error}}</p><p *ngIf="loading">Loading documents…</p>
   <div class="documents__grid" *ngIf="!loading">
     <button class="documents__item folder" type="button" *ngFor="let folder of visibleFolders" (click)="openFolder(folder.id)"><span class="documents__glyph">▰</span><strong>{{folder.name}}</strong><small>Folder</small></button>
-    <article class="documents__item" *ngFor="let doc of documents"><span class="documents__glyph">▤</span><strong>{{doc.title}}</strong><small>{{doc.description || 'Document'}}</small><div class="documents__meta"><span>{{doc.visibility==='public'?'Public':'Private'}}</span><a [href]="api+doc.downloadUrl" target="_blank" rel="noopener">Download ↗</a></div></article>
+    <article class="documents__item" *ngFor="let doc of documents"><span class="documents__glyph">▤</span><strong>{{doc.title}}</strong><small>{{doc.description || 'Document'}}</small><div class="documents__meta"><span>{{doc.visibility==='public'?'Public':'Private'}}</span><a [href]="doc.downloadUrl" target="_blank" rel="noopener">Download ↗</a></div></article>
   </div>
   <p class="documents__empty" *ngIf="!loading && !visibleFolders.length && !documents.length">This folder is empty. Uploads and document version management will be added in the next iteration.</p>
 </section>`,styles:[`
