@@ -83,3 +83,18 @@ Both methods should create a user membership within the currently selected compa
 - Add end-to-end UI/backend tests for both onboarding paths, tenant isolation, token replay/expiry and secret redaction.
 
 These are future implementation tasks. This specification does not change current authentication or organization functionality.
+
+
+## Roles & Permissions workspace — 2026-11-23
+
+Organization → Roles & Permissions is the dedicated location for creating and editing custom roles. Users remains responsible for invitations, membership status and assigning an available role. The initial catalogue covers current Core permission keys for Organization members, Plugins, Billing, Files, Notes and Mail. Custom roles may receive explicitly delegable capabilities; sensitive membership, plugin, billing and mailbox administration permissions remain protected. Tenant custom roles cannot receive platform-global permissions such as platform.super_admin; backend role-management authorization remains owner-only. Record-level scopes and granular Teams/Company permissions are not yet implemented.
+
+
+## Platform and tenant permission governance — 2026-11-23
+
+- Settings → Roles & Permissions is the platform-level control plane. It exposes the canonical Core permission catalogue, reserved system-role boundaries and the allow-list of capabilities that tenant owners may delegate to custom roles.
+- Company → Roles & Permissions remains tenant-scoped. Tenant owners can create custom roles only from capabilities enabled by the platform.
+- The platform policy can revoke a delegable capability globally. Revocation removes that permission from persisted tenant custom roles and the backend permission resolver also filters against the live platform policy.
+- Reserved capabilities (including membership administration, plugin administration, billing administration and mailbox administration) cannot be granted through tenant custom roles. Super Admin remains a protected Super Organization membership.
+- Settings → Platform Users retains global user administration; Company → Users retains tenant membership and invitation workflows.
+- The same permission catalogue and policy are shared by all tenants; tenant role records and assignments remain isolated by tenant.

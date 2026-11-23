@@ -47,21 +47,6 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
       </div>
       <div *ngIf="canRead && !loading && !members.length" class="bee-company-members__state">No members found.</div>
 
-      <div *ngIf="canManageCustomRoles" class="bee-company-members__roles">
-        <div class="bee-company-members__roles-head"><div><h3>Custom roles</h3><p>Create company-specific access profiles using the permissions below.</p></div></div>
-        <form class="bee-company-members__role-form" (submit)="saveCustomRole($event)">
-          <input type="text" name="customRoleName" [(ngModel)]="customRoleNameInput" placeholder="Role name" maxlength="48" required>
-          <input type="text" name="customRoleDescription" [(ngModel)]="customRoleDescriptionInput" placeholder="Description (optional)" maxlength="240">
-          <div class="bee-company-members__permission-grid">
-            <label *ngFor="let permission of customRolePermissionOptions"><input type="checkbox" [checked]="permission.selected" (change)="permission.selected = $any($event.target).checked"><span>{{permission.label}}<small>{{permission.key}}</small></span></label>
-          </div>
-          <div class="bee-company-members__role-actions"><button type="submit" [disabled]="busyId === 'custom-role' || !customRoleNameInput.trim()">{{busyId === 'custom-role' ? 'Saving…' : customRoleEditingId ? 'Update role' : 'Create role'}}</button><button *ngIf="customRoleEditingId" type="button" class="bee-company-members__role-cancel" (click)="resetCustomRoleForm()">Cancel edit</button></div>
-        </form>
-        <div class="bee-company-members__role-list" *ngIf="customRoles.length">
-          <div class="bee-company-members__role-item" *ngFor="let customRole of customRoles; trackBy: trackCustomRole"><span><strong>{{customRole.name}}</strong><small>{{customRole.description || "No description"}} · {{customRole.permissions.length}} permissions</small></span><div><button type="button" (click)="editCustomRole(customRole)">Edit</button><button type="button" class="bee-company-members__danger" (click)="deleteCustomRole(customRole)" [disabled]="busyId === customRole.id">Delete</button></div></div>
-        </div>
-      </div>
-
       <div *ngIf="canInvite" class="bee-company-members__invite">
         <h3>Invite a colleague</h3>
         <form (submit)="invite($event)">
@@ -96,18 +81,6 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   members: CompanyMember[] = [];
   invitations: CompanyInvitation[] = [];
   customRoles: CustomRole[] = [];
-  customRoleNameInput = "";
-  customRoleDescriptionInput = "";
-  customRoleEditingId = "";
-  customRolePermissionOptions = [
-    {key:"members.read",label:"Read members",selected:true},
-    {key:"plugins.read",label:"View plugins",selected:true},
-    {key:"plugins.install",label:"Install plugins",selected:false},
-    {key:"files.read",label:"Read files",selected:false},
-    {key:"files.write",label:"Manage files",selected:false},
-    {key:"notes.read",label:"Read notes",selected:false},
-    {key:"notes.write",label:"Manage notes",selected:false}
-  ];
   inviteEmail = "";
   inviteRole: "guest" | "member" | "manager" | "admin" = "member";
   acceptanceToken = "";
@@ -134,7 +107,6 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
       this.error = "";
       this.message = "";
       this.acceptanceToken = "";
-      this.resetCustomRoleForm();
       if (this.canRead && this.tenantId) void this.load();
     }
   }
@@ -184,44 +156,12 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
         this.customRoles = roles.roles || [];
       } else {
         this.customRoles = [];
-        this.resetCustomRoleForm();
       }
     } catch (error) {
       if (isCurrentRequest()) this.error = error instanceof Error ? error.message : "Could not load company members";
     } finally {
       if (isCurrentRequest()) this.loading = false;
     }
-  }
-
-  resetCustomRoleForm():void {
-    this.customRoleEditingId="";this.customRoleNameInput="";this.customRoleDescriptionInput="";
-    for(const permission of this.customRolePermissionOptions)permission.selected=["members.read","plugins.read"].includes(permission.key);
-  }
-
-  editCustomRole(role:CustomRole):void {
-    this.customRoleEditingId=role.id;this.customRoleNameInput=role.name;this.customRoleDescriptionInput=role.description||"";
-    for(const permission of this.customRolePermissionOptions)permission.selected=role.permissions.includes(permission.key);
-  }
-
-  async saveCustomRole(event:Event):Promise<void> {
-    event.preventDefault();
-    if(!this.canManageCustomRoles||!this.customRoleNameInput.trim()||this.busyId)return;
-    this.busyId="custom-role";this.error="";this.message="";
-    const body={name:this.customRoleNameInput.trim(),description:this.customRoleDescriptionInput.trim(),permissions:this.customRolePermissionOptions.filter(item=>item.selected).map(item=>item.key)};
-    try {
-      if(this.customRoleEditingId)await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(this.customRoleEditingId),"PUT",body);
-      else await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles","POST",body);
-      this.message=this.customRoleEditingId?"Custom role updated.":"Custom role created.";this.resetCustomRoleForm();await this.load();
-    } catch(error) { this.error=error instanceof Error?error.message:"Could not save custom role"; }
-    finally { this.busyId=""; }
-  }
-
-  async deleteCustomRole(role:CustomRole):Promise<void> {
-    if(!this.canManageCustomRoles||this.busyId)return;
-    this.busyId=role.id;this.error="";this.message="";
-    try { await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(role.id),"DELETE");this.message="Custom role deleted.";await this.load(); }
-    catch(error) { this.error=error instanceof Error?error.message:"Could not delete custom role"; }
-    finally { this.busyId=""; }
   }
 
   async invite(event: Event): Promise<void> {

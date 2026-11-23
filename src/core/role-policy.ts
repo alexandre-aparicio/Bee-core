@@ -1,15 +1,13 @@
 import type { CompanyRole } from "./tenant-context.js";
+import { CORE_PERMISSION_CATALOG } from "./permission-catalog.js";
 
 export const CUSTOM_ROLE_PERMISSION_PATTERN = /^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_-]*$/;
 export const MAX_CUSTOM_ROLE_PERMISSIONS = 100;
-export const CUSTOM_ROLE_ALLOWED_PERMISSIONS = [
-  "members.read", "plugins.read", "plugins.install",
-  "files.read", "files.write", "notes.read", "notes.write"
-] as const;
+export const CUSTOM_ROLE_ALLOWED_PERMISSIONS = CORE_PERMISSION_CATALOG.filter(permission => permission.customRoleAssignable).map(permission => permission.key);
 
-export function normalizeTenantCustomRolePermissions(input: unknown): string[] {
+export function normalizeTenantCustomRolePermissions(input: unknown, allowedPermissions: readonly string[] = CUSTOM_ROLE_ALLOWED_PERMISSIONS): string[] {
   const permissions = normalizeCustomRolePermissions(input);
-  const allowed = new Set<string>(CUSTOM_ROLE_ALLOWED_PERMISSIONS);
+  const allowed = new Set<string>(allowedPermissions);
   const unsupported = permissions.filter(permission => !allowed.has(permission));
   if (unsupported.length) throw new Error("Custom roles cannot grant protected permissions: " + unsupported.join(", "));
   return permissions;
@@ -52,8 +50,9 @@ export function normalizeCustomRoleName(input: unknown): string {
   return name;
 }
 
-export function permissionsForCustomRole(role: Pick<CustomRolePolicy, "permissions">): readonly string[] {
-  return normalizeTenantCustomRolePermissions(role.permissions);
+export function permissionsForCustomRole(role: Pick<CustomRolePolicy, "permissions">, allowedPermissions: readonly string[] = CUSTOM_ROLE_ALLOWED_PERMISSIONS): readonly string[] {
+  const allowed = new Set(allowedPermissions);
+  return normalizeCustomRolePermissions(role.permissions).filter(permission => allowed.has(permission));
 }
 
 export function hasPolicyPermission(policy: RolePolicy, permission: string): boolean {

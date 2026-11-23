@@ -524,3 +524,36 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Corrected bootstrap to keep the new organization as a plain `Company` insert document, insert it, re-read the persisted MongoDB record, and fail explicitly if initialization still returns no organization.
 - Expanded the platform-admin membership status type to include the persisted `invited` and `suspended` states used by the migration and membership lifecycle.
 - Fix is isolated on branch `fix/super-organization-mongodb-types`. No build, tests or CI were run here. Rebuild on the VPS is required to confirm the TypeScript diagnostics are resolved; subsequent runtime migration and MFA flows remain unverified.
+
+
+## Core permission catalogue and Organization role editor — feat/core-permission-catalog (2026-11-23)
+
+- Added a canonical backend permission catalogue for current Core authorization keys: Organization members, Plugins, Billing, Files, Notes and Mail.
+- Preserved existing permission keys so current backend guards and persisted custom-role records remain compatible.
+- Custom roles can select every registered current Core permission, including mail, billing and management capabilities previously excluded by the custom-role allow-list.
+- Unregistered keys such as platform.super_admin and tenants.manage remain rejected. Platform-global super-admin authority is outside the tenant-customizable catalogue.
+- Added a dedicated Organization → Roles & Permissions workspace to Glass, Midnight and Paper. Role editing is removed from Users; Users retains invitation and membership workflows.
+- The editor groups permissions by module, explains each action, and marks protected/sensitive operations. Protected capabilities are visible but disabled for custom roles. Backend validation remains authoritative, and custom-role administration remains owner-only.
+- Added regression coverage for catalogue uniqueness, built-in role coverage and rejection of unregistered privilege keys.
+- This first pass includes only permissions backed by current Core authorization checks. It does not invent Teams/Company CRUD permissions or claim record-level scopes (own, team, assigned) are implemented.
+- Validation: no tests, TypeScript build, Angular build, Docker build or VPS runtime validation have been executed here. Run backend npm test/build and Angular production build before deployment.
+
+
+## Platform and tenant Roles & Permissions — 2026-11-23
+
+- Added Settings → Roles & Permissions for the Super Admin, exposing the canonical Core permission catalogue, protected system-role boundaries and the global tenant-delegation policy.
+- Added authenticated platform endpoints to read/update the tenant-delegable permission set. Only capabilities marked delegable by the Core catalogue can be enabled; protected operations cannot be promoted into tenant custom roles.
+- Tenant role creation and updates now validate against the current platform policy. Runtime permission resolution filters custom-role permissions against that policy as well.
+- Revoking a capability globally removes it from persisted tenant custom-role records and prevents stale assignments from authorizing requests.
+- Company → Roles & Permissions remains scoped to the active tenant. Company → Users continues to manage invitations and memberships; Settings → Platform Users retains platform-wide user administration.
+- No tests, TypeScript builds, Angular builds, Docker builds or VPS runtime checks were executed for this extension. Treat validation as pending.
+
+
+## Core permission governance — PR #101 follow-up
+
+- The permission catalogue in `src/core/permission-catalog.ts` is the single source of truth for the tenant role editor. The Organization → Roles & Permissions API returns catalogue definitions plus the current platform delegation allow-list; Angular no longer maintains a second hard-coded permission list.
+- Organization → Users remains focused on invitations and membership assignment. Obsolete custom-role editor state and handlers were removed from the Users component; role editing stays in Organization → Roles & Permissions.
+- Custom-role create and update endpoints validate grants against the live platform delegation policy. Tenant session permission resolution and administrative route checks also use the current policy.
+- Revoking a capability removes it from effective custom-role permissions immediately without invalidating the entire membership/session. Persisted role grants are also cleaned up by the platform policy update operation.
+- Regression coverage added for live policy filtering. Tests and builds have not been executed in this change; VPS validation remains required.
+- Current catalogue describes only capabilities registered by the existing Core modules. It does not invent CRUD operations for modules whose backend operations do not exist. Record-level scopes (own/team/assigned/all), tenant-specific system-role overrides and a full ABAC policy engine remain deliberately deferred until the relevant resource ownership and team data contracts exist.

@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext, type TenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, permissionsForCustomRole, type CustomRolePolicy } from "../../core/role-policy.js";
+import { CORE_PERMISSION_CATALOG } from "../../core/permission-catalog.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type TenantAuditEvent } from "../../core/audit-log.js";
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, maskTenantId, unmaskResourceId, unmaskTenantId } from "../../core/session-id.js";
@@ -44,6 +45,11 @@ export const organizationsPlugin:BeePlugin={
   const memberships:Collection<Membership>=db.collection("memberships");
   const invitations:Collection<Invitation>=db.collection("company_invitations");
   const customRoles:Collection<CustomRolePolicy>=db.collection("company_roles");
+  const permissionPolicies=db.collection<{id:string;tenantAssignablePermissions:string[]}>("platform_permission_policies");
+  const getTenantAssignablePermissions=async():Promise<string[]>=>{
+   const policy=await permissionPolicies.findOne({id:"global"},{projection:{tenantAssignablePermissions:1}});
+   return policy?.tenantAssignablePermissions??CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key);
+  };
   // Backfill stable public subdomain slugs for tenants created before host routing existed.
   const usedTenantSlugs=new Set<string>();
   for await(const tenant of companies.find({}).sort({createdAt:1,id:1})){
@@ -120,7 +126,7 @@ export const organizationsPlugin:BeePlugin={
    if(companyId!==activeTenantId){reply.code(403).send({error:"Switch to this company before accessing its resources"});return null;}
    const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
    let effectivePermissions:readonly string[]=[];
-   if(actor?.role==="custom"&&actor.customRoleId){const custom=await customRoles.findOne({id:actor.customRoleId,tenantId:companyId});if(custom){try{effectivePermissions=permissionsForCustomRole(custom);}catch{}}}
+   if(actor?.role==="custom"&&actor.customRoleId){const custom=await customRoles.findOne({id:actor.customRoleId,tenantId:companyId});if(custom){try{effectivePermissions=permissionsForCustomRole(custom,await getTenantAssignablePermissions());}catch{}}}
    else if(actor&&actor.role!=="custom")effectivePermissions=rolePermissions[actor.role];
    if(!actor||!effectivePermissions.includes(permission)){
     if(auth.user&&activeTenantId&&companyId===activeTenantId)await auditOrganizationEvent({tenantId:activeTenantId,actorId:auth.user.id,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission}});
@@ -141,13 +147,13 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.read",reply);if(!actor)return;
    const rows=await customRoles.find({tenantId:req.params.companyId}).sort({name:1}).toArray();
-   return {roles:rows.map(({id,name,description,permissions,createdAt,updatedAt})=>({id:mask(auth,id,"role"),name,description,permissions,createdAt,updatedAt}))};
+   return {roles:rows.map(({id,name,description,permissions,createdAt,updatedAt})=>({id:mask(auth,id,"role"),name,description,permissions,createdAt,updatedAt})),permissionCatalog:CORE_PERMISSION_CATALOG,tenantAssignablePermissions:await getTenantAssignablePermissions()};
   });
   ctx.server.post<{Params:{companyId:string};Body:{name?:string;description?:string;permissions?:unknown}}>("/companies/:companyId/roles",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await ownerOnly(auth,req.params.companyId,reply);if(!actor)return;
    let name:string,permissions:string[];
-   try{name=normalizeCustomRoleName(req.body?.name);permissions=normalizeTenantCustomRolePermissions(req.body?.permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
+   try{name=normalizeCustomRoleName(req.body?.name);permissions=normalizeTenantCustomRolePermissions(req.body?.permissions,await getTenantAssignablePermissions());}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
    const description=String(req.body?.description??"").trim().slice(0,240);
    const now=new Date(),role:CustomRolePolicy={id:randomUUID(),tenantId:req.params.companyId,name,description,permissions,createdBy:auth.user!.id,updatedBy:auth.user!.id,createdAt:now,updatedAt:now};
    try{await customRoles.insertOne(role);}catch{return reply.code(409).send({error:"A custom role with this name already exists"});}
@@ -158,7 +164,7 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await ownerOnly(auth,req.params.companyId,reply);if(!actor)return;
    let name:string,permissions:string[];
-   try{name=normalizeCustomRoleName(req.body?.name);permissions=normalizeTenantCustomRolePermissions(req.body?.permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
+   try{name=normalizeCustomRoleName(req.body?.name);permissions=normalizeTenantCustomRolePermissions(req.body?.permissions,await getTenantAssignablePermissions());}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
    const description=String(req.body?.description??"").trim().slice(0,240);
    const result=await customRoles.updateOne({id:req.params.roleId,tenantId:req.params.companyId},{$set:{name,description,permissions,updatedBy:auth.user!.id,updatedAt:new Date()}});
    if(!result.matchedCount)return reply.code(404).send({error:"Custom role not found"});
@@ -375,7 +381,7 @@ export const organizationsPlugin:BeePlugin={
    if(membership.role==="custom"&&membership.customRoleId){
     const custom=await customRoles.findOne({id:membership.customRoleId,tenantId});
     if(!custom)return reply.code(403).send({error:"Assigned custom role is unavailable"});
-    return {tenantId:mask(auth,tenantId,"tenant"),role:membership.role,customRoleId:mask(auth,membership.customRoleId,"role"),permissions:permissionsForCustomRole(custom)};
+    return {tenantId:mask(auth,tenantId,"tenant"),role:membership.role,customRoleId:mask(auth,membership.customRoleId,"role"),permissions:permissionsForCustomRole(custom,await getTenantAssignablePermissions())};
    }
    return {tenantId:mask(auth,tenantId,"tenant"),role:membership.role,permissions:rolePermissions[membership.role as keyof typeof rolePermissions]};
   });

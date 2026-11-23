@@ -1,5 +1,7 @@
 import type { BeePlugin } from "../../core/types.js";
 import type { PlatformIdentityDocument } from "../../core/platform-identity.js";
+import { CORE_PERMISSION_CATALOG } from "../../core/permission-catalog.js";
+import { COMPANY_ROLE_PERMISSIONS } from "../../core/tenant-context.js";
 
 declare module "fastify" {
  interface FastifyRequest {
@@ -109,6 +111,41 @@ export const platformAdminPlugin:BeePlugin={
     return user;
    }catch{return reply.code(401).send({error:"Unauthorized"}),null;}
   };
+  const permissionPolicyCollection=db.collection<{id:string;tenantAssignablePermissions:string[];updatedAt:Date;updatedBy:string}>("platform_permission_policies");
+  await permissionPolicyCollection.createIndex({id:1},{unique:true,name:"platform_permission_policy_id_unique"});
+  const defaultTenantAssignablePermissions=CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key);
+  const readPermissionPolicy=async()=>{
+   const saved=await permissionPolicyCollection.findOne({id:"global"},{projection:{_id:0}});
+   return {tenantAssignablePermissions:saved?.tenantAssignablePermissions??defaultTenantAssignablePermissions};
+  };
+  ctx.server.get("/platform/permissions",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const policy=await readPermissionPolicy();
+   return {catalog:CORE_PERMISSION_CATALOG,tenantAssignablePermissions:policy.tenantAssignablePermissions,systemRoles:[
+    {key:"super_admin",label:"Super Admin",scope:"platform",protected:true,description:"Full platform administration; assigned only through the Super Organization.",permissions:COMPANY_ROLE_PERMISSIONS.super_admin},
+    {key:"owner",label:"Tenant Owner",scope:"tenant",protected:true,description:"Owns one tenant and administers its users, roles and organization settings.",permissions:COMPANY_ROLE_PERMISSIONS.owner},
+    {key:"admin",label:"Tenant Admin",scope:"tenant",protected:true,description:"Administers tenant operations within the permissions enforced by Core.",permissions:COMPANY_ROLE_PERMISSIONS.admin},
+    {key:"manager",label:"Manager",scope:"tenant",protected:false,description:"Operational access defined by the tenant membership policy.",permissions:COMPANY_ROLE_PERMISSIONS.manager},
+    {key:"member",label:"Member",scope:"tenant",protected:false,description:"Standard tenant access.",permissions:COMPANY_ROLE_PERMISSIONS.member},
+    {key:"guest",label:"Guest",scope:"tenant",protected:true,description:"Restricted read-only membership.",permissions:COMPANY_ROLE_PERMISSIONS.guest}
+   ]};
+  });
+  ctx.server.put<{Body:{tenantAssignablePermissions?:unknown}}>("/platform/permissions",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const requested=req.body?.tenantAssignablePermissions;
+   if(!Array.isArray(requested)||requested.length>100||requested.some(item=>typeof item!=="string"))return reply.code(400).send({error:"tenantAssignablePermissions must be an array of permission keys"});
+   const allowedCatalog=new Set(CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key));
+   const tenantAssignablePermissions=[...new Set((requested as string[]).map(item=>item.trim()))].sort();
+   const unsupported=tenantAssignablePermissions.filter(key=>!allowedCatalog.has(key));
+   if(unsupported.length)return reply.code(400).send({error:"Protected or unknown permissions cannot be delegated to tenants: "+unsupported.join(", ")});
+   const updatedAt=new Date();
+   await permissionPolicyCollection.updateOne({id:"global"},{$set:{tenantAssignablePermissions,updatedAt,updatedBy:actor.id}},{upsert:true});
+   // A global revocation is immediate: remove the revoked capability from every
+   // tenant custom role so existing assignments cannot retain stale authority.
+   await db.collection("company_roles").updateMany({},{$pull:{permissions:{$nin:tenantAssignablePermissions}}} as any);
+   await recordPlatformAudit({actorId:actor.id,action:"platform.permissions.updated",resourceType:"permission_policy",metadata:{tenantAssignablePermissions,updatedAt:updatedAt.toISOString()}});
+   return {success:true,tenantAssignablePermissions};
+  });
   const identityCollection=db.collection<PlatformIdentityDocument>("platform_identity");
   await identityCollection.createIndex({key:1},{unique:true,name:"platform_identity_singleton"});
   const defaultIdentity=():PlatformIdentityDocument=>({key:"global",
