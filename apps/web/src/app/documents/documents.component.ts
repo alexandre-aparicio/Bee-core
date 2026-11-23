@@ -74,7 +74,7 @@ type Doc={id:string;title:string;description:string;visibility:"private"|"public
           </span>
         </button>
         <div class="documents__folder-actions" *ngIf="folder.canManageShares">
-          <button type="button" class="documents__icon-button" aria-label="Folder sharing options" title="Folder sharing options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)">More</button>
+          <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
           <div class="documents__menu" *ngIf="folderMenuId===folder.id">
             <button type="button" (click)="openShareDialog(folder,'groups')">Share with group</button>
             <button type="button" (click)="openShareDialog(folder,'users')">Share with user</button>
