@@ -60,7 +60,11 @@ export class DocumentsApiService {
     return this.jsonRequest(this.folderSharesUrl(id),token,{method:"PUT",body:JSON.stringify({teamIds,userIds})});
   }
   async uploadTextFile(token:string,file:File):Promise<DocumentsUploadResult>{
-    return this.jsonRequest(this.uploadFileUrl(),token,{method:"POST",headers:{"content-type":"application/octet-stream","x-file-content-type":"text/plain","x-file-name":encodeURIComponent(file.name)},body:await file.arrayBuffer()});
+    const headers=new Headers({"content-type":"application/octet-stream","x-file-content-type":"text/plain","x-file-name":encodeURIComponent(file.name),"authorization":"Bearer "+token});
+    const response=await fetch(this.uploadFileUrl(),{method:"POST",credentials:"same-origin",headers,body:await file.arrayBuffer()});
+    let data:any={};try{data=await response.json();}catch{}
+    if(!response.ok)throw new Error(data?.error||"Could not upload the text file");
+    return data as DocumentsUploadResult;
   }
   createDocument(token:string,payload:{fileId:string;folderId:string|null;title:string}):Promise<DocumentsCreateResult>{
     return this.jsonRequest(this.documentsUrl(null),token,{method:"POST",body:JSON.stringify(payload)});
