@@ -35,9 +35,12 @@ test("the core permission catalogue is unique and covers every built-in role per
   assert.ok(!CORE_PERMISSION_KEYS.includes("platform.super_admin"));
 });
 
-test("tenant custom roles accept registered core permissions but reject unregistered privilege keys", () => {
-  const selected = ["notes.read", "files.read", "members.manage", "mail.send", "billing.manage"];
+test("tenant custom roles accept delegable permissions and reject protected capabilities", () => {
+  const selected = ["notes.read", "files.read", "members.invite", "mail.read", "mail.send"];
   assert.deepEqual(normalizeTenantCustomRolePermissions(selected), [...selected].sort());
+  for (const protectedPermission of ["members.manage", "plugins.manage", "billing.manage", "mail.manage"]) {
+    assert.throws(() => normalizeTenantCustomRolePermissions([protectedPermission]), /protected permissions/);
+  }
   assert.throws(() => normalizeTenantCustomRolePermissions(["platform.super_admin"]), /protected permissions/);
   assert.throws(() => normalizeTenantCustomRolePermissions(["tenants.manage"]), /protected permissions/);
 });
