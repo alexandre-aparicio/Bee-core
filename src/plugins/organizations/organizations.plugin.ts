@@ -284,7 +284,7 @@ export const organizationsPlugin:BeePlugin={
     update={$set:{role:"custom",customRoleId,updatedAt:new Date()}};
    }else{
     const role=req.body?.role;
-    if(!role||!["admin","manager","member"].includes(role))return reply.code(400).send({error:"A built-in membership role or customRoleId is required"});
+    if(!role||!["admin","manager","member","guest"].includes(role))return reply.code(400).send({error:"A built-in membership role or customRoleId is required"});
     if(role==="admin"&&actor.role!=="owner")return reply.code(403).send({error:"Only the company owner can assign administrators"});
     update={$set:{role,updatedAt:new Date()},$unset:{customRoleId:""}};
    }
