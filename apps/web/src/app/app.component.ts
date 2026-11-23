@@ -308,7 +308,17 @@ export class AppComponent implements OnInit {
       this.expandedMenuId = 'settings';
       return;
     }
-    if (this.path === '/dashboard/settings') { this.activeSection = 'settings-general'; this.expandedMenuId = 'settings'; return; }
+    if (this.path === '/dashboard/settings' || this.path === '/dashboard/settings/') {
+      this.activeSection = this.settingsNavigationItems.some(item => item.id === 'settings-general')
+        ? 'settings-general' : (this.settingsNavigationItems[0]?.id || 'dashboard');
+      this.expandedMenuId = 'settings';
+      return;
+    }
+    if (this.path === '/dashboard/organization' || this.path === '/dashboard/organization/') {
+      this.activeSection = 'organization-company';
+      this.expandedMenuId = 'organization';
+      return;
+    }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
     const nextSection = entry?.[0] || 'dashboard';
     this.activeSection = nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)
@@ -354,11 +364,24 @@ export class AppComponent implements OnInit {
   get settingsSectionTitle(): string { return this.settingsNavigationItems.find(item => item.id === this.activeSection)?.label || 'Settings'; }
   get settingsSectionDescription(): string { return this.settingsNavigationItems.find(item => item.id === this.activeSection)?.description || 'Manage your workspace preferences.'; }
   toggleNavigationMenu(menuId: string): void {
-    this.expandedMenuId = this.expandedMenuId === menuId ? '' : menuId;
-    if (this.expandedMenuId === 'settings' && !this.activeSection.startsWith('settings-')) {
-      const first = this.settingsNavigationItems[0];
-      if (first) this.navigateSection(first.id);
+    if (this.expandedMenuId === menuId) {
+      this.expandedMenuId = '';
+      return;
     }
+    this.expandedMenuId = menuId;
+    const defaults: Record<string, string> = {
+      settings: 'settings-general',
+      notifications: 'notifications',
+      organization: 'organization-company'
+    };
+    const target = defaults[menuId];
+    if (!target) return;
+    if (menuId === 'settings' && !this.settingsNavigationItems.some(item => item.id === target)) {
+      const firstAvailable = this.settingsNavigationItems[0];
+      if (firstAvailable) this.navigateSection(firstAvailable.id);
+      return;
+    }
+    this.navigateSection(target);
   }
   get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string}> {
     // One shared navigation structure for platform and tenant administrators.
@@ -374,7 +397,7 @@ export class AppComponent implements OnInit {
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   navigateSection(id: string): void {
-    const targetId = id === 'settings' ? this.settingsNavigationItems[0]?.id : id;
+    const targetId = id === 'settings' ? (this.settingsNavigationItems.some(item => item.id === 'settings-general') ? 'settings-general' : this.settingsNavigationItems[0]?.id) : id === 'organization' ? 'organization-company' : id;
     if (!targetId) return;
     if (targetId.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === targetId)) return;
     const route = this.sectionRoutes[targetId];
