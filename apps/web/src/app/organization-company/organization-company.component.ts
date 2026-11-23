@@ -35,7 +35,8 @@ styles:[`:host{display:block;width:100%;color:inherit}.company-profile{display:g
 export class CompanyProfileComponent implements OnChanges{
  @Input() tenantId='';@Input() role='';@Input() accessToken='';@Input() tenantName='Company';
  companyName='';profile:CompanyProfile={...EMPTY_PROFILE};loading=false;saving=false;error='';saved=false;private loadKey='';
- constructor(private i18n:BeeI18nService){}\n get canEdit(){return ['owner','admin','super_admin'].includes((this.role||'').toLowerCase());}
+ constructor(private i18n:BeeI18nService){}
+ get canEdit(){return ['owner','admin','super_admin'].includes((this.role||'').toLowerCase());}
  t(key:string){return this.i18n.t('organization:'+key);}
  ngOnChanges(){const key=this.tenantId+':'+this.accessToken;if(!key||key===this.loadKey)return;this.loadKey=key;void this.load();}
  async load(){this.loading=true;this.error='';try{const r=await fetch('/api/companies/'+encodeURIComponent(this.tenantId)+'/profile',{credentials:'same-origin',headers:{authorization:'Bearer '+this.accessToken}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not load company profile');this.companyName=data.name||this.tenantName;this.profile={...EMPTY_PROFILE,...data.profile};}catch(e){this.error=e instanceof Error?e.message:'Could not load company profile';}finally{this.loading=false;}}
