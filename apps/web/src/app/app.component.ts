@@ -357,7 +357,7 @@ export class AppComponent implements OnInit {
       if (first) this.navigateSection(first.id);
     }
   }
-  get navigationItems(): Array<{id:string;label:string;icon:string;group:string}> {
+  get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string}> {
     // One shared navigation structure for platform and tenant administrators.
     // Privileged areas are restricted within Settings and by section access checks.
     return [
