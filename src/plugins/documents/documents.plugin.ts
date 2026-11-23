@@ -200,7 +200,16 @@ export const documentsPlugin:BeePlugin={
     try{parentId=unref(String(req.body.parentId),"folder",tenant);targetParents=await ancestors(tenant.tenantId,parentId);}
     catch{return reply.code(404).send({error:"Destination folder not found"});}
     if(targetParents.some(parent=>parent.id===id))return reply.code(400).send({error:"A folder cannot be moved into itself or one of its descendants"});
-    if(targetParents.length+1>MAX_DEPTH)return reply.code(400).send({error:"Maximum folder depth exceeded"});
+    const allFolders=await folders(tenant.tenantId).find({}).toArray();
+    const childrenByParent=new Map<string,string[]>();
+    for(const child of allFolders){if(child.parentId){const siblings=childrenByParent.get(child.parentId)??[];siblings.push(child.id);childrenByParent.set(child.parentId,siblings);}}
+    const queue:Array<{folderId:string;depth:number}>=[{folderId:id,depth:0}];const visited=new Set<string>();let maxDescendantDepth=0;
+    while(queue.length){
+     const current=queue.shift()!;if(visited.has(current.folderId))return reply.code(400).send({error:"Invalid folder hierarchy"});
+     visited.add(current.folderId);maxDescendantDepth=Math.max(maxDescendantDepth,current.depth);
+     for(const childId of childrenByParent.get(current.folderId)??[])queue.push({folderId:childId,depth:current.depth+1});
+    }
+    if(targetParents.length+1+maxDescendantDepth>MAX_DEPTH)return reply.code(400).send({error:"Maximum folder depth exceeded"});
     if(!await canAccess(tenant,"folder",parentId,"write",targetParents.slice(1)))return reply.code(404).send({error:"Destination folder not found"});
    }
    if(parentId===id)return reply.code(400).send({error:"A folder cannot be its own parent"});
