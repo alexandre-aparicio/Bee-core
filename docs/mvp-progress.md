@@ -746,3 +746,8 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Responds to the VPS Docker build diagnostics after the Documents modularization merge: removed generic route type arguments from the untyped shared runtime route registration (TS2347), added explicit types for handler callback parameters and Mongo result collections (TS7006), typed uploader/user result access (TS2339), and replaced the invalid `documentCollection` reference with the repository-owned collection (TS2304).
 - Reviewed the affected source callbacks and shared-folder policy filtering for syntax consistency while preparing the fix branch.
 - **Validation:** changes are based on the exact compiler output and source review only. No local TypeScript build, tests, Docker build, CI, or VPS runtime check was run. Re-run the VPS Docker build before treating the fix as confirmed.
+
+
+## Documents remaining handler typing errors — 2026-11-23
+- Responds to the latest VPS TypeScript diagnostics: explicitly typed the uploader/user lookup map to expose its email field (`TS2339`) and typed the folder-ancestor map callback parameter (`TS7006`).
+- **Validation:** targeted source correction only; no TypeScript build, Docker build, tests or runtime verification has been run. The next VPS build is required to confirm these and uncover any further errors.
