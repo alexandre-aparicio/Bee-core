@@ -62,6 +62,30 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.ok(!/^[0-9a-f-]{36}$/i.test(platformPlugins.json().tenantId));
   const rawCompany=await db.collection("tenants").findOne({slug:"acme-test"});
   assert.ok(rawCompany);
+  const superOrganization=await db.collection("tenants").findOne({kind:"super"});
+  assert.ok(superOrganization,"platform installation must be owned by the Super Organization");
+  await db.collection("tenant_plugin_installations").updateOne(
+    {tenantId:superOrganization.id,pluginId:"hello-world"},
+    {$set:{status:"installed",version:"0.1.0",installedAt:new Date(),updatedAt:new Date()},$setOnInsert:{id:"platform-hello-world-install",tenantId:superOrganization.id,pluginId:"hello-world"}},
+    {upsert:true}
+  );
+  const pluginsAfterPlatformInstall=await app.inject({method:"GET",url:"/platform/companies/"+encodeURIComponent(companyId)+"/plugins",headers:rootHeaders});
+  assert.equal(pluginsAfterPlatformInstall.statusCode,200);
+  const helloWorld=pluginsAfterPlatformInstall.json().plugins.find((plugin:any)=>plugin.name==="Hola Mundo");
+  assert.ok(helloWorld?.installed,"a package installed in Super Organization must appear as installed for every company");
+  assert.equal(helloWorld.enabled,false,"global installation must not implicitly enable the plugin for a tenant");
+  const activateHelloWorld=await app.inject({method:"PUT",url:"/platform/companies/"+encodeURIComponent(companyId)+"/plugins/"+encodeURIComponent(helloWorld.id),headers:rootHeaders,payload:{enabled:true}});
+  assert.equal(activateHelloWorld.statusCode,200);
+  assert.equal(activateHelloWorld.json().enabled,true);
+  const tenantHelloWorld=await db.collection("tenant_plugin_installations").findOne({tenantId:rawCompany.id,pluginId:"hello-world"});
+  assert.equal(tenantHelloWorld?.status,"installed","tenant activation must persist its own runtime registration");
+  assert.equal(tenantHelloWorld?.enabled,true);
+  const deactivateHelloWorld=await app.inject({method:"PUT",url:"/platform/companies/"+encodeURIComponent(companyId)+"/plugins/"+encodeURIComponent(helloWorld.id),headers:rootHeaders,payload:{enabled:false}});
+  assert.equal(deactivateHelloWorld.statusCode,200);
+  assert.equal(deactivateHelloWorld.json().enabled,false);
+  const disabledHelloWorld=await db.collection("tenant_plugin_installations").findOne({tenantId:rawCompany.id,pluginId:"hello-world"});
+  assert.equal(disabledHelloWorld?.status,"installed","deactivation must preserve tenant plugin data and installation state");
+  assert.equal(disabledHelloWorld?.enabled,false);
   const pluginRows=platformPlugins.json().plugins as Array<{id:string;name:string;installed:boolean;enabled:boolean;system:boolean}>;
   const documentsPlugin=pluginRows.find(plugin=>plugin.name==="Documents")!;
   const filesPlugin=pluginRows.find(plugin=>plugin.name==="Private Files")!;
