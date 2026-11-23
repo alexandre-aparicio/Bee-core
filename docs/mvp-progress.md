@@ -763,3 +763,14 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Platform activation/deactivation changes are audited with actor, tenant, plugin and enabled state. The operation does not uninstall data or run plugin lifecycle migrations.
 - Added platform-admin integration coverage for default-enabled system plugins, dependency protection, disable/re-enable persistence, preservation of installation status and audit recording.
 - **Validation:** source and test changes only. No TypeScript build, backend test, Angular build, browser test, CI, Docker build or VPS runtime validation has been executed. Re-run the relevant checks before treating this behavior as verified.
+
+
+## Tenant plugin visibility and runtime enforcement — 2026-11-23
+
+- Corrected the gap left by the initial tenant activation work: the dashboard previously rendered Documents from a hard-coded navigation entry and mounted its outlet directly, without checking the active tenant's plugin state.
+- The dashboard now loads the active company's marketplace catalog after resolving the authenticated company, and derives enabled frontend plugin IDs from records that are installed, entitled and enabled. The state is refreshed when the user switches companies; failed catalog reads fail closed and hide tenant plugins.
+- Marketplace responses now include a stable `pluginKey` for the trusted frontend registry while retaining the opaque `id` reference for API operations. This avoids passing tenant-masked resource IDs to Angular plugin registration and navigation logic.
+- Documents is removed from navigation when disabled; direct navigation to its route is redirected to the dashboard, and both Midnight and Glass layouts guard the Documents outlet.
+- Files and Documents API authentication now also checks tenant enabled state, so hiding a module is not the only enforcement layer. Installation and stored data remain intact when disabled.
+- Added integration assertions for stable frontend plugin keys, marketplace enabled-state reporting, and denial of Files/Notes API access when installed plugins are disabled.
+- **Validation:** source and integration-test updates only. No test suite, TypeScript build, Angular build, Docker build, CI, browser session or live Dragchart tenant check has been run in this environment. Validate on the deployment before treating this fix as runtime-confirmed.
