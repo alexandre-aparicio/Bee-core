@@ -1,5 +1,4 @@
 import type { Document, Db } from "mongodb";
-import { TenantCollection } from "../../core/tenant-collection.js";
 import { resolveTenantContext, hasTenantPermission, type TenantContext } from "../../core/tenant-context.js";
 import { hasPluginEntitlement, isPluginInstalled } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
