@@ -4,7 +4,7 @@ import { FormsModule } from "@angular/forms";
 
 type CompanyMember = { userId: string; email: string | null; role: string; customRoleId?: string | null; restrictionRoleIds?: string[]; status: "active" | "suspended"; createdAt: string };
 type CustomRole = { id: string; name: string; description: string; permissions: string[]; mode?: "grant" | "restriction" };
-type CompanyInvitation = { id: string; email: string; role: string; createdAt: string; expiresAt: string; acceptedAt: string | null; cancelledAt: string | null };
+type CompanyInvitation = { id: string; email: string; role: string; customRoleId?: string | null; restrictionRoleIds?: string[]; createdAt: string; expiresAt: string; acceptedAt: string | null; cancelledAt: string | null };
 
 @Component({
   selector: "bee-company-members",
@@ -52,21 +52,22 @@ type CompanyInvitation = { id: string; email: string; role: string; createdAt: s
         <h3>Invite a colleague</h3>
         <form (submit)="invite($event)">
           <input type="email" name="inviteEmail" [(ngModel)]="inviteEmail" placeholder="colleague@company.com" required>
-          <select name="inviteRole" [(ngModel)]="inviteRole"><option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option><option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">Admin</option></select>
+          <select name="inviteRole" [(ngModel)]="inviteRole"><option value="guest">Guest</option><option value="member">Member</option><option value="manager">Manager</option><option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">Admin</option><option *ngFor="let customRole of grantRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option></select>
+          <div *ngIf="canManageCustomRoles && restrictionRoles.length" class="bee-company-members__restrictions"><small>Additional restrictions</small><label *ngFor="let restriction of restrictionRoles"><input type="checkbox" [checked]="inviteRestrictionRoleIds.includes(restriction.id)" (change)="toggleInviteRestriction(restriction.id,$any($event.target).checked)"> {{restriction.name}}</label></div>
           <button type="submit" [disabled]="busyId === 'invite' || !inviteEmail.trim()">{{busyId === 'invite' ? 'Creating…' : 'Create invitation'}}</button>
         </form>
-        <div *ngIf="acceptanceToken" class="bee-company-members__token">
-          <strong>One-time invitation token</strong>
-          <code>{{acceptanceToken}}</code>
-          <button type="button" (click)="copyToken()">Copy token</button>
-          <small>Share this token securely with the invited user. It expires in seven days and is shown only once.</small>
+        <div *ngIf="acceptanceLink" class="bee-company-members__token">
+          <strong>Invitation link ready to share</strong>
+          <input type="url" [value]="acceptanceLink" readonly aria-label="Invitation link">
+          <button type="button" (click)="copyLink()">Copy invitation link</button>
+          <small>Send this link to the invited person. They can open it in any browser to create an account or sign in. It expires in seven days and can only be used once.</small>
         </div>
       </div>
 
       <div *ngIf="canInvite && invitations.length" class="bee-company-members__invitations">
         <h3>Invitations</h3>
         <div class="bee-company-members__invitation" *ngFor="let invitation of invitations; trackBy: trackInvitation">
-          <span><strong>{{invitation.email}}</strong><small>{{invitation.role}} · expires {{invitation.expiresAt | date:'mediumDate'}}</small></span>
+          <span><strong>{{invitation.email}}</strong><small>{{invitation.role === 'custom' ? customRoleName(invitation.customRoleId) : invitation.role}} · expires {{invitation.expiresAt | date:'mediumDate'}}</small></span>
           <span class="bee-company-members__status" [class.is-suspended]="invitation.cancelledAt || invitation.acceptedAt">{{invitation.acceptedAt ? 'accepted' : invitation.cancelledAt ? 'cancelled' : 'pending'}}</span>
           <button *ngIf="!invitation.acceptedAt && !invitation.cancelledAt" type="button" class="bee-company-members__danger" (click)="cancelInvitation(invitation)" [disabled]="busyId === invitation.id">Cancel</button>
         </div>
@@ -88,8 +89,9 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   get restrictionRoles(): CustomRole[] { return this.customRoles.filter(item => item.mode === "restriction"); }
   get grantRoles(): CustomRole[] { return this.customRoles.filter(item => item.mode !== "restriction"); }
   inviteEmail = "";
-  inviteRole: "guest" | "member" | "manager" | "admin" = "member";
-  acceptanceToken = "";
+  inviteRole = "member";
+  inviteRestrictionRoleIds: string[] = [];
+  acceptanceLink = "";
   inviteTokenInput = "";
   loading = false;
   private requestSequence = 0;
@@ -115,7 +117,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
       this.loading = false;
       this.error = "";
       this.message = "";
-      this.acceptanceToken = "";
+      this.acceptanceLink = "";
       if (this.tenantId && this.token) void this.load();
     }
   }
@@ -185,12 +187,17 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
     this.busyId = "invite";
     this.error = "";
     this.message = "";
-    this.acceptanceToken = "";
+    this.acceptanceLink = "";
     try {
-      const result = await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/invitations", "POST", { email: this.inviteEmail.trim(), role: this.inviteRole });
-      this.acceptanceToken = result.acceptanceToken || "";
+      const customRoleId = this.inviteRole.startsWith("custom:") ? this.inviteRole.slice("custom:".length) : "";
+      const payload = { email: this.inviteEmail.trim(), role: customRoleId ? "custom" : this.inviteRole, ...(customRoleId ? { customRoleId } : {}), ...(this.inviteRestrictionRoleIds.length ? { restrictionRoleIds: this.inviteRestrictionRoleIds } : {}) };
+      const result = await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/invitations", "POST", payload);
+      const token = String(result.acceptanceToken || "");
+      this.acceptanceLink = token ? window.location.origin + "/invite/accept#token=" + encodeURIComponent(token) : "";
       this.inviteEmail = "";
-      this.message = "Invitation created. Copy the one-time token and share it securely.";
+      this.inviteRole = "member";
+      this.inviteRestrictionRoleIds = [];
+      this.message = "Invitation created. Copy the link and share it with the invited person.";
       await this.load();
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Could not create invitation";
@@ -219,10 +226,16 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
     }
   }
 
-  async copyToken(): Promise<void> {
-    if (!this.acceptanceToken) return;
-    try { await navigator.clipboard.writeText(this.acceptanceToken); this.message = "Invitation token copied."; }
-    catch { this.error = "Clipboard access is unavailable. Select and copy the token manually."; }
+  toggleInviteRestriction(roleId: string, checked: boolean): void {
+    const selected = new Set(this.inviteRestrictionRoleIds);
+    if (checked) selected.add(roleId); else selected.delete(roleId);
+    this.inviteRestrictionRoleIds = [...selected];
+  }
+
+  async copyLink(): Promise<void> {
+    if (!this.acceptanceLink) return;
+    try { await navigator.clipboard.writeText(this.acceptanceLink); this.message = "Invitation link copied. Share it with the invited person."; }
+    catch { this.error = "Clipboard access is unavailable. Select and copy the invitation link manually."; }
   }
 
   async changeRole(member: CompanyMember, role: string): Promise<void> {

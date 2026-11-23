@@ -21,16 +21,18 @@ export class AppComponent implements OnInit {
   ngOnInit(): void {
     this.syncActiveSectionFromPath();
     window.addEventListener('popstate', this.handlePublicPopState);
-    if (this.dashboard) {
+    if (this.path === '/invite/accept') void this.loadInvitation();
+    else if (this.dashboard) {
       if (this.auth?.accessToken) void this.validateDashboardSession();
       else void this.refreshDashboardSession();
-    } else if (!['/login', '/register', '/forgot'].includes(this.path)) void this.loadPublicTenant();
+    } else if (!['/login', '/register', '/forgot', '/invite/accept'].includes(this.path)) void this.loadPublicTenant();
   }
 
   private readonly handlePublicPopState = (): void => {
     this.path = window.location.pathname;
     this.syncActiveSectionFromPath();
     this.menuOpen = false;
+    if (this.path === '/invite/accept') void this.loadInvitation();
   };
 
   navigatePublicPath(path: '/' | '/hello-world', event: Event): void {
@@ -51,6 +53,16 @@ export class AppComponent implements OnInit {
   path = window.location.pathname;
   menuOpen = false;
   email = ''; password = ''; reveal = false; busy = false; error = '';
+  invitationToken = new URLSearchParams(window.location.hash.slice(1)).get('token') || new URLSearchParams(window.location.search).get('token') || '';
+  invitationPreview: { email:string; companyName:string; role:string; restrictions:string[]; expiresAt:string } | null = null;
+  invitationLoading = true;
+  invitationExistingAccount = false;
+  invitationPassword = '';
+  invitationPasswordConfirm = '';
+  invitationMfaCode = '';
+  invitationMfaRequired = false;
+  invitationBusy = false;
+  invitationError = '';
   auth: any = null;
   mfaCode = '';
   mfaRequired = false;
@@ -83,6 +95,64 @@ export class AppComponent implements OnInit {
   userMenuOpen = false;
   toggleUserMenu(): void { this.userMenuOpen = !this.userMenuOpen; }
   get initial(): string { return this.signedEmail.charAt(0).toUpperCase(); }
+  async loadInvitation(): Promise<void> {
+    this.invitationToken = new URLSearchParams(window.location.hash.slice(1)).get('token') || new URLSearchParams(window.location.search).get('token') || '';
+    this.invitationLoading = true;
+    this.invitationError = '';
+    if (!this.invitationToken) {
+      this.invitationError = 'The invitation link does not contain a token. Ask the organization administrator for a new link.';
+      this.invitationLoading = false;
+      return;
+    }
+    try {
+      const response = await fetch(this.api + '/auth/invitations/preview', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({token:this.invitationToken}) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not validate this invitation');
+      this.invitationPreview = result.invitation;
+    } catch (error) {
+      this.invitationError = error instanceof Error ? error.message : 'Could not validate this invitation';
+      this.invitationPreview = null;
+    } finally { this.invitationLoading = false; }
+  }
+
+  async completeInvitation(event: Event): Promise<void> {
+    event.preventDefault();
+    if (!this.invitationPreview || !this.invitationToken || this.invitationBusy) return;
+    this.invitationError = '';
+    if (this.invitationPassword.length < 12) { this.invitationError = 'Use a password with at least 12 characters.'; return; }
+    if (!this.invitationExistingAccount && this.invitationPassword !== this.invitationPasswordConfirm) { this.invitationError = 'The passwords do not match.'; return; }
+    this.invitationBusy = true;
+    try {
+      if (this.invitationExistingAccount) {
+        const loginResponse = await fetch(this.api + '/auth/login', { method:'POST', credentials:'same-origin', headers:{'content-type':'application/json'}, body:JSON.stringify({email:this.invitationPreview.email,password:this.invitationPassword,client:'dashboard',...(this.invitationMfaCode?{mfaCode:this.invitationMfaCode}:{})}) });
+        const login = await loginResponse.json();
+        if (!loginResponse.ok) {
+          if (login.mfaRequired) this.invitationMfaRequired = true;
+          throw new Error(login.error || 'Sign in failed');
+        }
+        const acceptResponse = await fetch(this.api + '/invitations/accept', { method:'POST', credentials:'same-origin', headers:{'content-type':'application/json',authorization:'Bearer '+login.accessToken}, body:JSON.stringify({token:this.invitationToken}) });
+        const accepted = await acceptResponse.json();
+        if (!acceptResponse.ok) throw new Error(accepted.error || 'Could not accept invitation');
+        this.auth = login;
+      } else {
+        const registerResponse = await fetch(this.api + '/auth/invitations/register', { method:'POST', credentials:'same-origin', headers:{'content-type':'application/json'}, body:JSON.stringify({token:this.invitationToken,password:this.invitationPassword}) });
+        const registered = await registerResponse.json();
+        if (!registerResponse.ok) {
+          if (registered.accountExists) this.invitationExistingAccount = true;
+          throw new Error(registered.error || 'Could not create your account');
+        }
+        const loginResponse = await fetch(this.api + '/auth/login', { method:'POST', credentials:'same-origin', headers:{'content-type':'application/json'}, body:JSON.stringify({email:this.invitationPreview.email,password:this.invitationPassword,client:'dashboard'}) });
+        const login = await loginResponse.json();
+        if (!loginResponse.ok) throw new Error(login.error || 'Your account was created, but automatic sign-in failed. Please sign in normally.');
+        this.auth = login;
+      }
+      this.templates.setAuthSession(this.auth);
+      window.location.assign('/dashboard');
+    } catch (error) {
+      this.invitationError = error instanceof Error ? error.message : 'Could not complete this invitation';
+    } finally { this.invitationBusy = false; }
+  }
+
   async signIn(e: Event): Promise<void> {
     e.preventDefault();
     if (this.mfaSetupMode) { await this.confirmMfaSetup(e); return; }
