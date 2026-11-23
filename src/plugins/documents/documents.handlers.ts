@@ -20,10 +20,10 @@ export function createDocumentsHandlers(deps:any) {
    const assignments=await repository.teamAppAssignments.find({tenantId:tenant.tenantId,pluginId:"documents",enabled:true}).toArray();
    const enabled=new Set(assignments.map((item:any)=>item.teamId));
    const teams=teamRows.filter((team:any)=>enabled.has(team.id)&&(!query||team.name.toLowerCase().includes(query))).map((team:any)=>({id:team.id,name:team.name}));
-   const userIds=[...new Set(memberships.map((item:any)=>item.userId).filter(id=>id!==tenant.userId))];
+   const userIds=[...new Set(memberships.map((item:any)=>item.userId).filter((id:any)=>id!==tenant.userId))];
    const allUsers:any[]=userIds.length?await repository.users.find({id:{$in:userIds},enabled:true},{projection:{id:1,email:1}}).sort({email:1}).limit(500).toArray():[];
    const users=allUsers.filter((user:any)=>!query||user.email.toLowerCase().includes(query)).slice(0,50);
-   return {teams,users:users.map(user=>({id:userRef(user.id,tenant),email:user.email}))};
+   return {teams,users:users.map((user:any)=>({id:userRef(user.id,tenant),email:user.email}))};
   },
   folderSharesGet: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
@@ -69,12 +69,12 @@ export function createDocumentsHandlers(deps:any) {
    const visible:any[]=[];const countByFolder=new Map<string,number>();
    const [documentRows,userRows,folderPolicies]=await Promise.all([
     docs(tenant.tenantId).find({folderId:{$ne:null}}).toArray(),
-    repository.users.find({id:{$in:[...new Set(rows.map(folder=>folder.createdBy))]}},{projection:{id:1,email:1}}).toArray(),
+    repository.users.find({id:{$in:[...new Set(rows.map((folder:any)=>folder.createdBy))]}},{projection:{id:1,email:1}}).toArray(),
     repository.resourcePolicies.find({tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder"}).toArray()
    ]);
    const usersById=new Map(userRows.map((user:any)=>[user.id,user]));
    const folderOwnerById=new Map(rows.map((folder:any)=>[folder.id,folder.createdBy]));
-   const sharedPolicies=folderPolicies.filter((policy:any)=>(policy.teamGrants??[]).some(grant=>grant.permissions?.includes("read"))||(policy.userOverrides??[]).some(grant=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read")));
+   const sharedPolicies=folderPolicies.filter((policy:any)=>(policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read")))||(policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read")));
    const sharedFolderIds=new Set(sharedPolicies.map((policy:any)=>policy.resourceId));
    for(const item of documentRows as any[]){
     const parents=await ancestors(tenant.tenantId,item.folderId);
@@ -93,7 +93,7 @@ export function createDocumentsHandlers(deps:any) {
    }
    return {folders:visible};
   },
-  foldersPost: async(req,reply)=>{
+  foldersPost: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    const name=clean(req.body?.name,120);if(!name)return reply.code(400).send({error:"Folder name required"});
@@ -102,7 +102,7 @@ export function createDocumentsHandlers(deps:any) {
     if(!await canAccess(tenant,"folder",parentId,"write",parents.slice(1)))return reply.code(404).send({error:"Parent folder not found"});}
    const now=new Date();const row:Folder={id:randomUUID(),tenantId:tenant.tenantId,name,parentId,createdBy:tenant.userId,createdAt:now,updatedAt:now};
    await folders(tenant.tenantId).insertOne(row);
-   const creator=await repository.users.findOne({id:tenant.userId},{projection:{id:1,email:1}});
+   const creator:any=await repository.users.findOne({id:tenant.userId},{projection:{id:1,email:1}});
    return reply.code(201).send({folder:{id:ref(row.id,"folder",tenant),name,parentId:parentId?ref(parentId,"folder",tenant):null,
     uploadedBy:{email:creator?.email??"Unknown user"},createdAt:now,updatedAt:now,access:"private",documentCount:0}});
   },
@@ -140,7 +140,7 @@ export function createDocumentsHandlers(deps:any) {
     if(targetParents.some(parent=>parent.id===id))return reply.code(400).send({error:"A folder cannot be moved into itself or one of its descendants"});
     const allFolders:any[]=await folders(tenant.tenantId).find({}).toArray();
     const childrenByParent=new Map<string,string[]>();
-    for(const child of allFolders){if(child.parentId){const siblings=childrenByParent.get(child.parentId)??[];siblings.push(child.id);childrenByParent.set(child.parentId,siblings);}}
+    for(const child of allFolders as any[]){if(child.parentId){const siblings=childrenByParent.get(child.parentId)??[];siblings.push(child.id);childrenByParent.set(child.parentId,siblings);}}
     const queue:Array<{folderId:string;depth:number}>=[{folderId:id,depth:0}];const visited=new Set<string>();let maxDescendantDepth=0;
     while(queue.length){
      const current=queue.shift()!;if(visited.has(current.folderId))return reply.code(400).send({error:"Invalid folder hierarchy"});
