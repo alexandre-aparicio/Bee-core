@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input, OnChanges, SimpleChanges } from "@angular/core";
+import { Component, HostListener, Input, OnChanges, SimpleChanges } from "@angular/core";
 
 type PermissionDefinition={key:string;module:string;resource:string;action:string;label:string;description:string;sensitive?:boolean;customRoleAssignable:boolean};
 type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boolean;description:string;permissions:string[]};
@@ -21,13 +21,17 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
    <div class="platform-roles__role-grid">
     <article *ngFor="let role of systemRoles" class="platform-roles__role">
      <div><strong>{{role.label}}</strong><small>{{role.scope==='platform'?'Platform':'Tenant'}} scope · {{role.protected?'Protected':'Policy based'}}</small></div>
-     <p>{{role.description}}</p>
+     <p>{{role.description}}</p><button type="button" class="platform-roles__details" (click)="openSystemRole(role)">View permissions</button>
     </article>
    </div>
   </section>
   <section class="platform-roles__panel">
-   <div class="platform-roles__panel-head"><div><h3>Tenant permission delegation</h3><p>Choose which registered Core capabilities tenant owners may grant to custom roles. Built-in role permissions remain protected by Core. Disabling a capability removes it from existing tenant custom roles too.</p></div><span class="platform-roles__count">{{enabledCount}} / {{assignableCount}} enabled</span></div>
+   <div class="platform-roles__panel-head"><div><h3>Tenant permission delegation</h3><p>Choose which registered Core capabilities tenant owners may grant to custom roles. Built-in role permissions remain protected by Core. Disabling a capability removes it from existing tenant custom roles too.</p></div><span class="platform-roles__count">{{enabledCount}} / {{assignableCount}} enabled</span><button type="button" class="platform-roles__manage" (click)="openDelegationModal()" [disabled]="loading||saving">Manage delegation</button></div>
    <div *ngIf="loading" class="platform-roles__empty">Loading permission catalogue…</div>
+
+   <div class="platform-roles__modal-backdrop" *ngIf="delegationModalOpen" (click)="closeDelegationModal()">
+    <div class="platform-roles__modal" role="dialog" aria-modal="true" aria-labelledby="platform-delegation-title" (click)="$event.stopPropagation()">
+     <div class="platform-roles__modal-top"><div><span class="platform-roles__eyebrow">GLOBAL POLICY</span><h2 id="platform-delegation-title">Tenant permission delegation</h2><p>Choose which Core capabilities tenant owners may grant to custom roles. Saving revokes disabled capabilities from existing tenant roles.</p></div><button type="button" class="platform-roles__close" aria-label="Close dialog" (click)="closeDelegationModal()">×</button></div>
    <div *ngFor="let group of groups" class="platform-roles__group">
     <h4>{{groupLabel(group)}}</h4>
     <label *ngFor="let permission of inGroup(group)" class="platform-roles__permission">
@@ -37,10 +41,28 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
     </label>
    </div>
    <footer class="platform-roles__footer"><p>Protected operations such as membership administration, plugin administration, billing administration and mailbox administration remain reserved to built-in roles.</p><button type="button" (click)="save()" [disabled]="loading||saving||!dirty">{{saving?'Saving…':'Save platform policy'}}</button></footer>
+    </div>
+   </div>
   </section>
+  <div class="platform-roles__modal-backdrop" *ngIf="selectedSystemRole" (click)="closeSystemRole()">
+   <div class="platform-roles__modal platform-roles__role-modal" role="dialog" aria-modal="true" aria-labelledby="platform-role-title" (click)="$event.stopPropagation()">
+    <div class="platform-roles__modal-top"><div><span class="platform-roles__eyebrow">{{selectedSystemRole.scope}} · CORE MANAGED</span><h2 id="platform-role-title">{{selectedSystemRole.label}}</h2><p>{{selectedSystemRole.description}}</p></div><button type="button" class="platform-roles__close" aria-label="Close dialog" (click)="closeSystemRole()">×</button></div>
+    <h3>Assigned permissions</h3><div class="platform-roles__role-permissions"><code *ngFor="let permission of selectedSystemRole.permissions">{{permission}}</code><p *ngIf="!selectedSystemRole.permissions.length">No explicit permission keys are listed for this role.</p></div>
+   </div>
+  </div>
  </section>`,
  styles:[`
  .platform-roles{display:grid;gap:18px;min-width:0;color:inherit}
+ .platform-roles__modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:rgba(8,12,22,.62);backdrop-filter:blur(7px);animation:platformRoleFade .16s ease-out}
+ .platform-roles__modal{width:min(1100px,100%);max-height:min(90vh,900px);overflow:auto;border:1px solid var(--border,rgba(130,145,170,.3));border-radius:18px;padding:22px;background:var(--surface-raised,var(--panel,#171a24));box-shadow:0 24px 80px rgba(0,0,0,.3);animation:platformRoleRise .2s ease-out}
+ .platform-roles__modal-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+ .platform-roles__modal-top h2{font-size:22px;margin:6px 0}.platform-roles__modal-top p{font-size:12px;max-width:760px}
+ .platform-roles__close{width:36px;height:36px;padding:0!important;font-size:22px;line-height:1;border-radius:50%!important}
+ .platform-roles__manage,.platform-roles__details{background:var(--purple,#8c72ff)!important;color:#fff!important;border-color:var(--purple,#8c72ff)!important}
+ .platform-roles__details{font-size:10px!important;padding:6px 9px!important;margin-top:10px}
+ .platform-roles__role-permissions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.platform-roles__role-permissions code{font-size:10px;padding:6px 8px;border-radius:7px;background:var(--panel,rgba(130,145,170,.1));overflow-wrap:anywhere}
+ @keyframes platformRoleFade{from{opacity:0}to{opacity:1}}@keyframes platformRoleRise{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+ @media(prefers-reduced-motion:reduce){.platform-roles__modal-backdrop,.platform-roles__modal{animation:none}}
  .platform-roles__header,.platform-roles__panel-head,.platform-roles__footer{display:flex;align-items:center;justify-content:space-between;gap:18px}
  .platform-roles__header{margin:4px 0 8px}
  .platform-roles__heading-copy{min-width:0}
@@ -83,7 +105,7 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
  .platform-roles__empty{padding:16px;color:inherit;opacity:.65}
  @media(max-width:980px){.platform-roles__group{grid-template-columns:repeat(2,minmax(0,1fr))}}
  @media(max-width:760px){.platform-roles__role-grid{grid-template-columns:1fr}.platform-roles__header,.platform-roles__panel-head,.platform-roles__footer{align-items:flex-start;flex-direction:column}}
- @media(max-width:520px){.platform-roles__group{grid-template-columns:1fr}}
+ @media(max-width:520px){.platform-roles__group{grid-template-columns:1fr}.platform-roles__modal-backdrop{padding:10px}.platform-roles__modal{padding:15px;max-height:94vh}.platform-roles__panel-head{gap:10px}}
  `]
 })
 export class PlatformRolesComponent implements OnChanges{
@@ -92,13 +114,18 @@ export class PlatformRolesComponent implements OnChanges{
  systemRoles:SystemRole[]=[];
  enabled=new Set<string>();
  original=new Set<string>();
- loading=false;saving=false;error="";message="";
+ loading=false;saving=false;error="";message="";delegationModalOpen=false;selectedSystemRole:SystemRole|null=null;
  private readonly api="/api";
  get groups():string[]{return [...new Set(this.catalog.map(item=>item.module))];}
  get assignableCount():number{return this.catalog.filter(item=>item.customRoleAssignable).length;}
  get enabledCount():number{return this.enabled.size;}
  get dirty():boolean{return this.enabled.size!==this.original.size||[...this.enabled].some(key=>!this.original.has(key));}
  ngOnChanges(changes:SimpleChanges):void{if(changes["accessToken"]&&this.accessToken)void this.load();}
+ openDelegationModal():void{this.delegationModalOpen=true;this.message="";}
+ closeDelegationModal():void{this.delegationModalOpen=false;}
+ openSystemRole(role:SystemRole):void{this.selectedSystemRole=role;}
+ closeSystemRole():void{this.selectedSystemRole=null;}
+ @HostListener("document:keydown.escape") onEscape():void{if(this.selectedSystemRole)this.closeSystemRole();else if(this.delegationModalOpen)this.closeDelegationModal();}
  groupLabel(group:string):string{return group.replace(/[-_]/g," ");}
  inGroup(group:string):PermissionDefinition[]{return this.catalog.filter(item=>item.module===group);}
  toggle(key:string,checked:boolean):void{if(checked)this.enabled.add(key);else this.enabled.delete(key);this.message="";}
@@ -112,7 +139,7 @@ export class PlatformRolesComponent implements OnChanges{
  async save():Promise<void>{
   if(!this.dirty||this.saving)return;this.saving=true;this.error="";this.message="";
   try{const response=await fetch(this.api+"/platform/permissions",{method:"PUT",headers:{authorization:"Bearer "+this.accessToken,"content-type":"application/json"},body:JSON.stringify({tenantAssignablePermissions:[...this.enabled]})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Could not save platform policy");
-   this.enabled=new Set(result.tenantAssignablePermissions||[]);this.original=new Set(this.enabled);this.message="Platform permission policy saved. Revoked capabilities were removed from existing tenant custom roles.";
+   this.enabled=new Set(result.tenantAssignablePermissions||[]);this.original=new Set(this.enabled);this.message="Platform permission policy saved. Revoked capabilities were removed from existing tenant custom roles.";this.delegationModalOpen=false;
   }catch(error){this.error=error instanceof Error?error.message:"Could not save platform policy";}finally{this.saving=false;}
  }
 }
