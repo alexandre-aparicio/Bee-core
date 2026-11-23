@@ -7,7 +7,7 @@ import type { Folder, BeeDocument } from "./documents.service.js";
 /** Module-owned HTTP controller/route registration. Domain helpers and infrastructure
  * are injected from the Documents plugin initialization scope. */
 export function registerDocumentsRoutes(ctx:any,deps:any):void {
- const {db,secret,storage,folderCollection,documentCollection,repository,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,MAX_DEPTH,clean,validPublicId}=deps;
+ const {db,secret,storage,folderCollection,documentCollection,repository,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,MAX_DEPTH,clean,validPublicId,normalizeTags}=deps;
   ctx.server.get(documentsRoutes.shareTargets,async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"members.read"))return reply.code(403).send({error:"Organization member read permission required"});
@@ -162,7 +162,7 @@ export function registerDocumentsRoutes(ctx:any,deps:any):void {
    if(req.body?.folderId){try{folderId=unref(String(req.body.folderId),"folder",tenant);parents=await ancestors(tenant.tenantId,folderId);}catch{return reply.code(404).send({error:"Folder not found"});}
     if(!await canAccess(tenant,"folder",folderId,"write",parents.slice(1)))return reply.code(404).send({error:"Folder not found"});}
    const now=new Date();const title=clean(req.body?.title,180)||file.originalName;
-   const tags=Array.isArray(req.body?.tags)?[...new Set(req.body.tags.map((v:unknown)=>clean(v,40)).filter(Boolean))].slice(0,20):[];
+   const tags=normalizeTags(req.body?.tags);
    const item:BeeDocument={id:randomUUID(),tenantId:tenant.tenantId,fileId,folderId,title,description:clean(req.body?.description,2000),tags,visibility:"private",publicId:null,publishedAt:null,createdBy:tenant.userId,createdAt:now,updatedAt:now};
    await docs(tenant.tenantId).insertOne(item);return reply.code(201).send({document:await present(item,tenant)});
   });
