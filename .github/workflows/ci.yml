@@ -1,0 +1,189 @@
+name: Bee-Core CI
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "test/**"
+      - "apps/web/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig*.json"
+      - "Dockerfile"
+      - "docker-compose*.yml"
+      - ".env*.example"
+      - ".github/workflows/**"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "test/**"
+      - "apps/web/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig*.json"
+      - "Dockerfile"
+      - "docker-compose*.yml"
+      - ".env*.example"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bee-core-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend typecheck, build, audit and MongoDB integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mongodb:
+        image: mongo:8
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies from lockfile
+        run: npm ci
+      - name: Production dependency audit
+        run: npm audit --omit=dev
+      - name: Type check
+        run: npm run check
+      - name: Build
+        run: npm run build
+      - name: Backend integration tests
+        run: npm test
+        env:
+          MONGODB_TEST_URI: mongodb://localhost:27017
+
+  docker-stack:
+    name: Docker Compose full-stack smoke and auth regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure isolated CI secrets
+        run: |
+          cat > .env <<EOF
+          JWT_SECRET=$(openssl rand -hex 48)
+          AUTH_MFA_ENCRYPTION_KEY=$(openssl rand -base64 32)
+          MONGO_ROOT_USERNAME=root
+          MONGO_ROOT_PASSWORD=$(openssl rand -hex 32)
+          MONGO_APP_USERNAME=bee_core_ci
+          MONGO_APP_PASSWORD=$(openssl rand -hex 32)
+          BEE_MAIL_ENCRYPTION_KEY=$(openssl rand -hex 32)
+          AUTH_ADMIN_EMAIL=ci-admin@bee-core.invalid
+          AUTH_ADMIN_PASSWORD=CI-only-Password-2026!
+          MONGODB_DB=bee_core_ci
+          BEE_CORE_PORT=33000
+          BEE_WEB_PORT=38080
+          PUBLIC_BASE_DOMAIN=ci.example.test
+          EOF
+          chmod 600 .env
+      - name: Clean install and build the full Compose stack
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v --remove-orphans
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up --build -d
+      - name: Wait for API and web
+        run: |
+          set -e
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:33000/health >/dev/null && curl --fail --silent http://127.0.0.1:38080/ >/dev/null; then
+              echo "PASS API and web became healthy"
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color
+          exit 1
+      - name: Verify API, plugins, Angular and reverse proxy
+        run: |
+          node --input-type=module <<'NODE'
+          const checks = [
+            ["API health", "http://127.0.0.1:33000/health"],
+            ["Plugin registry", "http://127.0.0.1:33000/plugins"],
+            ["Angular shell", "http://127.0.0.1:38080/"],
+            ["Nginx API proxy", "http://127.0.0.1:38080/api/health"]
+          ];
+          for (const [name, url] of checks) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
+            const body = await response.text();
+            if (name === "Angular shell" && !body.includes("<bee-root")) throw new Error("Angular root element missing");
+            if (name === "Plugin registry" && !body.includes("auth")) throw new Error("Auth plugin not registered");
+            console.log(`PASS ${name} (${response.status})`);
+          }
+          NODE
+      - name: Seed a non-superadmin owner for clean-install smoke
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T bee-core node --input-type=module <<'NODE'
+          import { MongoClient } from "mongodb";
+          import bcrypt from "bcryptjs";
+          import { randomUUID } from "node:crypto";
+          const client=new MongoClient(process.env.MONGODB_URI);
+          await client.connect();
+          const db=client.db(process.env.MONGODB_DB);
+          const now=new Date(), tenantId="ci-smoke-tenant", userId="ci-smoke-owner";
+          const passwordHash=await bcrypt.hash("CI-owner-password-2026!",10);
+          await db.collection("tenants").updateOne({id:tenantId},{$setOnInsert:{id:tenantId,name:"CI Smoke Company",slug:"ci-smoke",status:"active",createdAt:now,settings:{defaultLanguage:"en"}}},{upsert:true});
+          await db.collection("users").updateOne({id:userId},{$setOnInsert:{id:userId,email:"ci-owner@bee-core.invalid",passwordHash,roles:["admin"],enabled:true,allowedClients:["dashboard"],tenantId,createdAt:now,updatedAt:now}},{upsert:true});
+          await db.collection("memberships").updateOne({userId,tenantId},{$setOnInsert:{id:randomUUID(),userId,tenantId,role:"owner",status:"active",createdAt:now,updatedAt:now}},{upsert:true});
+          await client.close();
+          console.log("PASS seeded isolated CI tenant owner");
+          NODE
+      - name: Verify dashboard login, profile, templates, refresh rotation and logout
+        run: |
+          node --input-type=module <<'NODE'
+          const base="http://127.0.0.1:33000";
+          const cookieFrom=response=>{const pair=(response.headers.get("set-cookie")||"").split(";")[0].trim();return pair.startsWith("bee_refresh=")?pair:"";};
+          const login=await fetch(base+"/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:"ci-owner@bee-core.invalid",password:"CI-owner-password-2026!",client:"dashboard"})});
+          if(!login.ok)throw new Error(`Login failed HTTP ${login.status}: ${await login.text()}`);
+          const tokens=await login.json(),cookie=cookieFrom(login),setCookie=login.headers.get("set-cookie")||"";
+          if(!tokens.accessToken||!cookie)throw new Error("Missing access token or refresh cookie");
+          for(const attribute of ["HttpOnly","SameSite=Strict","Path=/api/auth"])if(!setCookie.includes(attribute))throw new Error(`Missing cookie attribute: ${attribute}`);
+          const me=await fetch(base+"/auth/me",{headers:{authorization:`Bearer ${tokens.accessToken}`}});
+          if(!me.ok)throw new Error(`Authenticated profile HTTP ${me.status}: ${await me.text()}`);
+          if(!(await me.json()).authenticated)throw new Error("Profile did not report authenticated=true");
+          const preferences=await fetch(base+"/templates/preferences",{headers:{authorization:`Bearer ${tokens.accessToken}`}});
+          if(!preferences.ok)throw new Error(`Template preferences read HTTP ${preferences.status}`);
+          const saved=await fetch(base+"/templates/preferences",{method:"PUT",headers:{"content-type":"application/json",authorization:`Bearer ${tokens.accessToken}`},body:JSON.stringify({public:"editorial",dashboard:"paper"})});
+          if(!saved.ok)throw new Error(`Template preferences write HTTP ${saved.status}`);
+          const persisted=await fetch(base+"/templates/preferences",{headers:{authorization:`Bearer ${tokens.accessToken}`}});
+          const selection=(await persisted.json()).selection;
+          if(selection?.public!=="editorial"||selection?.dashboard!=="paper")throw new Error("Template selection did not persist");
+          const refresh=await fetch(base+"/auth/refresh",{method:"POST",headers:{cookie},body:"{}"});
+          if(!refresh.ok)throw new Error(`Refresh failed HTTP ${refresh.status}: ${await refresh.text()}`);
+          const rotated=await refresh.json(),newCookie=cookieFrom(refresh);
+          if(!rotated.accessToken||!newCookie||newCookie===cookie)throw new Error("Refresh token did not rotate");
+          const replay=await fetch(base+"/auth/refresh",{method:"POST",headers:{cookie},body:"{}"});
+          if(replay.status!==401)throw new Error(`Replay should return 401, got ${replay.status}`);
+          const logout=await fetch(base+"/auth/logout",{method:"POST",headers:{authorization:`Bearer ${rotated.accessToken}`,cookie:newCookie}});
+          if(!logout.ok)throw new Error("Logout failed");
+          const afterLogout=await fetch(base+"/auth/refresh",{method:"POST",headers:{cookie:newCookie},body:"{}"});
+          if(afterLogout.status!==401)throw new Error("Logout did not revoke refresh session");
+          console.log("PASS login, profile, templates, refresh rotation, replay rejection and logout");
+          NODE
+
+      - name: Compose diagnostics on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color
+      - name: Tear down test stack
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v --remove-orphans
