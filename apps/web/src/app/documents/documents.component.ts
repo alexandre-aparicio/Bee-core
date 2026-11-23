@@ -1,16 +1,18 @@
 import { Component, Input, OnChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from "@angular/cdk/drag-drop";
 
-type Folder={id:string;name:string;parentId:string|null;canManageShares?:boolean};
+type Folder={id:string;name:string;parentId:string|null;canManageShares?:boolean;canMove?:boolean;documentCount?:number};
 type ShareTeam={id:string;name:string};
 type ShareUser={id:string;email:string};
-type Doc={id:string;title:string;description:string;tags:string[];visibility:"private"|"public";downloadUrl:string;publicUrl:string|null;folderId:string|null;originalName:string;fileContentType:string;fileSize:number;uploadedBy:{email:string};uploadedAt:string;createdAt:string;updatedAt:string};
+type Doc={id:string;title:string;description:string;tags:string[];visibility:"private"|"public";downloadUrl:string;publicUrl:string|null;folderId:string|null;canMove?:boolean;originalName:string;fileContentType:string;fileSize:number;uploadedBy:{email:string};uploadedAt:string;createdAt:string;updatedAt:string};
+type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 
 @Component({
  selector:"bee-documents-workspace",
  standalone:true,
- imports:[CommonModule,FormsModule],
+ imports:[CommonModule,FormsModule,CdkDrag,CdkDragHandle,CdkDropList],
  template:`
 <section class="documents bee-page">
   <header class="documents__header bee-page__header">
@@ -27,7 +29,7 @@ type Doc={id:string;title:string;description:string;tags:string[];visibility:"pr
 
   <nav class="documents__toolbar bee-page__toolbar" aria-label="Document location and actions">
     <div class="documents__breadcrumbs" aria-label="Folder path">
-      <button type="button" class="documents__breadcrumb-root" [class.is-current]="!currentFolderId" (click)="openFolder(null)" [attr.aria-current]="!currentFolderId ? 'page' : null">All documents</button>
+      <button type="button" class="documents__breadcrumb-root" cdkDropList id="documents-root-drop" [cdkDropListConnectedTo]="dropListIds" [cdkDropListData]="null" (cdkDropListDropped)="dropToRoot($event)" [class.is-current]="!currentFolderId" (click)="openFolder(null)" [attr.aria-current]="!currentFolderId ? 'page' : null">All documents</button>
       <ng-container *ngFor="let folder of breadcrumbs;let i=index">
         <span class="documents__breadcrumb-separator" aria-hidden="true">/</span>
         <button type="button" class="documents__breadcrumb" [class.is-current]="i===breadcrumbs.length-1" (click)="openFolder(folder.id)" [attr.aria-current]="i===breadcrumbs.length-1 ? 'page' : null">{{folder.name}}</button>
@@ -70,31 +72,34 @@ type Doc={id:string;title:string;description:string;tags:string[];visibility:"pr
     </div>
 
     <div class="documents__grid" *ngIf="!loading && viewMode==='cards' && (visibleFolders.length || documents.length)">
-      <article class="documents__item documents__item--folder" *ngFor="let folder of visibleFolders">
-        <button class="documents__folder-open" type="button" (click)="openFolder(folder.id)" [attr.aria-label]="'Open folder ' + folder.name">
+      <article class="documents__item documents__item--folder" *ngFor="let folder of visibleFolders" cdkDropList [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="dropListIds" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
+        <button class="documents__folder-open" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)" [attr.aria-label]="'Open folder ' + folder.name">
           <span class="documents__item-copy">
             <strong>{{folder.name}}</strong>
-            <small>Folder</small>
+            <small>Folder · {{folder.documentCount || 0}} documents</small>
+            <span class="documents__folder-count" [attr.aria-label]="(folder.documentCount || 0) + ' documents'">{{folder.documentCount || 0}}</span>
           </span>
         </button>
-        <div class="documents__folder-actions" *ngIf="folder.canManageShares">
+        <div class="documents__folder-actions" *ngIf="folder.canManageShares || folder.canMove">
           <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
           <div class="documents__menu" *ngIf="folderMenuId===folder.id">
-            <button type="button" (click)="openShareDialog(folder,'groups')">Share with group</button>
-            <button type="button" (click)="openShareDialog(folder,'users')">Share with user</button>
+            <button type="button" *ngIf="folder.canManageShares" (click)="openShareDialog(folder,'groups')">Share with group</button>
+            <button type="button" *ngIf="folder.canManageShares" (click)="openShareDialog(folder,'users')">Share with user</button>
+            <button type="button" *ngIf="folder.canMove && folder.parentId" (click)="moveFolderOut(folder)">Move out of this folder</button>
           </div>
         </div>
       </article>
 
-      <article class="documents__item documents__item--document" *ngFor="let doc of documents">
+      <article class="documents__item documents__item--document" *ngFor="let doc of documents" cdkDrag [cdkDragData]="{kind:'document',item:doc}" [cdkDragDisabled]="!doc.canMove">
         <div class="documents__document-actions">
           <button type="button" class="documents__icon-button" aria-label="Document options" title="Document options" [attr.aria-expanded]="documentMenuId===doc.id" (click)="toggleDocumentMenu(doc.id,$event)"><span aria-hidden="true">⋮</span></button>
           <div class="documents__menu" *ngIf="documentMenuId===doc.id">
             <button type="button" (click)="openDocumentDetails(doc)">Document details</button>
             <button type="button" (click)="downloadDocument(doc)">Download</button>
+            <button type="button" *ngIf="doc.canMove && doc.folderId" (click)="moveDocumentOut(doc)">Move out of this folder</button>
           </div>
         </div>
-        <div class="documents__item-main">
+        <div class="documents__item-main" cdkDragHandle>
           <div class="documents__item-copy">
             <strong [title]="doc.title">{{doc.title}}</strong>
             <small>{{doc.description || 'Document'}}</small>
@@ -113,21 +118,22 @@ type Doc={id:string;title:string;description:string;tags:string[];visibility:"pr
       <table class="documents__table">
         <thead><tr><th scope="col">Title / original file</th><th scope="col">Type</th><th scope="col">Uploaded by</th><th scope="col">Uploaded</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
         <tbody>
-          <tr *ngFor="let folder of visibleFolders">
-            <td colspan="5"><button class="documents__table-name" type="button" (click)="openFolder(folder.id)">{{folder.name}}</button></td>
+          <tr *ngFor="let folder of visibleFolders" cdkDropList [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="dropListIds" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
+            <td colspan="5"><button class="documents__table-name" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)">{{folder.name}} <span class="documents__folder-count documents__folder-count--table">{{folder.documentCount || 0}}</span></button></td>
             <td>
-              <div class="documents__table-actions" *ngIf="folder.canManageShares">
+              <div class="documents__table-actions" *ngIf="folder.canManageShares || folder.canMove">
                 <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
                 <div class="documents__menu" *ngIf="folderMenuId===folder.id">
-                  <button type="button" (click)="openShareDialog(folder,'groups')">Share with group</button>
-                  <button type="button" (click)="openShareDialog(folder,'users')">Share with user</button>
+                  <button type="button" *ngIf="folder.canManageShares" (click)="openShareDialog(folder,'groups')">Share with group</button>
+                  <button type="button" *ngIf="folder.canManageShares" (click)="openShareDialog(folder,'users')">Share with user</button>
+                  <button type="button" *ngIf="folder.canMove && folder.parentId" (click)="moveFolderOut(folder)">Move out of this folder</button>
                 </div>
               </div>
               <span *ngIf="!folder.canManageShares">—</span>
             </td>
           </tr>
-          <tr *ngFor="let doc of documents">
-            <td><strong class="documents__table-name-text">{{doc.title}}</strong><small class="documents__table-description">Original: {{doc.originalName}}</small></td>
+          <tr *ngFor="let doc of documents" cdkDrag [cdkDragData]="{kind:'document',item:doc}" [cdkDragDisabled]="!doc.canMove">
+            <td cdkDragHandle><strong class="documents__table-name-text">{{doc.title}}</strong><small class="documents__table-description">Original: {{doc.originalName}}</small></td>
             <td>{{doc.fileContentType}}</td>
             <td>{{doc.uploadedBy?.email || 'Unknown user'}}</td>
             <td>{{formatDate(doc.uploadedAt)}}</td>
@@ -137,6 +143,7 @@ type Doc={id:string;title:string;description:string;tags:string[];visibility:"pr
               <div class="documents__menu" *ngIf="documentMenuId===doc.id">
                 <button type="button" (click)="openDocumentDetails(doc)">Document details</button>
                 <button type="button" (click)="downloadDocument(doc)">Download</button>
+                <button type="button" *ngIf="doc.canMove && doc.folderId" (click)="moveDocumentOut(doc)">Move out of this folder</button>
               </div>
             </div></td>
           </tr>
@@ -291,6 +298,13 @@ type Doc={id:string;title:string;description:string;tags:string[];visibility:"pr
 @media(max-width:520px){.documents__details-list{grid-template-columns:minmax(0,1fr)}}
 .documents__item{position:relative;display:flex;min-width:0;min-height:142px;flex-direction:column;justify-content:space-between;gap:18px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--panel);transition:border-color .16s ease,background-color .16s ease}
 .documents__item:hover{border-color:color-mix(in srgb,var(--purple) 48%,var(--border));background:color-mix(in srgb,var(--panel) 92%,var(--purple))}
+.documents__folder-count{display:inline-flex;flex:0 0 27px;width:27px;height:27px;align-items:center;justify-content:center;margin-left:auto;border:1px solid color-mix(in srgb,var(--purple) 42%,var(--border));border-radius:50%;background:color-mix(in srgb,var(--purple) 11%,transparent);color:var(--purple);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.documents__folder-count--table{width:23px;height:23px;min-width:23px;margin-left:8px;vertical-align:middle}
+.documents__item--folder.cdk-drop-list-receiving,.documents__table tr.cdk-drop-list-receiving{outline:2px solid var(--purple);outline-offset:2px;background:color-mix(in srgb,var(--purple) 9%,var(--panel))}
+.cdk-drag-preview{opacity:.9;box-shadow:0 14px 36px rgba(0,0,0,.2)}
+.cdk-drag-placeholder{opacity:.35}
+.documents__item-main[cdkDragHandle],.documents__table td[cdkDragHandle]{cursor:grab}
+.documents__item-main[cdkDragHandle]:active,.documents__table td[cdkDragHandle]:active{cursor:grabbing}
 .documents__folder-open{display:flex;align-items:flex-start;gap:0;width:100%;min-width:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
 .documents__item-main{display:flex;align-items:flex-start;gap:0;min-width:0}
 .documents__item--folder .documents__item-copy,.documents__item--document .documents__item-copy{padding-right:48px}
@@ -409,6 +423,52 @@ export class BeeDocumentsComponent implements OnChanges {
  }
 
  get visibleFolders():Folder[]{return this.folders.filter(f=>f.parentId===this.currentFolderId);}
+ get dropListIds():string[]{return ["documents-root-drop",...this.visibleFolders.map(folder=>this.folderDropId(folder.id))];}
+ folderDropId(id:string):string{return "documents-folder-drop-"+id;}
+ dropToRoot(event:CdkDragDrop<Folder|null,unknown,DragItem>):void{this.applyDrop(event,null);}
+ dropOnFolder(event:CdkDragDrop<Folder,unknown,DragItem>,folder:Folder):void{this.applyDrop(event,folder.id);}
+ private applyDrop(event:CdkDragDrop<Folder|null,unknown,DragItem>,targetFolderId:string|null):void{
+  const dragged=event.item.data;if(!dragged)return;
+  if(dragged.kind==="document"){if(dragged.item.folderId!==targetFolderId)void this.moveDocument(dragged.item,targetFolderId);return;}
+  if(dragged.item.id===targetFolderId||dragged.item.parentId===targetFolderId)return;
+  void this.moveFolder(dragged.item,targetFolderId);
+ }
+ async moveDocumentOut(doc:Doc):Promise<void>{
+  if(!doc.folderId)return;
+  const containing=this.folders.find(folder=>folder.id===doc.folderId);
+  await this.moveDocument(doc,containing?.parentId??null);
+ }
+ async moveFolderOut(folder:Folder):Promise<void>{
+  if(!folder.parentId)return;
+  const parent=this.folders.find(item=>item.id===folder.parentId);
+  await this.moveFolder(folder,parent?.parentId??null);
+ }
+ async moveDocument(doc:Doc,folderId:string|null):Promise<void>{
+  if(!doc.canMove||doc.folderId===folderId)return;
+  this.error="";this.uploadMessage="";
+  try{
+   const response=await fetch(this.api+"/documents/"+encodeURIComponent(doc.id)+"/location",{
+    method:"PATCH",credentials:"same-origin",
+    headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
+    body:JSON.stringify({folderId})
+   });
+   const result=await response.json();if(!response.ok)throw new Error(result.error||"Could not move document");
+   this.documentMenuId=null;this.uploadMessage="Document moved successfully.";await this.load();
+  }catch(e){this.error=e instanceof Error?e.message:"Could not move document";}
+ }
+ async moveFolder(folder:Folder,parentId:string|null):Promise<void>{
+  if(!folder.canMove||folder.parentId===parentId)return;
+  this.error="";this.uploadMessage="";
+  try{
+   const response=await fetch(this.api+"/documents/folders/"+encodeURIComponent(folder.id)+"/location",{
+    method:"PATCH",credentials:"same-origin",
+    headers:{"content-type":"application/json",authorization:"Bearer "+this.accessToken},
+    body:JSON.stringify({parentId})
+   });
+   const result=await response.json();if(!response.ok)throw new Error(result.error||"Could not move folder");
+   this.folderMenuId=null;this.uploadMessage="Folder moved successfully.";await this.load();
+  }catch(e){this.error=e instanceof Error?e.message:"Could not move folder";}
+ }
  openFolder(id:string|null):void{this.currentFolderId=id;this.rebuildBreadcrumbs();void this.load();}
  private rebuildBreadcrumbs():void{
   const chain:Folder[]=[];let id=this.currentFolderId;
