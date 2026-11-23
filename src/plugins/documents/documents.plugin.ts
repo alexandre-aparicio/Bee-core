@@ -62,7 +62,21 @@ export const documentsPlugin:BeePlugin={
    const decision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"documents",resourceType:type,resourceId:id,permission,ancestorResources:parents.map(f=>({resourceType:"folder",resourceId:f.id}))});
    return decision!==false;
   };
-  const present=(item:BeeDocument,tenant:TenantContext)=>({id:ref(item.id,"document",tenant),title:item.title,description:item.description,tags:item.tags,folderId:item.folderId?ref(item.folderId,"folder",tenant):null,visibility:item.visibility,publishedAt:item.publishedAt,publicUrl:item.visibility==="public"&&item.publicId?"/api/public/documents/"+item.publicId:null,downloadUrl:"/api/documents/"+ref(item.id,"document",tenant)+"/download",createdAt:item.createdAt,updatedAt:item.updatedAt});
+  const present=async(item:BeeDocument,tenant:TenantContext)=>{
+   const [file,uploader]=await Promise.all([
+    storage.getMetadata(tenant.tenantId,item.fileId),
+    db.collection<{id:string;email:string}>("users").findOne({id:item.createdBy},{projection:{id:1,email:1}})
+   ]);
+   return {
+    id:ref(item.id,"document",tenant),title:item.title,description:item.description,tags:item.tags,
+    folderId:item.folderId?ref(item.folderId,"folder",tenant):null,visibility:item.visibility,publishedAt:item.publishedAt,
+    publicUrl:item.visibility==="public"&&item.publicId?"/api/public/documents/"+item.publicId:null,
+    downloadUrl:"/api/documents/"+ref(item.id,"document",tenant)+"/download",
+    originalName:file?.originalName??item.title,fileContentType:file?.contentType??"application/octet-stream",
+    fileSize:file?.size??0,uploadedBy:{email:uploader?.email??"Unknown user"},
+    uploadedAt:file?.createdAt??item.createdAt,createdAt:item.createdAt,updatedAt:item.updatedAt
+   };
+  };
 
   const sharePolicy=async(tenant:TenantContext,folderId:string)=>policies.findOne({tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder",resourceId:folderId});
   const policies=db.collection<any>("resource_access_policies");
@@ -144,7 +158,7 @@ export const documentsPlugin:BeePlugin={
    if(folderRef){try{folderId=unref(folderRef,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
     const parents=await ancestors(tenant.tenantId,folderId);if(!await canAccess(tenant,"folder",folderId,"read",parents.slice(1)))return reply.code(404).send({error:"Folder not found"});}
    const rows=await docs(tenant.tenantId).find({folderId}).sort({updatedAt:-1}).limit(200).toArray();const visible=[];
-   for(const item of rows){const parents=await ancestors(tenant.tenantId,item.folderId);if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(present(item,tenant));}
+   for(const item of rows){const parents=await ancestors(tenant.tenantId,item.folderId);if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(await present(item,tenant));}
    return {documents:visible};
   });
   ctx.server.post<{Body:{fileId?:unknown;folderId?:unknown;title?:unknown;description?:unknown;tags?:unknown}}>("/documents",async(req,reply)=>{
@@ -160,7 +174,7 @@ export const documentsPlugin:BeePlugin={
    const now=new Date();const title=clean(req.body?.title,180)||file.originalName;
    const tags=Array.isArray(req.body?.tags)?[...new Set(req.body.tags.map((v:unknown)=>clean(v,40)).filter(Boolean))].slice(0,20):[];
    const item:BeeDocument={id:randomUUID(),tenantId:tenant.tenantId,fileId,folderId,title,description:clean(req.body?.description,2000),tags,visibility:"private",publicId:null,publishedAt:null,createdBy:tenant.userId,createdAt:now,updatedAt:now};
-   await docs(tenant.tenantId).insertOne(item);return reply.code(201).send({document:present(item,tenant)});
+   await docs(tenant.tenantId).insertOne(item);return reply.code(201).send({document:await present(item,tenant)});
   });
   ctx.server.put<{Params:{documentId:string};Body:{published?:unknown}}>("/documents/:documentId/publication",async(req,reply)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
@@ -171,7 +185,7 @@ export const documentsPlugin:BeePlugin={
    if(typeof req.body?.published!=="boolean")return reply.code(400).send({error:"published must be boolean"});
    const published=req.body.published;const publicId=published?(item.visibility==="public"?item.publicId:randomBytes(32).toString("base64url")):null;const now=new Date();
    await docs(tenant.tenantId).updateOne({id},{$set:{visibility:published?"public":"private",publicId,publishedAt:published?(item.publishedAt??now):null,updatedAt:now}});
-   const updated=await docs(tenant.tenantId).findOne({id});return {document:updated?present(updated,tenant):null};
+   const updated=await docs(tenant.tenantId).findOne({id});return {document:updated?await present(updated,tenant):null};
   });
   ctx.server.get<{Params:{documentId:string}}>("/documents/:documentId/download",async(req,reply)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;

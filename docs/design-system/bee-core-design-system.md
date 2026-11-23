@@ -215,6 +215,26 @@ Rules:
 
 ### 5.2 Buttons and actions
 
+### 5.2.1 Collection view switcher
+
+For collection/list pages where the same records can be meaningfully scanned as cards and as rows, provide both **Cards** and **Table** views unless the data shape makes one presentation unsuitable.
+
+- Place the view switcher in the page toolbar, immediately before the primary contextual action (for example, Upload or Create).
+- Keep the switcher and action in one right-aligned toolbar group; allow wrapping on narrow screens without changing their order.
+- Use the established compact two-option segmented control pattern: two equal icon buttons, subtle border, restrained surface, and a clear selected state.
+- Use the application's established card/table glyphs consistently; do not replace icons with text labels such as “Cards” and “Table” in the compact control.
+- Each icon button MUST have an accessible name and tooltip (for example, “Card view” and “Table view”), and expose its state with `aria-pressed`.
+- The default view should be consistent within the same feature and should not reset when records refresh or a folder/location changes.
+- Both views MUST expose the same records, available actions, permission rules, loading/error/empty states and data; switching presentation must not change business behavior.
+- On narrow screens, the toolbar may wrap. Tables must scroll inside their own region rather than widening the page.
+
+### 5.2.2 Overflow actions and vertical ellipsis
+
+- Contextual overflow actions MUST use the application's vertical three-dot icon (`⋮` / established vertical-ellipsis icon), not a textual “More” label or a different menu glyph.
+- Keep the hit area consistent with other icon buttons. Provide a meaningful accessible name and tooltip such as “Folder options” or “Company actions”; hide a decorative glyph from assistive technology.
+- Use the same vertical-ellipsis convention in card and table rows for the same entity and actions.
+- The menu's contents and authorization remain unchanged when moving between card and table presentations.
+
 Standard action hierarchy:
 - **Primary:** the one main action for the current context (Save, Create, Invite).
 - **Secondary:** supportive actions (Cancel, Refresh, Export).
