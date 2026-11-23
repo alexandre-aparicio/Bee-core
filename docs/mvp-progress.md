@@ -830,3 +830,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Replaced inline style attributes with CSS classes and widened the Angular asset-copy glob so the HTML, JS and CSS files are all published together.
 - This addresses the reported `script-src 'self'` inline-script violation without weakening the Content Security Policy or adding `unsafe-inline`.
 - **Validation pending:** no Angular production build or browser test under the deployed CSP has been run. The fix is prepared on `fix/device-simulator-csp` and awaits review/merge.
+
+
+## Connected Device simulator heartbeat JSON fix — prepared (2026-11-23)
+
+- Corrected the browser companion heartbeat request to send an explicit empty JSON object (`{}`) because its shared request helper sets `Content-Type: application/json`. A body-less POST with that content type can be rejected by Fastify's JSON parser with HTTP 400 before the route handler/authentication executes.
+- No backend authentication, device credential, approval, tenant-scope or authorization behavior was changed.
+- **Validation:** source-level request-contract review only. No Fastify integration test, Angular asset build, browser heartbeat, CI or VPS runtime check has been executed. Deploy the merged asset and verify Network shows a successful heartbeat before considering the issue closed.
