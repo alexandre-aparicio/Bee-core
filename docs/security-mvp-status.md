@@ -9,7 +9,9 @@
 - JWT access tokens are signed with HS256, issuer/audience validation and a 20-minute lifetime.
 - Dashboard refresh sessions use rotating refresh tokens in HttpOnly, SameSite=Strict cookies; refresh reuse is rejected and revokes the affected session.
 - Logout revokes the refresh session. The access token remains valid until its short expiry unless the protected operation also checks session state.
-- Superadministrator MFA uses AES-256-GCM encrypted TOTP secrets, replay protection and one-time hashed recovery codes. Privileged platform actions require recent MFA verification.
+- Super Admin is represented by a reserved `super_admin` membership in the system Super Organization; global platform routes verify that membership and the active organization rather than trusting a user-level platform role.
+- Superadministrator MFA uses AES-256-GCM encrypted TOTP secrets, replay protection and one-time hashed recovery codes. Login requires the authenticator/recovery code after enrollment, and privileged platform actions require recent MFA verification (15-minute window).
+- Startup migration creates the Super Organization, moves legacy `platformRole: superadmin` accounts (and the configured bootstrap admin) into reserved memberships, changes their active organization and revokes existing refresh sessions so users must authenticate again. The legacy database field is unset; a response-only `platformRole` compatibility property remains for the current Angular shell.
 - Startup environment validation rejects missing/weak JWT and MFA keys, missing Mongo credentials and known example/placeholder secrets in production.
 
 ### Tenant and data boundaries
