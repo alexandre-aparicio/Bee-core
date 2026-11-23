@@ -51,7 +51,7 @@ export function normalizeCustomRoleName(input: unknown): string {
 }
 
 export function permissionsForCustomRole(role: Pick<CustomRolePolicy, "permissions">, allowedPermissions: readonly string[] = CUSTOM_ROLE_ALLOWED_PERMISSIONS): readonly string[] {
-  return normalizeTenantCustomRolePermissions(role.permissions, allowedPermissions);
+  const allowed = new Set(allowedPermissions);\n  return normalizeCustomRolePermissions(role.permissions).filter(permission => allowed.has(permission));
 }
 
 export function hasPolicyPermission(policy: RolePolicy, permission: string): boolean {
