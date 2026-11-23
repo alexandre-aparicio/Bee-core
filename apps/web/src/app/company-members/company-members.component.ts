@@ -35,7 +35,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
                 <div *ngIf="canManageCustomRoles && member.role !== 'owner' && member.role !== 'super_admin' && restrictionRoles.length" class="bee-company-members__restrictions"><small>Additional restrictions</small><label *ngFor="let restriction of restrictionRoles"><input type="checkbox" [checked]="(member.restrictionRoleIds || []).includes(restriction.id)" (change)="toggleRestriction(member,restriction.id,$any($event.target).checked)" [disabled]="busyId === member.userId"> {{restriction.name}}</label></div>
               </td>
               <td><span class="bee-company-members__status" [class.is-suspended]="member.status !== 'active'">{{member.status}}</span></td>
-              <td *ngIf="canManage"><button *ngIf="member.role !== 'owner' && member.role !== 'super_admin' && member.status === 'active' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')" class="bee-company-members__danger" type="button" (click)="suspend(member)" [disabled]="busyId === member.userId">Suspend</button></td>
+              <td *ngIf="canManage"><div class="bee-company-members__invitation-menu-wrap bee-company-members__member-menu-wrap" *ngIf="member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')"><button type="button" class="bee-company-members__invitation-menu-trigger" [attr.aria-label]="'Member options for ' + (member.email || 'member')" [attr.aria-expanded]="openMemberMenuId === member.userId" (click)="toggleMemberMenu(member.userId)">⋮</button><div *ngIf="openMemberMenuId === member.userId" class="bee-company-members__invitation-menu"><button type="button" disabled>Edit member</button><button type="button" disabled>Reset password</button><button type="button" class="is-danger" *ngIf="member.status === 'active'" (click)="setMemberStatus(member, 'suspended')" [disabled]="busyId === member.userId">Suspend</button><button type="button" *ngIf="member.status === 'suspended'" (click)="setMemberStatus(member, 'active')" [disabled]="busyId === member.userId">Activate</button></div></div></td>
             </tr>
           </tbody>
         </table>
@@ -100,6 +100,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   inviteRestrictionRoleIds: string[] = [];
   acceptanceLink = "";
   openInvitationMenuId = "";
+  openMemberMenuId = "";
   loading = false;
   private requestSequence = 0;
   busyId = "";
@@ -133,6 +134,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   trackInvitation(_index: number, invitation: CompanyInvitation): string { return invitation.id; }
   invitationState(invitation: CompanyInvitation): "pending" | "accepted" | "revoked" | "expired" { return invitation.acceptedAt ? "accepted" : invitation.cancelledAt || invitation.status === "cancelled" ? "revoked" : invitation.status === "expired" || new Date(invitation.expiresAt).getTime() <= Date.now() ? "expired" : "pending"; }
   toggleInvitationMenu(id: string): void { this.openInvitationMenuId = this.openInvitationMenuId === id ? "" : id; }
+  toggleMemberMenu(id: string): void { this.openMemberMenuId = this.openMemberMenuId === id ? "" : id; }
   trackCustomRole(_index:number, role:CustomRole):string { return role.id; }
   customRoleName(roleId?:string|null):string { return this.customRoles.find(item=>item.id===roleId)?.name || "Custom role"; }
 
@@ -256,16 +258,21 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
     } finally { this.busyId = ""; }
   }
 
-  async suspend(member: CompanyMember): Promise<void> {
+  async setMemberStatus(member: CompanyMember, status: "active" | "suspended"): Promise<void> {
+    if (this.busyId || member.role === "owner" || member.role === "super_admin") return;
     this.busyId = member.userId;
+    this.openMemberMenuId = "";
     this.error = "";
+    this.message = "";
     try {
-      await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/memberships/" + encodeURIComponent(member.userId), "DELETE");
-      this.message = "Membership suspended and active sessions revoked.";
+      await this.request("/companies/" + encodeURIComponent(this.tenantId) + "/memberships/" + encodeURIComponent(member.userId) + "/status", "PATCH", { status });
+      this.message = status === "suspended" ? "Membership suspended and active sessions revoked." : "Membership reactivated and active sessions revoked.";
       await this.load();
     } catch (error) {
-      this.error = error instanceof Error ? error.message : "Could not suspend member";
-    } finally { this.busyId = ""; }
+      this.error = error instanceof Error ? error.message : (status === "suspended" ? "Could not suspend member" : "Could not reactivate member");
+    } finally {
+      this.busyId = "";
+    }
   }
 
   async cancelInvitation(invitation: CompanyInvitation): Promise<void> {

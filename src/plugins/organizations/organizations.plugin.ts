@@ -366,6 +366,22 @@ export const organizationsPlugin:BeePlugin={
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
    return {success:true,status:"suspended"};
   });
+  ctx.server.patch<{Params:{companyId:string;userId:string};Body:{status?:"active"|"suspended"}}>("/companies/:companyId/memberships/:userId/status",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const actor=await requireCompanyAdmin(auth,req.params.companyId,reply);if(!actor)return;
+   const status=req.body?.status;
+   if(status!=="active"&&status!=="suspended")return reply.code(400).send({error:"status must be active or suspended"});
+   const target=await memberships.findOne({userId:req.params.userId,tenantId:req.params.companyId,status:{$in:["active","suspended"]}});
+   if(!target)return reply.code(404).send({error:"Company membership not found"});
+   if(target.role==="owner"||target.role==="super_admin")return reply.code(409).send({error:"The company owner and Super Admin memberships cannot be changed here"});
+   if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot change other administrators"});
+   if(target.status===status)return {success:true,status,unchanged:true};
+   const now=new Date();
+   await memberships.updateOne({id:target.id},{$set:{status,updatedAt:now}});
+   await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:now}});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:status==="suspended"?"member.suspended":"member.activated",outcome:"success",resourceType:"membership",resourceId:target.userId});
+   return {success:true,status,sessionsRevoked:true};
+  });
   ctx.server.get<{Params:{companyId:string};Querystring:{page?:string;limit?:string;action?:string}}>("/companies/:companyId/audit-events",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const companyId=req.params.companyId;
