@@ -36,20 +36,20 @@ export class OrganizationRolesComponent implements OnChanges{
  @Input() tenantId="";@Input() role="member";@Input() accessToken="";
  roles:CustomRole[]=[];name="";description="";editingId="";loading=false;busy=false;error="";message="";
  permissions:PermissionOption[]=[
- {key:"members.read",label:"View members",group:"Organization",description:"List members and inspect membership details.",selected:true},
- {key:"members.invite",label:"Invite members",group:"Organization",description:"Create and cancel invitations.",selected:false},
- {key:"members.manage",label:"Manage memberships",group:"Organization",description:"Change membership roles and suspend members.",sensitive:true,selected:false},
- {key:"plugins.read",label:"View plugins",group:"Plugins",description:"Browse available plugins.",selected:true},
- {key:"plugins.install",label:"Install plugins",group:"Plugins",description:"Install or activate available plugins.",selected:false},
- {key:"plugins.manage",label:"Manage plugins",group:"Plugins",description:"Change plugin configuration and lifecycle.",sensitive:true,selected:false},
- {key:"billing.manage",label:"Manage billing",group:"Billing",description:"Manage plans, subscriptions and billing settings.",sensitive:true,selected:false},
- {key:"files.read",label:"View files",group:"Files",description:"List and download organization files.",selected:false},
- {key:"files.write",label:"Manage files",group:"Files",description:"Upload and modify organization files.",selected:false},
- {key:"notes.read",label:"View notes",group:"Notes",description:"Read organization notes.",selected:false},
- {key:"notes.write",label:"Manage notes",group:"Notes",description:"Create and modify organization notes.",selected:false},
- {key:"mail.read",label:"Read mail",group:"Mail",description:"Read connected mailbox messages.",selected:false},
- {key:"mail.send",label:"Send mail",group:"Mail",description:"Send messages through connected mailboxes.",selected:false},
- {key:"mail.manage",label:"Manage mailboxes",group:"Mail",description:"Configure and manage organization mailboxes.",sensitive:true,selected:false}
+ {key:"members.read",label:"View members",group:"Organization",description:"List members and inspect membership details.",assignable:true,selected:true},
+ {key:"members.invite",label:"Invite members",group:"Organization",description:"Create and cancel invitations.",assignable:true,selected:false},
+ {key:"members.manage",label:"Manage memberships",group:"Organization",description:"Change membership roles and suspend members.",sensitive:true,assignable:false,selected:false},
+ {key:"plugins.read",label:"View plugins",group:"Plugins",description:"Browse available plugins.",assignable:true,selected:true},
+ {key:"plugins.install",label:"Install plugins",group:"Plugins",description:"Install or activate available plugins.",assignable:true,selected:false},
+ {key:"plugins.manage",label:"Manage plugins",group:"Plugins",description:"Change plugin configuration and lifecycle.",sensitive:true,assignable:false,selected:false},
+ {key:"billing.manage",label:"Manage billing",group:"Billing",description:"Manage plans, subscriptions and billing settings.",sensitive:true,assignable:false,selected:false},
+ {key:"files.read",label:"View files",group:"Files",description:"List and download organization files.",assignable:true,selected:false},
+ {key:"files.write",label:"Manage files",group:"Files",description:"Upload and modify organization files.",assignable:true,selected:false},
+ {key:"notes.read",label:"View notes",group:"Notes",description:"Read organization notes.",assignable:true,selected:false},
+ {key:"notes.write",label:"Manage notes",group:"Notes",description:"Create and modify organization notes.",assignable:true,selected:false},
+ {key:"mail.read",label:"Read mail",group:"Mail",description:"Read connected mailbox messages.",assignable:true,selected:false},
+ {key:"mail.send",label:"Send mail",group:"Mail",description:"Send messages through connected mailboxes.",assignable:true,selected:false},
+ {key:"mail.manage",label:"Manage mailboxes",group:"Mail",description:"Configure and manage organization mailboxes.",sensitive:true,assignable:false,selected:false}
  ];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
  get groups():string[]{return [...new Set(this.permissions.map(p=>p.group))];}
