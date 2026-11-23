@@ -15,6 +15,7 @@ import {
   getTrustedPluginPackage,
   resolvePluginDependencyOrder,
   hasPluginEntitlement,
+  isPluginEnabled,
   isPluginInstalled,
   seedPluginCommerce
 } from "../../core/plugin-entitlements.js";
@@ -506,7 +507,7 @@ export const marketplacePlugin: BeePlugin = {
           } else {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
             for (const dependency of resolvePluginDependencyOrder(job.pluginId)) {
-              if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency)) {
+              if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency) || !await isPluginEnabled(db, job.tenantId, dependency)) {
                 throw new Error("Required plugin dependency is not installed: " + dependency);
               }
             }
