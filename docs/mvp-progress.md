@@ -732,3 +732,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Harmonized folder/document cards and hover, overflow menus, share/detail dialogs, share tabs, search suggestions, chips, hints, empty state and table surface. Primary actions and selected view controls now retain readable white text over the accent background.
 - Styles remain scoped to Documents; Midnight Dark and unrelated dashboard features are not intentionally altered.
 - Validation: source/documentation review only. No Angular build, tests, browser visual/responsive QA, CI or VPS runtime verification executed. Check Cards/Table and all open menus/dialogs in both Light and Dark after deploy.
+
+
+## Documents modularization ported onto current main (2026-11-23)
+- Ported modularization source from PR #132 onto current main snapshot (base commit `c81b6492ecbb2c80da887342ab1ca021078eefec`, including PR #134 folder metadata), avoiding direct merge of the stale PR.
+- Preserved PR #134 folder metadata in modular backend handlers and create-folder responses: creator email, creation/update dates, document counts, and inherited shared/private access status. Angular component retains folder metadata in cards and table columns for folder type, creator, date, and access; API DTO includes those fields.
+- Backend modular layers include route contract, thin controller, handlers, service helpers, repository/indexes, and validators. Plugin bootstrap uses the shared Fastify runtime and Files adapter.
+- Frontend API service centralizes Documents transport and typed responses; component retains UI state and browser download presentation.
+- **Verification:** source changes only. No TypeScript/Angular compile, tests, browser checks, API smoke tests, Docker/CI or VPS runtime verification was run. This is source-ported, not runtime-verified.
