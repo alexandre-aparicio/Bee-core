@@ -99,7 +99,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   inviteRole = "member";
   inviteRestrictionRoleIds: string[] = [];
   acceptanceLink = "";
-
+  openInvitationMenuId = "";
   loading = false;
   private requestSequence = 0;
   busyId = "";
