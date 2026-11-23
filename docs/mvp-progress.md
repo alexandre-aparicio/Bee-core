@@ -574,3 +574,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Matched the section heading to the other Settings pages with the GLOBAL PLATFORM eyebrow, page title and Platform-wide scope indicator. The component is shared by Glass, Midnight and Paper, so the same theme-aware treatment applies to all three.
 - Updated the Settings navigation Playwright smoke scenario from eight to seven Super Administrator destinations and removed the Integrations navigation assertion.
 - Validation: no tests, Angular build, Docker build or VPS runtime checks have been executed for this change. Verify all three dashboard templates on the VPS, including Midnight dark mode, before considering the visual correction complete.
+
+
+## Remove placeholder Settings → Security section (2026-11-23)
+
+- Removed the standalone Settings → Security destination from the platform Settings navigation and tenant owner/admin navigation.
+- Removed its `/dashboard/settings/security` route mapping and its placeholder workspace definition (authentication/session policy, governance, privacy and retention fields that had no Settings API behind them).
+- Kept Roles & Permissions, Platform Users, existing authentication/MFA/session endpoints, authorization enforcement and the Activity audit log unchanged. This is removal of an unused Settings placeholder only; it does not change backend security enforcement.
+- Unknown/retired Settings section values now render a neutral Settings fallback rather than falling through to the Security placeholder.
+- No build, tests, browser checks or VPS validation were run. Verify Angular compilation, Settings navigation and direct access to the retired URL on the VPS.
