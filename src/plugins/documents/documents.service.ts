@@ -5,6 +5,7 @@ import { hasPluginEntitlement, isPluginInstalled } from "../../core/plugin-entit
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { evaluateResourceAccess } from "../../core/resource-access.js";
 import { FilesStorageAdapter } from "./files-storage.adapter.js";
+import { DocumentsRepository } from "./documents.repository.js";
 
 export type Folder = Document & { id:string; tenantId:string; name:string; parentId:string|null; createdBy:string; createdAt:Date; updatedAt:Date };
 export type BeeDocument = Document & { id:string; tenantId:string; fileId:string; folderId:string|null; title:string; description:string; tags:string[]; visibility:"private"|"public"; publicId:string|null; publishedAt:Date|null; createdBy:string; createdAt:Date; updatedAt:Date };
@@ -13,8 +14,8 @@ export const clean=(value:unknown,max=160)=>typeof value==="string"?value.trim()
 export const validPublicId=(value:unknown)=>typeof value==="string"&&/^[A-Za-z0-9_-]{40,100}$/.test(value)?value:"";
 
 /** Creates module-owned business/security helpers bound to Core and Files infrastructure. */
-export function createDocumentsServices(input:{db:Db;secret:string;storage:FilesStorageAdapter;folderCollection:any;documentCollection:any}) {
- const {db,secret,storage,folderCollection,documentCollection}=input;
+export function createDocumentsServices(input:{db:Db;secret:string;storage:FilesStorageAdapter;folderCollection:any;documentCollection:any;repository:DocumentsRepository}) {
+ const {db,secret,storage,folderCollection,documentCollection,repository}=input;
  const authenticate=async(req:any,reply:any):Promise<TenantContext|null>=>{
   try{
    await req.jwtVerify();
@@ -25,8 +26,8 @@ export function createDocumentsServices(input:{db:Db;secret:string;storage:Files
    return tenant;
   }catch{reply.code(401).send({error:"Unauthorized"});return null;}
  };
- const folders=(tenantId:string)=>new TenantCollection<Folder>(folderCollection,tenantId);
- const docs=(tenantId:string)=>new TenantCollection<BeeDocument>(documentCollection,tenantId);
+ const folders=(tenantId:string)=>repository.folders(tenantId);
+ const docs=(tenantId:string)=>repository.documents(tenantId);
  const ref=(id:string,type:"folder"|"document",tenant:TenantContext)=>maskResourceId(id,type,{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);
  const userRef=(id:string,tenant:TenantContext)=>maskResourceId(id,"user",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);
  const unref=(value:string,type:"folder"|"document",tenant:TenantContext)=>{
@@ -46,7 +47,7 @@ export function createDocumentsServices(input:{db:Db;secret:string;storage:Files
  const present=async(item:BeeDocument,tenant:TenantContext)=>{
   const [file,uploader]=await Promise.all([
    storage.getMetadata(tenant.tenantId,item.fileId),
-   db.collection<{id:string;email:string}>("users").findOne({id:item.createdBy},{projection:{id:1,email:1}})
+   repository.users.findOne({id:item.createdBy},{projection:{id:1,email:1}})
   ]);
   const parents=await ancestors(tenant.tenantId,item.folderId);
   const canMove=await canAccess(tenant,"document",item.id,"write",parents);
@@ -61,7 +62,7 @@ export function createDocumentsServices(input:{db:Db;secret:string;storage:Files
   };
  };
   const sharePolicy=async(tenant:TenantContext,folderId:string)=>policies.findOne({tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder",resourceId:folderId});
- const policies=db.collection<any>("resource_access_policies");
+ const policies=repository.resourcePolicies;
  const ownedFolder=async(tenant:TenantContext,folderId:string)=>folders(tenant.tenantId).findOne({id:folderId,createdBy:tenant.userId});
 
  return {db,secret,storage,folderCollection,documentCollection,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,MAX_DEPTH,clean,validPublicId};
