@@ -72,7 +72,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
     </div>
 
     <div class="documents__grid" *ngIf="!loading && viewMode==='cards' && (visibleFolders.length || documents.length)">
-      <article class="documents__item documents__item--folder" *ngFor="let folder of visibleFolders" cdkDropList [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="dropListIds" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
+      <article class="documents__item documents__item--folder" *ngFor="let folder of visibleFolders" cdkDropList [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="folderDropListIds(folder.id)" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
         <button class="documents__folder-open" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)" [attr.aria-label]="'Open folder ' + folder.name">
           <span class="documents__item-copy">
             <strong>{{folder.name}}</strong>
@@ -118,7 +118,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
       <table class="documents__table">
         <thead><tr><th scope="col">Title / original file</th><th scope="col">Type</th><th scope="col">Uploaded by</th><th scope="col">Uploaded</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
         <tbody>
-          <tr *ngFor="let folder of visibleFolders" cdkDropList [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="dropListIds" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
+          <tr *ngFor="let folder of visibleFolders" cdkDropList [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="folderDropListIds(folder.id)" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
             <td colspan="5"><button class="documents__table-name" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)">{{folder.name}} <span class="documents__folder-count documents__folder-count--table">{{folder.documentCount || 0}}</span></button></td>
             <td>
               <div class="documents__table-actions" *ngIf="folder.canManageShares || folder.canMove">
@@ -424,6 +424,7 @@ export class BeeDocumentsComponent implements OnChanges {
 
  get visibleFolders():Folder[]{return this.folders.filter(f=>f.parentId===this.currentFolderId);}
  get dropListIds():string[]{return ["documents-root-drop",...this.visibleFolders.map(folder=>this.folderDropId(folder.id))];}
+ folderDropListIds(id:string):string[]{return this.dropListIds.filter(dropId=>dropId!==this.folderDropId(id));}
  folderDropId(id:string):string{return "documents-folder-drop-"+id;}
  dropToRoot(event:CdkDragDrop<any,any,any>):void{this.applyDrop(event,null);}
  dropOnFolder(event:CdkDragDrop<any,any,any>,folder:Folder):void{this.applyDrop(event,folder.id);}
