@@ -2,7 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, Input, OnChanges, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 type CustomRole={id:string;name:string;description:string;permissions:string[]};
-type PermissionOption={key:string;label:string;group:string;description:string;sensitive?:boolean;assignable:boolean;selected:boolean};
+type PermissionOption={key:string;label:string;group:string;description:string;sensitive?:boolean;customRoleAssignable:boolean;assignable:boolean;selected:boolean};
 
 @Component({
  selector:"bee-organization-roles",standalone:true,imports:[CommonModule,FormsModule],
@@ -35,29 +35,14 @@ type PermissionOption={key:string;label:string;group:string;description:string;s
 export class OrganizationRolesComponent implements OnChanges{
  @Input() tenantId="";@Input() role="member";@Input() accessToken="";
  roles:CustomRole[]=[];name="";description="";editingId="";loading=false;busy=false;error="";message="";
- permissions:PermissionOption[]=[
- {key:"members.read",label:"View members",group:"Organization",description:"List members and inspect membership details.",assignable:true,selected:true},
- {key:"members.invite",label:"Invite members",group:"Organization",description:"Create and cancel invitations.",assignable:true,selected:false},
- {key:"members.manage",label:"Manage memberships",group:"Organization",description:"Change membership roles and suspend members.",sensitive:true,assignable:false,selected:false},
- {key:"plugins.read",label:"View plugins",group:"Plugins",description:"Browse available plugins.",assignable:true,selected:true},
- {key:"plugins.install",label:"Install plugins",group:"Plugins",description:"Install or activate available plugins.",assignable:true,selected:false},
- {key:"plugins.manage",label:"Manage plugins",group:"Plugins",description:"Change plugin configuration and lifecycle.",sensitive:true,assignable:false,selected:false},
- {key:"billing.manage",label:"Manage billing",group:"Billing",description:"Manage plans, subscriptions and billing settings.",sensitive:true,assignable:false,selected:false},
- {key:"files.read",label:"View files",group:"Files",description:"List and download organization files.",assignable:true,selected:false},
- {key:"files.write",label:"Manage files",group:"Files",description:"Upload and modify organization files.",assignable:true,selected:false},
- {key:"notes.read",label:"View notes",group:"Notes",description:"Read organization notes.",assignable:true,selected:false},
- {key:"notes.write",label:"Manage notes",group:"Notes",description:"Create and modify organization notes.",assignable:true,selected:false},
- {key:"mail.read",label:"Read mail",group:"Mail",description:"Read connected mailbox messages.",assignable:true,selected:false},
- {key:"mail.send",label:"Send mail",group:"Mail",description:"Send messages through connected mailboxes.",assignable:true,selected:false},
- {key:"mail.manage",label:"Manage mailboxes",group:"Mail",description:"Configure and manage organization mailboxes.",sensitive:true,assignable:false,selected:false}
- ];
+ permissions:PermissionOption[]=[];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
  get groups():string[]{return [...new Set(this.permissions.map(p=>p.group))];}
  inGroup(group:string):PermissionOption[]{return this.permissions.filter(p=>p.group===group);}
  ngOnChanges(changes:SimpleChanges):void{if(changes["tenantId"]||changes["role"]||changes["accessToken"]){this.reset();void this.load();}}
  trackRole(_i:number,item:CustomRole):string{return item.id;}
  private async request(path:string,method="GET",body?:unknown):Promise<any>{const response=await fetch("/api"+path,{method,headers:{authorization:"Bearer "+this.accessToken,...(body?{"content-type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Role request failed");return result;}
- async load():Promise<void>{if(!this.tenantId||!this.accessToken)return;this.loading=true;this.error="";try{const result=await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles");this.roles=result.roles||[];const allowed=new Set<string>(result.tenantAssignablePermissions||[]);for(const permission of this.permissions)permission.assignable=!permission.sensitive&&allowed.has(permission.key);}catch(error){this.error=error instanceof Error?error.message:"Could not load roles";}finally{this.loading=false;}}
+ async load():Promise<void>{if(!this.tenantId||!this.accessToken)return;this.loading=true;this.error="";try{const result=await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles");this.roles=result.roles||[];const allowed=new Set<string>(result.tenantAssignablePermissions||[]);const selected=new Set(this.permissions.filter(permission=>permission.selected).map(permission=>permission.key));this.permissions=(Array.isArray(result.permissionCatalog)?result.permissionCatalog:[]).map((item:any)=>({key:item.key,label:item.label,group:String(item.module||"Core").replace(/^./,letter=>letter.toUpperCase()),description:item.description||"",sensitive:!!item.sensitive,customRoleAssignable:!!item.customRoleAssignable,assignable:!!item.customRoleAssignable&&allowed.has(item.key),selected:selected.has(item.key)}));}catch(error){this.error=error instanceof Error?error.message:"Could not load roles";}finally{this.loading=false;}}
  edit(item:CustomRole):void{this.editingId=item.id;this.name=item.name;this.description=item.description||"";for(const p of this.permissions)p.selected=item.permissions.includes(p.key);this.error="";this.message="";}
  reset():void{this.editingId="";this.name="";this.description="";for(const p of this.permissions)p.selected=["members.read","plugins.read"].includes(p.key)&&p.assignable;this.error="";this.message="";}
  async save(event:Event):Promise<void>{event.preventDefault();if(!this.canManage||this.busy||!this.name.trim())return;this.busy=true;this.error="";this.message="";const body={name:this.name.trim(),description:this.description.trim(),permissions:this.permissions.filter(p=>p.selected&&p.assignable).map(p=>p.key)};try{if(this.editingId)await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(this.editingId),"PUT",body);else await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles","POST",body);this.message=this.editingId?"Role updated.":"Role created.";this.reset();await this.load();}catch(error){this.error=error instanceof Error?error.message:"Could not save role";}finally{this.busy=false;}}
