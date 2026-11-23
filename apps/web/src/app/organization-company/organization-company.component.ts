@@ -11,7 +11,7 @@ const EMPTY_PROFILE:CompanyProfile={legalName:'',taxId:'',email:'',phone:'',webs
   @if(loading){<p class="company-profile__notice">{{t('company.loading')}}</p>}@else {
   <form (ngSubmit)="save()" class="company-profile__form">
     <article class="company-profile__card"><h3>{{t('company.basic')}}</h3><div class="company-profile__grid">
-      <label>{{t('company.legalName')}}<input [(ngModel)]="profile.legalName" [disabled]="!canEdit" name="legalName" maxlength="160" /></label>
+      <label>{{t('company.name')}}<input [(ngModel)]="companyName" [disabled]="!canEdit" name="companyName" maxlength="120" required /></label><label>{{t('company.legalName')}}<input [(ngModel)]="profile.legalName" [disabled]="!canEdit" name="legalName" maxlength="160" /></label>
       <label>{{t('company.taxId')}}<input [(ngModel)]="profile.taxId" [disabled]="!canEdit" name="taxId" maxlength="80" /></label>
       <label>{{t('company.email')}}<input [(ngModel)]="profile.email" [disabled]="!canEdit" name="email" type="email" maxlength="160" /></label>
       <label>{{t('company.phone')}}<input [(ngModel)]="profile.phone" [disabled]="!canEdit" name="phone" maxlength="60" /></label>
@@ -34,10 +34,10 @@ styles:[`:host{display:block;width:100%;color:inherit}.company-profile{display:g
 })
 export class CompanyProfileComponent implements OnChanges{
  @Input() tenantId='';@Input() role='';@Input() accessToken='';@Input() tenantName='Company';
- profile:CompanyProfile={...EMPTY_PROFILE};loading=false;saving=false;error='';saved=false;private loadKey='';
+ companyName='';profile:CompanyProfile={...EMPTY_PROFILE};loading=false;saving=false;error='';saved=false;private loadKey='';
  constructor(private i18n:BeeI18nService){}\n get canEdit(){return ['owner','admin','super_admin'].includes((this.role||'').toLowerCase());}
  t(key:string){return this.i18n.t('organization:'+key);}
  ngOnChanges(){const key=this.tenantId+':'+this.accessToken;if(!key||key===this.loadKey)return;this.loadKey=key;void this.load();}
- async load(){this.loading=true;this.error='';try{const r=await fetch('/api/companies/'+encodeURIComponent(this.tenantId)+'/profile',{credentials:'same-origin',headers:{authorization:'Bearer '+this.accessToken}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not load company profile');this.profile={...EMPTY_PROFILE,...data.profile};}catch(e){this.error=e instanceof Error?e.message:'Could not load company profile';}finally{this.loading=false;}}
- async save(){if(this.saving)return;this.saving=true;this.error='';this.saved=false;try{const r=await fetch('/api/companies/'+encodeURIComponent(this.tenantId)+'/profile',{method:'PATCH',credentials:'same-origin',headers:{'content-type':'application/json',authorization:'Bearer '+this.accessToken},body:JSON.stringify(this.profile)});const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not save company profile');this.profile={...EMPTY_PROFILE,...data.profile};this.saved=true;}catch(e){this.error=e instanceof Error?e.message:'Could not save company profile';}finally{this.saving=false;}}
+ async load(){this.loading=true;this.error='';try{const r=await fetch('/api/companies/'+encodeURIComponent(this.tenantId)+'/profile',{credentials:'same-origin',headers:{authorization:'Bearer '+this.accessToken}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not load company profile');this.companyName=data.name||this.tenantName;this.profile={...EMPTY_PROFILE,...data.profile};}catch(e){this.error=e instanceof Error?e.message:'Could not load company profile';}finally{this.loading=false;}}
+ async save(){if(this.saving)return;this.saving=true;this.error='';this.saved=false;try{const r=await fetch('/api/companies/'+encodeURIComponent(this.tenantId)+'/profile',{method:'PATCH',credentials:'same-origin',headers:{'content-type':'application/json',authorization:'Bearer '+this.accessToken},body:JSON.stringify({name:this.companyName,profile:this.profile})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Could not save company profile');this.companyName=data.name||this.companyName;this.profile={...EMPTY_PROFILE,...data.profile};this.saved=true;}catch(e){this.error=e instanceof Error?e.message:'Could not save company profile';}finally{this.saving=false;}}
 }
