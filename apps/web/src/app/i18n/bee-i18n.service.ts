@@ -23,7 +23,7 @@ export interface BeeLanguagePreferences {
 @Injectable({ providedIn: 'root' })
 export class BeeI18nService {
   private readonly catalogs = new Map<string, Record<string, string>>();
-  private readonly activeNamespaces = new Set<string>(['core', 'settings']);
+  private readonly activeNamespaces = new Set<string>(['core', 'settings', 'organization', 'marketplace', 'notifications', 'mail', 'platform-admin']);
   locale: BeeLanguage = 'en';
   preferences: BeeLanguagePreferences | null = null;
 
