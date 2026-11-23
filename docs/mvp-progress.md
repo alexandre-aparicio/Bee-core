@@ -547,3 +547,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Revoking a capability globally removes it from persisted tenant custom-role records and prevents stale assignments from authorizing requests.
 - Company → Roles & Permissions remains scoped to the active tenant. Company → Users continues to manage invitations and memberships; Settings → Platform Users retains platform-wide user administration.
 - No tests, TypeScript builds, Angular builds, Docker builds or VPS runtime checks were executed for this extension. Treat validation as pending.
+
+
+## Core permission governance — PR #101 follow-up
+
+- The permission catalogue in `src/core/permission-catalog.ts` is the single source of truth for the tenant role editor. The Organization → Roles & Permissions API returns catalogue definitions plus the current platform delegation allow-list; Angular no longer maintains a second hard-coded permission list.
+- Organization → Users remains focused on invitations and membership assignment. Obsolete custom-role editor state and handlers were removed from the Users component; role editing stays in Organization → Roles & Permissions.
+- Custom-role create and update endpoints validate grants against the live platform delegation policy. Tenant session permission resolution and administrative route checks also use the current policy.
+- Revoking a capability removes it from effective custom-role permissions immediately without invalidating the entire membership/session. Persisted role grants are also cleaned up by the platform policy update operation.
+- Regression coverage added for live policy filtering. Tests and builds have not been executed in this change; VPS validation remains required.
+- Current catalogue describes only capabilities registered by the existing Core modules. It does not invent CRUD operations for modules whose backend operations do not exist. Record-level scopes (own/team/assigned/all), tenant-specific system-role overrides and a full ABAC policy engine remain deliberately deferred until the relevant resource ownership and team data contracts exist.
