@@ -72,7 +72,7 @@ export function createDocumentsHandlers(deps:any) {
     repository.users.find({id:{$in:[...new Set(rows.map((folder:any)=>folder.createdBy))]}},{projection:{id:1,email:1}}).toArray(),
     repository.resourcePolicies.find({tenantId:tenant.tenantId,pluginId:"documents",resourceType:"folder"}).toArray()
    ]);
-   const usersById=new Map(userRows.map((user:any)=>[user.id,user]));
+   const usersById=new Map<string,{email?:string}>(userRows.map((user:any)=>[user.id,user] as [string,{email?:string}]));
    const folderOwnerById=new Map(rows.map((folder:any)=>[folder.id,folder.createdBy]));
    const sharedPolicies=folderPolicies.filter((policy:any)=>((policy.teamGrants??[]).some((grant:any)=>grant.permissions?.includes("read")))||((policy.userOverrides??[]).some((grant:any)=>grant.effect==="allow"&&grant.userId!==folderOwnerById.get(policy.resourceId)&&grant.permissions?.includes("read"))));
    const sharedFolderIds=new Set(sharedPolicies.map((policy:any)=>policy.resourceId));
@@ -88,7 +88,7 @@ export function createDocumentsHandlers(deps:any) {
       canManageShares:folder.createdBy===tenant.userId,canMove:await canAccess(tenant,"folder",folder.id,"write",parents),
       documentCount:countByFolder.get(folder.id)??0,uploadedBy:{email:usersById.get(folder.createdBy)?.email??"Unknown user"},
       createdAt:folder.createdAt,updatedAt:folder.updatedAt,
-      access:([folder.id,...parents.map(parent=>parent.id)].some(id=>sharedFolderIds.has(id))?"shared":"private")});
+      access:([folder.id,...parents.map((parent:Folder)=>parent.id)].some(id=>sharedFolderIds.has(id))?"shared":"private")});
     }
    }
    return {folders:visible};
