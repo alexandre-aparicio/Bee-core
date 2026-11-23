@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { documentsRoutes } from "./documents.routes.js";
 import { hasTenantPermission } from "../../core/tenant-context.js";
 import { evaluateResourceAccess } from "../../core/resource-access.js";
+import { unmaskResourceId } from "../../core/session-id.js";
 import type { Folder, BeeDocument } from "./documents.service.js";
 
 /** Module-owned HTTP controller/route registration. Domain helpers and infrastructure
