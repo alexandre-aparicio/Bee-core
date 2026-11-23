@@ -130,6 +130,11 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     assert.equal(alphaDownload.headers["content-type"], "image/png");
     assert.ok(alphaDownload.rawPayload.equals(png));
 
+    await db.collection("tenant_plugin_installations").updateOne({ tenantId: "files-alpha", pluginId: "files" }, { $set: { enabled: false } });
+    const disabledFilesList = await app.inject({ method: "GET", url: "/files", headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(disabledFilesList.statusCode, 403, "installed but disabled Files must reject API access");
+    await db.collection("tenant_plugin_installations").updateOne({ tenantId: "files-alpha", pluginId: "files" }, { $set: { enabled: true } });
+
     const memberWrite = await app.inject({
       method: "POST",
       url: "/files",
