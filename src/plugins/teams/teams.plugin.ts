@@ -61,7 +61,6 @@ export const teamsPlugin:BeePlugin = {
    const name=clean(req.body?.name,64),description=clean(req.body?.description,240),parentTeamId=clean(req.body?.parentTeamId,80)||null;
    if(name.length<2)return reply.code(400).send({error:"Team name must contain at least two characters"});
    if(parentTeamId&&!await teams.findOne({id:parentTeamId,tenantId:tenant.tenantId,status:"active"}))return reply.code(400).send({error:"Parent team must belong to the active organization"});
-   if(await createsParentCycle(tenant.tenantId,team.id,parentTeamId))return reply.code(400).send({error:"The parent selection would create a team hierarchy cycle"});
    const now=new Date(),team:Team={id:randomUUID(),tenantId:tenant.tenantId,name,description,status:"active",parentTeamId,createdAt:now,updatedAt:now,createdBy:tenant.userId};
    try{await teams.insertOne(team);}catch(error){if((error as any)?.code===11000)return reply.code(409).send({error:"A team with this name already exists"});throw error;}
    await audit(tenant.tenantId,tenant.userId,"team.created","team",team.id,{name:team.name});return reply.code(201).send({team:publicTeam(team)});
@@ -74,6 +73,7 @@ export const teamsPlugin:BeePlugin = {
    if(name.length<2)return reply.code(400).send({error:"Team name must contain at least two characters"});
    if(parentTeamId===team.id)return reply.code(400).send({error:"A team cannot be its own parent"});
    if(parentTeamId&&!await teams.findOne({id:parentTeamId,tenantId:tenant.tenantId,status:"active"}))return reply.code(400).send({error:"Parent team must belong to the active organization"});
+   if(await createsParentCycle(tenant.tenantId,team.id,parentTeamId))return reply.code(400).send({error:"The parent selection would create a team hierarchy cycle"});
    try{await teams.updateOne({id:team.id,tenantId:tenant.tenantId},{$set:{name,description,status,parentTeamId,updatedAt:new Date()}});}catch(error){if((error as any)?.code===11000)return reply.code(409).send({error:"A team with this name already exists"});throw error;}
    await audit(tenant.tenantId,tenant.userId,"team.updated","team",team.id,{status});return {team:publicTeam({...team,name,description,status,parentTeamId,updatedAt:new Date()})};
   });
