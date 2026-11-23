@@ -2,68 +2,73 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#101321">
-<title>Bee-Core · Device Simulator</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090d18">
+<title>Bee-Core · Device</title>
 <style>
-:root{color-scheme:dark;--bg:#0d1020;--panel:#151a2c;--line:#29314a;--muted:#9ba6c0;--text:#edf1ff;--accent:#8b7cff;--green:#43d6a0;--red:#ff737e;--amber:#f4c36a}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% 0%,#24234a 0,transparent 38%),var(--bg);color:var(--text);font:14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
-main{width:min(920px,calc(100% - 32px));margin:44px auto 80px}.eyebrow{color:#aaa1ff;font-size:10px;font-weight:800;letter-spacing:.18em}h1{font-size:clamp(28px,5vw,42px);letter-spacing:-.04em;margin:8px 0}h2{font-size:16px;margin:0 0 12px}.intro{color:var(--muted);max-width:680px}.panel{background:linear-gradient(145deg,#191f34,#121728);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:18px;box-shadow:0 18px 55px #0003}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{display:grid;gap:6px;margin:12px 0}label{font-size:11px;color:#c1c9dc;font-weight:700}input,textarea{width:100%;background:#0c1120;color:var(--text);border:1px solid #343d59;border-radius:9px;padding:11px 12px;font:inherit;outline:none}input:focus,textarea:focus{border-color:var(--accent)}textarea{min-height:74px;resize:vertical}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}button{border:1px solid #414b6a;background:#202943;color:var(--text);padding:10px 15px;border-radius:9px;font-weight:750;cursor:pointer}button.primary{background:var(--accent);border-color:transparent;color:#0c0d1b}button:disabled{opacity:.45;cursor:not-allowed}.statusline{display:flex;align-items:center;gap:10px;margin:4px 0 14px}.dot{width:10px;height:10px;border-radius:50%;background:#78839b;box-shadow:0 0 0 4px #78839b22}.dot.connected{background:var(--green);box-shadow:0 0 0 4px #43d6a022}.dot.pending{background:var(--amber);box-shadow:0 0 0 4px #f4c36a22}.dot.error{background:var(--red);box-shadow:0 0 0 4px #ff737e22}.muted{color:var(--muted);font-size:12px}.metric{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;color:#c5cdef;overflow-wrap:anywhere}.log{max-height:250px;overflow:auto;background:#090d18;border:1px solid var(--line);border-radius:10px;padding:10px}.entry{padding:7px 3px;border-bottom:1px solid #202840;font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.entry:last-child{border:0}.time{color:#75819e;margin-right:8px}.warning{border-left:3px solid var(--amber);padding:10px 12px;background:#f4c36a12;color:#d7c69e;font-size:12px;border-radius:0 8px 8px 0}.hidden{display:none!important}@media(max-width:640px){main{margin-top:24px}.grid{grid-template-columns:1fr}.panel{padding:16px}}
+:root{color-scheme:dark;--bg:#090d18;--surface:#111827;--surface2:#182238;--line:#293650;--muted:#93a1ba;--text:#f2f5ff;--accent:#8175ff;--mint:#42d6a2;--amber:#f3c66e;--red:#ff7885;--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}html{min-height:100%;background:#080b13}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 50% 0%,#25224b 0,transparent 42%),#080b13;color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;justify-content:center;align-items:flex-start;padding:24px}
+button,input,textarea{font:inherit}.device{width:390px;max-width:100%;min-height:min(844px,calc(100dvh - 48px));background:var(--bg);border:1px solid #35405b;border-radius:38px;overflow:hidden;position:relative;box-shadow:0 28px 100px #0009,0 0 0 7px #151a28,0 0 0 8px #46506a;display:flex;flex-direction:column}.statusbar{height:38px;padding:10px 25px 0;display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:750;letter-spacing:.02em;background:#0d1321}.status-icons{display:flex;gap:6px;align-items:center}.signal{font-size:10px;letter-spacing:-2px}.battery{width:19px;height:9px;border:1px solid #dce4f7;border-radius:3px;position:relative}.battery:after{content:"";position:absolute;right:-3px;top:2px;width:2px;height:4px;background:#dce4f7;border-radius:0 2px 2px 0}.battery:before{content:"";position:absolute;inset:2px;background:var(--mint);border-radius:1px}.appbar{padding:14px 21px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #202a3e;background:#0d1321}.brand{display:flex;gap:11px;align-items:center}.brandmark{width:36px;height:36px;border-radius:12px;background:linear-gradient(145deg,#9187ff,#5c50d9);display:grid;place-items:center;font-weight:900;font-size:17px;box-shadow:0 6px 20px #8175ff44}.brandname{font-weight:800;letter-spacing:-.02em}.brandmeta{font-size:10px;color:var(--muted);letter-spacing:.12em;font-weight:700}.more{width:34px;height:34px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;color:#b7c1d8;font-size:18px}.content{padding:20px 18px 22px;flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:#394663 transparent}.eyebrow{color:#a8a0ff;font-size:10px;font-weight:850;letter-spacing:.16em}.heading{font-size:27px;letter-spacing:-.045em;margin:5px 0 3px;font-weight:800}.subheading{color:var(--muted);font-size:12px;margin:0 0 18px}.connection-card{padding:18px;border:1px solid #2b3853;border-radius:22px;background:radial-gradient(ellipse at 100% 0%,#34306a66,transparent 56%),linear-gradient(145deg,#18243a,#111827);box-shadow:0 12px 35px #0003}.connection-top{display:flex;justify-content:space-between;align-items:center}.device-icon{width:46px;height:46px;border-radius:15px;background:#8175ff20;border:1px solid #8175ff55;display:grid;place-items:center;font-size:22px}.pill{border-radius:30px;padding:6px 9px;font-size:10px;font-weight:800;display:flex;align-items:center;gap:6px;background:#8792a51c;color:#b8c3d8}.pill:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.pill.connected{background:#42d6a21b;color:var(--mint)}.pill.pending{background:#f3c66e1b;color:var(--amber)}.pill.error{background:#ff78851b;color:var(--red)}.connection-card h2{font-size:19px;margin:15px 0 3px;letter-spacing:-.03em}.detail{color:var(--muted);font-size:11px}.pulse{height:5px;border-radius:9px;background:#2b3650;margin:16px 0 0;overflow:hidden}.pulse span{display:block;width:22%;height:100%;border-radius:9px;background:linear-gradient(90deg,#8275ff,#4bdcb0);transition:width .3s}.section-head{display:flex;justify-content:space-between;align-items:center;margin:22px 1px 10px}.section-head h3{font-size:13px;margin:0;font-weight:800}.section-head span{font-size:10px;color:var(--muted)}.pair-card{border:1px solid var(--line);border-radius:18px;background:var(--surface);padding:15px}.field{display:grid;gap:6px;margin:0 0 12px}label{font-size:10px;color:#bdc8dd;font-weight:750;letter-spacing:.02em}input,textarea{width:100%;background:#0a1120;color:var(--text);border:1px solid #34415d;border-radius:11px;padding:11px 12px;outline:none;font-size:12px}input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px #8175ff20}textarea{min-height:65px;resize:vertical}.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:7px}button{border:1px solid #3a4865;background:#202c43;color:var(--text);padding:11px 12px;border-radius:12px;font-weight:800;font-size:11px;cursor:pointer}button.primary{background:linear-gradient(135deg,#9388ff,#7063ec);border-color:transparent;color:white;box-shadow:0 7px 18px #8175ff30}button:disabled{opacity:.4;cursor:not-allowed}.hint{font-size:10px;color:var(--muted);line-height:1.5;margin:10px 1px 0}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px}.metric-card{padding:12px;border:1px solid var(--line);border-radius:14px;background:#111a2a;min-width:0}.metric-label{font-size:9px;color:var(--muted);margin-bottom:6px}.metric{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;color:#d7def2;overflow-wrap:anywhere}.log{max-height:145px;overflow:auto;background:#080e19;border:1px solid var(--line);border-radius:13px;padding:8px}.entry{padding:7px 3px;border-bottom:1px solid #202b40;font:10px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.entry:last-child{border:0}.time{color:#7886a3;margin-right:7px}.entry.success span:last-child{color:var(--mint)}.entry.error span:last-child{color:var(--red)}.warning{padding:11px 12px;border:1px solid #6a5630;background:#f3c66e0d;border-radius:13px;color:#d6c59f;font-size:10px;line-height:1.55}.bottomnav{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 14px calc(10px + var(--safe-bottom));border-top:1px solid #202a3e;background:#0d1321}.navitem{display:grid;justify-items:center;gap:3px;color:#74819d;font-size:9px;font-weight:700}.navitem strong{font-size:17px;line-height:1.2;font-weight:500}.navitem.active{color:#a89fff}.home-indicator{height:17px;background:#0d1321;display:grid;place-items:center}.home-indicator:after{content:"";width:104px;height:4px;border-radius:9px;background:#dce2f2aa}.hidden{display:none!important}
+@media(max-width:520px){html,body{background:var(--bg)}body{padding:0}.device{width:100%;max-width:none;min-height:100dvh;border:0;border-radius:0;box-shadow:none}.statusbar{padding-top:calc(10px + var(--safe-top));height:calc(38px + var(--safe-top))}.content{padding-bottom:18px}.home-indicator{padding-bottom:var(--safe-bottom)}}
+@media(min-width:521px){.device{min-height:820px;max-height:calc(100dvh - 48px)}}
 </style>
 </head>
 <body>
-<main>
- <div class="eyebrow">BEE-CORE / CONNECTED DEVICES</div>
- <h1>Device Simulator</h1>
- <p class="intro">A tiny browser companion to verify the real pairing and device-authentication flow against your Bee-Core tenant. It does not simulate a successful connection locally: requests go to the API you configure.</p>
- <section class="panel">
-  <h2>1 · API and pairing</h2>
-  <div class="field"><label for="api">Bee-Core API base URL</label><input id="api" value="/api" spellcheck="false" placeholder="https://your-bee-core-domain/api"></div>
-  <div class="field"><label for="pairing">QR payload from Connected Devices</label><textarea id="pairing" placeholder="Paste the bee-device://pair?token=... value shown by the dashboard"></textarea></div>
-  <div class="grid">
-   <div class="field"><label for="name">Device name</label><input id="name" value="Browser Test Device"></div>
-   <div class="field"><label for="version">App version</label><input id="version" value="simulator-0.1.0"></div>
-  </div>
-  <div class="actions"><button id="health">Test API</button><button id="pair" class="primary">Pair this device</button><button id="stop" disabled>Disconnect</button></div>
-  <p class="muted">The QR token is single-use. Pairing creates a pending device; an organization administrator must approve it in the Bee-Core dashboard before heartbeats are accepted.</p>
- </section>
- <section class="panel">
-  <h2>2 · Live connection state</h2>
-  <div class="statusline"><span id="dot" class="dot"></span><strong id="state">Not connected</strong><span id="stateDetail" class="muted"></span></div>
-  <div class="grid">
-   <div><div class="muted">Device ID</div><div id="deviceId" class="metric">—</div></div>
-   <div><div class="muted">Granted capabilities</div><div id="scopes" class="metric">—</div></div>
-   <div><div class="muted">Last heartbeat</div><div id="heartbeat" class="metric">—</div></div>
-   <div><div class="muted">Server time</div><div id="serverTime" class="metric">—</div></div>
-  </div>
-  <p class="muted">While pending, the simulator checks approval every 4 seconds. Once approved, it sends an authenticated REST heartbeat every 10 seconds.</p>
- </section>
- <section class="panel">
-  <h2>3 · Connection log</h2>
-  <div id="log" class="log" aria-live="polite"><div class="entry">Waiting for an action…</div></div>
-  <div class="actions"><button id="clear">Clear log</button></div>
- </section>
- <section class="panel">
-  <div class="warning"><strong>Important:</strong> this is a REST pairing + heartbeat simulator, not a WebSocket test. The current Connected Devices plugin exposes HTTP endpoints for pairing, approval checks and heartbeat; it does not yet expose a realtime WebSocket device channel. The device credential is kept in memory only and is cleared when you disconnect or reload this page.</div>
- </section>
-</main>
+<div class="device" role="application" aria-label="Bee-Core mobile device simulator">
+ <div class="statusbar"><span id="clock">9:41</span><div class="status-icons"><span>● ● ●</span><span class="signal">▂▄▆</span><span class="battery"></span></div></div>
+ <header class="appbar"><div class="brand"><div class="brandmark">B</div><div><div class="brandname">Bee-Core</div><div class="brandmeta">CONNECTED DEVICES</div></div></div><div class="more" aria-hidden="true">···</div></header>
+ <main class="content">
+  <div class="eyebrow">DEVICE COMPANION</div><div class="heading">Your device</div><p class="subheading">Connect this device securely to your workspace.</p>
+  <section class="connection-card">
+   <div class="connection-top"><div class="device-icon">▣</div><span id="statePill" class="pill">OFFLINE</span></div>
+   <h2 id="state">Not connected</h2><div id="stateDetail" class="detail">Pair your device to get started.</div>
+   <div class="pulse"><span id="pulseBar"></span></div>
+  </section>
+  <div class="section-head"><h3>Pair with your workspace</h3><span>STEP 01</span></div>
+  <section class="pair-card">
+   <div class="field"><label for="api">SERVER ADDRESS</label><input id="api" value="/api" spellcheck="false" placeholder="https://your-bee-core-domain/api"></div>
+   <div class="field"><label for="pairing">PAIRING CODE · QR PAYLOAD</label><textarea id="pairing" placeholder="Paste bee-device://pair?token=…"></textarea></div>
+   <div class="field-grid">
+    <div class="field"><label for="name">DEVICE NAME</label><input id="name" value="Browser Test Device"></div>
+    <div class="field"><label for="version">APP VERSION</label><input id="version" value="simulator-0.1.0"></div>
+   </div>
+   <div class="buttons"><button id="health">Test server</button><button id="pair" class="primary">Pair device</button></div>
+   <button id="stop" style="width:100%;margin-top:8px" disabled>Disconnect device</button>
+   <p class="hint">Paste the one-time code from Connected Devices → Link a device. An administrator must approve the device before it can connect.</p>
+  </section>
+  <div class="section-head"><h3>Connection details</h3><span>LIVE STATUS</span></div>
+  <section class="metrics">
+   <div class="metric-card"><div class="metric-label">DEVICE ID</div><div id="deviceId" class="metric">—</div></div>
+   <div class="metric-card"><div class="metric-label">CAPABILITIES</div><div id="scopes" class="metric">—</div></div>
+   <div class="metric-card"><div class="metric-label">LAST HEARTBEAT</div><div id="heartbeat" class="metric">—</div></div>
+   <div class="metric-card"><div class="metric-label">SERVER TIME</div><div id="serverTime" class="metric">—</div></div>
+  </section>
+  <div class="section-head"><h3>Activity</h3><button id="clear" style="padding:5px 9px;font-size:9px">Clear</button></div>
+  <div id="log" class="log" aria-live="polite"><div class="entry">Waiting for connection…</div></div>
+  <div style="height:13px"></div>
+  <div class="warning"><strong>Transport:</strong> this companion tests real REST pairing, approval checks and authenticated heartbeats. It does not test WebSockets; the current plugin has no device WebSocket endpoint. Credentials stay in page memory and are cleared on disconnect or reload. Use a development tenant.</div>
+ </main>
+ <nav class="bottomnav" aria-label="App navigation"><div class="navitem active"><strong>⌂</strong>Device</div><div class="navitem"><strong>⌁</strong>Activity</div><div class="navitem"><strong>⚙</strong>Settings</div></nav>
+ <div class="home-indicator"></div>
+</div>
 <script>
-(()=>{
+(()=> {
  const $=id=>document.getElementById(id);
  let credential="",deviceId="",pollTimer=0,heartbeatTimer=0,stopped=true,active=false;
- const log=(message,kind="info")=>{const row=document.createElement("div");row.className="entry";const time=document.createElement("span");time.className="time";time.textContent=new Date().toLocaleTimeString();const body=document.createElement("span");body.textContent=message;body.style.color=kind==="error"?"#ff8b95":kind==="success"?"#65e2b4":"#c5cdef";row.append(time,body);$("log").prepend(row);};
+ const log=(message,kind="info")=>{const row=document.createElement("div");row.className="entry "+kind;const time=document.createElement("span");time.className="time";time.textContent=new Date().toLocaleTimeString();const body=document.createElement("span");body.textContent=message;row.append(time,body);$("log").prepend(row);};
  const api=()=>{let value=$("api").value.trim().replace(/\/+$/,"");if(!value)throw new Error("Enter the API base URL.");return value;};
  const request=async(path,options={})=>{const response=await fetch(api()+path,{...options,headers:{"content-type":"application/json",...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||("HTTP "+response.status));return data;};
- const setState=(state,detail="",kind="")=>{$("state").textContent=state;$("stateDetail").textContent=detail;$("dot").className="dot "+kind;};
+ const setState=(state,detail="",kind="")=>{$("state").textContent=state;$("stateDetail").textContent=detail;$("statePill").textContent=kind==="connected"?"CONNECTED":kind==="pending"?"PENDING":kind==="error"?"ERROR":"OFFLINE";$("statePill").className="pill "+kind;$("pulseBar").style.width=kind==="connected"?"100%":kind==="pending"?"55%":kind==="error"?"12%":"0%";};
  const stopTimers=()=>{clearTimeout(pollTimer);clearInterval(heartbeatTimer);pollTimer=0;heartbeatTimer=0;};
  const clearSession=()=>{stopTimers();credential="";deviceId="";active=false;stopped=true;$("stop").disabled=true;$("deviceId").textContent="—";$("scopes").textContent="—";};
- const parseToken=value=>{const raw=value.trim();if(!raw)throw new Error("Paste the QR payload first.");try{const parsed=new URL(raw);const token=parsed.searchParams.get("token");if(token)return token;}catch{}if(/^[A-Za-z0-9_-]{40,}$/.test(raw))return raw;throw new Error("The QR payload is invalid. Paste the full bee-device://pair?token=… value.");};
+ const parseToken=value=>{const raw=value.trim();if(!raw)throw new Error("Paste the QR payload first.");try{const parsed=new URL(raw);const token=parsed.searchParams.get("token");if(token)return token;}catch{}if(/^[A-Za-z0-9_-]{40,}$/.test(raw))return raw;throw new Error("Invalid QR payload. Paste the full bee-device://pair?token=… value.");};
  $("health").addEventListener("click",async()=>{try{const result=await request("/health");log("API reachable · "+(result.name||"Bee-Core")+" · "+(result.status||"OK"),"success");}catch(error){log("API test failed · "+error.message,"error");}});
  $("pair").addEventListener("click",async()=>{if(!stopped)return;try{const token=parseToken($("pairing").value);setState("Pairing…","Exchanging one-time QR token");log("Sending one-time pairing token to Bee-Core");const result=await request("/connected-devices/pair",{method:"POST",body:JSON.stringify({token,name:$("name").value.trim()||"Browser Test Device",deviceType:"browser-simulator",platform:navigator.platform||"browser",appVersion:$("version").value.trim()||"simulator"})});credential=result.pairingSecret;deviceId=result.deviceId;stopped=false;$("stop").disabled=false;$("deviceId").textContent=deviceId;$("scopes").textContent="Waiting for approval";setState("Pending approval","Approve this device in Connected Devices","pending");log("Device registered as pending · "+deviceId,"success");pollStatus();}catch(error){clearSession();setState("Pairing failed",error.message,"error");log("Pairing failed · "+error.message,"error");}});
  async function pollStatus(){if(stopped||!credential)return;try{const result=await request("/connected-devices/pairing-status",{headers:{"x-device-pairing-secret":credential}});if(result.status==="active"){if(!active){active=true;log("Administrator approved the device","success");$("scopes").textContent=(result.grantedCapabilities||[]).join(", ")||"No capabilities granted";setState("Connected","Device approved · authenticated heartbeat active","connected");startHeartbeat();}}else{setState("Pending approval","Waiting for administrator approval","pending");pollTimer=setTimeout(pollStatus,4000);}}catch(error){log("Pairing status · "+error.message,"error");setState("Not authorized",error.message,"error");clearSession();}}
  function startHeartbeat(){if(stopped||!credential)return;const beat=async()=>{if(stopped||!credential||!active)return;try{const result=await request("/connected-devices/device/heartbeat",{method:"POST",headers:{authorization:"Bearer "+credential}});const now=new Date();$("heartbeat").textContent=now.toLocaleTimeString();$("serverTime").textContent=result.serverTime||"—";setState("Connected","Last heartbeat acknowledged","connected");log("Heartbeat accepted · "+(result.serverTime||now.toISOString()),"success");}catch(error){setState("Connection lost",error.message,"error");log("Heartbeat rejected · "+error.message,"error");clearSession();}};beat();heartbeatTimer=setInterval(beat,10000);}
  $("stop").addEventListener("click",()=>{clearSession();setState("Disconnected","Local simulator credentials cleared");$("heartbeat").textContent="—";$("serverTime").textContent="—";log("Simulator disconnected; credential cleared from memory");});
  $("clear").addEventListener("click",()=>$("log").replaceChildren());
+ $("clock").textContent=new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
  window.addEventListener("beforeunload",clearSession);
 })();
 </script>
