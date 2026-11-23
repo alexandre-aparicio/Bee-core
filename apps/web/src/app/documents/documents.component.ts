@@ -457,7 +457,7 @@ export class BeeDocumentsComponent implements OnChanges {
  }
 
  get visibleFolders():Folder[]{return this.folders.filter(f=>f.parentId===this.currentFolderId);}
- get dropListIds():string[]{return ["documents-root-drop","documents-cards-source","documents-table-source",...this.visibleFolders.map(folder=>this.folderDropId(folder.id))];}
+ get dropListIds():string[]{const sourceId=this.viewMode==="cards"?"documents-cards-source":"documents-table-source";return ["documents-root-drop",sourceId,...this.visibleFolders.map(folder=>this.folderDropId(folder.id))];}
  get rootDropListIds():string[]{return this.dropListIds.filter(id=>id!=="documents-root-drop");}
  sourceDropListIds(sourceId:string):string[]{return this.dropListIds.filter(id=>id!==sourceId);}
  folderDropListIds(id:string):string[]{return this.dropListIds.filter(dropId=>dropId!==this.folderDropId(id));}
