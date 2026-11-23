@@ -99,7 +99,8 @@ export const authPlugin:BeePlugin={
    const primaryRole=invitation.customRoleId?await customRoles.findOne({id:invitation.customRoleId,tenantId:invitation.tenantId,mode:"grant"}):null;
    const restrictionIds=invitation.restrictionRoleIds??[];
    const restrictions=restrictionIds.length?await customRoles.find({id:{$in:restrictionIds},tenantId:invitation.tenantId,mode:"restriction"}).toArray():[];
-   const roleLabel=invitation.role==="custom"?(primaryRole?.name??"Custom role"):invitation.role.replace(/^./,value=>value.toUpperCase());
+   if((invitation.role==="custom"&&!primaryRole)||restrictions.length!==restrictionIds.length)return reply.code(409).send({error:"The invitation references a custom role that is no longer available"});
+   const roleLabel=invitation.role==="custom"?(primaryRole!.name):invitation.role.replace(/^./,value=>value.toUpperCase());
    return {invitation:{email:invitation.email,companyName:company.name,role:roleLabel,restrictions:restrictions.map(item=>item.name),expiresAt:invitation.expiresAt}};
   });
   ctx.server.post<{Body:{token?:string;password?:string}}>("/auth/invitations/register",async(req,reply)=>{
@@ -113,9 +114,13 @@ export const authPlugin:BeePlugin={
    if(!company||((company as any).status==="suspended"))return reply.code(404).send({error:"The invited organization is unavailable"});
    const existingUser=await users.findOne({email:invitation.email});
    if(existingUser)return reply.code(409).send({error:"An account already exists for this email. Choose the sign-in option instead.",accountExists:true});
-   if(invitation.role==="custom"&&!invitation.customRoleId)return reply.code(409).send({error:"The invitation has an invalid primary role"});
+   const customRoles=db.collection<{id:string;tenantId:string;name:string;mode:string}>("company_roles");
+   const primaryRole=invitation.customRoleId?await customRoles.findOne({id:invitation.customRoleId,tenantId:invitation.tenantId,mode:"grant"}):null;
+   const restrictionIds=invitation.restrictionRoleIds??[];
+   const restrictions=restrictionIds.length?await customRoles.find({id:{$in:restrictionIds},tenantId:invitation.tenantId,mode:"restriction"}).toArray():[];
+   if((invitation.role==="custom"&&!primaryRole)||restrictions.length!==restrictionIds.length)return reply.code(409).send({error:"The invitation references a custom role that is no longer available"});
    const memberships=db.collection<any>("memberships"),userId=randomUUID();
-   const user:UserRecord={id:userId,email:invitation.email,passwordHash:await bcrypt.hash(password,12),roles:["user"],enabled:true,allowedClients:["dashboard","backend","public"],tenantId:invitation.tenantId,createdAt:now,updatedAt:now};
+   const user:UserRecord={id:userId,email:invitation.email,passwordHash:await bcrypt.hash(password,12),roles:["user"],enabled:true,allowedClients:["dashboard"],tenantId:invitation.tenantId,createdAt:now,updatedAt:now};
    try{await users.insertOne(user);}
    catch(error){if((error as {code?:number})?.code===11000)return reply.code(409).send({error:"An account already exists for this email. Choose the sign-in option instead.",accountExists:true});throw error;}
    const consumed=await invitations.updateOne({id:invitation.id,tokenHash,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:now}},{$set:{acceptedAt:now}});

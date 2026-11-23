@@ -176,7 +176,8 @@ export const organizationsPlugin:BeePlugin={
    const description=String(req.body?.description??"").trim().slice(0,240);
    if(mode!== (existing.mode??"grant")){
     const assigned=await memberships.countDocuments({tenantId:req.params.companyId,$or:[{customRoleId:req.params.roleId},{restrictionRoleIds:req.params.roleId}]});
-    if(assigned)return reply.code(409).send({error:"A role cannot change between grant and restriction mode while assigned. Reassign members first."});
+    const pendingInvitations=await invitations.countDocuments({tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()},$or:[{customRoleId:req.params.roleId},{restrictionRoleIds:req.params.roleId}]});
+    if(assigned||pendingInvitations)return reply.code(409).send({error:"A role cannot change between grant and restriction mode while assigned to members or pending invitations."});
    }
    const result=await customRoles.updateOne({id:req.params.roleId,tenantId:req.params.companyId},{$set:{name,description,permissions,mode,updatedBy:auth.user!.id,updatedAt:new Date()}});
    if(!result.matchedCount)return reply.code(404).send({error:"Custom role not found"});
@@ -187,7 +188,8 @@ export const organizationsPlugin:BeePlugin={
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await ownerOnly(auth,req.params.companyId,reply);if(!actor)return;
    const assigned=await memberships.countDocuments({tenantId:req.params.companyId,$or:[{customRoleId:req.params.roleId},{restrictionRoleIds:req.params.roleId}]});
-   if(assigned)return reply.code(409).send({error:"Custom role is assigned to active members"});
+   const pendingInvitations=await invitations.countDocuments({tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()},$or:[{customRoleId:req.params.roleId},{restrictionRoleIds:req.params.roleId}]});
+   if(assigned||pendingInvitations)return reply.code(409).send({error:"Custom role is assigned to members or pending invitations"});
    const result=await customRoles.deleteOne({id:req.params.roleId,tenantId:req.params.companyId});
    if(!result.deletedCount)return reply.code(404).send({error:"Custom role not found"});
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.deleted",outcome:"success",resourceType:"role",resourceId:req.params.roleId});
@@ -211,7 +213,7 @@ export const organizationsPlugin:BeePlugin={
      if(restrictions.length!==restrictionRoleIds.length)return reply.code(400).send({error:"Every additional role must be a restriction role in this organization"});
     }
     if(role==="admin"&&actor.role!=="owner"&&!(actor.role==="super_admin"&&await companies.findOne({id:req.params.companyId,kind:"super"})))return reply.code(403).send({error:"Only the company owner or Super Organization super_admin can invite administrators"});
-const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
+    const existingMembership=await memberships.findOne({tenantId:req.params.companyId,userId:(await users.findOne({email,enabled:true}))?.id,status:"active"});
    if(existingMembership)return reply.code(409).send({error:"User is already a company member"});
    const invitationNow=new Date();
    await invitations.updateMany({tenantId:req.params.companyId,email,acceptedAt:null,cancelledAt:null,expiresAt:{$lte:invitationNow}},{$set:{cancelledAt:invitationNow}});
