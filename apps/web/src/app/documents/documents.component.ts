@@ -129,7 +129,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
                   <button type="button" *ngIf="folder.canMove && folder.parentId" (click)="moveFolderOut(folder)">Move out of this folder</button>
                 </div>
               </div>
-              <span *ngIf="!folder.canManageShares">—</span>
+              <span *ngIf="!folder.canManageShares && !folder.canMove">—</span>
             </td>
           </tr>
           <tr *ngFor="let doc of documents" cdkDrag [cdkDragData]="{kind:'document',item:doc}" [cdkDragDisabled]="!doc.canMove">
@@ -300,7 +300,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 .documents__item:hover{border-color:color-mix(in srgb,var(--purple) 48%,var(--border));background:color-mix(in srgb,var(--panel) 92%,var(--purple))}
 .documents__folder-count{display:inline-flex;flex:0 0 27px;width:27px;height:27px;align-items:center;justify-content:center;margin-left:auto;border:1px solid color-mix(in srgb,var(--purple) 42%,var(--border));border-radius:50%;background:color-mix(in srgb,var(--purple) 11%,transparent);color:var(--purple);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
 .documents__folder-count--table{width:23px;height:23px;min-width:23px;margin-left:8px;vertical-align:middle}
-.documents__item--folder.cdk-drop-list-receiving,.documents__table tr.cdk-drop-list-receiving{outline:2px solid var(--purple);outline-offset:2px;background:color-mix(in srgb,var(--purple) 9%,var(--panel))}
+.documents__item--folder.cdk-drop-list-receiving,.documents__table tr.cdk-drop-list-receiving,.documents__breadcrumb-root.cdk-drop-list-receiving{outline:2px solid var(--purple);outline-offset:2px;background:color-mix(in srgb,var(--purple) 9%,var(--panel))}
 .cdk-drag-preview{opacity:.9;box-shadow:0 14px 36px rgba(0,0,0,.2)}
 .cdk-drag-placeholder{opacity:.35}
 .documents__item-main[cdkDragHandle],.documents__table td[cdkDragHandle]{cursor:grab}
@@ -425,10 +425,10 @@ export class BeeDocumentsComponent implements OnChanges {
  get visibleFolders():Folder[]{return this.folders.filter(f=>f.parentId===this.currentFolderId);}
  get dropListIds():string[]{return ["documents-root-drop",...this.visibleFolders.map(folder=>this.folderDropId(folder.id))];}
  folderDropId(id:string):string{return "documents-folder-drop-"+id;}
- dropToRoot(event:CdkDragDrop<Folder|null,unknown,DragItem>):void{this.applyDrop(event,null);}
- dropOnFolder(event:CdkDragDrop<Folder,unknown,DragItem>,folder:Folder):void{this.applyDrop(event,folder.id);}
- private applyDrop(event:CdkDragDrop<Folder|null,unknown,DragItem>,targetFolderId:string|null):void{
-  const dragged=event.item.data;if(!dragged)return;
+ dropToRoot(event:CdkDragDrop<any,any,any>):void{this.applyDrop(event,null);}
+ dropOnFolder(event:CdkDragDrop<any,any,any>,folder:Folder):void{this.applyDrop(event,folder.id);}
+ private applyDrop(event:CdkDragDrop<any,any,any>,targetFolderId:string|null):void{
+  const dragged=event.item.data as DragItem|null;if(!dragged)return;
   if(dragged.kind==="document"){if(dragged.item.folderId!==targetFolderId)void this.moveDocument(dragged.item,targetFolderId);return;}
   if(dragged.item.id===targetFolderId||dragged.item.parentId===targetFolderId)return;
   void this.moveFolder(dragged.item,targetFolderId);
