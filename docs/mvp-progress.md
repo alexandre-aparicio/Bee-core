@@ -794,3 +794,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Registered the plugin in the marketplace catalog and built-in plan availability. Added the minimal plugin-manager config allowlist for its database and derived session-resource secret.
 - Added focused unit tests for capability validation, secret hashing/entropy, public response projection, role checks and membership/tenant state. Updated `docs/connected-devices.md` with the implemented API surface, QR cancellation and expiry behavior.
 - **Validation still pending:** no test suite, TypeScript build, Angular build, browser test, Docker build, live tenant test or real QR scan has been run. There were no CI check runs on the PR head. Audit integration, rate limiting/operational alerting, deeper integration/security coverage and companion-app end-to-end validation remain outstanding. MVP and release-readiness percentages are unchanged.
+
+
+## Settings plugin lifecycle actions — fix prepared (2026-11-23)
+
+- Identified the actual disabled controls in `PluginSettingsComponent`: the Install and Uninstall menu items were hard-coded with the HTML `disabled` attribute, so no user role could activate them. This was separate from the company marketplace component and its `busyId` state.
+- Replaced the inert menu entries with role-gated actions. The settings page now receives `canManagePlugins` from the active dashboard context; Install is offered only for entitled, not-yet-installed plugins, and Uninstall only for installed non-system plugins. Details remains available independently.
+- Connected both actions to the existing tenant-scoped marketplace API (`POST`/`DELETE /marketplace/plugins/:pluginId/install`), including durable lifecycle-job polling, visible progress/error feedback, catalogue refresh, and preservation of company data on uninstall. Backend permission checks and system-plugin/dependency protections remain authoritative; no backend authorization was weakened.
+- Applied the permission binding consistently to Midnight, Glass and Paper dashboard templates.
+- **Validation:** source changes prepared in PR; no Angular build, automated tests, browser interaction, or deployed-instance verification has been run yet. Do not treat runtime behavior as verified until those checks pass.
