@@ -2,7 +2,7 @@
 export type PermissionDefinition={key:string;module:string;resource:string;action:string;label:string;description:string;sensitive?:boolean;customRoleAssignable:boolean};
 export const CORE_PERMISSION_CATALOG:readonly PermissionDefinition[]=[
 {key:"members.read",module:"organization",resource:"members",action:"read",label:"View members",description:"List members and inspect membership details.",customRoleAssignable:true},
-{key:"members.invite",module:"organization",resource:"members",action:"invite",label:"Invite members",description:"Create and cancel invitations.",customRoleAssignable:true},
+{key:"members.invite",module:"organization",resource:"members",action:"invite",label:"Invite members",description:"Invite members, add existing accounts and manage invitations.",customRoleAssignable:true},
 {key:"members.manage",module:"organization",resource:"members",action:"manage",label:"Manage memberships",description:"Change membership roles and suspend members.",customRoleAssignable:false,sensitive:true},
 {key:"plugins.read",module:"plugins",resource:"plugins",action:"read",label:"View plugins",description:"Browse the organization's available plugins.",customRoleAssignable:true},
 {key:"plugins.install",module:"plugins",resource:"plugins",action:"install",label:"Install plugins",description:"Install or activate available plugins.",customRoleAssignable:true},
