@@ -316,6 +316,7 @@ export const marketplacePlugin: BeePlugin = {
         return reply.code(403).send({error:"Plugin management permission required"});
       }
       if(typeof request.body?.enabled!=="boolean")return reply.code(400).send({error:"enabled must be a boolean"});
+      if(request.body.enabled&&!await isPlatformPluginEnabled(db,pluginId))return reply.code(409).send({error:"This plugin is suspended globally by the platform administrator"});
       if(request.body.enabled&&!await hasPluginEntitlement(db,tenant.tenantId,pluginId))return reply.code(402).send({error:"This company plan or an active plugin purchase does not include this package"});
       const definition=await getMarketplacePackage(pluginId);
       if(!definition)return reply.code(404).send({error:"Plugin package is not available"});
