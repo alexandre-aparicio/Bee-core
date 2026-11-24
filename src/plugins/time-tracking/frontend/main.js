@@ -68,7 +68,7 @@ function render(){
   html='<div class="content-heading"><div><p class="eyebrow">MI ESPACIO</p><h2>Mi jornada</h2><p>Controla tu fichaje y consulta la actividad registrada.</p></div></div><nav class="tabs"><button data-subtab="status" class="'+(activeSubTab==="status"?"active":"")+'">Estado actual</button><button data-subtab="activity" class="'+(activeSubTab==="activity"?"active":"")+'">Actividad</button></nav>';
   if(activeSubTab==="status"){
    const state=session?.status==="working"?"Trabajando":session?.status==="on_break"?"En pausa":"Sin jornada activa";
-   html+='<section class="panel"><div class="clock-top"><span>ESTADO ACTUAL</span><span class="status '+(session?.status==="working"?"working":session?.status==="on_break"?"break":"")+'">'+state+'</span></div><div class="clock-time">'+(session?elapsed():"Listo para empezar")+'</div><p>'+(session?"Entrada registrada: "+esc(formatDate(session.startedAt)):"Cuando comiences a trabajar, registra tu entrada.")+'</p><div class="actions">'+(!session?'<button class="btn primary" data-clock="clock-in" '+(busy?"disabled":"")+'>Fichar entrada</button>':session.status==="working"?'<button class="btn" data-clock="break-start" '+(busy?"disabled":"")+'>Iniciar pausa</button><button class="btn primary" data-clock="clock-out" '+(busy?"disabled":"")+'>Fichar salida</button>':session.status==="on_break"?'<button class="btn primary" data-clock="break-end" '+(busy?"disabled":"")+'>Finalizar pausa</button>':"")+'</div></section>';
+   html+='<section class="panel"><div class="clock-top"><span>ESTADO ACTUAL</span><span class="status '+(session?.status==="working"?"working":session?.status==="on_break"?"break":"")+'">'+state+'</span></div><div class="clock-time" id="clock-time">'+(session?elapsed():"Listo para empezar")+'</div><p>'+(session?"Entrada registrada: "+esc(formatDate(session.startedAt)):"Cuando comiences a trabajar, registra tu entrada.")+'</p><div class="actions">'+(!session?'<button class="btn primary" data-clock="clock-in" '+(busy?"disabled":"")+'>Fichar entrada</button>':session.status==="working"?'<button class="btn" data-clock="break-start" '+(busy?"disabled":"")+'>Iniciar pausa</button><button class="btn primary" data-clock="clock-out" '+(busy?"disabled":"")+'>Fichar salida</button>':session.status==="on_break"?'<button class="btn primary" data-clock="break-end" '+(busy?"disabled":"")+'>Finalizar pausa</button>':"")+'</div></section>';
    if(session)html+='<section class="panel"><div class="section-heading"><div><h3>Jornada en curso</h3><p>Los registros se guardan con la hora del servidor.</p></div></div>'+(session.events?.length?'<div class="events">'+session.events.map(event=>'<article class="event"><span class="dot"></span><div><strong>'+esc(label(event.type))+'</strong><small>'+esc(formatDate(event.occurredAt))+'</small></div><span class="source">Web</span></article>').join("")+'</div>':'<p>Todavía no hay actividad registrada.</p>')+'</section>';
   }else html+=historyPanel();
  }else if(activeSection==="schedule")html+=schedulePanel();
@@ -108,7 +108,7 @@ async function act(action){
  if(busy)return;busy=true;clearNotices();
  try{await request("/time-tracking/"+action,"POST",{operationId:crypto.randomUUID(),source:"web"});await load();notify(({ "clock-in":"Entrada registrada.","break-start":"Pausa iniciada.","break-end":"Pausa finalizada.","clock-out":"Salida registrada."})[action]||"Registro actualizado.");}
  catch(error){notify(error.message||"No se pudo registrar la acción.","error");}
- finally{busy=false;}
+ finally{busy=false;render();}
 }
 function openCorrection(sessionId,eventType,originalAt){
  correctionTarget={sessionId,eventType,originalAt};requestedAt=formatInput(originalAt);correctionReason="";renderCorrectionModal();
@@ -128,14 +128,14 @@ async function submitCorrection(){
  if(!correctionTarget||!requestedAt||correctionReason.trim().length<5)return;busy=true;
  try{await request("/time-tracking/me/corrections","POST",{...correctionTarget,requestedAt:new Date(requestedAt).toISOString(),reason:correctionReason.trim()});closeCorrection();await load();notify("Solicitud de corrección enviada para su revisión.");}
  catch(error){notify(error.message||"No se pudo enviar la solicitud.","error");}
- finally{busy=false;}
+ finally{busy=false;render();}
 }
 async function saveSchedule(){
  const selectedTimezone=$("timezone").value.trim();const days=scheduleDraft.filter(day=>day.enabled).map(({day,start,end,breakMinutes})=>({day,start,end,breakMinutes}));
  if(!selectedUserId)return;busy=true;
  try{await request("/time-tracking/team/schedules/"+encodeURIComponent(selectedUserId),"PUT",{timezone:selectedTimezone,days});timezone=selectedTimezone;notify("Horario guardado.");}
  catch(error){notify(error.message||"No se pudo guardar el horario.","error");}
- finally{busy=false;}
+ finally{busy=false;render();}
 }
 function renderReviewModal(){
  if(!reviewTarget)return;
@@ -151,6 +151,8 @@ async function confirmReview(){
  if(!reviewTarget)return;const target=reviewTarget;reviewTarget=null;$("modal-root").replaceChildren();busy=true;
  try{await request("/time-tracking/team/corrections/"+encodeURIComponent(target.id),"PATCH",{decision:target.decision,reviewNote:target.decision==="rejected"?reviewNote.trim():""});await load();notify(target.decision==="approved"?"Corrección aprobada y aplicada.":"Solicitud rechazada.");}
  catch(error){notify(error.message||"No se pudo revisar la solicitud.","error");}
- finally{busy=false;}
+ finally{busy=false;render();}
 }
 $("refresh").addEventListener("click",()=>void load());
+
+setInterval(()=>{const node=$("clock-time");if(node&&session?.status==="working")node.textContent=elapsed();},30000);
