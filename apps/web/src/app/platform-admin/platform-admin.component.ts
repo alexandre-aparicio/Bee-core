@@ -18,6 +18,8 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
            <button type="button" [class.is-active]="viewMode==='list'" [attr.aria-pressed]="viewMode==='list'" (click)="viewMode='list'" title="List view">☷</button>
          </div>
          <button type="button" class="platform-admin__create-trigger" (click)="openCreate()">＋ New tenant</button>
+         <button type="button" class="platform-admin__create-trigger" (click)="pluginZipInput.click()" [disabled]="pluginUploadBusy">{{pluginUploadBusy ? "Uploading…" : "Upload plugin ZIP"}}</button>
+         <input #pluginZipInput type="file" accept=".zip,application/zip" hidden (change)="uploadPluginZip($event)">
        </div>
      </div>
      @if(error){<p class="platform-admin__error">{{error}}</p>}
@@ -143,6 +145,8 @@ export class PlatformAdminComponent implements OnInit {
  @Output() manageCompany=new EventEmitter<string>();
  @Output() backToList=new EventEmitter<void>();
  companies:PlatformCompany[]=[];
+ platformPackages:Array<{pluginKey:string;name:string;version:string;description:string;status:string;source:string;runtimeState:string|null}> = [];
+ pluginPackagesLoading=false;pluginUploadBusy=false;
  pluginStates:Record<string,{id:string;installed:boolean;enabled:boolean;status:string;name:string}>={};
  pluginBusyId='';name='';slug='';ownerEmail='';ownerPassword='';busy=false;loading=false;error='';success='';tenantTab:'general'|'users'|'plugins'='general';tenantUsers:Array<{userId:string;email:string;role:string;status:string;createdAt?:string}>=[];tenantPlugins:Array<{id:string;name:string;description:string;version:string;installed:boolean;enabled:boolean;status:string;system:boolean;dependencies?:string[]}>=[];usersLoading=false;tenantPluginsLoading=false;
  viewMode:'cards'|'list'='cards';showCreateModal=false;openMenuId='';
@@ -152,7 +156,24 @@ export class PlatformAdminComponent implements OnInit {
  openCreate(){this.error='';this.success='';this.showCreateModal=true;}
  closeCreate(){if(this.busy)return;this.showCreateModal=false;this.error='';}
  toggleMenu(id:string){this.openMenuId=this.openMenuId===id?'':id;}
- async load(){this.loading=true;this.error='';try{const r=await fetch('/api/platform/companies',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to list tenants');this.companies=d.companies??[];await Promise.all(this.companies.map(async company=>{try{const pr=await fetch('/api/platform/companies/'+encodeURIComponent(company.id)+'/plugins',{headers:this.headers()});const pd=await pr.json();if(pr.ok){const plugin=pd.plugins?.find((item:any)=>item.name==='Hola Mundo');if(plugin)this.pluginStates[company.id]={id:plugin.id,installed:!!plugin.installed,enabled:!!plugin.enabled,status:plugin.status,name:plugin.name};}}catch{}}));}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.loading=false;}}
+ async loadPlatformPackages(){
+  if(this.pluginPackagesLoading)return;
+  this.pluginPackagesLoading=true;
+  try{const r=await fetch("/api/platform/plugin-packages",{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to load platform packages");this.platformPackages=d.packages??[];}
+  catch(e){this.error=e instanceof Error?e.message:"Unable to load platform packages";}
+  finally{this.pluginPackagesLoading=false;}
+ }
+ async uploadPluginZip(event:Event){
+  const input=event.target as HTMLInputElement;const file=input.files?.[0];input.value="";if(!file)return;
+  if(!file.name.toLowerCase().endsWith(".zip")){this.error="Select a .zip package.";return;}
+  if(file.size>50*1024*1024){this.error="Plugin ZIP files cannot exceed 50 MB.";return;}
+  this.pluginUploadBusy=true;this.error="";this.success="";
+  try{const bytes=new Uint8Array(await file.arrayBuffer());let binary="";for(let offset=0;offset<bytes.length;offset+=0x8000){binary+=String.fromCharCode(...bytes.subarray(offset,Math.min(offset+0x8000,bytes.length)));}const archiveBase64=btoa(binary);
+   const r=await fetch("/api/platform/plugin-packages",{method:"POST",headers:{...this.headers(),"content-type":"application/json"},body:JSON.stringify({archiveBase64})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Plugin upload failed");
+   this.success="Package "+d.package.name+" v"+d.package.version+" stored. Runtime activation is pending.";await this.loadPlatformPackages();
+  }catch(e){this.error=e instanceof Error?e.message:"Plugin upload failed";}finally{this.pluginUploadBusy=false;}
+ }
+ async load(){this.loading=true;this.error='';try{const r=await fetch('/api/platform/companies',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to list tenants');this.companies=d.companies??[];await this.loadPlatformPackages();await Promise.all(this.companies.map(async company=>{try{const pr=await fetch('/api/platform/companies/'+encodeURIComponent(company.id)+'/plugins',{headers:this.headers()});const pd=await pr.json();if(pr.ok){const plugin=pd.plugins?.find((item:any)=>item.name==='Hola Mundo');if(plugin)this.pluginStates[company.id]={id:plugin.id,installed:!!plugin.installed,enabled:!!plugin.enabled,status:plugin.status,name:plugin.name};}}catch{}}));}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.loading=false;}}
  async loadTenantUsers(){if(!this.managedTenantId||this.usersLoading)return;this.usersLoading=true;try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(this.managedTenantId)+'/users',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load users');this.tenantUsers=d.users??[];}catch(e){this.error=e instanceof Error?e.message:'Could not load tenant users';}finally{this.usersLoading=false;}}
  async loadTenantPlugins(){if(!this.managedTenantId||this.tenantPluginsLoading)return;this.tenantPluginsLoading=true;try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(this.managedTenantId)+'/plugins',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load plugins');this.tenantPlugins=d.plugins??[];}catch(e){this.error=e instanceof Error?e.message:'Could not load tenant plugins';}finally{this.tenantPluginsLoading=false;}}
  async toggleTenantPlugin(c:PlatformCompany,plugin:any){if(this.pluginBusyId)return;this.pluginBusyId=c.id;try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(c.id)+'/plugins/'+encodeURIComponent(plugin.id),{method:'PUT',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({enabled:!plugin.enabled})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Plugin change failed');await this.loadTenantPlugins();}catch(e){this.error=e instanceof Error?e.message:'Plugin operation failed';}finally{this.pluginBusyId='';}}
