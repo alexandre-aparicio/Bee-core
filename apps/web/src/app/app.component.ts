@@ -396,6 +396,13 @@ export class AppComponent implements OnInit {
     {id:'settings-localization',label:'Localization',icon:'localization',description:'Languages, regions, currencies and global formats.'}
   ];
   private syncActiveSectionFromPath(): void {
+    if (this.path === '/dashboard/time-tracking' || this.path === '/dashboard/time-tracking/') {
+      const section = new URLSearchParams(window.location.search).get('section') || 'day';
+      this.activeSection = section === 'schedule' ? 'time-tracking-schedule' : section === 'history' ? 'time-tracking-history' : section === 'requests' ? 'time-tracking-requests' : 'time-tracking-day';
+      this.expandedMenuId = 'time-tracking';
+      if (!this.isPluginEnabled('time-tracking')) this.activeSection = 'dashboard';
+      return;
+    }
     if (/^\/dashboard\/plugins\/[^/]+\/details\/?$/.test(this.path)) { this.activeSection = 'settings-plugins'; this.expandedMenuId = 'settings'; return; }
     if (this.path.startsWith('/dashboard/settings/tenants/') && this.path.endsWith('/manage')) {
       this.activeSection = 'settings-tenants';
