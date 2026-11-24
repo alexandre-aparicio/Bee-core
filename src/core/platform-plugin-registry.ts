@@ -87,6 +87,8 @@ export async function migrateLegacyPlatformPackageInstalls(db: Db, superOrganiza
     if (!installation.pluginId) continue;
     const existing = await packages.findOne({ pluginId: installation.pluginId });
     if (existing?.source === "zip") continue;
+    if (existing?.status === "installed" && (!installation.version || existing.version === installation.version)) continue;
+    const now = new Date();
     const result = await packages.updateOne(
       { pluginId: installation.pluginId },
       {
@@ -94,8 +96,8 @@ export async function migrateLegacyPlatformPackageInstalls(db: Db, superOrganiza
           status: "installed",
           ...(installation.version ? { version: installation.version } : {}),
           source: "bundled",
-          installedAt: new Date(),
-          updatedAt: new Date()
+          ...(!existing?.installedAt ? { installedAt: now } : {}),
+          updatedAt: now
         },
         $setOnInsert: {
           pluginId: installation.pluginId,
@@ -104,7 +106,7 @@ export async function migrateLegacyPlatformPackageInstalls(db: Db, superOrganiza
           category: "custom",
           dependencies: [],
           installedBy: null,
-          createdAt: new Date()
+          createdAt: now
         }
       },
       { upsert: true }
