@@ -1,3 +1,14 @@
+## Organization → Teams visual harmonization (2026-11-24)
+
+- Started on a dedicated branch, `fix/organization-teams-ui-polish`, from current `main`; no changes were made directly to `main`.
+- Reworked the Teams toolbar so the status selector sits immediately to the right of Search while the Cards/Table control remains aligned at the far right. The control group is unboxed; each icon button owns its border and exposes `aria-pressed`.
+- Removed the duplicate circular member-count badge from team cards; the existing textual member count remains.
+- Replaced inline success feedback with a dismissible lower-right toast. Success announcements use `role="status"` / `aria-live="polite"`, auto-dismiss after 3.5 seconds, and clear their timer when the component is destroyed.
+- Updated the Teams modal backdrop to use the shared neutral-dark `--bee-overlay` token, full-viewport coverage, stronger stacking order and blur so the dashboard header is included. Added a central Midnight overlay token.
+- Added component-scoped Midnight Light appearance tokens for Teams so cards, inputs, modal, view controls and toast use readable light surfaces/foregrounds while Dark appearance remains unchanged.
+- Documented the toast contract, unboxed view-switcher treatment, and full-viewport modal overlay behavior in the global Design System and Midnight style guide.
+- Validation pending: source and documentation changes only. Angular build, automated tests, browser checks in Dark and Light, responsive checks and live VPS verification have not been run.
+
 ## Connected Devices modal confirmations and empty-body request fix (2026-11-24)
 
 - Replaced native browser confirmation prompts for Suspend, Revoke, Unlink and Delete with a consistent accessible modal dialog. The modal shows the device and consequence, provides Cancel/Confirm actions, and visually distinguishes irreversible operations.

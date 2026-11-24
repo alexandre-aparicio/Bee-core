@@ -10,5 +10,6 @@ export const MIDNIGHT_THEME_TOKENS: Record<string, string> = {
   "--bee-status-danger": "#ef7777",
   "--bee-status-info": "#69b8e5",
   "--bee-shadow": "0 12px 32px #0003",
+  "--bee-overlay": "rgb(5 8 16 / 64%)",
   "--bee-action-text": "#080a12"
 };

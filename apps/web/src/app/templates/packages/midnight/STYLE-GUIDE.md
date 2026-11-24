@@ -356,3 +356,25 @@ Do not mark these gaps complete merely because this guide documents them. Update
 - Folder/document cards, card hover, overflow menus, share/detail dialogs, share tabs, suggestions, chips, hint panels, empty state and table surface are explicitly reviewed for Light contrast.
 - Primary buttons and selected view controls use a contrast-safe white foreground over the violet action/selection surface in Light mode.
 - This component-scoped treatment MUST NOT bleed into other features or alter Midnight Dark. Confirm visually in browser in both modes before marking verified.
+
+
+## 20. Toast notifications and full-viewport modal overlays
+
+### Toast notifications
+
+- Use the active Midnight surface and foreground tokens; toast surfaces match raised workspace panels rather than introducing a new color treatment.
+- Place routine success toasts at the bottom-right of the viewport. On mobile, keep consistent safe insets and use the available width.
+- Use a subtle border, restrained Midnight shadow and a narrow success-status edge/icon. The message remains readable without relying on color.
+- Include an accessible dismiss control; announce success with `role="status"` and `aria-live="polite"`.
+- Routine success toasts dismiss after approximately 3–5 seconds, can be dismissed immediately and never steal focus.
+- Errors that require correction remain next to the relevant form/control and use alert semantics rather than being disguised as success toasts.
+- Respect reduced-motion settings.
+
+### Modal backdrop and viewport coverage
+
+- A modal backdrop MUST cover the complete viewport (`inset: 0`) and sit above the dashboard shell/header as well as page content. Use a stacking level that is not obscured by the topbar.
+- Apply the same neutral-dark translucent overlay in Dark and Light appearance and blur the entire background behind it, including the dashboard header/topbar.
+- The dialog itself uses the active Midnight panel/surface, foreground, border and shadow tokens. Light appearance must use a light dialog surface with dark readable text; Dark appearance retains the deep Midnight surface.
+- Keep the backdrop separate from the dialog scroll container so blur/dimming remain fixed while long dialog content scrolls.
+
+The shared `--bee-overlay` token is defined in the Midnight theme-token contract and remains neutral-dark in both appearance modes.

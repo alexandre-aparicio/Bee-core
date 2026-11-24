@@ -221,7 +221,7 @@ For collection/list pages where the same records can be meaningfully scanned as 
 
 - Place the view switcher in the page toolbar, immediately before the primary contextual action (for example, Upload or Create).
 - Keep the switcher and action in one right-aligned toolbar group; allow wrapping on narrow screens without changing their order.
-- Use the established compact two-option segmented control pattern: two equal icon buttons, subtle border, restrained surface, and a clear selected state.
+- Use the established compact two-option control pattern: two equal icon buttons inside an unboxed group (the wrapper has no border, background or padding); each button owns its subtle border, restrained surface and clear selected state.
 - Use the application's established card/table glyphs consistently; do not replace icons with text labels such as “Cards” and “Table” in the compact control.
 - Each icon button MUST have an accessible name and tooltip (for example, “Card view” and “Table view”), and expose its state with `aria-pressed`.
 - The default view should be consistent within the same feature and should not reset when records refresh or a folder/location changes.
@@ -324,6 +324,18 @@ A field consists of a persistent label, control, optional help text and validati
 - Error copy should be actionable and avoid exposing stack traces, secrets or internal details.
 - Success feedback should be concise and should not persist indefinitely without reason.
 - Do not use browser `alert()`/ `confirm()` for normal product interactions.
+
+#### Toast notification
+
+Use a toast for a completed action whose confirmation does not need to remain attached to a form or card.
+
+- Position the toast at the lower-right of the viewport, above page content and other transient UI. On narrow screens, use safe horizontal/bottom insets and allow the toast to span the available width.
+- Use the active template's raised/panel surface, readable foreground, subtle border, restrained shadow and a narrow semantic status accent. Do not introduce a gradient or a new palette.
+- Keep the message concise, include a text label (not color alone), and provide a clearly named dismiss button.
+- Success toasts use `role="status"` and `aria-live="polite"`; errors that need recovery remain close to the affected control with `role="alert"`.
+- Routine success toasts SHOULD dismiss after approximately 3–5 seconds and MUST be dismissible earlier. Replacing a toast resets its dismissal window.
+- Respect reduced-motion preferences. Toasts must not block the underlying workflow or steal focus.
+- The shared toast contract is normative even where a dedicated global Angular toast service is not yet implemented; feature-local use must preserve the same placement, accessibility and theme behavior.
 
 ### 5.10 Dialogs, modals, popovers and menus
 
@@ -484,7 +496,7 @@ A feature is not visually complete merely because it renders. It is design-syste
 ### Light/dark theme compatibility for collection workspaces
 
 - Shared collection workspaces (including Documents) MUST use the active template's semantic surface, foreground, muted, border and accent tokens. Avoid hard-coded light/dark card, text, menu or input colors.
-- Overlays are the exception to surface token mixing: modal backdrops should use a neutral dark translucent layer in both light and dark modes so the underlying page is consistently dimmed; do not mix the backdrop from the page background token, which can turn it pale in light mode.
+- Overlays are the exception to surface token mixing: modal backdrops MUST use the shared neutral-dark `--bee-overlay` token in both light and dark modes so the entire underlying viewport is consistently dimmed; do not derive the backdrop from the page background token, which can turn it pale in light mode.
 - Dialog shadows should use a neutral dark shadow rather than the active background token. Check dialogs, menus, selected segmented controls, empty states, tables and forms in both modes for contrast.
 - Light-mode checks are required alongside dark-mode checks for first-party collection pages: primary action text, muted labels, table headers, hover rows, menu surfaces, selected/unselected view controls, borders and keyboard focus must remain readable.
 
