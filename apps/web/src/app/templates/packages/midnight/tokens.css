@@ -1,0 +1,49 @@
+/* Midnight palette: package-owned semantic tokens. */
+.bee-template-package-host[data-bee-template="midnight"][data-bee-dashboard-mode="dark"] {
+  color-scheme: dark;
+  --bee-bg: #080a12;
+  --bee-surface: #10131e;
+  --bee-surface-raised: #151a29;
+  --bee-surface-subtle: #0d111b;
+  --bee-surface-hover: #1a2031;
+  --bee-surface-active: #222a3e;
+  --bee-text: #e8eaf2;
+  --bee-text-muted: #8991a4;
+  --bee-text-subtle: #697388;
+  --bee-text-inverse: #080a12;
+  --bee-link: #b2a6ff;
+  --bee-border: #303447;
+  --bee-border-strong: #454b63;
+  --bee-focus-ring: #a99aff;
+  --bee-accent: #8c72ff;
+  --bee-accent-hover: #a18cff;
+  --bee-accent-soft: #8c72ff24;
+  --bee-accent-text: #ffffff;
+  --bee-secondary: #69e5d4;
+  --bee-action-text: #080a12;
+  --bee-status-success: #55c99a;
+  --bee-status-success-soft: #55c99a18;
+  --bee-status-warning: #e6b45f;
+  --bee-status-warning-soft: #e6b45f18;
+  --bee-status-danger: #ef7777;
+  --bee-status-danger-soft: #ef777718;
+  --bee-status-info: #69b8e5;
+  --bee-status-info-soft: #69b8e518;
+  --bee-shadow: 0 12px 32px #0003;
+  --bee-shadow-raised: 0 24px 64px #0006;
+  --bee-overlay: rgb(5 8 16 / 64%);
+  --bee-blur: 0px;
+  --bee-radius-sm: 7px;
+  --bee-radius-md: 11px;
+  --bee-radius-lg: 16px;
+  --bee-input-bg: #0a0d16;
+  --bee-input-border: #303348;
+  --bee-input-placeholder: #818ba0;
+  /* Temporary compatibility aliases while feature CSS is migrated. */
+  --bg: var(--bee-bg);
+  --panel: var(--bee-surface);
+  --muted: var(--bee-text-muted);
+  --border: var(--bee-border);
+  --purple: var(--bee-accent);
+  --cyan: var(--bee-secondary);
+}

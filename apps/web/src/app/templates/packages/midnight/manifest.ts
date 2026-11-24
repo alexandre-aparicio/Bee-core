@@ -10,6 +10,8 @@ export const MIDNIGHT_MANIFEST: BeeTemplateManifest = {
   "builtIn": true,
   "layout": "dashboard.midnight",
   "componentId": "BeeMidnightPageComponent",
+  "appearanceModes": ["light", "dark"],
+  "defaultMode": "dark",
   "slots": [
     "sidebar",
     "topbar",

@@ -378,11 +378,15 @@ export class BeeTemplateEngine {
     if (typeof localStorage === 'undefined') return 'dark';
     const saved = localStorage.getItem(this.modeStorageKey(target));
     if (saved === 'light' || saved === 'dark') return saved;
-    return ['editorial', 'studio', 'paper', 'glass'].includes(this.selection[target]) ? 'light' : 'dark';
+    const manifest = this.registry.get(this.selection[target]);
+    if (manifest?.defaultMode) return manifest.defaultMode;
+    return ['editorial', 'studio', 'paper'].includes(this.selection[target]) ? 'light' : 'dark';
   }
 
   setMode(target: BeeTemplateTarget, mode: BeeThemeMode): void {
     if (mode !== 'light' && mode !== 'dark') return;
+    const supportedModes = this.registry.get(this.selection[target])?.appearanceModes;
+    if (supportedModes?.length && !supportedModes.includes(mode)) return;
     if (typeof localStorage !== 'undefined') localStorage.setItem(this.modeStorageKey(target), mode);
     this.apply();
   }
@@ -399,8 +403,14 @@ export class BeeTemplateEngine {
     document.body.dataset['beeDashboardMode'] = this.getMode('dashboard');
     const publicHost = this.themeHost('public');
     const dashboardHost = this.themeHost('dashboard');
-    if (publicHost) publicHost.dataset['beePublicMode'] = this.getMode('public');
-    if (dashboardHost) dashboardHost.dataset['beeDashboardMode'] = this.getMode('dashboard');
+    if (publicHost) {
+      publicHost.dataset['beeTemplate'] = this.selection.public;
+      publicHost.dataset['beePublicMode'] = this.getMode('public');
+    }
+    if (dashboardHost) {
+      dashboardHost.dataset['beeTemplate'] = this.selection.dashboard;
+      dashboardHost.dataset['beeDashboardMode'] = this.getMode('dashboard');
+    }
   }
 
   private readSelection(): BeeTemplateSelection {
