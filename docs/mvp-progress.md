@@ -1,3 +1,11 @@
+## Connected Devices card lifecycle actions (2026-11-24)
+
+- Added a vertical three-dot action menu to each device card with Unlink, Revoke, Suspend, Reactivate and Delete.
+- Unlink invalidates the existing device credential, clears grants and retains an `unlinked` history record. The device can pair again using a new one-time QR challenge and receives a new device identity/credential.
+- Revoke remains irreversible; Suspend remains reversible. Delete is a separate permanent record removal restricted to organization administrators and also cancels the claimed pairing challenge.
+- All mutations are tenant-scoped; unlink follows the existing owner/admin device visibility rules.
+- Validation: source changes reviewed; automated tests, TypeScript/Angular builds, browser interaction, permission matrix and live VPS verification remain pending.
+
 # Bee-Core MVP progress
 
 Updated: 2026-11-23 — **Organization → Users** uses the same membership manager in Glass, Midnight and Paper for the Super Organization and all Tenants. Guest is a built-in restricted role (`plugins.read` only). The Super Organization migration creates a system organization, moves legacy platform superadmins into reserved `super_admin` memberships, suspends their previous tenant memberships, updates their active organization and revokes old sessions for re-authentication. Global platform routes authorize only an active `super_admin` membership in the Super Organization. The encrypted TOTP secret, one-time recovery codes, login MFA challenge and 15-minute privileged-action MFA freshness check are retained. API responses keep a temporary `platformRole` compatibility field for the existing Angular shell; the database identity source is the membership. Build, integration tests and browser QA are pending; this change must not be considered production-verified. Temporary-password user creation and email-delivered invitations remain future work.
