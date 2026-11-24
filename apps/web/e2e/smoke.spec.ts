@@ -1,18 +1,69 @@
 import { test, expect } from '@playwright/test';
 
+type DashboardSessionFixture = {
+  tenantId?: string;
+  companyName?: string;
+  role?: string;
+  email?: string;
+  token?: string;
+  platformRole?: string | null;
+};
+
+async function mockDashboardSession(page: any, fixture: DashboardSessionFixture = {}): Promise<void> {
+  const tenantId = fixture.tenantId || 'tenant-demo';
+  const role = fixture.role || 'owner';
+  const email = fixture.email || 'owner@example.test';
+  const token = fixture.token || 'test-dashboard-token';
+  const platformRole = fixture.platformRole ?? null;
+  const roles = role === 'owner' || role === 'admin' ? ['admin'] : role === 'super_admin' ? ['superadmin'] : ['user'];
+  await page.route('**/api/auth/refresh', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      accessToken: token,
+      tenantId,
+      platformRole,
+      user: { id: 'user-' + tenantId, email, roles, platformRole, tenantId }
+    })
+  }));
+  await page.route('**/api/auth/me', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ authenticated: true, tenantId, platformRole })
+  }));
+  await page.route('**/api/companies', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: tenantId, name: fixture.companyName || 'Demo Company', role, active: true }] })
+  }));
+  await page.route('**/api/marketplace/plugins', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ tenantId, plugins: [
+      { id: 'documents', pluginKey: 'documents', installed: true, enabled: true, entitled: true },
+      { id: 'connected-devices', pluginKey: 'connected-devices', installed: true, enabled: true, entitled: true }
+    ] })
+  }));
+  await page.route('**/api/i18n/preferences', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ languages: [{ code: 'en', label: 'English', nativeLabel: 'English' }, { code: 'es', label: 'Spanish', nativeLabel: 'Español' }], userLanguage: null, teamDefaultLanguage: 'en', effectiveLanguage: 'en', canManageTeamDefault: false })
+  }));
+  await page.route('**/api/templates/preferences', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ selection: { public: 'aurora', dashboard: 'midnight' }, installedTemplates: ['aurora', 'editorial', 'studio', 'midnight', 'paper', 'glass'] })
+  }));
+}
+
 test.beforeEach(async ({ page }) => {
-  await page.route('**/api/auth/me', route => {
-    const token = route.request().headers().authorization || '';
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        authenticated: true,
-        tenantId: 'tenant-demo',
-        platformRole: token === 'Bearer platform-admin-token' ? 'superadmin' : null
-      })
-    });
-  });
+  await mockDashboardSession(page);
+  await page.route('**/api/public/tenant', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ kind: 'corporate' }) }));
+  await page.route('**/api/public/tenant/plugins', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pluginIds: [] }) }));
+  await page.route('**/api/public/platform-identity', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ brand: { platformName: 'Bee-Core' }, seo: {} }) }));
+  await page.route('**/api/templates/public', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ selection: { public: 'aurora', dashboard: 'midnight' }, installedTemplates: ['aurora', 'editorial', 'studio', 'midnight', 'paper', 'glass'] }) }));
+  await page.route('**/api/templates/stream-ticket', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: 'dashboard-test-ticket' }) }));
+  await page.route('**/api/templates/public-stream-ticket', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: 'public-test-ticket' }) }));
 });
 
 test('landing page renders the main message', async ({ page }) => {
@@ -41,6 +92,7 @@ test('password recovery route works', async ({ page }) => {
 });
 
 test('dashboard redirects unauthenticated visitors to the visible login page', async ({ page }) => {
+  await page.route('**/api/auth/refresh', route => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'No refresh session' }) }));
   await page.goto('/dashboard');
   await expect.poll(() => new URL(page.url()).pathname).toBe('/login');
   await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
@@ -49,7 +101,7 @@ test('dashboard redirects unauthenticated visitors to the visible login page', a
 
 
 test('template manager keeps public and dashboard themes independent', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/dashboard');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
   await manager.getByLabel('Public website').selectOption('editorial');
@@ -139,6 +191,7 @@ test('tenant admin can install and activate a trusted dashboard template package
 
 
 test('dashboard company selector switches the active tenant session', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-a', companyName: 'Company A', role: 'owner', email: 'owner@example.test', token: 'company-a-token' });
   let activeCompany = 'company-a';
   let companyListRequests = 0;
   await page.addInitScript(() => {
@@ -181,6 +234,7 @@ test('dashboard company selector switches the active tenant session', async ({ p
 
 
 test('dashboard marketplace shows company packages and installs an entitled plugin', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-pro', companyName: 'Company Pro', role: 'owner', email: 'owner@example.test', token: 'marketplace-token' });
   let notesInstalled = false;
   const notes: Array<{id:string;title:string;content:string;createdBy:string;createdAt:string;updatedAt:string}> = [];
   await page.addInitScript(() => {
@@ -253,6 +307,7 @@ test('dashboard marketplace shows company packages and installs an entitled plug
 
 
 test('starter company sees purchasable add-ons but cannot install them without entitlement or role', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-starter', companyName: 'Starter Company', role: 'member', email: 'member@example.test', token: 'starter-member-token' });
   await page.addInitScript(() => {
     if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
       accessToken: 'starter-member-token',
@@ -282,6 +337,7 @@ test('starter company sees purchasable add-ons but cannot install them without e
 
 
 test('company owner can invite, change roles and suspend company members', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-pro', companyName: 'Company Pro', role: 'owner', email: 'owner@example.test', token: 'company-owner-token' });
   const members = [
     { userId: 'owner-1', email: 'owner@example.test', role: 'owner', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' },
     { userId: 'member-2', email: 'member@example.test', role: 'member', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' }
@@ -348,6 +404,7 @@ test('company owner can invite, change roles and suspend company members', async
 
 
 test('a signed-in member can accept an invitation and see the new company in the switcher', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-a', companyName: 'Company A', role: 'member', email: 'user@example.test', token: 'company-a-token' });
   let accepted = false;
   await page.addInitScript(() => {
     if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
@@ -384,6 +441,7 @@ test('a signed-in member can accept an invitation and see the new company in the
 });
 
 test('company member data cannot leak across a rapid active-company switch', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-a', companyName: 'Company A', role: 'owner', email: 'owner@example.test', token: 'company-a-token' });
   let activeCompany = 'company-a';
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'company-a-token',
@@ -451,6 +509,7 @@ test('company member data cannot leak across a rapid active-company switch', asy
 
 
 test('Settings > Tenants supports card/list views, tenant management and create modal', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'super-organization', companyName: 'Super Organization', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
   let companies = [
     { id: 'company-1', name: 'Acme Studio', slug: 'acme', status: 'active', createdAt: '2026-11-20T00:00:00.000Z', membersCount: 4 }
   ];
@@ -505,6 +564,7 @@ test('Settings > Tenants supports card/list views, tenant management and create 
 
 
 test('Settings plugins supports cards/list and only enables plugin details', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'super-organization', companyName: 'Super Organization', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'platform-admin-token',
     user: { email: 'root@example.test', roles: ['admin'], tenantId: 'tenant-ref' }
@@ -544,6 +604,7 @@ test('Settings plugins supports cards/list and only enables plugin details', asy
 
 
 test('Settings exposes the seven role-authorized sections and General has exactly three cards', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'super-organization', companyName: 'Super Organization', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'platform-admin-token',
     platformRole: 'superadmin',
