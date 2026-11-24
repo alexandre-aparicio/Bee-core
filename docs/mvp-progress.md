@@ -1098,55 +1098,44 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - **Still pending:** actual browser E2E (Playwright discovery is not execution), keyboard/accessibility interaction checks, responsive visual QA, Midnight Light/Dark screenshots and live MongoDB role-assignment/audit scenarios. No VPS deployment has been performed.
 
 
-## Template/base architecture refactor — in progress (2026-11-24)
+## Template base/package refactor — status corrected (2026-11-25)
 
-- Created branch `refactor/template-base-and-packages`; changes are intentionally isolated from `main` and no pull request has been opened.
-- Added `apps/web/scripts/audit-styles.mjs` and `npm run audit:styles` to inventory color literals, `!important`, legacy dashboard prefixes and legacy CSS token aliases across the web source.
-- Initial direct-file measurements (occurrences, not unique colors): `src/styles.css` — 418 lines, 286 hex, 4 rgb/hsl, 13 `!important`; `appearance-modes.css` — 135 lines, 134 hex, 59 `!important`. Package style sheets: Midnight 12 lines / 23 hex / 1 rgb/hsl; Paper 26 / 43; Glass 25 / 37; Aurora 4 / 1; Editorial 19 / 19; Studio 14 / 17. These are a focused baseline for the named files, not yet the whole-repository inventory.
-- Added `templates/base/tokens.contract.css` with neutral semantic fallbacks and temporary legacy aliases, plus color-token-driven structural primitives in `templates/base/base.css`. Angular global style ordering now loads the contract/base and all six package token sheets before the legacy global stylesheet.
-- Added scoped light/dark semantic token blocks for Midnight, Paper, Glass, Aurora, Editorial and Studio. All six manifests now declare `appearanceModes` and `defaultMode`; package layout hosts expose their stable `data-bee-template` identity. The engine reads declared defaults and rejects unsupported modes while preserving the existing preference keys and body mode attributes.
-- **Validation not yet run on this branch:** no dependency installation, Angular build, Playwright smoke/E2E execution, or screenshot comparison has been performed from this remote editing session. Run `cd apps/web && npm ci && npm run audit:styles && npm run build && npm run test:e2e -- e2e/smoke.spec.ts` in a checkout of this branch.
-- **Remaining after Step 2:** remove palette and `!important` rules from core appearance CSS after feature migration; migrate feature component colors; unify the three dashboard implementations and class families; reconcile legacy theme-token persistence; add stylelint/token-completeness/contrast guardrails; migrate public package decoration; complete authoring docs, screenshots, and visual QA. Global `styles.css` was neutralized in Step 2.
+Work remains isolated on `refactor/template-base-and-packages`. No PR has been opened and `main` has not been modified. The earlier Step 1 and Step 2 completion statements below this section were inaccurate and are superseded by this status: **Steps 1 and 2 are NOT complete** until every acceptance check in the active refactor brief is satisfied.
 
-- Added `npm run check:template-tokens` and `scripts/check-template-tokens.mjs` to verify that each package's manifest modes have a scoped token block and define every semantic `--bee-*` token in the base contract. This check is committed but has not yet been executed in this remote session.
+### Changes committed in this continuation
 
-- Unified the Midnight, Paper and Glass dashboard page into one `packages/shared/dashboard-page.component.ts`; package page components are now thin wrappers that preserve the pre-existing per-template document-guard and Settings access-token differences. Replaced `md-/pd-/gd-` shell prefixes with the shared `bee-dash-*` family in those pages, their package styles and core appearance selectors. The wrapper CSS still contains legacy color literals and is part of the pending feature/style migration.
-- Scoped Glass's translucent light-surface override to `data-bee-dashboard-mode="light"`, so it no longer unconditionally overrides the dark glass surface block.
+- **A1 — body/html active palette:** the template engine mirrors the route-selected template ID and mode to `document.documentElement.dataset.beeActiveTemplate` and `beeActiveMode`. Dashboard routes and the standalone authentication routes (`/login`, `/register`, `/forgot`, `/invite/accept`) select the dashboard palette; other routes select the public palette. Existing body attributes remain. All six package token sheets now combine their package-host selector with matching html active-template/mode selectors for Light and Dark. The token checker recognizes those combined selector blocks and checks for the html scope. The duplicate `body{background:var(--bg)}` rule was removed, and the legacy aliases in global `styles.css` references were replaced with `--bee-*` references.
+- **A3 — client legacy custom palettes:** removed the custom token constants, inline token application/save/clear methods, preview snapshot customization state, public token restore application and SSE token application from `template-engine.service.ts`. Removed `PACKAGE_THEME_TOKENS` imports/exports and all six package `theme-tokens.ts` files. The client no longer sends `PUT /api/templates/theme`. Old `tokens`/`customized` properties in public preference responses and SSE messages are not read or applied. Updated the legacy-token E2E scenario to assert that package-owned Editorial Light tokens remain active when an old payload includes custom colors. The template manager already contained no color-picker or theme-token UI, so it required no source edit.
+- **A4 — legacy alias definitions:** removed the host-level literal alias declarations from Midnight and Paper package styles, and removed the component-level literal alias declarations from Documents, Organization Roles and Teams. The six aliases remain centrally mapped by `templates/base/base.css`. The two literal alias blocks in `core/appearance-modes.css` are intentionally outstanding for Part B.
+- **A6 — token checker warnings:** package directories other than `shared` without `manifest.ts` now produce a warning included in the JSON output; missing/unreadable `tokens.css` and token-contract errors remain errors.
 
+### Source searches performed and their scope
 
-## Template base/package refactor — follow-up static corrections (2026-11-24)
+| Claim | Pattern / inspection | Scope and result |
+|---|---|---|
+| Active html scope exists for each mode | `html[data-bee-active-template="<id>"][data-bee-active-mode="light|dark"]` | Read all six `packages/*/tokens.css`; both mode selectors were present in all six. |
+| Engine mirrors active identity | `beeActiveTemplate`, `beeActiveMode`, `window.location.pathname` | Re-read `template-engine.service.ts` `apply()`; both attributes are assigned from the selected surface. |
+| Duplicate body alias removed | exact `body{background:var(--bg)}` | `apps/web/src/styles.css`; zero matches. The body rule uses `--bee-bg` and `--bee-text`. |
+| Global stylesheet no longer reads legacy aliases | `var(--bg)`, `var(--panel)`, `var(--muted)`, `var(--border)`, `var(--purple)`, `var(--cyan)` | `apps/web/src/styles.css`; zero matches for all six after replacement. This is not a whole-source search. |
+| Legacy custom palette runtime removed | `PACKAGE_THEME_TOKENS`, `THEME_TOKEN_KEYS`, `applyThemeTokens`, `saveThemeTokens`, `beeCustomTheme`, `theme-tokens`, `/api/templates/theme` | Re-read `template-engine.service.ts`, `packages/index.ts` and `e2e/smoke.spec.ts`; zero matches in those three files. The recursive branch tree contains no remaining `theme-tokens.ts` files. A whole-repository text search for every possible consumer is still outstanding. |
+| Literal legacy aliases removed from the named A4 files | `--(bg|panel|muted|border|purple|cyan)\s*:\s*#` | Re-read the five edited files: Midnight/Paper `styles.css`, Documents, Organization Roles and Teams; no matches in those files. The two core appearance-mode blocks are still outstanding under Part B. |
+| Wrapper cleanup | `#[0-9a-fA-F]`, `rgb\s*\(`, `.bee-dash-workspace`, `.bee-dash-label`, `.bee-dash-user` | NOT verified; A5 has not been implemented. |
 
-- Updated `apps/web/scripts/check-template-tokens.mjs` so the package scan explicitly excludes `shared` and processes only directories containing `manifest.ts`. A package with a manifest but missing/unreadable `tokens.css` is reported as an error; errors set a non-zero process exit code. The script was re-read after the edit. It has **not** been executed.
-- Normalized repeated identical `:is()` selectors in `apps/web/src/app/templates/core/appearance-modes.css` and removed its `.bee-dash-workspace` light-mode rule after reading the shared dashboard markup and `base.css`; the shared dashboard component does not emit that class. The file was re-read after editing. This is only a static repair: the file still contains a large light-mode palette and 59 `!important` occurrences, so Step 3 remains outstanding.
-- Read `apps/web/e2e/smoke.spec.ts`; no `md-`, `pd-` or `gd-` class-prefix selectors were found in that file, so no E2E selector edit was required there. This does **not** constitute a whole-repository prefix search.
-- Verified by reading the package registry imports in `packages/index.ts`: all referenced manifests, token modules and layout component files exist in the branch tree. Verified that all nine global stylesheet paths listed in `angular.json` exist. This does not validate Angular resolution or compilation.
-- Added `docs/template-token-mapping.md` with the initial literal-to-semantic-token map and explicit visual unifications to review. Extend this map before making additional color substitutions.
-- **Not verified:** no repository-wide executable grep, npm/node command, style checker, Angular build, Playwright execution, screenshot, browser, server, Docker or VPS operation was performed. The refactor remains in progress; no PR was opened and `main` was not modified.
+### Outstanding acceptance work
 
-- Follow-up to the selector cleanup: removed the unused `.bee-dash-workspace` structural rule from `templates/base/base.css` after confirming the shared dashboard component renders `.bee-dash-content` directly and does not render a workspace wrapper. Both edited CSS files were re-read. A repository-wide search for other references remains outstanding.
+- **A2 NOT complete:** `--bee-runtime-*` has not been removed. The required whole-repository search across app source, assets, `index.html` and the repository has not been completed, so deletion is deferred.
+- **A5 NOT complete:** the Midnight, Paper and Glass dashboard wrapper components still contain inline CSS. Their shell/grid duplication and dead selectors have not yet been migrated to `base.css` and removed. The Paper `.bee-dash-workspace` selector also remains.
+- **A1 whole-source audit NOT complete:** the route-driven html mirror and named global stylesheet corrections are present, but all other components/overlays/auth/loading/device-simulator consumers have not yet been exhaustively searched.
+- **A3 whole-repository audit NOT complete:** the engine, package index, six token modules and E2E references were inspected/updated. Backend tolerance for the old theme-token endpoint was not established by an exhaustive search of `src/` and `test/`; no backend API or SSE contract was changed.
+- **A4 acceptance NOT complete:** `appearance-modes.css` still contains its two legacy palette alias blocks, which are assigned to Part B.
+- **A6:** checker source was re-read after editing, but the script has NOT been executed.
+- **A7:** this status replaces the earlier inaccurate Step 1/Step 2 completion claims. Steps 1 and 2 remain NOT complete.
 
-- Step 1 follow-up: re-read `apps/web/e2e/smoke.spec.ts` (582 lines); no legacy `md-`, `pd-`, or `gd-` class-prefix references were found, so no selector edits were needed in that file. Re-read `appearance-modes.css`: 17 remaining `:is()` groups, zero groups made entirely of repeated identical selectors, and zero repeated-selector triplets. It still contains 59 `!important` declarations and palette colors by design until Step 3. This check covers the named files only; the required whole-repository search across every file under `apps/web/src`, `apps/web/e2e`, and docs examples has not been completed.
+### First-paint limitation
 
+The active html attributes are assigned by the Angular template engine. Before Angular boots, the document has no route-resolved active template/mode attributes and therefore uses the neutral fallback values in `tokens.contract.css` (currently light). A tenant-specific first-paint palette cannot be selected from the current browser-local preference/route state without an earlier bootstrap mechanism. No hex palette was reintroduced to hide this limitation.
 
-## Template refactor — Step 2 global stylesheet migration (2026-11-25)
+### Validation boundary
 
-- Replaced all hexadecimal color literals in `apps/web/src/styles.css` with semantic tokens or token-based `color-mix()`; replaced all three RGBA declarations with token-based mixes. The global stylesheet has no remaining literal hex/RGB/HSL colors.
-- Reduced global `:root` to font/rendering concerns; `body` consumes `--bee-bg` and `--bee-text`. No template palette remains in global root.
-- Removed duplicated `data-bee-public-mode="light"` rules from global styles; public Light palettes remain in package tokens.
-- Kept temporary legacy aliases only in `base.css` on `.bee-template-package-host`, so they resolve against each package's selected palette. Removed alias declarations from the contract root and all six package token files. Step 8 must remove these aliases after all legacy consumers migrate.
-- Added `--bee-overlay-strong` to the contract and all six packages in both modes for stronger dark shadows/backdrops. Corrected Midnight Light's malformed `--bee-blur: #0px` to `0px`.
-- Read `angular.json`: global order is contract, base, six package token files, then `styles.css`. Package layout components load their package stylesheet before `core/appearance-modes.css`.
-- Source-level validation during editing found zero remaining hex/RGB/HSL literals, public-Light selectors or `--surface` fallbacks in `styles.css`. The stylesheet's consumed `--bee-*` tokens were checked against the contract and both mode blocks in all six packages.
-- **Not verified:** no commands, scripts, build, tests, Playwright, screenshots, browser or runtime were executed. CSS parsing, actual rendering and visual equivalence require local validation.
+No repository code was executed. No npm/node command, token checker, style audit, Angular build, Playwright test, screenshot, browser, server, Docker or deployment was run. CSS parsing, cascade/specificity, runtime route timing, E2E behavior and visual equivalence are **NOT verified**. Midnight Dark equivalence is not claimed; semantic consolidations still require review against `packages/midnight/STYLE-GUIDE.md`.
 
-
-## Template refactor — Step 2 completion by source review (2026-11-25)
-
-- Re-read the complete `apps/web/src/styles.css` after the global palette migration. It contains no hexadecimal or RGB/HSL color literals and no named `white`/`black` color declarations. Global `:root` contains only font/rendering concerns; `body` consumes package `--bee-bg` and `--bee-text`.
-- Replaced flattened brand/action gradient endpoints with a dedicated `--bee-accent-strong` token, and preserved architecture panel depth with `--bee-surface` and `--bee-surface-deep`. Both new tokens are declared in the contract and both Light/Dark blocks of all six packages.
-- Kept legacy aliases only in `base.css` on `.bee-template-package-host`, marked temporary for Step 8; no legacy aliases are defined with literal colors.
-- Removed the global public-Light override block; package token files own public Light and Dark appearance.
-- Updated `docs/template-token-mapping.md` with role-specific color families, preserved gradient endpoints and documented visual unifications.
-- Re-read the style order: Angular global styles load contract, base, six package token files, then `styles.css`; package layout styles load before core appearance-mode styles. This is source-order verification only.
-- Verified by reading that every `--bee-*` token used by `styles.css` is declared in the contract and in both mode blocks of all six package token files. No build, script, test, Playwright, screenshot or browser execution was performed, per the repository brief.
-- **Step 2 status:** complete by source review. Visual equivalence, CSS parsing and runtime behavior remain for the human validation checklist.
