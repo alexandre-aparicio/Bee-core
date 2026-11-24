@@ -22,7 +22,8 @@ test("company plan user quota reserves capacity for active members and pending i
   await db.collection("tenants").insertOne({ id: "quota-company", name: "Quota Company", status: "active", createdAt: now });
   await db.collection("users").insertMany([
     { id: "quota-owner", email: "owner@quota.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "quota-company", createdAt: now, updatedAt: now },
-    { id: "quota-member", email: "member@quota.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], createdAt: now, updatedAt: now }
+    { id: "quota-member", email: "member@quota.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], createdAt: now, updatedAt: now },
+    { id: "quota-new-member", email: "new-member@quota.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], createdAt: now, updatedAt: now }
   ]);
   await db.collection("memberships").insertMany([
     { id: "quota-membership-owner", userId: "quota-owner", tenantId: "quota-company", role: "owner", status: "active", createdAt: now, updatedAt: now },
@@ -71,10 +72,11 @@ test("company plan user quota reserves capacity for active members and pending i
 
     const directAdd = await app.inject({
       method: "POST", url: "/companies/"+encodeURIComponent(companyRef)+"/memberships", headers,
-      payload: { email: "member@quota.test", role: "member" }
+      payload: { email: "new-member@quota.test", role: "member" }
     });
-    assert.equal(directAdd.statusCode, 409);
-    assert.match(directAdd.json().error, /user limit/i);
+    assert.equal(directAdd.statusCode, 202,"membership requests use a non-enumerating accepted response");
+    assert.equal(await db.collection("memberships").countDocuments({tenantId:"quota-company",status:"active"}),2,"the user limit must prevent the additional membership");
+    assert.equal(await db.collection("memberships").countDocuments({tenantId:"quota-company",userId:"quota-new-member"}),0);
   } finally {
     await app.close();
     await organizationsPlugin.stop?.(ctx);
