@@ -517,8 +517,9 @@ export class AppComponent implements OnInit {
     if (targetId === 'time-tracking' && !this.isPluginEnabled('time-tracking')) { this.navigateSection('dashboard'); return; }
     const route = this.sectionRoutes[targetId];
     if (!route) return;
-    if (window.location.pathname !== route) window.history.pushState({}, '', route);
-    this.path = route;
+    const targetPath = route.split('?')[0];
+    if (window.location.pathname + window.location.search !== route) window.history.pushState({}, '', route);
+    this.path = targetPath;
     this.activeSection = targetId;
     this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : targetId.startsWith('time-tracking-') ? 'time-tracking' : '');
     this.menuOpen = false;
