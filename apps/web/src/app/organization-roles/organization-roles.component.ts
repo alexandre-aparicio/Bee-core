@@ -1,12 +1,13 @@
 import { CommonModule } from "@angular/common";
 import { Component, HostListener, Input, OnChanges, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { RoleAuditComponent } from "./role-audit.component";
 type CustomRole={id:string;name:string;description:string;permissions:string[];mode?:"grant"|"restriction"};
 type SystemRole={key:string;label:string;description:string;protected:boolean;permissions:string[];active?:boolean;custom?:boolean;customId?:string};
 type PermissionOption={key:string;label:string;group:string;action:string;description:string;sensitive?:boolean;customRoleAssignable:boolean;assignable:boolean;selected:boolean};
 
 @Component({
- selector:"bee-organization-roles",standalone:true,imports:[CommonModule,FormsModule],
+ selector:"bee-organization-roles",standalone:true,imports:[CommonModule,FormsModule,RoleAuditComponent],
  template:`
  <section class="org-roles">
   <header class="org-roles__header org-roles__header--actions"><button type="button" (click)="load()" [disabled]="loading||busy">Refresh</button></header>
@@ -15,7 +16,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
   <nav class="org-roles__tabs" aria-label="Roles and permissions sections">
    <button type="button" [class.is-active]="activeTab==='system'" [attr.aria-selected]="activeTab==='system'" (click)="activeTab='system'"><span>01</span>System Roles <small>{{systemRoles.length}}</small></button>
    <button type="button" [class.is-active]="activeTab==='permissions'" [attr.aria-selected]="activeTab==='permissions'" (click)="activeTab='permissions'"><span>02</span>Available Permissions <small>{{permissions.length}}</small></button>
-   <button type="button" [class.is-active]="activeTab==='custom'" [attr.aria-selected]="activeTab==='custom'" (click)="activeTab='custom'"><span>03</span>Custom Roles <small>{{roles.length}}</small></button>
+   <button *ngIf="canReadAudit" type="button" [class.is-active]="activeTab==='audit'" [attr.aria-selected]="activeTab==='audit'" (click)="activeTab='audit'"><span>03</span>Role Audit <small>Audit</small></button>
   </nav>
   <section class="org-roles__tab-panel" *ngIf="activeTab==='system'">
    <div class="org-roles__section-heading"><div><h3>Roles</h3><p>Browse Core-managed native roles and organization-created roles in one collection. Native role permissions are maintained by Core; custom roles follow the organization delegation policy.</p></div><span class="org-roles__section-tag">{{systemRoles.length}} native · {{roles.length}} created</span></div>
@@ -121,17 +122,8 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
    </div>
    <p class="org-roles__footnote">The global delegation policy controls which capabilities may be granted to tenant custom roles. Protected capabilities remain unavailable for grants. Backend authorization remains authoritative.</p>
   </section>
-  <section class="org-roles__tab-panel" *ngIf="activeTab==='custom'">
-   <div class="org-roles__section-heading"><div><h3>Custom roles</h3><p>Create reusable permission profiles or additional restrictions. Denials always take priority over permissions granted by the primary role.</p></div><button *ngIf="canManage" type="button" class="org-roles__primary" (click)="openCreate()">+ Create custom role</button></div>
-   <div class="org-roles__custom-layout">
-    <aside class="org-roles__custom-list">
-     <div class="org-roles__list-heading"><strong>Saved roles</strong><span>{{roles.length}}</span></div>
-     <p *ngIf="loading">Loading roles…</p><p *ngIf="!loading&&!roles.length" class="org-roles__empty">No custom roles yet. Create one to define reusable access.</p>
-     <button class="org-roles__role-card" *ngFor="let item of roles;trackBy:trackRole" type="button" [class.active]="editingId===item.id" (click)="edit(item)"><span><strong>{{item.name}}</strong><small>{{item.description||'No description'}}</small></span><em [class.is-restriction]="item.mode==='restriction'">{{item.mode==='restriction'?'Restriction':'Grant'}}</em><small class="org-roles__role-meta">{{item.permissions.length}} {{item.mode==='restriction'?'denials':'permissions'}}</small></button>
-    </aside>
-    
-   </div>
-
+  <section class="org-roles__tab-panel org-roles__audit-panel" *ngIf="activeTab==='audit' && canReadAudit">
+   <bee-role-audit [tenantId]="tenantId" [role]="role" [accessToken]="accessToken"></bee-role-audit>
    <div class="org-roles__modal-backdrop" *ngIf="modalOpen" (click)="closeModal()">
     <div class="org-roles__modal" role="dialog" aria-modal="true" aria-labelledby="org-role-modal-title" (click)="$event.stopPropagation()">
      <div class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">ORGANIZATION ACCESS</span><h2 id="org-role-modal-title">{{editingId?'Edit custom role':'Create custom role'}}</h2><p>Define the role identity and choose its permission behavior.</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeModal()">×</button></div>
@@ -379,12 +371,13 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
 })
 export class OrganizationRolesComponent implements OnChanges{
  @Input() tenantId="";@Input() role="member";@Input() accessToken="";
- activeTab:"system"|"permissions"|"custom"="system";
+ activeTab:"system"|"permissions"|"audit"="system";
  roles:CustomRole[]=[];systemRoles:SystemRole[]=[];systemSearch="";roleSourceFilter:"all"|"native"|"created"="all";systemView:"cards"|"table"="cards";selectedSystemRole:SystemRole|null=null;name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";modalOpen=false;
  permissions:PermissionOption[]=[];permissionView:"cards"|"table"="cards";permissionPages:Record<string,number>={};permissionDirections:Record<string,"next"|"previous">={};expandedPermissionGroup:string|null=null;
  moduleSearch="";activePermissionModule:string|null=null;
  private tenantAssignablePermissions:string[]=[];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
+ get canReadAudit():boolean{return this.role==="owner"||this.role==="admin"||this.role==="super_admin";}
  get groups():string[]{return [...new Set(this.permissions.map(p=>p.group))];}
  get matchingPermissionModules():string[]{const query=this.moduleSearch.trim().toLowerCase();return this.groups.filter(group=>!this.selectedPermissionModules.includes(group)&&group.toLowerCase().includes(query));}
  get selectedPermissionModules():string[]{return this.groups.filter(group=>this.inGroup(group).some(item=>item.selected));}
@@ -402,14 +395,14 @@ export class OrganizationRolesComponent implements OnChanges{
  trackPermission(_index:number,item:PermissionOption):string{return item.key;}
  canGrant(item:PermissionOption):boolean{return item.customRoleAssignable&&this.tenantAssignablePermissions.includes(item.key);}
  updateMode(mode:"grant"|"restriction"):void{const previous=this.mode;this.mode=mode;const allowed=new Set<string>(this.tenantAssignablePermissions);for(const p of this.permissions)p.assignable=mode==="restriction"||(p.customRoleAssignable&&allowed.has(p.key));if(!this.editingId&&previous!==mode){for(const p of this.permissions)p.selected=mode==="grant"&&["members.read","plugins.read"].includes(p.key)&&p.assignable;}}
- ngOnChanges(changes:SimpleChanges):void{if(changes["tenantId"]||changes["role"]||changes["accessToken"]){this.reset();void this.load();}}
+ ngOnChanges(changes:SimpleChanges):void{if(changes["tenantId"]||changes["role"]||changes["accessToken"]){this.reset();if(!this.canReadAudit&&this.activeTab==="audit")this.activeTab="system";void this.load();}}
  trackRole(_i:number,item:CustomRole):string{return item.id;}
  private async request(path:string,method="GET",body?:unknown):Promise<any>{const response=await fetch("/api"+path,{method,headers:{authorization:"Bearer "+this.accessToken,...(body?{"content-type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Role request failed");return result;}
  async load():Promise<void>{if(!this.tenantId||!this.accessToken)return;this.loading=true;this.error="";try{const result=await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles");this.roles=result.roles||[];this.systemRoles=result.systemRoles||[];this.tenantAssignablePermissions=Array.isArray(result.tenantAssignablePermissions)?result.tenantAssignablePermissions:[];const allowed=new Set<string>(this.tenantAssignablePermissions);const selected=new Set(this.permissions.filter(permission=>permission.selected).map(permission=>permission.key));this.permissions=(Array.isArray(result.permissionCatalog)?result.permissionCatalog:[]).map((item:any)=>({key:item.key,label:item.label,group:String(item.resource||item.module||"Core").replace(/^./,letter=>letter.toUpperCase()),action:item.action||"manage",description:item.description||"",sensitive:!!item.sensitive,customRoleAssignable:!!item.customRoleAssignable,assignable:this.mode==="restriction"||!!item.customRoleAssignable&&allowed.has(item.key),selected:selected.has(item.key)||(selected.size===0&&["members.read","plugins.read"].includes(item.key))}));}catch(error){this.error=error instanceof Error?error.message:"Could not load roles";}finally{this.loading=false;}}
  permissionLabel(key:string):string{return this.permissions.find(item=>item.key===key)?.label||key;}
  permissionInitials(label:string):string{return label.trim().split(/\s+/).filter(Boolean).slice(0,2).map(word=>word.charAt(0).toUpperCase()).join("");}
- createCustomRole():void{this.activeTab="custom";this.openCreate();}
- editCatalogRole(item:SystemRole):void{const role=this.roles.find(candidate=>candidate.id===item.customId);if(!role)return;this.activeTab="custom";this.edit(role);}
+ createCustomRole():void{this.activeTab="audit";this.openCreate();}
+ editCatalogRole(item:SystemRole):void{const role=this.roles.find(candidate=>candidate.id===item.customId);if(!role)return;this.activeTab="audit";this.edit(role);}
  openSystemRole(item:SystemRole):void{this.selectedSystemRole=item;}
  closeSystemRole():void{this.selectedSystemRole=null;}
  openCreate():void{this.reset();this.modalOpen=true;this.moduleSearch="";this.activePermissionModule=null;}
