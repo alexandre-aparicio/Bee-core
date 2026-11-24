@@ -11,7 +11,7 @@ type Correction={id:string;sessionId:string;userEmail?:string;eventType:"clock_i
 export class BeeTimeTrackingComponent implements OnInit {
  @Input() tenantId=""; @Input() role="member"; @Input() accessToken="";
  session:TimeSession|null=null; mySchedule:Schedule|null=null; history:TimeSession[]=[]; corrections:Correction[]=[]; teamCorrections:Correction[]=[]; members:TeamMember[]=[];
- loading=false; busy=false; error=""; message=""; activeTab:"my-time"|"schedules"|"requests"="my-time";
+ loading=false; busy=false; error=""; message=""; activeSection:"my-day"|"schedule"|"history"|"requests"="my-day"; activeSubTab:"status"|"activity"|"mine"|"team"="status";
  selectedUserId=""; timezone="Europe/Madrid";
  scheduleDraft:ScheduleDay[]=Array.from({length:7},(_,day)=>({day,enabled:false,start:"09:00",end:"17:00",breakMinutes:0}));
  correctionTarget:{sessionId:string;eventType:"clock_in"|"clock_out";originalAt:string}|null=null;
