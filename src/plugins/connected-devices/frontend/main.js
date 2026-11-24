@@ -6,7 +6,7 @@ const CAPABILITIES=[
  {id:"pos.session.read",label:"Read POS sessions"},{id:"pos.order.write",label:"Create or update POS orders"},
  {id:"location.read",label:"Share location"},{id:"notifications.receive",label:"Receive notifications"}
 ];
-let role="member",section="",accessToken="",devices=[],canManage=false,selectedCapabilities=["device.status.write","scanner.use"];
+let role="member",section="",devices=[],canManage=false,selectedCapabilities=["device.status.write","scanner.use"];
 let qrPayload="",qrChallengeId="",qrExpiresAt="",grantsByDevice={},pendingAction=null,busy=false;
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
@@ -29,7 +29,7 @@ function clearNotices(){$("message").hidden=true;$("error").hidden=true;}
 function fmtDate(value){if(!value)return "Not connected yet";const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString();}
 function renderCapabilities(){
  $("capabilities").innerHTML=CAPABILITIES.map(item=>'<label><input type="checkbox" data-request-cap="'+item.id+'" '+(selectedCapabilities.includes(item.id)?"checked":"")+'><span>'+esc(item.label)+'</span></label>').join("");
- $("capabilities").querySelectorAll("[data-request-cap]").forEach(input=>input.addEventListener("change",()=>{const id=input.dataset.requestCap;selectedCapabilities=input.checked?[...selectedCapabilities,id]:selectedCapabilities.filter(item=>item!==id);}));
+ $("capabilities").querySelectorAll("[data-request-cap]").forEach(input=>input.addEventListener("change",()=>{const id=input.dataset.requestCap;selectedCapabilities=input.checked?[...selectedCapabilities,id]:selectedCapabilities.filter(item=>item!==id);$("create-pairing").disabled=selectedCapabilities.length===0;}));
  $("create-pairing").disabled=busy||selectedCapabilities.length===0;
 }
 function renderQr(){
@@ -66,7 +66,7 @@ function renderDevices(){
  $("devices").querySelectorAll("[data-action]").forEach(button=>button.addEventListener("click",()=>void handleAction(button.dataset.action,button.dataset.id)));
 }
 async function load(){
- if(!accessToken)return;clearNotices();$("loading").hidden=false;
+ clearNotices();$("loading").hidden=false;
  try{
   const result=await request("/connected-devices");
   devices=Array.isArray(result.devices)?result.devices:[];canManage=Boolean(result.canManage);
@@ -112,12 +112,12 @@ async function confirmAction(){
  finally{busy=false;}
 }
 async function activate(deviceId){
- try{await request("/connected-devices/"+encodeURIComponent(deviceId)+"/activate","POST",{});notice("Device reactivated.");await load();}
+ try{await request("/connected-devices/"+encodeURIComponent(deviceId)+"/activate","POST",{});await load();notice("Device reactivated.");}
  catch(error){notice(error.message||"Could not reactivate device.","error");}
 }
 async function approve(deviceId){
  const grants=grantsByDevice[deviceId]||[];if(!grants.length)return;
- try{await request("/connected-devices/"+encodeURIComponent(deviceId)+"/approve","POST",{grantedCapabilities:grants});notice("Device approved with the selected capabilities.");await load();}
+ try{await request("/connected-devices/"+encodeURIComponent(deviceId)+"/approve","POST",{grantedCapabilities:grants});await load();notice("Device approved with the selected capabilities.");}
  catch(error){notice(error.message||"Could not approve device.","error");}
 }
 async function handleAction(action,id){
