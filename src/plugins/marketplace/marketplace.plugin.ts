@@ -319,7 +319,8 @@ export const marketplacePlugin: BeePlugin = {
       const definition=await getMarketplacePackage(pluginId);
       if(!definition)return reply.code(404).send({error:"Plugin package is not available"});
       const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed"});
-      if(!globalPackage||(globalPackage.source==="zip"&&globalPackage.runtimeState!=="loaded"))return reply.code(409).send({error:"Plugin package is not ready on the platform"});
+      const builtInPackage=getTrustedPluginPackage(pluginId);
+      if(!builtInPackage&&(!globalPackage||(globalPackage.source==="zip"&&globalPackage.runtimeState!=="loaded")))return reply.code(409).send({error:"Plugin package is not ready on the platform"});
       const installations=db.collection("tenant_plugin_installations");
       const installation=await installations.findOne({tenantId:tenant.tenantId,pluginId});
       const activeJob=await installJobs.findOne({activeKey:tenant.tenantId+":"+pluginId});
@@ -338,8 +339,10 @@ export const marketplacePlugin: BeePlugin = {
         }
       }else{
         for(const dependencyId of await getDependencyOrder(pluginId)){
+          const dependencyDefinition=await getMarketplacePackage(dependencyId);
           const dependencyPackage=await db.collection("platform_plugin_packages").findOne({pluginId:dependencyId,status:"installed"});
-          if(!dependencyPackage||!await hasPluginEntitlement(db,tenant.tenantId,dependencyId)||!await isPluginInstalled(db,tenant.tenantId,dependencyId)||!await isPluginEnabled(db,tenant.tenantId,dependencyId)){
+          const dependencyReady=Boolean(dependencyDefinition)&&(Boolean(getTrustedPluginPackage(dependencyId))||Boolean(dependencyPackage&&(dependencyPackage.source!=="zip"||dependencyPackage.runtimeState==="loaded")));
+          if(!dependencyReady||!await hasPluginEntitlement(db,tenant.tenantId,dependencyId)||!await isPluginInstalled(db,tenant.tenantId,dependencyId)||!await isPluginEnabled(db,tenant.tenantId,dependencyId)){
             return reply.code(409).send({error:"Activate the required plugin first: "+dependencyId});
           }
         }
@@ -352,7 +355,7 @@ export const marketplacePlugin: BeePlugin = {
             await definition.installTenant?.(db,tenant.tenantId);
             await installations.updateOne(
               {tenantId:tenant.tenantId,pluginId},
-              {$set:{status:"installed",version:String(globalPackage.version??definition.version),installedAt:now,updatedAt:now,enabled:true,enabledUpdatedAt:now,enabledUpdatedBy:tenant.userId},
+              {$set:{status:"installed",version:String(globalPackage?.version??definition.version),installedAt:now,updatedAt:now,enabled:true,enabledUpdatedAt:now,enabledUpdatedBy:tenant.userId},
                $setOnInsert:{id:randomUUID(),tenantId:tenant.tenantId,pluginId}},
               {upsert:true}
             );
@@ -366,7 +369,7 @@ export const marketplacePlugin: BeePlugin = {
         }
       }
       const enabled=request.body.enabled;
-      await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:enabled?"plugin.enabled":"plugin.disabled",outcome:"success",resourceType:"plugin",resourceId:pluginId,metadata:{enabled,platformVersion:String(globalPackage.version??definition.version)}});
+      await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:enabled?"plugin.enabled":"plugin.disabled",outcome:"success",resourceType:"plugin",resourceId:pluginId,metadata:{enabled,platformVersion:String(globalPackage?.version??definition.version)}});
       return {success:true,pluginId:mask(tenant,pluginId,"plugin"),installed:enabled||installation?.status==="installed",enabled,status:"installed"};
     });
 
