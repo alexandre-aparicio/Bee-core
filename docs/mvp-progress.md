@@ -1020,3 +1020,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 
 
 - Follow-up: keep the single native ZIP file input permanently hidden; the visible Upload plugin button remains its only user-facing trigger, avoiding a second native file-picker control in the toolbar.
+
+## Settings → Plugins toolbar 50/50 layout and Teams control parity (2026-11-24)
+
+- Split the desktop toolbar into two equal-width columns: Search + module-type selector share the left 50%; the Cards/Table switch + Upload plugin action occupy the right 50%, with both controls aligned to the far right.
+- Search and module-type selector now share the available width equally inside the left half instead of keeping a fixed-width selector.
+- Matched Organization → Teams view-switch styling: unboxed wrapper, individually bordered icon buttons, matching selected/hover states, accessible labels and `aria-pressed`.
+- Matched the Teams secondary action treatment for Upload plugin: transparent surface, shared border/radius, 38px minimum height, typography, hover and pressed feedback.
+- At tablet/mobile widths the two halves stack cleanly; the action group stays right-aligned and all controls retain their order.
+- Light/Dark appearance continues to use the existing semantic theme tokens. Validation pending: Angular CI and browser visual checks.
