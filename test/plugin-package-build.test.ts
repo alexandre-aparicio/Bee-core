@@ -64,6 +64,13 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /team\/schedules/);
         assert.match(script, /team\/corrections/);
         assert.match(script, /submitCorrection/);
+        assert.match(script, /saveSchedule/);
+        assert.match(script, /confirmReview/);
+        assert.match(script, /renderReviewModal/);
+        assert.match(script, /clock-in/);
+        assert.match(script, /break-start/);
+        assert.match(script, /break-end/);
+        assert.match(script, /clock-out/);
         assert.doesNotThrow(() => new Script(script), "the standalone Time Tracking frontend must be valid JavaScript");
       } else if (item.id === "documents") {
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
@@ -81,9 +88,19 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.equal(installed.manifest.frontend.routes.length, 0);
       }
       const entrypoint = join(installed.packageDirectory, installed.manifest.backend.entrypoint);
-      const loaded = await import(pathToFileURL(entrypoint).href) as { default?: { manifest?: { name?: string; version?: string } } };
+      const loaded = await import(pathToFileURL(entrypoint).href) as { default?: { manifest?: { name?: string; version?: string }; tenantMigrations?: Array<{ id: string; checksum: string; phase?: string }> } };
       assert.equal(loaded.default?.manifest?.name, item.id);
       assert.equal(loaded.default?.manifest?.version, item.version);
+      if (item.id === "time-tracking") {
+        assert.deepEqual(installed.manifest.migrations, [{
+          id: "001_create_time_tracking_indexes",
+          checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37",
+          phase: "install"
+        }], "Control Horario ZIP must declare the tenant migration it ships");
+        assert.deepEqual(loaded.default?.tenantMigrations?.map(migration => ({
+          id: migration.id, checksum: migration.checksum, phase: migration.phase
+        })), installed.manifest.migrations, "runtime migration implementation must match the signed ZIP manifest");
+      }
     }
   } finally {
     await rm(root, { recursive: true, force: true });
