@@ -257,23 +257,25 @@ export const platformAdminPlugin:BeePlugin={
      archive,
      storageRoot:String(ctx.config.pluginPackagePath??"/data/bee-plugins"),
      publisherPublicKey:String(ctx.config.pluginPublisherPublicKey??""),
-     runtimeVersion:ctx.version
+     runtimeVersion:ctx.version,
+     validateManifest:async manifest=>{
+      const packages=db.collection("platform_plugin_packages");
+      const existing=await packages.findOne({pluginId:manifest.id});
+      if(existing&&existing.source!=="zip")throw new Error("Plugin ID is reserved by a built-in package");
+      if(existing?.version&&existing.version!==manifest.version){
+       const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
+       const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
+       const isUpgrade=incoming[0]!>current[0]!||(incoming[0]===current[0]&&incoming[1]!>current[1]!)||(incoming[0]===current[0]&&incoming[1]===current[1]&&incoming[2]!>current[2]!);
+       if(!isUpgrade)throw new Error("Package version must be newer than the currently installed version");
+      }
+      for(const dependency of manifest.dependencies.filter(item=>!item.optional)){
+       const dependencyPackage=await packages.findOne({pluginId:dependency.pluginId,status:"installed"});
+       if(!dependencyPackage)throw new Error("Required platform dependency is not installed: "+dependency.pluginId);
+       if(dependencyPackage.runtimeState==="failed")throw new Error("Required platform dependency is not healthy: "+dependency.pluginId);
+      }
+     }
     });
     const {manifest,digest,storageKey,packageDirectory,extractedFiles,extractedBytes}=installed;
-    const packages=db.collection("platform_plugin_packages");
-    const existing=await packages.findOne({pluginId:manifest.id});
-    if(existing&&existing.source!=="zip")return reply.code(409).send({error:"Plugin ID is reserved by a built-in package"});
-    if(existing?.version&&existing.version!==manifest.version){
-     const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
-     const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
-     const isUpgrade=incoming[0]!>current[0]!||(incoming[0]===current[0]&&incoming[1]!>current[1]!)||(incoming[0]===current[0]&&incoming[1]===current[1]&&incoming[2]!>current[2]!);
-     if(!isUpgrade)return reply.code(409).send({error:"Package version must be newer than the currently installed version"});
-    }
-    for(const dependency of manifest.dependencies.filter(item=>!item.optional)){
-     const dependencyPackage=await packages.findOne({pluginId:dependency.pluginId,status:"installed"});
-     if(!dependencyPackage)return reply.code(409).send({error:"Required platform dependency is not installed: "+dependency.pluginId});
-     if(dependencyPackage.runtimeState==="failed")return reply.code(409).send({error:"Required platform dependency is not healthy: "+dependency.pluginId});
-    }
     const now=new Date();
     await db.collection("platform_plugin_package_versions").updateOne(
      {pluginId:manifest.id,version:manifest.version},
