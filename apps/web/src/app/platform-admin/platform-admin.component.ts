@@ -24,6 +24,17 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
      </div>
      @if(error){<p class="platform-admin__error">{{error}}</p>}
      @if(success){<p class="platform-admin__success">{{success}}</p>}
+     <section class="platform-admin__tenant-tab-content" aria-label="Global plugin packages">
+       <div class="platform-admin__manage-section"><div><h3>Global plugin packages</h3><p>Signed ZIP packages are stored separately from tenant activation.</p></div><button type="button" (click)="loadPlatformPackages()" [disabled]="pluginPackagesLoading">Refresh packages</button></div>
+       <div *ngIf="pluginPackagesLoading" class="platform-admin__empty">Loading platform packages…</div>
+       <div *ngIf="!pluginPackagesLoading && !platformPackages.length" class="platform-admin__empty">No platform packages registered.</div>
+       <div class="platform-admin__tenant-list" *ngIf="platformPackages.length">
+         <article class="platform-admin__tenant-plugin" *ngFor="let plugin of platformPackages">
+           <div class="platform-admin__tenant-plugin-main"><span class="platform-admin__tenant-plugin-mark">⌘</span><div><strong>{{plugin.name}}</strong><small>{{plugin.pluginKey}} · v{{plugin.version}} · {{plugin.source}}</small></div></div>
+           <div class="platform-admin__tenant-plugin-status"><span class="platform-company-status">{{plugin.status}}</span><small>{{plugin.runtimeState || "Runtime not loaded"}}</small></div>
+         </article>
+       </div>
+     </section>
      @if(loading){<div class="platform-admin__empty">Loading companies…</div>}
      @else if(!companies.length){<div class="platform-admin__empty">No tenants have been created yet.</div>}
      @else if(viewMode==='cards'){
