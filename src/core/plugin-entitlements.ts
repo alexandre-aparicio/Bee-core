@@ -129,6 +129,35 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     }]
   },
   {
+    id: "time-tracking",
+    name: "Control Horario",
+    version: "0.1.0",
+    description: "Tenant-scoped employee time clock, breaks and work-session history",
+    category: "productivity",
+    visibleInPlans: ["pro", "enterprise"],
+    includedInPlans: ["pro", "enterprise"],
+    purchasable: true,
+    system: false,
+    dependencies: [],
+    codeAvailable: true,
+    status: "published",
+    migrations: [{
+      id: "001_create_time_tracking_indexes",
+      checksum: "bee-time-tracking-phase-1-001",
+      up: async db => {
+        await db.collection("tenant_time_tracking_sessions").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "time_tracking_tenant_session_unique" });
+        await db.collection("tenant_time_tracking_sessions").createIndex({ tenantId: 1, userId: 1, startedAt: -1 }, { name: "time_tracking_user_history" });
+        await db.collection("tenant_time_tracking_sessions").createIndex({ tenantId: 1, userId: 1 }, { unique: true, partialFilterExpression: { active: true }, name: "time_tracking_one_active_session" });
+      },
+      down: async db => {
+        for (const name of ["time_tracking_tenant_session_unique", "time_tracking_user_history", "time_tracking_one_active_session"]) {
+          try { await db.collection("tenant_time_tracking_sessions").dropIndex(name); }
+          catch (error) { if (![26, 27].includes((error as { code?: number }).code ?? 0)) throw error; }
+        }
+      }
+    }]
+  },
+  {
     id: "hello-world",
     name: "Hola Mundo",
     version: "0.1.0",
