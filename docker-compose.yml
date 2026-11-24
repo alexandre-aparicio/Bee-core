@@ -9,6 +9,8 @@ services:
       MONGO_INITDB_DATABASE: ${MONGODB_DB:-bee_core}
       MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:?Set MONGO_APP_USERNAME in .env}
       MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env}
+    networks:
+      - database
     volumes:
       - bee_core_mongodb_data:/data/db
       - ./docker/mongo-init/01-create-app-user.sh:/docker-entrypoint-initdb.d/01-create-app-user.sh:ro
@@ -46,6 +48,9 @@ services:
       BEE_FILES_DIR: /data/bee-files
     volumes:
       - bee_core_files:/data/bee-files
+    networks:
+      - application
+      - database
     depends_on:
       mongodb:
         condition: service_healthy
@@ -69,8 +74,17 @@ services:
     depends_on:
       bee-core:
         condition: service_healthy
+    networks:
+      - application
     ports:
       - "${BEE_WEB_PORT:-8080}:8080"
+
+networks:
+  application:
+    driver: bridge
+  database:
+    driver: bridge
+    internal: true
 
 volumes:
   bee_core_mongodb_data:
