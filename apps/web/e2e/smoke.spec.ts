@@ -80,7 +80,7 @@ test('dashboard template can be selected without changing public theme', async (
 });
 
 
-test('public tenant template and design tokens hot-load from the request domain', async ({ page }) => {
+test('legacy public theme token payloads are ignored while template selection is restored', async ({ page }) => {
   await page.route('**/api/templates/public', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -93,11 +93,10 @@ test('public tenant template and design tokens hot-load from the request domain'
   }));
   await page.goto('/');
   await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
-  await expect.poll(() => page.locator('.bee-template-package-host--editorial').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#112233');
-  await expect.poll(() => page.locator('.bee-template-package-host--editorial').evaluate(node => getComputedStyle(node).getPropertyValue('--purple').trim())).toBe('#abcdef');
-  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
+  await expect(page.locator('html')).toHaveAttribute('data-bee-active-template', 'editorial');
+  await expect(page.locator('html')).toHaveAttribute('data-bee-active-mode', 'light');
+  await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bee-bg').trim())).toBe('#f6f7fb');
 });
-
 
 test('tenant admin can install and activate a trusted dashboard template package', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
@@ -108,12 +107,6 @@ test('tenant admin can install and activate a trusted dashboard template package
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ selection: { public: 'aurora', dashboard: 'midnight' }, installedTemplates: ['aurora', 'editorial', 'midnight', 'paper'] })
   }));
-  await page.route('**/api/templates/theme', route => {
-    const tokens = route.request().method() === 'PUT'
-      ? { '--bg': '#101827', '--panel': '#1b2940', '--muted': '#a2b1c7', '--border': '#40516b', '--purple': '#8b9dff', '--cyan': '#69d9e8' }
-      : { '--bg': '#080a12', '--panel': '#10131e', '--muted': '#8991a4', '--border': '#303447', '--purple': '#8c72ff', '--cyan': '#69e5d4' };
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tokens, customized: route.request().method() === 'PUT' }) });
-  });
   await page.route('**/api/templates/stream-ticket', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: 'one-use-test-ticket' })
   }));
