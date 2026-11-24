@@ -136,7 +136,7 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const alphaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCatalog.statusCode, 200);
-    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["connected devices", "control horario", "documents", "hola mundo", "private files", "team notes"]);
+    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["connected devices", "control horario", "documents", "private files", "team notes"]);
     const alphaNotesOffer = alphaCatalog.json().plugins.find((plugin: { name: string }) => plugin.name.toLowerCase() === "team notes");
     const alphaNotesPluginRef = alphaNotesOffer.id as string;
     assert.equal(alphaNotesOffer.pluginKey, "notes", "frontend registry key must remain stable while the resource reference stays opaque");
@@ -147,7 +147,7 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const betaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaCatalog.statusCode, 200);
-    assert.deepEqual(betaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["connected devices", "control horario", "documents", "hola mundo", "private files", "team notes"]);
+    assert.deepEqual(betaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["connected devices", "control horario", "documents", "private files", "team notes"]);
     const betaNotesPluginRef = betaCatalog.json().plugins.find((plugin: { pluginKey: string }) => plugin.pluginKey === "notes").id as string;
     const betaNotesInstallAttempts = await Promise.all([
       app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } }),
