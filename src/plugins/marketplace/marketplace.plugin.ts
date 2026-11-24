@@ -129,6 +129,8 @@ export const marketplacePlugin: BeePlugin = {
           await ctx.events.emit("subscription.updated", { tenantId, planId: plan.id, status });
           const automaticPackages=await db.collection("plugin_catalog").find({includedInPlans:plan.id,activationPolicy:"automatic",codeAvailable:true}).project<{id:string}>({id:1,_id:0}).toArray();
           for(const item of automaticPackages)await syncAutomaticPluginProvisioning(db,item.id);
+          const assignedPackages=await db.collection("plugin_plan_package_assignments").find({planId:plan.id}).project<{pluginId:string}>({pluginId:1,_id:0}).toArray();
+          for(const item of assignedPackages)await syncAutomaticPluginProvisioning(db,item.pluginId);
         }
         return { success: true, event: body.event, changed };
       }
