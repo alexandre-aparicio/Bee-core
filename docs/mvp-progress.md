@@ -903,3 +903,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - The detail modal lists the role description, status, protection boundary, total permission count and every assigned permission. Both this modal and the existing custom-role editor now use the canonical Teams/Documents overlay and panel geometry, including full-viewport 8px blur and semantic overlay/surface/shadow tokens.
 - System roles are displayed as Active unless the API explicitly returns `active: false`; this UI does not activate/deactivate or mutate built-in roles.
 - **Validation pending:** source-level inspection only. Angular build, unit tests, browser interaction, responsive checks and Light/Dark visual comparison have not yet been run. No deployment has been performed.
+
+## Organization Roles — System Roles collection controls and permission circles (2026-11-24)
+
+- Replaced the overlapping text permission badges with circular markers. Each marker shows up to two initials (for example VM for View members, VP for View plugins, VF for View files) and reveals the complete permission label on hover and keyboard focus; accessible labels and native title text are also provided.
+- Added the same Cards/Table view switcher composition used by Organization → Teams, with matching dimensions, selected state, focus and hover behavior. Both views operate on the same filtered system-role collection.
+- Added a role search field that filters role names, descriptions, permission labels and permission keys, plus matching empty/no-results states and result count.
+- Added a Create role action in the same header position and styling as Teams. Since Core-managed system roles are immutable, this action opens the existing Custom Roles creation flow rather than attempting to create a built-in system role.
+- Documented the shared composition and marker behavior in the global design system and Midnight style guide.
+- **Validation pending:** source-level review only. No Angular build, automated tests, browser tooltip interaction, Cards/Table visual comparison, responsive checks, Light/Dark screenshot review or deployment has been run.
