@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { filesPlugin } from "../src/plugins/files/files.plugin.js";
+import { unmaskResourceId } from "../src/core/session-id.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
@@ -115,8 +116,16 @@ test("private files and images are isolated by active company", { skip: !uri }, 
 
     const alphaList = await app.inject({ method: "GET", url: "/files", headers: { authorization: "Bearer " + alphaToken } });
     const betaList = await app.inject({ method: "GET", url: "/files", headers: { authorization: "Bearer " + betaMemberToken } });
-    assert.deepEqual(alphaList.json().files.map((file: { id: string }) => [file.id]), [[alphaFileId]]);
-    assert.deepEqual(betaList.json().files.map((file: { id: string }) => [file.id]), [[betaFileId]]);
+    const alphaClaims=JSON.parse(Buffer.from(alphaToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const alphaSession=await db.collection("refresh_sessions").findOne({id:alphaClaims.sid});
+    assert.ok(alphaSession);
+    const decodeAlphaFile=(reference:string)=>unmaskResourceId(reference,"file",{sessionId:alphaSession.id,expiresAt:alphaSession.expiresAt},"01234567890123456789012345678901");
+    assert.deepEqual(alphaList.json().files.map((file: { id: string }) => decodeAlphaFile(file.id)), [decodeAlphaFile(alphaFileId)]);
+    const betaClaims=JSON.parse(Buffer.from(betaManagerToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const betaSession=await db.collection("refresh_sessions").findOne({id:betaClaims.sid});
+    assert.ok(betaSession);
+    const decodeBetaFile=(reference:string)=>unmaskResourceId(reference,"file",{sessionId:betaSession.id,expiresAt:betaSession.expiresAt},"01234567890123456789012345678901");
+    assert.deepEqual(betaList.json().files.map((file: { id: string }) => decodeBetaFile(file.id)), [decodeBetaFile(betaFileId)]);
 
     const crossSessionRead = await app.inject({ method: "GET", url: "/files/" + alphaFileId, headers: { authorization: "Bearer " + alphaSecondSessionToken } });
     assert.equal(crossSessionRead.statusCode, 404, "a file reference must not resolve in another session of the same user");
