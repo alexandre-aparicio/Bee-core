@@ -30,7 +30,7 @@ type Delivery = { id:string; reference:string; kind:"delivery"|"pickup"; status:
   <div class="bee-deliveries__list">
     <article *ngFor="let item of deliveries;trackBy:track" class="bee-deliveries__item">
       <div class="bee-deliveries__main"><div><strong>{{item.reference}}</strong><span class="bee-deliveries__tag">{{item.kind==="pickup"?"Recogida":"Entrega"}}</span></div><h3>{{item.recipient}}</h3><p>{{item.address}}</p><small>{{item.phone}} <span *ngIf="item.plannedAt">· {{item.plannedAt | date:'short'}}</span></small></div>
-      <div class="bee-deliveries__side"><span class="bee-deliveries__status">{{statusLabel(item.status)}}</span><button *ngIf="canManage && !item.assignedTo" type="button" (click)="assign(item)" [disabled]="saving">Asignarme</button><select *ngIf="canUpdate(item)" [ngModel]="item.status" (ngModelChange)="changeStatus(item,$event)" [ngModelOptions]="{standalone:true}" aria-label="Estado de la operación"><option *ngFor="let status of nextStatuses(item.status)" [value]="status">{{statusLabel(status)}}</option></select></div>
+      <div class="bee-deliveries__side"><span class="bee-deliveries__status">{{statusLabel(item.status)}}</span><button *ngIf="canManage && !item.assigned" type="button" (click)="assign(item)" [disabled]="saving">Asignarme</button><select *ngIf="canUpdate(item)" [ngModel]="item.status" (ngModelChange)="changeStatus(item,$event)" [ngModelOptions]="{standalone:true}" aria-label="Estado de la operación"><option *ngFor="let status of nextStatuses(item.status)" [value]="status">{{statusLabel(status)}}</option></select></div>
     </article>
   </div>
 </section>`,

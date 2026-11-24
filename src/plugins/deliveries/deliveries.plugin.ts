@@ -65,7 +65,7 @@ export const deliveriesPlugin: BeePlugin = {
     ctx.server.get("/deliveries", { preHandler: read }, async request => {
       const tenant = (request as AuthenticatedRequest).tenantContext;
       const query = request.query as { status?: string; assignedToMe?: string };
-      const filter: Record<string, unknown> = {};
+      const filter: any = {};
       if (query.status && STATUSES.includes(query.status as DeliveryStatus)) filter.status = query.status;
       if (query.assignedToMe === "true") filter.assignedTo = tenant.userId;
       const items = await rows(tenant.tenantId).find(filter).sort({ updatedAt: -1 }).limit(300).toArray();
