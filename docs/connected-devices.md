@@ -156,7 +156,7 @@ All paths below are plugin-owned and are mounted under the normal Bee-Core API p
 | POST | `/connected-devices/:deviceId/suspend` / `activate` | Owner/admin suspends or reactivates a device. |
 | POST | `/connected-devices/:deviceId/revoke` | Owner/admin or device owner permanently revokes access. |
 | PATCH | `/connected-devices/:deviceId` | Renames a device. |
-| POST | `/connected-devices/device/heartbeat` | Active device updates its last-seen timestamp. |
+| POST | `/connected-devices/device/unlink` | Companion cancels its own pending or active pairing using its device credential; invalidates the credential and cancels the claimed challenge. |\n| POST | `/connected-devices/device/heartbeat` | Active device updates its last-seen timestamp. |
 | POST | `/connected-devices/device/rotate-credential` | Active device atomically rotates its credential; the new value is returned once. |
 | GET | `/connected-devices/device/me` | Returns the authenticated device's non-secret profile and granted capabilities. |
 
