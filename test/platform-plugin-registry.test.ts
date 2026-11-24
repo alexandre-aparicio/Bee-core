@@ -34,6 +34,7 @@ test("platform package registry separates global package state from tenant insta
     });
 
     assert.equal(await migrateLegacyPlatformPackageInstalls(db, "super-org"), 1);
+    assert.equal(await migrateLegacyPlatformPackageInstalls(db, "super-org"), 0, "legacy migration is idempotent");
     const [pkg] = await listPlatformPluginPackages(db);
     assert.equal(pkg?.pluginId, "documents");
     assert.equal(pkg?.status, "installed");
