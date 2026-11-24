@@ -1073,3 +1073,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Permission data, access policy labels, grantability logic and backend authorization are unchanged.
 - **Validation pending:** source-level implementation and template/CSS inspection only. Angular build, automated tests, browser interaction, keyboard accessibility, responsive checks and Midnight Light/Dark visual QA have not yet been run. No deployment has been performed.
 
+
+
+## Organization → Roles & Permissions — module-based custom role builder (2026-11-24)
+
+- Replaced the long flat permission-group list in the custom-role modal with a type-ahead module picker. Matching module suggestions appear while typing; modules already assigned to the role are omitted from the suggestions.
+- Selecting a module opens a focused permission card containing only that module's permission options, descriptions, technical keys and protected/sensitive states. The administrator can select permissions and save/close the module card before continuing with another module.
+- Added a compact assigned-module strip. Module chips are 34px high and use a four-column desktop grid (two columns on narrow screens); each chip has independent edit, module-name/count and remove actions. Editing reopens the same module card with its current selections; removing clears only that module's selections.
+- Preserved the existing role name/description, grant-versus-restriction behavior, permission catalogue, tenant assignability checks, protected permission rules and existing POST/PUT/DELETE API contract. The role is still submitted as the same flat permission-key array; no backend or authorization changes were made.
+- Styling uses the component's semantic surface, border, purple accent, warning and danger tokens, with explicit Midnight Light host-context compatibility and inherited Midnight Dark behavior. The module chip layout keeps a low visual height and at least four columns at desktop widths.
+- **Validation pending:** implementation is on a feature branch. Angular production build, automated tests, browser interaction, keyboard accessibility, responsive checks and Midnight Light/Dark visual QA have not yet been run. No deployment has been performed.
