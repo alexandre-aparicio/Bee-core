@@ -1,3 +1,11 @@
+## Connected Devices modal confirmations and empty-body request fix (2026-11-24)
+
+- Replaced native browser confirmation prompts for Suspend, Revoke, Unlink and Delete with a consistent accessible modal dialog. The modal shows the device and consequence, provides Cancel/Confirm actions, and visually distinguishes irreversible operations.
+- Connected Devices API errors are surfaced in a modal rather than an inline warning in the cards area; successful operation feedback remains a compact status message.
+- Fixed the Connected Devices API request helper: it now sets `Content-Type: application/json` only when a request includes a body. The body-less DELETE device request no longer sends an empty JSON body header, addressing Fastify's `FST_ERR_CTP_EMPTY_JSON_BODY`. POST actions that require empty JSON continue to send `{}` explicitly.
+- No backend authorization or tenant-scoping behavior changed.
+- Validation pending: source review only; Angular/backend builds, automated tests, browser modal interactions, DELETE API smoke test and live VPS verification have not been run.
+
 ## Connected Devices card lifecycle actions (2026-11-24)
 
 - Added a vertical three-dot action menu to each device card with Unlink, Revoke, Suspend, Reactivate and Delete.
