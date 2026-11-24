@@ -53,7 +53,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
      </tr>
     </tbody></table>
    </div>
-   <div *ngIf="!loading && !filteredSystemRoles.length" class="org-roles__empty"><strong>{{systemRoles.length?'No matching roles':'No system roles available'}}</strong><span>{{systemRoles.length?'Try another search term.':'The system role catalogue is currently empty.'}}</span><button *ngIf="systemSearch" type="button" class="teams-workspace__text-button" (click)="systemSearch=''">Clear search</button></div>
+   <div *ngIf="!loading && !filteredSystemRoles.length" class="org-roles__empty"><strong>{{systemRoles.length||roles.length?'No matching roles':'No roles available'}}</strong><span>{{systemRoles.length||roles.length?'Try another search term or change the role source.':'No native or created roles are available.'}}</span><button *ngIf="systemSearch" type="button" class="teams-workspace__text-button" (click)="systemSearch=''">Clear search</button></div>
    <div class="org-roles__modal-backdrop" *ngIf="selectedSystemRole" (click)="closeSystemRole()">
     <section class="org-roles__modal org-roles__details-modal" role="dialog" aria-modal="true" aria-labelledby="org-system-role-title" (click)="$event.stopPropagation()" (keydown.escape)="closeSystemRole()" tabindex="-1">
      <header class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">{{selectedSystemRole.custom?'ORGANIZATION ROLE · CUSTOM':'SYSTEM ROLE · CORE MANAGED'}}</span><h2 id="org-system-role-title">{{selectedSystemRole.label}}</h2><p>{{selectedSystemRole.description}}</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeSystemRole()">×</button></header>
