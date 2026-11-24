@@ -58,7 +58,7 @@ export class BeeDeliveriesComponent implements OnInit,OnChanges {
   }
   async load():Promise<void>{if(!this.accessToken)return;this.loading=true;this.error="";try{
     const params=new URLSearchParams();if(this.statusFilter)params.set("status",this.statusFilter);if(this.canManage&&this.assignmentFilter!=="all")params.set("assignment",this.assignmentFilter);
-    const result=await this.request("/api/deliveries"+(params.size?"?"+params.toString():""));
+    const queryString=params.toString();const result=await this.request("/api/deliveries"+(queryString?"?"+queryString:""));
     this.deliveries=result.deliveries||[];
     if(this.canManage && this.tenantId){
       const directory=await this.request("/api/companies/"+encodeURIComponent(this.tenantId)+"/memberships");

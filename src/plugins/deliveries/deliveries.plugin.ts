@@ -74,7 +74,8 @@ export const deliveriesPlugin: BeePlugin = {
       const tenant = (request as AuthenticatedRequest).tenantContext;
       const query = request.query as { status?: string; assignment?: "all" | "mine" | "unassigned" };
       const canManageDeliveries = hasTenantPermission(tenant, "deliveries.manage");
-      const assignment = ["all","mine","unassigned"].includes(String(query.assignment)) ? query.assignment : "all";
+      const requestedAssignment = String(query.assignment ?? "all");
+      const assignment: "all" | "mine" | "unassigned" = requestedAssignment === "mine" || requestedAssignment === "unassigned" ? requestedAssignment : "all";
       const filter: any = deliveryVisibilityFilter(tenant.userId, canManageDeliveries, assignment);
       if (query.status && STATUSES.includes(query.status as DeliveryStatus)) filter.status = query.status;
       const items = await rows(tenant.tenantId).find(filter).sort({ updatedAt: -1 }).limit(300).toArray();
