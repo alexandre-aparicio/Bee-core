@@ -381,7 +381,7 @@ export const platformAdminPlugin:BeePlugin={
     return reply.code(400).send({error:"Resolved plugin storage path is unsafe"});
    }
    for(const version of versions){
-    if(!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(String(version.version))||version.packageDirectory&&resolve(version.packageDirectory)!==resolve(pluginRoot,String(version.version))){
+    if(!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(String(version.version))||version.packageDirectory&&resolve(version.packageDirectory)!==resolve(pluginRoot,String(version.version))){
      await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
      return reply.code(409).send({error:"Stored package version path does not match its registered identity"});
     }
