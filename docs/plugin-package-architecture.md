@@ -91,6 +91,7 @@ ZIP package versions are recorded in `platform_plugin_package_versions`. The ext
 
 - Uploaded packages are backend-only. No uploaded frontend bundle is executed or mounted into Angular.
 - The package backend is trusted executable code inside the Bee Core process. Signature verification establishes publisher trust; it is not a sandbox.
+- Manifest permission declarations are currently validated and stored as package metadata; they are not automatically added to the tenant role catalog. External route handlers must enforce tenant context, entitlement, installation/enabled state and permissions using the existing Core guards.
 - The public key setting currently supports one configured publisher key, not a multi-publisher trust store or key rotation UI.
 - Package upgrades retain prior version directories, but startup does not automatically fall back if the new version fails to load.
 - Global ZIP install is separate from tenant grants/activation. Tenant migration hooks run through the existing Marketplace lifecycle worker.
