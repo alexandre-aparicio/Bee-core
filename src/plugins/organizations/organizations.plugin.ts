@@ -163,7 +163,7 @@ export const organizationsPlugin:BeePlugin={
    const description=String(req.body?.description??"").trim().slice(0,240);
    const now=new Date(),role:CustomRolePolicy={id:randomUUID(),tenantId:req.params.companyId,name,description,permissions,mode,createdBy:auth.user!.id,updatedBy:auth.user!.id,createdAt:now,updatedAt:now};
    try{await customRoles.insertOne(role);}catch{return reply.code(409).send({error:"A custom role with this name already exists"});}
-   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.created",outcome:"success",resourceType:"role",resourceId:role.id,metadata:{name,mode}});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.created",outcome:"success",resourceType:"role",resourceId:role.id,metadata:{name,mode,permissionCount:permissions.length,actorEmail:auth.user!.email,changeSummary:"Created "+mode+" role · "+permissions.length+" permissions"}});
    return reply.code(201).send({role:{id:mask(auth,role.id,"role"),name,description,permissions,mode}});
   });
   ctx.server.put<{Params:{companyId:string;roleId:string};Body:{name?:string;description?:string;permissions?:unknown;mode?:"grant"|"restriction"}}>("/companies/:companyId/roles/:roleId",async(req,reply)=>{
@@ -180,9 +180,12 @@ export const organizationsPlugin:BeePlugin={
     const pendingInvitations=await invitations.countDocuments({tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()},$or:[{customRoleId:req.params.roleId},{restrictionRoleIds:req.params.roleId}]});
     if(assigned||pendingInvitations)return reply.code(409).send({error:"A role cannot change between grant and restriction mode while assigned to members or pending invitations."});
    }
+   const previousPermissions=existing.permissions??[],previousSet=new Set(previousPermissions),nextSet=new Set(permissions);
+   const addedPermissions=permissions.filter(key=>!previousSet.has(key)),removedPermissions=previousPermissions.filter(key=>!nextSet.has(key));
+   const changes=[...(existing.name!==name?["Renamed "+existing.name+" → "+name]:[]),...( (existing.mode??"grant")!==mode?["Mode "+(existing.mode??"grant")+" → "+mode]:[]),...(addedPermissions.length?["Added "+addedPermissions.length+" permissions ("+addedPermissions.slice(0,5).join(", ")+(addedPermissions.length>5?", …":"")+")"]:[]),...(removedPermissions.length?["Removed "+removedPermissions.length+" permissions ("+removedPermissions.slice(0,5).join(", ")+(removedPermissions.length>5?", …":"")+")"]:[])];
    const result=await customRoles.updateOne({id:req.params.roleId,tenantId:req.params.companyId},{$set:{name,description,permissions,mode,updatedBy:auth.user!.id,updatedAt:new Date()}});
    if(!result.matchedCount)return reply.code(404).send({error:"Custom role not found"});
-   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.updated",outcome:"success",resourceType:"role",resourceId:req.params.roleId,metadata:{name,mode}});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.updated",outcome:"success",resourceType:"role",resourceId:req.params.roleId,metadata:{name,previousName:existing.name,mode,previousMode:existing.mode??"grant",permissionCount:permissions.length,addedPermissionCount:addedPermissions.length,removedPermissionCount:removedPermissions.length,addedPermissionKeys:addedPermissions.slice(0,8).join(", ").slice(0,256),removedPermissionKeys:removedPermissions.slice(0,8).join(", ").slice(0,256),actorEmail:auth.user!.email,changeSummary:(changes.join("; ")||"Saved role without permission changes").slice(0,256)}});
    return {role:{id:mask(auth,req.params.roleId,"role"),name,description,permissions,mode}};
   });
   ctx.server.delete<{Params:{companyId:string;roleId:string}}>("/companies/:companyId/roles/:roleId",async(req,reply)=>{
@@ -191,9 +194,10 @@ export const organizationsPlugin:BeePlugin={
    const assigned=await memberships.countDocuments({tenantId:req.params.companyId,$or:[{customRoleId:req.params.roleId},{restrictionRoleIds:req.params.roleId}]});
    const pendingInvitations=await invitations.countDocuments({tenantId:req.params.companyId,acceptedAt:null,cancelledAt:null,expiresAt:{$gt:new Date()},$or:[{customRoleId:req.params.roleId},{restrictionRoleIds:req.params.roleId}]});
    if(assigned||pendingInvitations)return reply.code(409).send({error:"Custom role is assigned to members or pending invitations"});
+   const deletingRole=await customRoles.findOne({id:req.params.roleId,tenantId:req.params.companyId});
    const result=await customRoles.deleteOne({id:req.params.roleId,tenantId:req.params.companyId});
    if(!result.deletedCount)return reply.code(404).send({error:"Custom role not found"});
-   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.deleted",outcome:"success",resourceType:"role",resourceId:req.params.roleId});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.deleted",outcome:"success",resourceType:"role",resourceId:req.params.roleId,metadata:{name:deletingRole?.name??"Custom role",mode:deletingRole?.mode??"grant",permissionCount:deletingRole?.permissions.length??0,actorEmail:auth.user!.email,changeSummary:"Deleted role "+(deletingRole?.name??"Custom role")}});
    return {success:true};
   });
   ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"|"guest"|"custom";customRoleId?:string;restrictionRoleIds?:string[]}}>("/companies/:companyId/invitations",async(req,reply)=>{
@@ -304,7 +308,7 @@ export const organizationsPlugin:BeePlugin={
     const now=new Date();
     if(existing)await memberships.updateOne({id:existing.id},{$set:{role,status:"active",updatedAt:now}});
     else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
-    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.added",outcome:"success",resourceType:"membership",resourceId:target.id,metadata:{role}});
+    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.added",outcome:"success",resourceType:"membership",resourceId:target.id,metadata:{role,actorEmail:auth.user!.email,targetEmail:target.email,changeSummary:"Added "+target.email+" as "+role}});
    }
    // Unknown, disabled, already-active and over-limit addresses receive the same response.
    return reply.code(202).send({success:true,message:"The membership request has been accepted for processing."});
@@ -351,7 +355,18 @@ export const organizationsPlugin:BeePlugin={
    const now=new Date(),set:any={role:nextRole,restrictionRoleIds,updatedAt:now},unset:any={};
    if(nextCustomRoleId)set.customRoleId=nextCustomRoleId;else unset.customRoleId="";
    await memberships.updateOne({id:target.id},{$set:set,...(Object.keys(unset).length?{$unset:unset}:{})});
-   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.role_changed",outcome:"success",resourceType:"membership",resourceId:target.userId,metadata:{previousRole:target.role,newRole:nextRole,restrictionRoleIds:restrictionRoleIds.length}});
+   const [targetUser,previousCustomRole,nextCustomRole,previousRestrictions,nextRestrictions]=await Promise.all([
+    users.findOne({id:target.userId},{projection:{email:1}}),
+    target.customRoleId?customRoles.findOne({id:target.customRoleId,tenantId:req.params.companyId}):Promise.resolve(null),
+    nextCustomRoleId?customRoles.findOne({id:nextCustomRoleId,tenantId:req.params.companyId}):Promise.resolve(null),
+    target.restrictionRoleIds?.length?customRoles.find({id:{$in:target.restrictionRoleIds},tenantId:req.params.companyId}).toArray():Promise.resolve([]),
+    restrictionRoleIds.length?customRoles.find({id:{$in:restrictionRoleIds},tenantId:req.params.companyId}).toArray():Promise.resolve([])
+   ]);
+   const previousRoleName=target.role==="custom"?(previousCustomRole?.name??"Custom role"):target.role;
+   const nextRoleName=nextRole==="custom"?(nextCustomRole?.name??"Custom role"):nextRole;
+   const previousRestrictionNames=previousRestrictions.map(item=>item.name),nextRestrictionNames=nextRestrictions.map(item=>item.name);
+   const changes=["Role: "+previousRoleName+" → "+nextRoleName,...(JSON.stringify(previousRestrictionNames)!==JSON.stringify(nextRestrictionNames)?["Restrictions: "+(previousRestrictionNames.join(", ")||"None")+" → "+(nextRestrictionNames.join(", ")||"None")]:[])];
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.role_changed",outcome:"success",resourceType:"membership",resourceId:target.userId,metadata:{previousRole:target.role,newRole:nextRole,previousRoleName,newRoleName,previousRestrictionNames:previousRestrictionNames.join(", ").slice(0,256),restrictionRoleNames:nextRestrictionNames.join(", ").slice(0,256),actorEmail:auth.user!.email,targetEmail:targetUser?.email??"Organization member",changeSummary:changes.join("; ").slice(0,256)}});
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:now}});
    return {membership:{userId:mask(auth,target.userId,"user"),role:nextRole,customRoleId:nextCustomRoleId?mask(auth,nextCustomRoleId,"role"):null,restrictionRoleIds:restrictionRoleIds.map(id=>mask(auth,id,"role")),status:"active"},sessionsRevoked:true};
   });
