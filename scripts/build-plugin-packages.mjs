@@ -8,10 +8,10 @@ const DIST = join(ROOT, "dist");
 const OUTPUT = resolve(process.env.BEE_PLUGIN_PACKAGE_OUTPUT ?? "artifacts/plugin-packages");
 const RUNTIME_VERSION = process.env.BEE_RUNTIME_VERSION ?? "0.3.1";
 const PACKAGES = [
-  { id: "connected-devices", name: "Connected Devices", version: "0.1.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants." },
-  { id: "time-tracking", name: "Control Horario", version: "0.2.0", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations", "marketplace"], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history." },
-  { id: "documents", name: "Documents", version: "0.1.0", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], activationPolicy: "automatic", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery." },
-  { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle." }
+  { id: "connected-devices", name: "Connected Devices", version: "0.1.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants." },
+  { id: "time-tracking", name: "Control Horario", version: "0.2.0", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations", "marketplace"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history." },
+  { id: "documents", name: "Documents", version: "0.1.0", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], tenantDependencies: ["files"], activationPolicy: "automatic", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery." },
+  { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle." }
 ];
 
 function crc32(buffer) {
@@ -106,6 +106,7 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
       description: definition.description, category: definition.category, activationPolicy: definition.activationPolicy,
       compatibility: { minRuntimeVersion: runtimeVersion },
       dependencies: definition.dependencies.map(pluginId => ({ pluginId, versionRange: "*" })),
+      tenantDependencies: definition.tenantDependencies,
       permissions: [], backend: { entrypoint: wrapperPath }, frontend: { routes: [] },
       collections: [], migrations: [], settingsSchema: { type: "object", properties: {} },
       package: { sha256: "", signature: "", storageKey: "packages/" + definition.id + "/" + definition.version }
