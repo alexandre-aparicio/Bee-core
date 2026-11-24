@@ -15,4 +15,7 @@ test("delivery workflow accepts only declared forward/recovery transitions", () 
 test("members receive an assigned-to-self filter while managers receive the full tenant scope", () => {
   assert.deepEqual(deliveryVisibilityFilter("user-a", false), { assignedTo: "user-a" });
   assert.deepEqual(deliveryVisibilityFilter("user-a", true), {});
+  assert.deepEqual(deliveryVisibilityFilter("user-a", true, "mine"), { assignedTo: "user-a" });
+  assert.deepEqual(deliveryVisibilityFilter("user-a", true, "unassigned"), { assignedTo: null });
+  assert.deepEqual(deliveryVisibilityFilter("user-a", false, "all"), { assignedTo: "user-a" });
 });

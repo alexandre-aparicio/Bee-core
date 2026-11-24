@@ -22,8 +22,11 @@ const TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
   picked_up: ["in_transit","failed","cancelled"], in_transit: ["delivered","failed"],
   delivered: [], failed: ["assigned","cancelled"], cancelled: []
 };
-export function deliveryVisibilityFilter(userId: string, canManage: boolean): Record<string, unknown> {
-  return canManage ? {} : { assignedTo: userId };
+export function deliveryVisibilityFilter(userId: string, canManage: boolean, assignment: "all" | "mine" | "unassigned" = "all"): Record<string, unknown> {
+  if (!canManage) return { assignedTo: userId };
+  if (assignment === "mine") return { assignedTo: userId };
+  if (assignment === "unassigned") return { assignedTo: null };
+  return {};
 }
 export function canTransitionDelivery(from: DeliveryStatus, to: DeliveryStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
@@ -69,11 +72,11 @@ export const deliveriesPlugin: BeePlugin = {
 
     ctx.server.get("/deliveries", { preHandler: read }, async request => {
       const tenant = (request as AuthenticatedRequest).tenantContext;
-      const query = request.query as { status?: string; assignedToMe?: string };
+      const query = request.query as { status?: string; assignment?: "all" | "mine" | "unassigned" };
       const canManageDeliveries = hasTenantPermission(tenant, "deliveries.manage");
-      const filter: any = deliveryVisibilityFilter(tenant.userId, canManageDeliveries);
+      const assignment = ["all","mine","unassigned"].includes(String(query.assignment)) ? query.assignment : "all";
+      const filter: any = deliveryVisibilityFilter(tenant.userId, canManageDeliveries, assignment);
       if (query.status && STATUSES.includes(query.status as DeliveryStatus)) filter.status = query.status;
-      if (canManageDeliveries && query.assignedToMe === "true") filter.assignedTo = tenant.userId;
       const items = await rows(tenant.tenantId).find(filter).sort({ updatedAt: -1 }).limit(300).toArray();
       return { deliveries: items.map(item => publicRecord(item, tenant)) };
     });
