@@ -11,13 +11,14 @@ import type { BeeContext, BeeLogger, BeePlugin } from "./core/types.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { registerRuntimePlugin } from "./core/runtime-plugin-registry.js";
 import { syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
-import { satisfiesPluginVersion } from "./core/plugin-package.js";
+import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
 import { teamsPlugin } from "./plugins/teams/teams.plugin.js";
 import { filesPlugin } from "./plugins/files/files.plugin.js";
 import { documentsPlugin } from "./plugins/documents/documents.plugin.js";
+import { helloWorldPlugin } from "./plugins/hello-world/hello-world.plugin.js";
 import { connectedDevicesPlugin } from "./plugins/connected-devices/connected-devices.plugin.js";
 import { timeTrackingPlugin } from "./plugins/time-tracking/time-tracking.plugin.js";
 import { marketplacePlugin } from "./plugins/marketplace/marketplace.plugin.js";
@@ -128,14 +129,13 @@ const ctx: BeeContext = {
   })
 };
 
+// Host services stay in Core. The four installable modules use a temporary
+// compatibility fallback only until their signed ZIP has been uploaded.
 plugins.register(helloPlugin);
 plugins.register(authPlugin);
 plugins.register(organizationsPlugin);
 plugins.register(teamsPlugin);
 plugins.register(filesPlugin);
-plugins.register(documentsPlugin);
-plugins.register(connectedDevicesPlugin);
-plugins.register(timeTrackingPlugin);
 plugins.register(marketplacePlugin);
 plugins.register(notesPlugin);
 plugins.register(platformAdminPlugin);
@@ -180,6 +180,13 @@ async function loadSignedZipPlugins(): Promise<Map<string,string>> {
       });
       if (manifest.id !== item.pluginId || manifest.version !== item.version) throw new Error("Stored package manifest does not match its registry record");
       for (const dependency of manifest.dependencies.filter(item => !item.optional)) {
+        if (CORE_RUNTIME_PLUGIN_IDS.has(dependency.pluginId)) {
+          const hostDependency = plugins.list().find(plugin => plugin.name === dependency.pluginId);
+          if (!hostDependency || hostDependency.status === "failed" || !satisfiesPluginVersion(hostDependency.version, dependency.versionRange)) {
+            throw new Error("Required Core runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
+          }
+          continue;
+        }
         const installedDependency = await registry.findOne({ pluginId: dependency.pluginId, status: "installed" });
         if (!installedDependency || !satisfiesPluginVersion(String(installedDependency.version ?? "0.0.0"), dependency.versionRange)) {
           throw new Error("Required runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
@@ -242,6 +249,14 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>): Promi
 
 async function bootstrap(): Promise<void> {
   await mongoClient.connect();
+  const platformPackages = mongoClient.db(environment.mongoDbName).collection("platform_plugin_packages");
+  const uploadedPackages = await platformPackages.find({ source: "zip", status: "installed" }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
+  const uploadedIds = new Set(uploadedPackages.map(item => item.pluginId));
+  if (!uploadedIds.has("documents")) plugins.register(documentsPlugin);
+  if (!uploadedIds.has("connected-devices")) plugins.register(connectedDevicesPlugin);
+  if (!uploadedIds.has("time-tracking")) plugins.register(timeTrackingPlugin);
+  if (!uploadedIds.has("hello-world")) plugins.register(helloWorldPlugin);
+
   const zipPluginFailures = await loadSignedZipPlugins();
   await plugins.mountAll(ctx);
   await persistZipPluginRuntimeState(zipPluginFailures);
