@@ -110,9 +110,15 @@ test("tenant context requires a valid session, active membership and company", {
     await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { status: "active" } });
 
     await db.collection("users").updateOne({id:"user-one"},{$set:{platformRole:"superadmin"}});
-    assert.equal(await resolveTenantContext(db,claims,{},secret),null,"a superadmin without active MFA must not use tenant/business routes");
+    assert.equal((await resolveTenantContext(db,claims,{},secret))?.role,"manager","a legacy user-level platformRole must not elevate an ordinary tenant membership");
+    const superSessionContext={sessionId:"session-super",expiresAt:sessionExpiry};
+    await db.collection("tenants").insertOne({id:"super-organization",name:"Super Organization",kind:"super",status:"active"});
+    await db.collection("memberships").insertOne({id:"membership-super",userId:"user-one",tenantId:"super-organization",role:"super_admin",status:"active"});
+    await db.collection("refresh_sessions").insertOne({id:"session-super",userId:"user-one",tenantId:"super-organization",client:"dashboard",tokenHash:"super-refresh",expiresAt:sessionExpiry,revokedAt:null});
+    const superClaims={...claims,sub:maskResourceId("user-one","user",superSessionContext,secret),sid:"session-super",tenantRef:maskTenantId("super-organization",superSessionContext,secret)};
+    assert.equal(await resolveTenantContext(db,superClaims,{},secret),null,"a Super Admin membership without MFA enrollment must not use tenant/business routes");
     await db.collection("users").updateOne({id:"user-one"},{$set:{mfaSecretEnc:"encrypted-mfa-secret"}});
-    assert.ok(await resolveTenantContext(db,claims,{},secret),"an enrolled superadmin may use tenant routes after MFA setup");
+    assert.equal((await resolveTenantContext(db,superClaims,{},secret))?.role,"super_admin","an enrolled Super Admin membership may use tenant routes after MFA setup");
     await db.collection("users").updateOne({id:"user-one"},{$unset:{platformRole:"",mfaSecretEnc:""}});
 
     await db.collection("tenants").updateOne({ id: "company-one" }, { $set: { status: "suspended" } });

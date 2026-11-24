@@ -1,0 +1,52 @@
+name: Bee-Core Backend CI
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "test/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - ".github/workflows/backend.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: TypeScript and MongoDB integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      MONGODB_TEST_URI: mongodb://127.0.0.1:27017/bee_core_ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Type check
+        run: npm run check
+      - name: Build backend
+        run: npm run build
+      - name: Run backend and MongoDB integration tests
+        run: npm test

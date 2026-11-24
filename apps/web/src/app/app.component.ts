@@ -232,6 +232,10 @@ export class AppComponent implements OnInit {
       this.publicTenantNotFound = true;
     } finally {
       this.publicTenantLoading = false;
+      // The public template host is rendered only after tenant resolution finishes.
+      // Re-apply tenant tokens after Angular has mounted that host; the service's
+      // constructor-time fetch can complete while the loading screen is still present.
+      if (this.publicTenant) window.setTimeout(() => void this.templates.refreshPublicTenant(), 0);
     }
   }
 

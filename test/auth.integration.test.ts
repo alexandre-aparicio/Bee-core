@@ -276,13 +276,13 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const createCompany = await app.inject({method:"POST",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken},payload:{name:"Second Company"}});
     assert.equal(createCompany.statusCode,201);
     const secondCompanyId=createCompany.json().company.id as string;
-    const activateCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+tokens.accessToken}});
-    assert.equal(activateCompany.statusCode,200);
     const secondCompanyInternalId=await resolveReference(tokens.accessToken,secondCompanyId,"tenant");
     const inactiveCompanyAccess=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(secondCompanyId)+"/memberships",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(inactiveCompanyAccess.statusCode,403,"a valid reference for another membership must not bypass the active-company boundary");
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:"tenant-alpha",actorId:"test-user",action:"permission.denied",outcome:"denied",resourceType:"company","metadata.permission":"members.read","metadata.reason":"inactive_company_reference"}),"cross-company access attempts must be audited in the actor's active tenant");
     assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:secondCompanyInternalId,action:"permission.denied",resourceType:"company","metadata.reason":"inactive_company_reference"}),0,"denied cross-company attempts must never write audit records into the target tenant");
+    const activateCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+tokens.accessToken}});
+    assert.equal(activateCompany.statusCode,200);
     const switchedClaims=JSON.parse(Buffer.from(activateCompany.json().accessToken.split(".")[1],"base64url").toString("utf8")) as {sub:string;tenantRef?:string};
     assert.notEqual(switchedClaims.sub,"test-user","company switching must keep the JWT subject opaque");
     assert.ok(switchedClaims.tenantRef);
@@ -293,7 +293,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const rejectCrossCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaTokens.accessToken}});
     assert.equal(rejectCrossCompany.statusCode,404,"references issued to another session must not resolve");
     const addBetaMembership=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"beta@example.com",role:"member"}});
-    assert.equal(addBetaMembership.statusCode,201);
+    assert.equal(addBetaMembership.statusCode,202,"direct membership requests are accepted asynchronously");
     const memberList=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(memberList.json().memberships.some((member:{email:string;role:string})=>member.email==="beta@example.com"&&member.role==="member"));
     const betaCompanyList=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+betaTokens.accessToken}});
@@ -311,7 +311,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const staleOwnerRoleCreate=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+staleOwnerOrganizationToken},payload:{name:"Forged owner role",permissions:["notes.read"]}});
     assert.equal(staleOwnerRoleCreate.statusCode,401,"plaintext legacy identity claims must be rejected");
     assert.equal(await db.collection("company_roles").countDocuments({tenantId:secondCompanyInternalId,name:"Forged owner role"}),0);
-    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user-beta",action:"permission.denied",outcome:"denied","metadata.permission":"members.manage"}),"denied company permission should be audited");
+    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user-beta",action:"permission.denied",outcome:"denied","metadata.permission":"members.invite"}),"denied company permission should be audited");
     const betaUserRef=memberList.json().memberships.find((member:{email:string})=>member.email==="beta@example.com").userId as string;
     const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(updateBetaRole.statusCode,200);
@@ -346,8 +346,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"role.created",resourceId:customRoleInternalId}),"custom role creation should be audited");
     const companyRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(companyRoles.json().roles.some((role:{id:string;name:string})=>role.id===customRoleId&&role.name==="Notes reader"));
-    const crossTenantCustomRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+betaTokens.accessToken}});
-    assert.equal(crossTenantCustomRoles.statusCode,404,"company references cannot be replayed across sessions");
+    const crossSessionRoleReference=await app.inject({method:"DELETE",url:"/companies/"+betaManagerCompanyRef+"/roles/"+encodeURIComponent(customRoleId),headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
+    assert.equal(crossSessionRoleReference.statusCode,404,"a role reference issued to another active session cannot be replayed");
     const customRoleUpdate=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Notes reader updated",description:"Updated",permissions:["notes.read","files.read"]}});
     assert.equal(customRoleUpdate.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"role.updated",resourceId:customRoleInternalId}),"custom role update should be audited");
@@ -444,13 +444,29 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:reusedSession!.tenantId,actorId:"test-user",action:"auth.refresh.reuse",outcome:"denied","metadata.reason":"rotated_token_reuse"}),"refresh-token reuse must be recorded in tenant audit history");
     const accessAfterReuse=await app.inject({method:"GET",url:"/auth/me",headers:{authorization:"Bearer "+refreshed.accessToken}});
     assert.equal(accessAfterReuse.statusCode,401,"access tokens from a compromised refresh-token family must stop working immediately");
-    const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+
+    // The refresh-token reuse response revokes that complete session family. Start a fresh owner session
+    // before continuing unrelated membership and logout assertions.
+    const ownerFreshLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
+    assert.equal(ownerFreshLogin.statusCode,200);
+    const ownerFreshCookie=String(ownerFreshLogin.headers["set-cookie"]??"").split(";")[0];
+    const ownerFreshCompanies=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+ownerFreshLogin.json().accessToken}});
+    assert.equal(ownerFreshCompanies.statusCode,200);
+    const ownerFreshCompanyRef=ownerFreshCompanies.json().companies.find((company:{name:string})=>company.name==="Second Company")?.id as string;
+    assert.ok(ownerFreshCompanyRef,"fresh session must receive its own opaque company reference");
+    const ownerFreshActivate=await app.inject({method:"POST",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/activate",headers:{authorization:"Bearer "+ownerFreshLogin.json().accessToken}});
+    assert.equal(ownerFreshActivate.statusCode,200);
+    const ownerFreshMembers=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/memberships",headers:{authorization:"Bearer "+ownerFreshActivate.json().accessToken}});
+    assert.equal(ownerFreshMembers.statusCode,200);
+    const betaFreshMemberRef=ownerFreshMembers.json().memberships.find((member:{email:string})=>member.email==="beta@example.com")?.userId as string;
+    assert.ok(betaFreshMemberRef,"fresh session must receive its own opaque membership reference");
+    const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/memberships/"+encodeURIComponent(betaFreshMemberRef),headers:{authorization:"Bearer "+ownerFreshActivate.json().accessToken}});
     assert.equal(removeBetaMember.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
-    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken, cookie:rotatedRefreshCookie }, payload: {} });
+    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + ownerFreshActivate.json().accessToken, cookie:ownerFreshCookie }, payload: {} });
     assert.equal(logout.statusCode, 200);
     assert.match(String(logout.headers["set-cookie"]??""),/Max-Age=0/,"logout must clear the refresh cookie");
-    const revokedSessionReference=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+refreshed.accessToken}});
+    const revokedSessionReference=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/audit-events",headers:{authorization:"Bearer "+ownerFreshActivate.json().accessToken}});
     assert.equal(revokedSessionReference.statusCode,401,"session-bound resource references must stop resolving as soon as logout revokes their issuing session");
     const logoutAudit = await db.collection("tenant_audit_events").find({actorId:"test-user",action:"auth.logout"}).toArray();
     assert.equal(logoutAudit.length,1,"logout should be audited for the authenticated user");

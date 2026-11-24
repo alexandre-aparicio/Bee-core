@@ -1,6 +1,6 @@
 # Bee-Core security MVP status
 
-**Snapshot:** 2026-11-22  
+**Snapshot:** 2026-11-24  
 **Scope:** repository controls and evidence visible in this branch. This is an engineering status report, not a penetration-test attestation or a claim that production infrastructure is secure.
 
 ## Implemented in the repository
@@ -32,13 +32,20 @@
 - The core owns one shared MongoClient and closes it through application shutdown.
 - Plugin startup is dependency ordered; missing dependencies/cycles are explicit errors and plugin shutdown continues after an individual stop failure.
 
+
+## Connected Devices audit and CI status (2026-11-24)
+
+- The Connected Devices route layer now appends tenant-scoped audit events for device pairing and lifecycle mutations, plus denied administrator operations. Events are written through the shared append-only service; pairing/device secrets are never included. Audit write failures are logged but do not currently roll back an already-completed device mutation, so strict transactional audit availability is still an open hardening item.
+- The inspected current `main` tree had no tracked `.github/workflows/` files, and GitHub returned zero check runs for current `main`, PR #6's head, and PR #7's head. PR #6 is closed without merge and its role/audit foundation has been superseded by later merged work; PR #7 is merged.
+- This branch restores separate backend/MongoDB, Angular/Playwright, and production Compose workflows. Their first executions are pending; workflow configuration must not be treated as passing evidence.
+
 ## Container changes in this branch — pending execution evidence
 
 - Backend image uses a build stage and a production stage with `npm ci --omit=dev`, runs as `node`, and declares a Docker HEALTHCHECK.
 - Frontend uses `nginxinc/nginx-unprivileged`, runs as UID 101 and listens on 8080.
 - The production Compose profile keeps MongoDB and the API unpublished on host ports.
 - CI workflows are configured to build the Compose stack, exercise authentication/session revocation, upload boundaries, response headers, rate limiting and run the repository's tenant-isolation integration tests.
-- Gitleaks is configured to scan the checked-out tree and full Git history. A configured workflow is not evidence of a clean scan until its run completes successfully.
+- A Gitleaks workflow is included on the current security/CI branch and checks out full Git history. The current `main` did not contain tracked workflow files at inspection time; no clean scan can be claimed until this branch is reviewed and the workflow completes successfully.
 
 ## Outstanding application work
 

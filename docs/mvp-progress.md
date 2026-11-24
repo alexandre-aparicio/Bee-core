@@ -1,3 +1,25 @@
+## Connected Devices IDOR audit and private-volume clean-install fix (2026-11-24; PR #160)
+
+- Cross-tenant device and pairing-challenge identifiers that are not visible in the active tenant continue to return 404, but now also append a `permission.denied` event to the requesting tenant's audit stream. The event records the operation and opaque resource ID; it never writes into or reveals the foreign tenant's audit stream.
+- Added regression coverage for approve, suspend, activate, unlink, delete, revoke, rename and pairing-challenge cancellation attempts against a foreign tenant resource. Tests assert no foreign resource mutation, 404 responses, and actor-tenant-only audit records.
+- Fixed the production Compose clean-install failure found in GitHub Actions: the named private-file volume was created root-owned while the API runs as the unprivileged `node` user. A one-shot Alpine init service now sets UID/GID 1000 and mode 0750 before the API starts. The API container remains non-root.
+- GitHub Actions log evidence before this change: the production stack built and all three containers became healthy, then the persistence sentinel failed with `Permission denied` writing `/data/bee-files/.ci-persistence-sentinel`. The compose workflow will re-run against this fix.
+- Validation status: GitHub source updates only; no local Docker or test execution. Backend, Angular and production Compose CI results for this new commit are pending. Audit storage errors are still logged and tolerated after a device mutation; transactional/outbox-backed mandatory audit delivery remains an explicit hardening gap.
+
+---
+
+## Connected Devices audit and release-gate restoration (2026-11-24; PR pending)
+
+- Added tenant-scoped append-only audit events for pairing challenge creation/cancellation, companion pairing, approval, suspend/reactivate, dashboard/companion unlink, delete, revoke, rename, credential rotation, and denied administrator operations. Audit records exclude pairing/device credentials and are written through the shared `appendTenantAuditEvent` service.
+- Removed the hidden expiry-state write from `GET /connected-devices`; expired pending requests are now projected as `expired` in the response without mutating state during a read.
+- Added a route-level regression test proving a tenant cannot approve a device belonging to another tenant and that a successful approval appends an event to the active tenant audit stream.
+- Restored dedicated Backend/MongoDB, Angular/Playwright, and production Compose workflows under `.github/workflows/`. The inspected `main` had no tracked workflow files and the Actions API returned zero runs/check-runs for `main`, PR #6 and PR #7; the new workflows have not yet executed.
+- Hardened the production Compose overlay to override the inherited web port list, so only the configured loopback web port is published. The minimum documented Compose version is now 2.24.4.
+- Corrected backup instructions to authenticate MongoDB root access and back up both the database and private file volume. The Compose workflow is configured to exercise a clean install, private ports, MongoDB/file persistence, and backup/restore artifacts.
+- Validation status: GitHub-only source changes; no local tests or Docker commands were run. CI and Compose execution are pending on this PR. Audit writes currently log and continue if the audit store is unavailable; a transactional outbox/strict audit availability policy remains a security-hardening decision.
+
+---
+
 ## Connected Devices modal confirmations and empty-body request fix (2026-11-24)
 
 - Replaced native browser confirmation prompts for Suspend, Revoke, Unlink and Delete with a consistent accessible modal dialog. The modal shows the device and consequence, provides Cancel/Confirm actions, and visually distinguishes irreversible operations.

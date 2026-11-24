@@ -10,7 +10,7 @@ export const connectedDevicesPlugin:BeePlugin={
   const secret=String(ctx.config.sessionIdSecret??"");
   if(secret.length<32)throw new Error("Connected Devices requires the session resource ID secret.");
   const repository=new ConnectedDevicesRepository(db);await repository.initializeIndexes();
-  const services=createConnectedDevicesServices({db,secret,repository});registerConnectedDevicesRoutes(ctx,services);
+  const services=createConnectedDevicesServices({db,secret,repository,logger:ctx.logger});registerConnectedDevicesRoutes(ctx,services);
   ctx.logger.info("Connected Devices plugin initialized: secure pairing and tenant device registry ready.");
  }
 };

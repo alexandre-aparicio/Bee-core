@@ -8,7 +8,10 @@ export const AUDIT_ACTIONS = [
   "team.created", "team.updated", "team.deleted", "team.members.updated", "team.applications.updated", "resource.access.updated", "resource.access.reset",
   "permission.denied",
   "plugin.installed", "plugin.updated", "plugin.uninstalled",
-  "plugin.entitlement_granted", "plugin.entitlement_revoked", "subscription.updated"
+  "plugin.entitlement_granted", "plugin.entitlement_revoked", "subscription.updated",
+  "device.pairing_created", "device.pairing_cancelled", "device.paired", "device.approved",
+  "device.suspended", "device.activated", "device.unlinked", "device.deleted", "device.revoked",
+  "device.renamed", "device.credential_rotated", "device.membership_revoked"
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

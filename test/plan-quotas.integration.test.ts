@@ -22,14 +22,15 @@ test("company plan user quota reserves capacity for active members and pending i
   await db.collection("tenants").insertOne({ id: "quota-company", name: "Quota Company", status: "active", createdAt: now });
   await db.collection("users").insertMany([
     { id: "quota-owner", email: "owner@quota.test", passwordHash, roles: ["admin"], enabled: true, allowedClients: ["dashboard"], tenantId: "quota-company", createdAt: now, updatedAt: now },
-    { id: "quota-member", email: "member@quota.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], createdAt: now, updatedAt: now }
+    { id: "quota-member", email: "member@quota.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], createdAt: now, updatedAt: now },
+    { id: "quota-new-member", email: "new-member@quota.test", passwordHash, roles: ["user"], enabled: true, allowedClients: ["dashboard"], createdAt: now, updatedAt: now }
   ]);
   await db.collection("memberships").insertMany([
     { id: "quota-membership-owner", userId: "quota-owner", tenantId: "quota-company", role: "owner", status: "active", createdAt: now, updatedAt: now },
     { id: "quota-membership-member", userId: "quota-member", tenantId: "quota-company", role: "member", status: "active", createdAt: now, updatedAt: now }
   ]);
   await seedPluginCommerce(db);
-  await db.collection("plugin_plans").updateOne({ id: "starter" }, { $set: { maxUsers: 2 } });
+  await db.collection("plugin_plans").updateOne({ id: "starter" }, { $set: { maxUsers: 3 } }); // two active members + one pending invitation
 
   const app = Fastify();
   app.register(jwt, { secret: "01234567890123456789012345678901" });
@@ -52,26 +53,30 @@ test("company plan user quota reserves capacity for active members and pending i
     assert.equal(login.statusCode, 200);
     const token = login.json().accessToken as string;
     const headers = { authorization: "Bearer " + token };
+    const companies=await app.inject({method:"GET",url:"/companies",headers});
+    assert.equal(companies.statusCode,200);
+    const companyRef=companies.json().companies.find((company:{name:string})=>company.name==="Quota Company").id as string;
 
     const firstInvite = await app.inject({
-      method: "POST", url: "/companies/quota-company/invitations", headers,
+      method: "POST", url: "/companies/"+encodeURIComponent(companyRef)+"/invitations", headers,
       payload: { email: "first-invite@quota.test", role: "member" }
     });
     assert.equal(firstInvite.statusCode, 201);
 
     const secondInvite = await app.inject({
-      method: "POST", url: "/companies/quota-company/invitations", headers,
+      method: "POST", url: "/companies/"+encodeURIComponent(companyRef)+"/invitations", headers,
       payload: { email: "second-invite@quota.test", role: "member" }
     });
     assert.equal(secondInvite.statusCode, 409);
     assert.match(secondInvite.json().error, /user limit/i);
 
     const directAdd = await app.inject({
-      method: "POST", url: "/companies/quota-company/memberships", headers,
-      payload: { email: "member@quota.test", role: "member" }
+      method: "POST", url: "/companies/"+encodeURIComponent(companyRef)+"/memberships", headers,
+      payload: { email: "new-member@quota.test", role: "member" }
     });
-    assert.equal(directAdd.statusCode, 409);
-    assert.match(directAdd.json().error, /user limit/i);
+    assert.equal(directAdd.statusCode, 202,"membership requests use a non-enumerating accepted response");
+    assert.equal(await db.collection("memberships").countDocuments({tenantId:"quota-company",status:"active"}),2,"the user limit must prevent the additional membership");
+    assert.equal(await db.collection("memberships").countDocuments({tenantId:"quota-company",userId:"quota-new-member"}),0);
   } finally {
     await app.close();
     await organizationsPlugin.stop?.(ctx);

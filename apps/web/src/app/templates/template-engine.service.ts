@@ -212,6 +212,10 @@ export class BeeTemplateEngine {
 
   private authToken(): string | null { return this.accessToken; }
 
+  async refreshPublicTenant(): Promise<void> {
+    await this.restorePublicTenant();
+  }
+
   private async restorePublicTenant(): Promise<void> {
     if (typeof fetch === 'undefined') return;
     try {

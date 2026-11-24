@@ -116,7 +116,8 @@ Implementation status on `feat/connected-devices-plugin`:
 - [x] Immediate credential revocation and tenant/plugin activation checks on dashboard and device authentication.
 - [x] Heartbeat and exported `hasConnectedDeviceCapability(db, tenantId, deviceId, capability)` contract for future consumer plugins.
 - [x] Device suspension/reactivation by owner/admin and one-time credential rotation by the authenticated device; revoked credentials are replaced atomically.
-- [ ] Audit events, rate limiting and operational alerting.
+- [x] Tenant-scoped append-only audit events for pairing, approval, suspend/reactivate, unlink, delete, revoke, rename, credential rotation and denied administrator actions (PR pending CI; writes use the shared append service and log failures).
+- [ ] Rate limiting and operational alerting.
 - [ ] Automated integration coverage for cross-tenant isolation, expiry/replay, approval, membership removal and revoked credentials.
 - [ ] Runtime validation/build/CI and end-to-end companion-client scan test.
 

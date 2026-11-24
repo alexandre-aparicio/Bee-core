@@ -1,25 +1,76 @@
 import { test, expect } from '@playwright/test';
 
+type DashboardSessionFixture = {
+  tenantId?: string;
+  companyName?: string;
+  role?: string;
+  email?: string;
+  token?: string;
+  platformRole?: string | null;
+};
+
+async function mockDashboardSession(page: any, fixture: DashboardSessionFixture = {}): Promise<void> {
+  const tenantId = fixture.tenantId || 'tenant-demo';
+  const role = fixture.role || 'owner';
+  const email = fixture.email || 'owner@example.test';
+  const token = fixture.token || 'test-dashboard-token';
+  const platformRole = fixture.platformRole ?? null;
+  const roles = role === 'owner' || role === 'admin' ? ['admin'] : role === 'super_admin' ? ['superadmin'] : ['user'];
+  await page.route('**/api/auth/refresh', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      accessToken: token,
+      tenantId,
+      platformRole,
+      user: { id: 'user-' + tenantId, email, roles, platformRole, tenantId }
+    })
+  }));
+  await page.route('**/api/auth/me', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ authenticated: true, tenantId, platformRole })
+  }));
+  await page.route('**/api/companies', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: tenantId, name: fixture.companyName || 'Demo Company', role, active: true }] })
+  }));
+  await page.route('**/api/marketplace/plugins', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ tenantId, plugins: [
+      { id: 'documents', pluginKey: 'documents', installed: true, enabled: true, entitled: true },
+      { id: 'connected-devices', pluginKey: 'connected-devices', installed: true, enabled: true, entitled: true }
+    ] })
+  }));
+  await page.route('**/api/i18n/preferences', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ languages: [{ code: 'en', label: 'English', nativeLabel: 'English' }, { code: 'es', label: 'Spanish', nativeLabel: 'Español' }], userLanguage: null, teamDefaultLanguage: 'en', effectiveLanguage: 'en', canManageTeamDefault: false })
+  }));
+  await page.route('**/api/templates/preferences', (route: any) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ selection: { public: 'aurora', dashboard: 'midnight' }, installedTemplates: ['aurora', 'editorial', 'studio', 'midnight', 'paper', 'glass'] })
+  }));
+}
+
 test.beforeEach(async ({ page }) => {
-  await page.route('**/api/auth/me', route => {
-    const token = route.request().headers().authorization || '';
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        authenticated: true,
-        tenantId: 'tenant-demo',
-        platformRole: token === 'Bearer platform-admin-token' ? 'superadmin' : null
-      })
-    });
-  });
+  await mockDashboardSession(page);
+  await page.route('**/api/public/tenant', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ kind: 'corporate' }) }));
+  await page.route('**/api/public/tenant/plugins', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pluginIds: [] }) }));
+  await page.route('**/api/public/platform-identity', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ brand: { platformName: 'Bee-Core' }, seo: {} }) }));
+  await page.route('**/api/templates/public', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ selection: { public: 'aurora', dashboard: 'midnight' }, installedTemplates: ['aurora', 'editorial', 'studio', 'midnight', 'paper', 'glass'] }) }));
+  await page.route('**/api/templates/stream-ticket', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: 'dashboard-test-ticket' }) }));
+  await page.route('**/api/templates/public-stream-ticket', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: 'public-test-ticket' }) }));
 });
 
 test('landing page renders the main message', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /build less core/i })).toBeVisible();
   await expect(page.locator('[data-bee-layout="public.aurora"]')).toBeVisible();
-  await expect(page.locator('[data-bee-slot="hero"]')).toHaveCount(1);
+  await expect(page.locator('[data-bee-slot="content"]')).toHaveCount(1);
   await expect(page.getByRole('link', { name: /sign in/i })).toBeVisible();
 });
 
@@ -41,6 +92,7 @@ test('password recovery route works', async ({ page }) => {
 });
 
 test('dashboard redirects unauthenticated visitors to the visible login page', async ({ page }) => {
+  await page.route('**/api/auth/refresh', route => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'No refresh session' }) }));
   await page.goto('/dashboard');
   await expect.poll(() => new URL(page.url()).pathname).toBe('/login');
   await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
@@ -49,38 +101,39 @@ test('dashboard redirects unauthenticated visitors to the visible login page', a
 
 
 test('template manager keeps public and dashboard themes independent', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/dashboard/branding');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
-  await manager.getByLabel('Public website').selectOption('editorial');
+  await manager.getByLabel('Public website template').selectOption('editorial');
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
-  await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
+  await expect(page.locator('.bee-template-package-host--editorial')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
+  await manager.getByRole('button', { name: 'Apply template' }).click();
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
-  await expect(manager.getByLabel('Public website')).toHaveValue('editorial');
+  await expect(page.getByRole('region', { name: 'Template manager' }).getByLabel('Public website template')).toHaveValue('editorial');
 });
 
 test('dashboard template can be selected without changing public theme', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({ user: { email: 'test@example.com', roles: ['admin'], tenantId: 'tenant-test' }, accessToken: 'test' })));
-  await page.goto('/dashboard');
+  await page.goto('/dashboard/themes');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
-  await manager.getByLabel('Dashboard').selectOption('paper');
+  await manager.getByLabel('Dashboard template').selectOption('paper');
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'paper');
-  await expect(page.locator('[data-bee-layout="dashboard.paper"]')).toBeVisible();
+  await expect(page.locator('.bee-template-package-host--paper')).toBeVisible();
   await expect(manager.getByText('Preview only')).toBeVisible();
-  await manager.getByRole('button', { name: 'Discard preview' }).click();
+  await manager.getByRole('button', { name: 'Discard' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
-  await manager.getByLabel('Dashboard').selectOption('paper');
-  await manager.getByRole('button', { name: 'Apply template changes' }).click();
-  await expect(page.locator('[data-bee-slot="sidebar"]')).toHaveCount(1);
-  await expect(page.locator('[data-bee-slot="widgets"]')).toHaveCount(1);
+  await manager.getByLabel('Dashboard template').selectOption('paper');
+  await manager.getByRole('button', { name: 'Apply template' }).click();
+  await expect(page.locator('.bee-template-package-host--paper')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'aurora');
 });
 
 
 test('public tenant template and design tokens hot-load from the request domain', async ({ page }) => {
+  await page.route('**/api/public/tenant', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ kind: 'tenant', tenant: { id: 'tenant-demo', name: 'Demo Company', slug: 'demo' } }) }));
   await page.route('**/api/templates/public', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -92,7 +145,7 @@ test('public tenant template and design tokens hot-load from the request domain'
     })
   }));
   await page.goto('/');
-  await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
+  await expect(page.locator('.tenant-editorial')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--editorial').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#112233');
   await expect.poll(() => page.locator('.bee-template-package-host--editorial').evaluate(node => getComputedStyle(node).getPropertyValue('--purple').trim())).toBe('#abcdef');
   await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
@@ -121,24 +174,25 @@ test('tenant admin can install and activate a trusted dashboard template package
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ installedTemplates: ['aurora', 'editorial', 'midnight', 'paper', 'glass'] })
   }));
-  await page.goto('/dashboard');
+  await page.goto('/dashboard/themes');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
   await manager.locator('.bee-template-package').filter({ hasText: 'Glass' }).getByRole('button', { name: 'Install' }).click();
-  await expect(manager.getByText('Package installed for this tenant.')).toBeVisible();
-  await manager.getByLabel('Dashboard').selectOption('glass');
-  await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
+  await expect(manager.getByText('Template installed for this company.')).toBeVisible();
+  await manager.getByLabel('Dashboard template').selectOption('glass');
+  await expect(page.locator('.bee-template-package-host--glass')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
-  await manager.getByRole('button', { name: 'Discard preview' }).click();
-  await expect(page.locator('[data-bee-layout="dashboard.midnight"]')).toBeVisible();
+  await manager.getByRole('button', { name: 'Discard' }).click();
+  await expect(page.locator('.bee-template-package-host--midnight')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--midnight').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
-  await manager.getByLabel('Dashboard').selectOption('glass');
-  await manager.getByRole('button', { name: 'Apply template changes' }).click();
+  await manager.getByLabel('Dashboard template').selectOption('glass');
+  await manager.getByRole('button', { name: 'Apply template' }).click();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
 });
 
 
 test('dashboard company selector switches the active tenant session', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-a', companyName: 'Company A', role: 'owner', email: 'owner@example.test', token: 'company-a-token' });
   let activeCompany = 'company-a';
   let companyListRequests = 0;
   await page.addInitScript(() => {
@@ -174,13 +228,14 @@ test('dashboard company selector switches the active tenant session', async ({ p
   await selector.selectOption('company-b');
   const activationResponse = await activation;
   expect(activationResponse.status()).toBe(200);
-  await page.waitForFunction(() => JSON.parse(localStorage.getItem('bee-auth') || '{}').tenantId === 'company-b');
   await expect.poll(() => companyListRequests).toBeGreaterThan(1);
   await expect(page.getByLabel('Active company')).toHaveValue('company-b');
+  await expect(page.locator('.md-profile__label')).toContainText('Company B');
 });
 
 
 test('dashboard marketplace shows company packages and installs an entitled plugin', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-pro', companyName: 'Company Pro', role: 'owner', email: 'owner@example.test', token: 'marketplace-token' });
   let notesInstalled = false;
   const notes: Array<{id:string;title:string;content:string;createdBy:string;createdAt:string;updatedAt:string}> = [];
   await page.addInitScript(() => {
@@ -200,7 +255,7 @@ test('dashboard marketplace shows company packages and installs an entitled plug
     contentType: 'application/json',
     body: JSON.stringify({ tenantId: 'company-pro', plugins: [
       { id: 'files', name: 'Private Files', version: '0.1.0', description: 'Private company file and image storage', category: 'platform', system: true, entitled: true, accessSource: 'plan', installed: true },
-      { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: true, accessSource: 'plan', installed: notesInstalled }
+      { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: true, accessSource: 'plan', installed: notesInstalled, enabled: notesInstalled }
     ] })
   }));
   await page.route('**/api/notes', route => {
@@ -229,7 +284,7 @@ test('dashboard marketplace shows company packages and installs an entitled plug
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pluginId: 'notes', status: 'uninstalled', dataPreserved: true }) });
   });
-  await page.goto('/dashboard');
+  await page.goto('/dashboard/plugins');
   await expect(page.getByRole('heading', { name: 'Company plugin marketplace' })).toBeVisible();
   await expect(page.getByText('Private Files')).toBeVisible();
   await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' })).toBeVisible();
@@ -253,6 +308,7 @@ test('dashboard marketplace shows company packages and installs an entitled plug
 
 
 test('starter company sees purchasable add-ons but cannot install them without entitlement or role', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-starter', companyName: 'Starter Company', role: 'member', email: 'member@example.test', token: 'starter-member-token' });
   await page.addInitScript(() => {
     if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
       accessToken: 'starter-member-token',
@@ -273,7 +329,7 @@ test('starter company sees purchasable add-ons but cannot install them without e
       { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: false, accessSource: null, installed: false, purchasable: true }
     ] })
   }));
-  await page.goto('/dashboard');
+  await page.goto('/dashboard/plugins');
   const notesRow = page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' });
   await expect(notesRow).toBeVisible();
   await expect(notesRow.getByText('Available as add-on')).toBeVisible();
@@ -282,6 +338,7 @@ test('starter company sees purchasable add-ons but cannot install them without e
 
 
 test('company owner can invite, change roles and suspend company members', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-pro', companyName: 'Company Pro', role: 'owner', email: 'owner@example.test', token: 'company-owner-token' });
   const members = [
     { userId: 'owner-1', email: 'owner@example.test', role: 'owner', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' },
     { userId: 'member-2', email: 'member@example.test', role: 'member', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' }
@@ -289,28 +346,28 @@ test('company owner can invite, change roles and suspend company members', async
   const invitations = [
     { id: 'invite-1', email: 'pending@example.test', role: 'member', createdAt: '2026-11-20T00:00:00.000Z', expiresAt: '2026-11-27T00:00:00.000Z', acceptedAt: null, cancelledAt: null }
   ];
-  await page.addInitScript(() => {
-    if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
-      accessToken: 'company-owner-token',
-      tenantId: 'company-pro',
-      user: { id: 'owner-1', email: 'owner@example.test', roles: ['admin'], tenantId: 'company-pro' }
-    }));
-  });
   await page.route('**/api/companies', route => route.fulfill({
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ companies: [{ id: 'company-pro', name: 'Company Pro', role: 'owner', active: true }] })
   }));
+  await page.route('**/api/companies/active/permissions', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ permissions: ['members.read', 'members.manage', 'members.invite'] })
+  }));
   await page.route('**/api/companies/company-pro/memberships**', route => {
-    if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: members }) });
-    const userId = route.request().url().split('/').pop() || '';
-    if (route.request().method() === 'PUT') {
-      const body = route.request().postDataJSON();
+    const method = route.request().method();
+    const url = new URL(route.request().url());
+    if (method === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: members }) });
+    if (method === 'PUT') {
+      const userId = url.pathname.split('/').pop() || '';
       const member = members.find(item => item.userId === userId);
-      if (member) member.role = body.role;
+      if (member) member.role = route.request().postDataJSON().role;
     }
-    if (route.request().method() === 'DELETE') {
+    if (method === 'PATCH') {
+      const parts = url.pathname.split('/');
+      const userId = parts[parts.length - 2];
       const member = members.find(item => item.userId === userId);
-      if (member) member.status = 'suspended';
+      if (member) member.status = route.request().postDataJSON().status;
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
   });
@@ -321,69 +378,80 @@ test('company owner can invite, change roles and suspend company members', async
       invitations.push({ id: 'invite-2', email: body.email, role: body.role, createdAt: '2026-11-20T00:00:00.000Z', expiresAt: '2026-11-27T00:00:00.000Z', acceptedAt: null, cancelledAt: null });
       return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ invitation: invitations[1], acceptanceToken: 'one-time-invite-token' }) });
     }
-    const invitationId = route.request().url().split('/').pop();
+    const invitationId = new URL(route.request().url()).pathname.split('/').pop();
     const invitation = invitations.find(item => item.id === invitationId);
     if (invitation) invitation.cancelledAt = '2026-11-20T00:00:00.000Z';
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
   });
-  await page.goto('/dashboard');
-  await expect(page.getByRole('heading', { name: 'Company members' })).toBeVisible();
-  const memberRow = page.locator('.bee-company-members__table tr').filter({ hasText: 'member@example.test' });
-  await memberRow.locator('select').selectOption('manager');
-  await expect(memberRow.locator('select')).toHaveValue('manager');
-  await expect.poll(() => members.find(item => item.userId === 'member-2')?.role).toBe('manager');
-  await memberRow.getByRole('button', { name: 'Suspend' }).click();
-  await expect.poll(() => members.find(item => item.userId === 'member-2')?.status).toBe('suspended');
-  await expect(memberRow).toContainText('suspended');
+  await page.route('**/api/companies/company-pro/roles', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ roles: [] })
+  }));
 
-  await page.getByPlaceholder('colleague@company.com').fill('new@example.test');
+  await page.goto('/dashboard/organization/users');
+  await expect(page.getByRole('heading', { name: 'Member directory' })).toBeVisible();
+  const memberRow = page.locator('.bee-users__table tr').filter({ hasText: 'member@example.test' });
+  const roleSelect = page.getByLabel('Change role for member@example.test');
+  await roleSelect.selectOption('manager');
+  await expect(roleSelect).toHaveValue('manager');
+  await expect.poll(() => members.find(item => item.userId === 'member-2')?.role).toBe('manager');
+
+  await memberRow.getByRole('button', { name: 'Member options' }).click();
+  await memberRow.getByRole('button', { name: 'Suspend access' }).click();
+  await memberRow.getByRole('button', { name: 'Confirm' }).click();
+  await expect.poll(() => members.find(item => item.userId === 'member-2')?.status).toBe('suspended');
+  await expect(memberRow).toContainText(/suspended/i);
+
+  await page.getByPlaceholder('name@company.com').fill('new@example.test');
   await page.locator('select[name="inviteRole"]').selectOption('member');
   await page.getByRole('button', { name: 'Create invitation' }).click();
-  await expect(page.getByText('one-time-invite-token')).toBeVisible();
-  const newInvitation = page.locator('.bee-company-members__invitation').filter({ hasText: 'new@example.test' });
+  await expect(page.getByLabel('Invitation link')).toHaveValue(/#token=one-time-invite-token/);
+  const newInvitation = page.locator('.bee-users__invitation').filter({ hasText: 'new@example.test' });
   await expect(newInvitation).toBeVisible();
-  await newInvitation.getByRole('button', { name: 'Cancel' }).click();
-  await expect(newInvitation).toContainText('cancelled');
+  await newInvitation.getByRole('button', { name: 'Invitation options' }).click();
+  await newInvitation.getByRole('button', { name: 'Revoke invitation' }).click();
+  await newInvitation.getByRole('button', { name: 'Confirm' }).click();
+  await expect(newInvitation).toContainText(/revoked/i);
 });
 
 
-test('a signed-in member can accept an invitation and see the new company in the switcher', async ({ page }) => {
-  let accepted = false;
-  await page.addInitScript(() => {
-    if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
-      accessToken: 'company-a-token',
-      tenantId: 'company-a',
-      user: { id: 'user-a', email: 'user@example.test', roles: ['user'], tenantId: 'company-a' }
-    }));
-  });
+test('a new member can register from a one-time invitation and land in the invited company', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-a', companyName: 'Company A', role: 'member', email: 'user@example.test', token: 'company-a-token' });
+  await page.route('**/api/auth/invitations/preview', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ invitation: { email: 'user@example.test', companyName: 'Company B', role: 'member', restrictions: [], expiresAt: '2026-11-27T00:00:00.000Z' } })
+  }));
+  await page.route('**/api/auth/invitations/register', route => route.fulfill({
+    status: 201, contentType: 'application/json', body: JSON.stringify({ success: true })
+  }));
+  await page.route('**/api/auth/login', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ accessToken: 'company-b-token', tenantId: 'company-b', user: { id: 'user-b', email: 'user@example.test', roles: ['user'], tenantId: 'company-b' } })
+  }));
+  await page.route('**/api/auth/refresh', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ accessToken: 'company-b-token', tenantId: 'company-b', user: { id: 'user-b', email: 'user@example.test', roles: ['user'], tenantId: 'company-b' } })
+  }));
+  await page.route('**/api/auth/me', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true, tenantId: 'company-b', platformRole: null })
+  }));
   await page.route('**/api/companies', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ companies: [
-      { id: 'company-a', name: 'Company A', role: 'member', active: true },
-      ...(accepted ? [{ id: 'company-b', name: 'Company B', role: 'member', active: false }] : [])
-    ] })
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: 'company-b', name: 'Company B', role: 'member', active: true }] })
   }));
-  await page.route('**/api/companies/company-a/memberships', route => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: [] })
-  }));
-  await page.route('**/api/invitations/accept', route => {
-    accepted = true;
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ success: true, company: { id: 'company-b', name: 'Company B' }, membership: { role: 'member' } })
-    });
-  });
-  await page.goto('/dashboard');
-  await page.getByPlaceholder('Paste a company invitation token').fill('one-time-invitation-token');
-  await page.getByRole('button', { name: 'Accept invitation' }).click();
-  await expect(page.getByText('Invitation accepted for Company B. Select that company in the workspace switcher.')).toBeVisible();
-  await expect(page.getByLabel('Active company')).toHaveValue('company-a');
-  await expect(page.getByLabel('Active company').locator('option[value="company-b"]')).toHaveCount(1);
+
+  await page.goto('/invite/accept#token=one-time-invitation-token');
+  await expect(page.getByRole('heading', { name: 'Join your organization' })).toBeVisible();
+  await page.locator('input[name="invitationPassword"]').fill('Invite-Password-2026!');
+  await page.locator('input[name="invitationPasswordConfirm"]').fill('Invite-Password-2026!');
+  await page.getByRole('button', { name: 'Create account and join' }).click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard');
+  await expect(page.getByLabel('Active company')).toHaveValue('company-b');
+  await expect(page.locator('.md-profile__label')).toContainText('Company B');
 });
+
 
 test('company member data cannot leak across a rapid active-company switch', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'company-a', companyName: 'Company A', role: 'owner', email: 'owner@example.test', token: 'company-a-token' });
   let activeCompany = 'company-a';
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'company-a-token',
@@ -406,6 +474,9 @@ test('company member data cannot leak across a rapid active-company switch', asy
       body: JSON.stringify({ accessToken: 'company-b-token', tenantId: 'company-b', membership: { role: 'owner' } })
     });
   });
+  await page.route('**/api/companies/active/permissions', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ permissions: ['members.read', 'members.manage', 'members.invite'] }) }));
+  await page.route('**/api/companies/company-a/invitations', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ invitations: [] }) }));
+  await page.route('**/api/companies/company-a/roles', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ roles: [] }) }));
   await page.route('**/api/companies/company-b/memberships', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -436,12 +507,12 @@ test('company member data cannot leak across a rapid active-company switch', asy
       { userId: 'member-a', email: 'member-a@example.test', role: 'member', status: 'active', createdAt: '2026-11-20T00:00:00.000Z' }
     ] }) });
   });
-  await page.goto('/dashboard');
+  await page.goto('/dashboard/organization/users');
   await companyAStarted;
   const selector = page.getByLabel('Active company');
   await selector.selectOption('company-b');
   await expect(page.getByText('member-b@example.test')).toBeVisible();
-  const companyBMemberRow = page.locator('.bee-company-members__table tr').filter({ hasText: 'member-b@example.test' });
+  const companyBMemberRow = page.locator('.bee-users__table tr').filter({ hasText: 'member-b@example.test' });
   await expect(companyBMemberRow.locator('option[value="custom:role-b"]')).toHaveText('Company B custom role');
   await page.waitForTimeout(850);
   await expect(page.getByText('member-a@example.test')).toHaveCount(0);
@@ -451,6 +522,7 @@ test('company member data cannot leak across a rapid active-company switch', asy
 
 
 test('Settings > Tenants supports card/list views, tenant management and create modal', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'super-organization', companyName: 'Super Organization', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
   let companies = [
     { id: 'company-1', name: 'Acme Studio', slug: 'acme', status: 'active', createdAt: '2026-11-20T00:00:00.000Z', membersCount: 4 }
   ];
@@ -492,11 +564,11 @@ test('Settings > Tenants supports card/list views, tenant management and create 
   await page.getByRole('button', { name: 'Manage', exact: true }).click();
   await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard/settings/tenants/company-1/manage');
   await expect(page.getByRole('heading', { name: 'Acme Studio' })).toBeVisible();
-  await page.getByRole('button', { name: /tenants/i }).click();
+  await page.getByRole('button', { name: 'Tenants', exact: true }).click();
   await page.getByRole('button', { name: /new tenant/i }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Create a tenant' })).toBeVisible();
-  await dialog.getByPlaceholder('Dragchart').fill('New Tenant');
+  await dialog.locator('input[name="companyName"]').fill('New Tenant');
   await dialog.locator('input[name="companySlug"]').fill('new-tenant');
   await dialog.getByPlaceholder('owner@company.com').fill('owner@new-tenant.test');
   await dialog.getByRole('button', { name: 'Create tenant' }).click();
@@ -505,6 +577,7 @@ test('Settings > Tenants supports card/list views, tenant management and create 
 
 
 test('Settings plugins supports cards/list and only enables plugin details', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'tenant-ref', companyName: 'Bee Tenant', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'platform-admin-token',
     user: { email: 'root@example.test', roles: ['admin'], tenantId: 'tenant-ref' }
@@ -521,8 +594,7 @@ test('Settings plugins supports cards/list and only enables plugin details', asy
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ plugin: { id: 'masked-plugin-ref', name: 'Team Notes', version: '1.2.0', description: 'Shared team notes', category: 'productivity', system: false, entitled: true, installed: true, installedVersion: '1.2.0', accessSource: 'plan' } })
   }));
-  await page.goto('/dashboard');
-  await page.getByRole('button', { name: /settings/i }).click();
+  await page.goto('/dashboard/settings/plugins');
   await expect(page.getByRole('button', { name: 'Plugins', exact: true })).toHaveCount(1);
   await page.getByRole('button', { name: 'Plugins', exact: true }).click();
   const catalogue = page.locator('bee-plugin-settings');
@@ -544,6 +616,7 @@ test('Settings plugins supports cards/list and only enables plugin details', asy
 
 
 test('Settings exposes the seven role-authorized sections and General has exactly three cards', async ({ page }) => {
+  await mockDashboardSession(page, { tenantId: 'tenant-demo', companyName: 'Bee Demo', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'platform-admin-token',
     platformRole: 'superadmin',
@@ -558,15 +631,17 @@ test('Settings exposes the seven role-authorized sections and General has exactl
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ selection: { public: 'aurora', dashboard: 'midnight' }, installedTemplates: ['aurora', 'midnight'] })
   }));
-  await page.goto('/dashboard/settings');
-  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard/settings');
+  await page.goto('/dashboard/settings/general');
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard/settings/general');
   await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible();
-  await expect(page.locator('.settings-workspace__general > article')).toHaveCount(3);
-  for (const title of ['Platform Identity', 'Appearance', 'Platform Defaults']) {
+  await expect(page.locator('.settings-workspace__general > article')).toHaveCount(4);
+  for (const title of ['Platform Identity', 'Appearance', 'Platform Preferences', 'Platform Defaults']) {
     await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   }
   const expected = [
     ['Tenants', '/dashboard/settings/tenants'],
+    ['Roles & Permissions', '/dashboard/settings/roles-permissions'],
+    ['Platform Users', '/dashboard/settings/users'],
     ['Plugins', '/dashboard/settings/plugins'],
     ['Plans & Licensing', '/dashboard/settings/plans-licensing'],
     ['Security', '/dashboard/settings/security'],

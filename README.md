@@ -28,7 +28,7 @@ chmod 600 .env
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-Use Docker Engine and Docker Compose plugin v2.24 or newer. Configure HTTPS and firewall access before exposing the service to real users. This MVP deployment is a test/deployment candidate, not a security-certified production release. See the deployment guide for verification, persistence, backup and restore instructions.
+Use Docker Engine and Docker Compose plugin v2.24.4 or newer. Configure HTTPS and firewall access before exposing the service to real users. This MVP deployment is a test/deployment candidate, not a security-certified production release. See the deployment guide for verification, persistence, backup and restore instructions.
 
 ## API endpoints
 
