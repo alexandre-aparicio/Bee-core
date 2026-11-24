@@ -4,7 +4,7 @@
 - Replaced the previous compact three-column plugin tiles with uniform collection cards, consistent icon/menu placement, metadata/status chips, subtle hover treatment, responsive columns and a matching table view.
 - Moved global package plan assignment out of the page-level panel. Platform administrators now reach **Configure plans** from each eligible module card/table vertical-ellipsis menu; the existing plan assignment API, runtime-loaded guard and tenant activation separation remain unchanged.
 - Kept search and type filtering client-side and shared by Cards and Table; preserved existing plugin detail, install/uninstall lifecycle and ZIP upload behavior.
-- **Validation:** source-level review only. No Angular production build, automated tests, browser interaction, responsive screenshots or Light/Dark visual QA have been run.
+- **Validation:** source-level review only. GitHub Actions was triggered but failed with zero jobs because `.github/workflows/ci.yml` on `main` is empty (one newline); no Angular build or tests actually ran. A separate CI bootstrap PR (#188) adds a real Angular production-build and Playwright-discovery job. No browser interaction, responsive screenshots or Light/Dark visual QA have been run.
 
 ## Organization → Users Cards/Table collection layout (2026-11-24)
 
