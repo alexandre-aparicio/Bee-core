@@ -21,6 +21,7 @@ import {
   hasPluginEntitlement,
   isPluginEnabled,
   isPluginInstalled,
+  isPlatformPluginEnabled,
   seedPluginCommerce
 } from "../../core/plugin-entitlements.js";
 
@@ -315,6 +316,7 @@ export const marketplacePlugin: BeePlugin = {
         return reply.code(403).send({error:"Plugin management permission required"});
       }
       if(typeof request.body?.enabled!=="boolean")return reply.code(400).send({error:"enabled must be a boolean"});
+      if(request.body.enabled&&!await isPlatformPluginEnabled(db,pluginId))return reply.code(409).send({error:"This plugin is suspended globally by the platform administrator"});
       if(request.body.enabled&&!await hasPluginEntitlement(db,tenant.tenantId,pluginId))return reply.code(402).send({error:"This company plan or an active plugin purchase does not include this package"});
       const definition=await getMarketplacePackage(pluginId);
       if(!definition)return reply.code(404).send({error:"Plugin package is not available"});
@@ -376,7 +378,7 @@ export const marketplacePlugin: BeePlugin = {
     ctx.server.get<{Params:{pluginId:string}}>("/marketplace/plugins/:pluginId/runtime",async(request:any,reply:any)=>{
       const tenant=await authenticate(request,reply);if(!tenant)return;
       const plugin=(await getTenantPluginCatalog(db,tenant.tenantId)).find(item=>item.id===request.params.pluginId);
-      if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled)return reply.code(403).send({error:"Plugin is not available for this company"});
+      if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled||!await isPlatformPluginEnabled(db,String(request.params.pluginId)))return reply.code(403).send({error:"Plugin is not available for this company"});
       const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId:plugin.id,status:"installed",source:"zip",runtimeState:"loaded"});
       if(!globalPackage)return reply.code(404).send({error:"Plugin frontend package is not loaded"});
       const version=String(globalPackage.version??"");
