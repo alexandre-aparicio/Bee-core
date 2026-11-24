@@ -452,7 +452,12 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(accessAfterReuse.statusCode,401,"access tokens from a compromised refresh-token family must stop working immediately");
     const freshLogoutLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(freshLogoutLogin.statusCode,200,"logout must be tested with a valid session after the compromised session family is revoked");
-    const freshLogoutAccessToken=freshLogoutLogin.json().accessToken as string;
+    const freshLogoutCompanies=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+freshLogoutLogin.json().accessToken}});
+    const freshSecondCompanyRef=freshLogoutCompanies.json().companies.find((company:{name:string})=>company.name==="Second Company")?.id as string;
+    assert.ok(freshSecondCompanyRef,"the fresh session must resolve the second company independently");
+    const freshLogoutContext=await app.inject({method:"POST",url:"/companies/"+freshSecondCompanyRef+"/activate",headers:{authorization:"Bearer "+freshLogoutLogin.json().accessToken}});
+    assert.equal(freshLogoutContext.statusCode,200,"the new session must switch to the same active company before logout");
+    const freshLogoutAccessToken=freshLogoutContext.json().accessToken as string;
     const freshLogoutCookie=String(freshLogoutLogin.headers["set-cookie"]??"").split(";")[0];
     const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + freshLogoutAccessToken, cookie:freshLogoutCookie }, payload: {} });
     assert.equal(logout.statusCode, 200);
