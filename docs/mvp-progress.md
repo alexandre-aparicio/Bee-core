@@ -1,3 +1,10 @@
+## Shared modal consistency contract documented (2026-11-24)
+
+- Added a normative cross-feature modal layout contract to the global Bee-Core Design System: full-viewport blurred overlay above the dashboard header, shared panel geometry, header/eyebrow/title/close-control alignment, body scrolling, right-aligned footer action row, button variants, accessibility and responsive behavior.
+- Added the Midnight visual-skin rules to the Midnight Style Guide, explicitly separating global modal structure/behavior from theme tokens and requiring the same Light/Dark treatment in every feature.
+- Named Organization → Teams and Documents as the canonical comparison pair. Equivalent dialogs must not drift in overlay, panel, header, close control, footer position, button order, sizing or interaction states; any intentional exception requires documentation.
+- Documentation-only change. No application source, Angular build, tests, browser interaction or Light/Dark visual validation was changed or run.
+
 ## Documents dialogs aligned with the Teams modal (2026-11-24)
 
 - Updated both Documents dialogs (folder sharing and document details) to follow the Teams modal's full-viewport overlay and panel geometry: fixed inset on all four edges, matching overlay stacking level, shared `--bee-overlay` surface, 8px backdrop blur, 24px desktop inset, and the same 760px / 84vh / 820px panel bounds, 20px padding and 16px radius.
