@@ -458,7 +458,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.equal(ownerFreshActivate.statusCode,200);
     const ownerFreshMembers=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/memberships",headers:{authorization:"Bearer "+ownerFreshActivate.json().accessToken}});
     assert.equal(ownerFreshMembers.statusCode,200);
-    const betaFreshMemberRef=ownerFreshMembers.json().members.find((member:{email:string})=>member.email==="beta@example.com")?.userId as string;
+    const betaFreshMemberRef=ownerFreshMembers.json().memberships.find((member:{email:string})=>member.email==="beta@example.com")?.userId as string;
     assert.ok(betaFreshMemberRef,"fresh session must receive its own opaque membership reference");
     const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/memberships/"+encodeURIComponent(betaFreshMemberRef),headers:{authorization:"Bearer "+ownerFreshActivate.json().accessToken}});
     assert.equal(removeBetaMember.statusCode,200);
