@@ -2,7 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, HostListener, Input, OnChanges, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 type CustomRole={id:string;name:string;description:string;permissions:string[];mode?:"grant"|"restriction"};
-type SystemRole={key:string;label:string;description:string;protected:boolean;permissions:string[]};
+type SystemRole={key:string;label:string;description:string;protected:boolean;permissions:string[];active?:boolean};
 type PermissionOption={key:string;label:string;group:string;action:string;description:string;sensitive?:boolean;customRoleAssignable:boolean;assignable:boolean;selected:boolean};
 
 @Component({
@@ -21,10 +21,18 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
    <div class="org-roles__section-heading"><div><h3>System roles</h3><p>Built-in roles maintained by Core. Their baseline permissions and protected boundaries cannot be replaced by custom roles.</p></div><span class="org-roles__section-tag">Core managed</span></div>
    <div class="org-roles__system-grid">
     <article class="org-roles__system-card" *ngFor="let item of systemRoles">
-     <div class="org-roles__card-top"><div><strong>{{item.label}}</strong><small>{{item.protected?'Protected system role':'Standard system role'}}</small></div><span class="org-roles__permission-count">{{item.permissions.length}} permissions</span></div>
-     <p>{{item.description}}</p>
-     <div class="org-roles__chips"><code *ngFor="let permission of item.permissions">{{permission}}</code></div>
+     <div class="org-roles__card-top"><span class="org-roles__role-mark">{{item.label.slice(0,1).toUpperCase()}}</span><div class="org-roles__card-menu"><details><summary [attr.aria-label]="'Options for '+item.label" [attr.title]="'Options for '+item.label"><span>⋮</span></summary><div class="org-roles__menu" role="menu"><button type="button" role="menuitem" (click)="openSystemRole(item)">View details</button><button type="button" role="menuitem" disabled>Edit role <small>Coming soon</small></button><button type="button" role="menuitem" disabled>Deactivate role <small>Coming soon</small></button><button type="button" role="menuitem" disabled>Delete role <small>Coming soon</small></button></div></details></div></div>
+     <div class="org-roles__card-copy"><strong>{{item.label}}</strong><p>{{item.description}}</p></div>
+     <div class="org-roles__card-meta"><span class="org-roles__permission-count">{{item.permissions.length}} {{item.permissions.length===1?'permission':'permissions'}}</span><span class="org-roles__status" [class.is-inactive]="item.active===false">{{item.active===false?'Inactive':'Active'}}</span></div>
+     <div class="org-roles__permission-preview" [attr.aria-label]="item.permissions.length+' permissions'"><code *ngFor="let permission of item.permissions.slice(0,3);let i=index" [style.zIndex]="3-i">{{permissionLabel(permission)}}</code><span class="org-roles__permission-more" *ngIf="item.permissions.length>3">+{{item.permissions.length-3}}</span></div>
     </article>
+   </div>
+   <div class="org-roles__modal-backdrop" *ngIf="selectedSystemRole" (click)="closeSystemRole()">
+    <section class="org-roles__modal org-roles__details-modal" role="dialog" aria-modal="true" aria-labelledby="org-system-role-title" (click)="$event.stopPropagation()" (keydown.escape)="closeSystemRole()" tabindex="-1">
+     <header class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">SYSTEM ROLE · CORE MANAGED</span><h2 id="org-system-role-title">{{selectedSystemRole.label}}</h2><p>{{selectedSystemRole.description}}</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeSystemRole()">×</button></header>
+     <div class="org-roles__details-summary"><div><span class="org-roles__detail-label">Role status</span><span class="org-roles__status" [class.is-inactive]="selectedSystemRole.active===false">{{selectedSystemRole.active===false?'Inactive':'Active'}}</span></div><div><span class="org-roles__detail-label">Permissions</span><strong>{{selectedSystemRole.permissions.length}}</strong></div><div><span class="org-roles__detail-label">Protection</span><strong>{{selectedSystemRole.protected?'Protected by Core':'Standard system role'}}</strong></div></div>
+     <section class="org-roles__details-permissions"><div class="org-roles__details-heading"><h3>Assigned permissions</h3><span>{{selectedSystemRole.permissions.length}} total</span></div><div class="org-roles__detail-badges"><span *ngFor="let permission of selectedSystemRole.permissions"><strong>{{permissionLabel(permission)}}</strong><code>{{permission}}</code></span><p *ngIf="!selectedSystemRole.permissions.length">No explicit permission keys are listed for this role.</p></div></section>
+    </section>
    </div>
   </section>
   <section class="org-roles__tab-panel" *ngIf="activeTab==='permissions'">
@@ -94,11 +102,34 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__tab-panel{min-width:0;border:1px solid var(--border,#8885);border-radius:15px;padding:20px;background:var(--panel,rgba(130,145,170,.045))}
  .org-roles__section-heading{align-items:center;margin-bottom:16px}.org-roles__section-heading p,.org-roles__editor-heading p{font-size:12px;max-width:780px}
  .org-roles__section-tag,.org-roles__permission-count,.org-roles__list-heading>span{font-size:10px;border:1px solid var(--border,#8885);border-radius:30px;padding:6px 9px;white-space:nowrap;opacity:.75}
- .org-roles__system-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
- .org-roles__system-card,.org-roles__permission-group,.org-roles__custom-list,.org-roles__editor{border:1px solid var(--border,#8885);border-radius:12px;padding:14px;background:var(--surface,rgba(130,145,170,.035));min-width:0}
- .org-roles__system-card strong,.org-roles__system-card small{display:block}.org-roles__system-card strong{font-size:14px}.org-roles__system-card small{font-size:10px;opacity:.62;margin-top:4px}
- .org-roles__system-card p{font-size:11px;margin:10px 0;min-height:34px}
- .org-roles__chips{display:flex;flex-wrap:wrap;gap:5px}.org-roles__chips code{font-size:9px;padding:4px 6px;border-radius:5px;background:var(--surface-raised,#8882);color:inherit;overflow-wrap:anywhere}
+ .org-roles__system-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,245px),1fr));grid-auto-rows:1fr;gap:12px}
+ .org-roles__system-card{position:relative;min-width:0;min-height:188px;border:1px solid var(--border,#8885);border-radius:11px;background:var(--surface,rgba(130,145,170,.035));padding:13px;display:grid;grid-template-rows:auto minmax(48px,1fr) auto auto;gap:10px;transition:border-color .16s ease,background-color .16s ease}
+ .org-roles__system-card:hover{border-color:color-mix(in srgb,var(--purple,#8c72ff) 48%,var(--border,#8885));background:color-mix(in srgb,var(--surface,rgba(130,145,170,.035)) 92%,var(--purple,#8c72ff))}
+ .org-roles__card-top{display:flex;justify-content:space-between;align-items:center}
+ .org-roles__role-mark{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:9px;background:color-mix(in srgb,var(--purple,#8c72ff) 13%,var(--panel,#8882));color:var(--purple,#8c72ff);font-weight:750;font-size:14px}
+ .org-roles__card-menu,.org-roles__card-menu details{position:relative}
+ .org-roles__card-menu summary{list-style:none;cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:7px;color:var(--muted,inherit);font-size:21px;line-height:1}
+ .org-roles__card-menu summary::-webkit-details-marker{display:none}.org-roles__card-menu summary:hover{background:color-mix(in srgb,var(--muted,#888) 12%,transparent);color:inherit}
+ .org-roles__menu{position:absolute;z-index:5;inset-block-start:30px;inset-inline-end:0;width:190px;padding:5px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow);display:grid;gap:2px}
+ .org-roles__menu button{display:flex;justify-content:space-between;align-items:center;gap:8px;border:0;border-radius:6px;background:transparent;color:inherit;text-align:start;padding:8px;font-size:11px}
+ .org-roles__menu button:hover:not(:disabled){background:color-mix(in srgb,var(--muted,#888) 12%,transparent)}
+ .org-roles__menu button:disabled{opacity:.42;cursor:not-allowed}.org-roles__menu button small{font-size:9px;color:var(--muted);white-space:nowrap}
+ .org-roles__card-copy{display:grid;align-content:start;gap:5px;min-width:0}.org-roles__card-copy>strong{font-size:14px;overflow-wrap:anywhere}
+ .org-roles__card-copy p{font-size:11px;line-height:1.4;min-height:31px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+ .org-roles__card-meta{display:flex;align-items:center;gap:8px;border-top:1px solid var(--border,#8885);padding-top:9px}
+ .org-roles__permission-count{font-size:10px;color:var(--muted,inherit);border:1px solid var(--border,#8885);border-radius:5px;padding:4px 6px}
+ .org-roles__status{margin-inline-start:auto;display:inline-flex;align-items:center;border-radius:20px;padding:4px 7px;background:color-mix(in srgb,var(--bee-status-success,#299d70) 12%,transparent);color:var(--bee-status-success,#299d70);font-size:9px;text-transform:capitalize;white-space:nowrap}
+ .org-roles__status.is-inactive{background:color-mix(in srgb,var(--muted,#888) 14%,transparent);color:var(--muted,#888)}
+ .org-roles__permission-preview{display:flex;align-items:center;min-width:0;min-height:22px;padding-inline-start:0}
+ .org-roles__permission-preview code{position:relative;display:block;flex:0 0 112px;max-width:112px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-inline-start:-78px;padding:5px 7px;border:1px solid var(--border,#8885);border-radius:6px;background:var(--surface-raised,var(--panel));font-size:9px;color:inherit}
+ .org-roles__permission-preview code:first-child{margin-inline-start:0}
+ .org-roles__permission-more{position:relative;z-index:4;margin-inline-start:auto;padding-inline-start:5px;font-size:10px;color:var(--muted,inherit);white-space:nowrap}
+ .org-roles__details-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px;border:1px solid var(--border,#8885);border-radius:10px;background:var(--surface,transparent)}
+ .org-roles__details-summary>div{display:grid;gap:6px;align-content:start}.org-roles__detail-label{font-size:10px;color:var(--muted,inherit)}
+ .org-roles__details-permissions{margin-top:18px}.org-roles__details-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.org-roles__details-heading h3{font-size:14px}.org-roles__details-heading>span{font-size:10px;color:var(--muted,inherit)}
+ .org-roles__detail-badges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+ .org-roles__detail-badges>span{display:grid;gap:4px;min-width:0;padding:9px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,transparent)}
+ .org-roles__detail-badges strong{font-size:11px}.org-roles__detail-badges code{font-size:9px;color:var(--muted,inherit);overflow-wrap:anywhere}
  .org-roles__permission-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
  .org-roles__permission-group h4{text-transform:capitalize;font-size:13px;margin-bottom:10px}
  .org-roles__permission-card{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--border,#8884)}
@@ -106,11 +137,11 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__permission-copy strong{font-size:12px}.org-roles__permission-copy small{font-size:10px;opacity:.65;margin:3px 0}.org-roles__permission-copy code{font-size:9px;opacity:.55;overflow-wrap:anywhere}
  .org-roles__permission-state{font-size:9px;white-space:nowrap;opacity:.68}.org-roles__permission-state.is-protected{color:var(--warning,#c58a35);opacity:1}
  .org-roles__footnote{font-size:11px;margin-top:14px!important}
- .org-roles__modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:rgba(8,12,22,.62);backdrop-filter:blur(7px);animation:orgRoleFade .16s ease-out}
- .org-roles__modal{width:min(980px,100%);max-height:min(90vh,900px);overflow:auto;border:1px solid var(--border,#8885);border-radius:18px;background:var(--surface-raised,var(--panel,#171a24));box-shadow:0 24px 80px rgba(0,0,0,.3);padding:22px;animation:orgRoleRise .2s ease-out}
- .org-roles__modal-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}
- .org-roles__modal-top h2{font-size:22px;margin:5px 0}.org-roles__modal-top p{font-size:12px}.org-roles__modal-eyebrow{font-size:9px;letter-spacing:.15em;font-weight:700;opacity:.55}
- .org-roles__modal-close{width:36px;height:36px;padding:0!important;font-size:22px;line-height:1;border-radius:50%!important}
+ .org-roles__modal-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:var(--bee-overlay);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:orgRoleFade .16s ease-out}
+ .org-roles__modal{width:min(760px,100%);max-height:min(84vh,820px);overflow:auto;border:1px solid var(--border,#8885);border-radius:16px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow);padding:20px;display:grid;gap:16px;animation:orgRoleRise .2s ease-out}
+ .org-roles__modal-top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin:0}
+ .org-roles__modal-top h2{font-size:15px;line-height:1.3;margin:3px 0 0}.org-roles__modal-top p{font-size:11px}.org-roles__modal-eyebrow{font-size:9px;letter-spacing:.15em;font-weight:700;opacity:.55}
+ .org-roles__modal-close{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;padding:0!important;font-size:18px;line-height:1;border:1px solid var(--border,#8885);border-radius:8px!important;background:var(--surface,transparent)}
  .org-roles__editor--modal{border:0;padding:0;background:transparent}.org-roles__editor--modal .org-roles__editor-heading{display:none}
  @keyframes orgRoleFade{from{opacity:0}to{opacity:1}}@keyframes orgRoleRise{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
  @media(prefers-reduced-motion:reduce){.org-roles__modal-backdrop,.org-roles__modal{animation:none}}
@@ -136,16 +167,15 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__primary{background:var(--purple,#8c72ff)!important;color:#fff!important;border-color:var(--purple,#8c72ff)!important}
  .org-roles__error{color:#d65b5b!important;opacity:1!important}.org-roles__success{color:#269b70!important;opacity:1!important}
  .org-roles__notice,.org-roles__empty{padding:12px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface,rgba(130,145,170,.04));font-size:11px}
- @media(max-width:980px){.org-roles__system-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.org-roles__custom-layout{grid-template-columns:1fr}}
- @media(max-width:760px){.org-roles__header,.org-roles__section-heading,.org-roles__editor-heading{align-items:flex-start;flex-direction:column}.org-roles__permission-groups,.org-roles__groups,.org-roles__form-grid{grid-template-columns:1fr}}
- @media(max-width:520px){.org-roles__system-grid{grid-template-columns:1fr}.org-roles__tab-panel{padding:13px}.org-roles__tabs{padding:0 4px}.org-roles__tabs button{padding:12px 8px}.org-roles__modal-backdrop{padding:10px}.org-roles__modal{padding:15px;max-height:94vh}}
+ @media(max-width:760px){.org-roles__header,.org-roles__section-heading,.org-roles__editor-heading{align-items:flex-start;flex-direction:column}.org-roles__permission-groups,.org-roles__groups,.org-roles__form-grid,.org-roles__detail-badges{grid-template-columns:1fr}.org-roles__details-summary{grid-template-columns:1fr}}
+ @media(max-width:520px){.org-roles__tab-panel{padding:13px}.org-roles__tabs{padding:0 4px}.org-roles__tabs button{padding:12px 8px}.org-roles__modal-backdrop{padding:12px}.org-roles__modal{max-height:min(90vh,820px)}}
  `]
 
 })
 export class OrganizationRolesComponent implements OnChanges{
  @Input() tenantId="";@Input() role="member";@Input() accessToken="";
  activeTab:"system"|"permissions"|"custom"="system";
- roles:CustomRole[]=[];systemRoles:SystemRole[]=[];name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";modalOpen=false;
+ roles:CustomRole[]=[];systemRoles:SystemRole[]=[];selectedSystemRole:SystemRole|null=null;name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";modalOpen=false;
  permissions:PermissionOption[]=[];
  private tenantAssignablePermissions:string[]=[];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
@@ -157,9 +187,12 @@ export class OrganizationRolesComponent implements OnChanges{
  trackRole(_i:number,item:CustomRole):string{return item.id;}
  private async request(path:string,method="GET",body?:unknown):Promise<any>{const response=await fetch("/api"+path,{method,headers:{authorization:"Bearer "+this.accessToken,...(body?{"content-type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Role request failed");return result;}
  async load():Promise<void>{if(!this.tenantId||!this.accessToken)return;this.loading=true;this.error="";try{const result=await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles");this.roles=result.roles||[];this.systemRoles=result.systemRoles||[];this.tenantAssignablePermissions=Array.isArray(result.tenantAssignablePermissions)?result.tenantAssignablePermissions:[];const allowed=new Set<string>(this.tenantAssignablePermissions);const selected=new Set(this.permissions.filter(permission=>permission.selected).map(permission=>permission.key));this.permissions=(Array.isArray(result.permissionCatalog)?result.permissionCatalog:[]).map((item:any)=>({key:item.key,label:item.label,group:String(item.resource||item.module||"Core").replace(/^./,letter=>letter.toUpperCase()),action:item.action||"manage",description:item.description||"",sensitive:!!item.sensitive,customRoleAssignable:!!item.customRoleAssignable,assignable:this.mode==="restriction"||!!item.customRoleAssignable&&allowed.has(item.key),selected:selected.has(item.key)||(selected.size===0&&["members.read","plugins.read"].includes(item.key))}));}catch(error){this.error=error instanceof Error?error.message:"Could not load roles";}finally{this.loading=false;}}
+ permissionLabel(key:string):string{return this.permissions.find(item=>item.key===key)?.label||key;}
+ openSystemRole(item:SystemRole):void{this.selectedSystemRole=item;}
+ closeSystemRole():void{this.selectedSystemRole=null;}
  openCreate():void{this.reset();this.modalOpen=true;}
  closeModal():void{this.modalOpen=false;}
- @HostListener("document:keydown.escape") onEscape():void{if(this.modalOpen)this.closeModal();}
+ @HostListener("document:keydown.escape") onEscape():void{if(this.selectedSystemRole)this.closeSystemRole();else if(this.modalOpen)this.closeModal();}
  edit(item:CustomRole):void{this.modalOpen=true;this.editingId=item.id;this.name=item.name;this.description=item.description||"";this.mode=item.mode??"grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=item.permissions.includes(p.key);this.error="";this.message="";}
  reset():void{this.modalOpen=false;this.editingId="";this.name="";this.description="";this.mode="grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=["members.read","plugins.read"].includes(p.key)&&p.assignable;this.error="";this.message="";}
  async save(event:Event):Promise<void>{event.preventDefault();if(!this.canManage||this.busy||!this.name.trim())return;this.busy=true;this.error="";this.message="";const body={name:this.name.trim(),description:this.description.trim(),mode:this.mode,permissions:this.permissions.filter(p=>p.selected&&p.assignable).map(p=>p.key)};try{if(this.editingId)await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(this.editingId),"PUT",body);else await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles","POST",body);this.message=this.editingId?"Role updated.":"Role created.";this.reset();await this.load();}catch(error){this.error=error instanceof Error?error.message:"Could not save role";}finally{this.busy=false;}}

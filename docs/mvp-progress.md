@@ -894,3 +894,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Corrected the browser companion heartbeat request to send an explicit empty JSON object (`{}`) because its shared request helper sets `Content-Type: application/json`. A body-less POST with that content type can be rejected by Fastify's JSON parser with HTTP 400 before the route handler/authentication executes.
 - No backend authentication, device credential, approval, tenant-scope or authorization behavior was changed.
 - **Validation:** source-level request-contract review only. No Fastify integration test, Angular asset build, browser heartbeat, CI or VPS runtime check has been executed. Deploy the merged asset and verify Network shows a successful heartbeat before considering the issue closed.
+
+## Organization Roles — System Roles card and detail experience (2026-11-24)
+
+- Reworked only the **System Roles** tab cards to follow the Organization → Teams collection-card geometry and interaction: responsive auto-fill grid with 245px minimum card width, 12px grid gap, 13px card padding, 11px radius, matching restrained accent hover, and equal-height rows.
+- Each role card now presents the role name, its description, permission count, Active/Inactive status and a compact overlapping permission-badge preview. The preview shows the first three permission labels; the `+N` indicator is calculated from the remaining permissions.
+- Added the vertical-ellipsis overflow menu. **View details** opens a read-only role detail modal; Edit, Deactivate and Delete are visible but disabled and marked as coming soon because system roles remain Core-managed.
+- The detail modal lists the role description, status, protection boundary, total permission count and every assigned permission. Both this modal and the existing custom-role editor now use the canonical Teams/Documents overlay and panel geometry, including full-viewport 8px blur and semantic overlay/surface/shadow tokens.
+- System roles are displayed as Active unless the API explicitly returns `active: false`; this UI does not activate/deactivate or mutate built-in roles.
+- **Validation pending:** source-level inspection only. Angular build, unit tests, browser interaction, responsive checks and Light/Dark visual comparison have not yet been run. No deployment has been performed.
