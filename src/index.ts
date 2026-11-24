@@ -115,6 +115,8 @@ const ctx: BeeContext = {
     authAdminPassword: process.env.AUTH_ADMIN_PASSWORD ?? "",
     authMfaEncryptionKey: environment.authMfaEncryptionKey,
     fileStoragePath: process.env.BEE_FILES_DIR ?? "/data/bee-files",
+    pluginPackagePath: process.env.BEE_PLUGIN_PACKAGES_DIR ?? "/data/bee-plugins",
+    pluginPublisherPublicKey: process.env.BEE_PLUGIN_PUBLISHER_PUBLIC_KEY ?? "",
     billingWebhookSecret: process.env.BEE_BILLING_WEBHOOK_SECRET ?? "",
     publicBaseDomain: process.env.PUBLIC_BASE_DOMAIN ?? "beecore.beeprojects.net"
   })
