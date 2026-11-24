@@ -189,3 +189,18 @@ test("successful migrations can be compensated when a later lifecycle hook fails
     await client.close();
   }
 });
+
+
+test("plugin package activation policy accepts automatic and manual modes", () => {
+  const automatic = structuredClone(validManifest);
+  automatic.activationPolicy = "automatic";
+  assert.doesNotThrow(() => validatePluginManifest(automatic));
+
+  const manual = structuredClone(validManifest);
+  manual.activationPolicy = "manual";
+  assert.doesNotThrow(() => validatePluginManifest(manual));
+
+  const invalid = structuredClone(validManifest) as BeeBusinessPluginManifest & { activationPolicy: string };
+  invalid.activationPolicy = "sometimes";
+  assert.throws(() => validatePluginManifest(invalid), /activation policy/i);
+});
