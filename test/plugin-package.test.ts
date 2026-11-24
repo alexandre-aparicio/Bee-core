@@ -37,6 +37,9 @@ test("plugin manifest rejects unsafe paths, invalid IDs, duplicate permissions a
   assert.throws(() => validatePluginManifest({ ...validManifest, collections: ["crm_contacts", "crm_contacts"] }), /collection names must be unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, migrations: [...validManifest.migrations, ...validManifest.migrations] }), /migration IDs must be unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [{ path: "/../../admin", component: "crm.contacts.list" }] } }), /Invalid frontend route registrations/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [], entrypoint: "../index.html", assets: ["../index.html"] } }), /frontend entrypoint|frontend asset/i);
+  assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/index.html"] } }), /frontend asset/i);
+  assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [], apiPrefixes: ["/api/../admin"] } }), /frontend API prefix/i);
 });
 
 test("plugin dependency resolver orders transitive dependencies before dependents", () => {
