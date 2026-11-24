@@ -507,3 +507,13 @@ A feature is not visually complete merely because it renders. It is design-syste
 - The Midnight dashboard host exposes its mode through `data-bee-dashboard-mode`. Documents component-local semantic tokens must respond to this host state without changing Midnight Dark or other features.
 - Primary actions and selected view controls must use contrast-safe foregrounds; do not use the light `--bg` token as their text color in Light mode.
 - Validate Cards and Table, opening every menu and dialog, in both light and dark modes. Source-level corrections do not count as browser verification.
+
+## Collection hover treatment (Documents reference)
+
+Cards and equivalent table rows in collection views MUST use the same restrained accent-tint hover language as Documents. The treatment is a surface-color shift, not a glow, scale, shadow, opacity or layout animation:
+
+- Collection cards: blend the surface with the template accent at 8% (`color-mix(in srgb, var(--surface) 92%, var(--accent))`) and blend the border with the accent at 48%.
+- Table rows: use a 5% accent tint over the transparent row background (`color-mix(in srgb, var(--accent) 5%, transparent)`).
+- Keep transitions brief and limited to background/border colors. Selected, focused, drag-target and keyboard-focus states remain distinct and MUST NOT be replaced by hover styling.
+- Apply the same treatment to equivalent card and table representations within a feature. Light and Dark modes MUST both use semantic surface/accent tokens so the tint remains subtle and readable.
+- Documents is the visual reference implementation (`.documents__item:hover` and `.documents__table tbody tr:hover`).
