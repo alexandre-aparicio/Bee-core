@@ -18,6 +18,14 @@ services:
       timeout: 5s
       retries: 5
 
+  bee-core-files-init:
+    image: alpine:3.20
+    user: "0:0"
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /data/bee-files && chown 1000:1000 /data/bee-files && chmod 750 /data/bee-files"]
+    volumes:
+      - bee_core_files:/data/bee-files
+
   bee-core:
     build: .
     container_name: bee-core
@@ -41,6 +49,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      bee-core-files-init:
+        condition: service_completed_successfully
     expose:
       - "3000"
     healthcheck:
