@@ -53,6 +53,18 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /bee-plugin:api-request/);
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
+      } else if (item.id === "time-tracking") {
+        assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
+        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/time-tracking"]);
+        assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
+        const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
+        const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
+        assert.match(html, /Control horario/);
+        assert.match(script, /clock-in/);
+        assert.match(script, /team\/schedules/);
+        assert.match(script, /team\/corrections/);
+        assert.match(script, /submitCorrection/);
+        assert.doesNotThrow(() => new Script(script), "the standalone Time Tracking frontend must be valid JavaScript");
       } else if (item.id === "documents") {
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/files"]);
