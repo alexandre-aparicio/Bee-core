@@ -64,21 +64,6 @@ type PluginRecord = {
         </div>
       </div>
 
-      <section *ngIf="isPlatformAdmin" class="plugin-settings__packages" aria-label="Installed platform packages">
-        <header class="plugin-settings__packages-head">
-          <div><strong>Installed platform packages</strong><p>Signed ZIP packages loaded by the Bee-Core runtime.</p></div>
-          <button type="button" (click)="loadPlatformPackages()" [disabled]="pluginPackagesLoading">{{pluginPackagesLoading ? 'Refreshing…' : 'Refresh packages'}}</button>
-        </header>
-        <p *ngIf="pluginPackagesLoading && !platformPackages.length" class="plugin-settings__state">Loading platform packages…</p>
-        <p *ngIf="!pluginPackagesLoading && !packageError && !platformPackages.length" class="plugin-settings__state">No platform packages have been installed.</p>
-        <div *ngIf="platformPackages.length" class="plugin-settings__package-list">
-          <article *ngFor="let item of platformPackages" class="plugin-settings__package-row">
-            <div><strong>{{item.name}}</strong><small>{{item.pluginKey}} · v{{item.version}} · {{item.source}}</small></div>
-            <span class="plugin-settings__package-state" [class.is-loaded]="item.runtimeState === 'loaded'" [class.is-failed]="item.runtimeState === 'failed'">{{item.runtimeState || item.status}}</span>
-          </article>
-        </div>
-      </section>
-
       <p *ngIf="loading" class="plugin-settings__state">Loading modules…</p>
       <p *ngIf="error" class="plugin-settings__error" role="alert">{{error}}</p>
       <p *ngIf="packageError && !planConfigPlugin" class="plugin-settings__error" role="alert">{{packageError}}</p>
@@ -164,6 +149,21 @@ type PluginRecord = {
           </table>
         </div>
       </ng-container>
+
+      <section *ngIf="isPlatformAdmin" class="plugin-settings__packages" aria-label="Installed platform packages">
+        <header class="plugin-settings__packages-head">
+          <div><strong>Installed platform packages</strong><p>Signed ZIP packages loaded by the Bee-Core runtime.</p></div>
+          <button type="button" (click)="loadPlatformPackages()" [disabled]="pluginPackagesLoading">{{pluginPackagesLoading ? 'Refreshing…' : 'Refresh packages'}}</button>
+        </header>
+        <p *ngIf="pluginPackagesLoading && !platformPackages.length" class="plugin-settings__state">Loading platform packages…</p>
+        <p *ngIf="!pluginPackagesLoading && !packageError && !platformPackages.length" class="plugin-settings__state">No platform packages have been installed.</p>
+        <div *ngIf="platformPackages.length" class="plugin-settings__package-list">
+          <article *ngFor="let item of platformPackages" class="plugin-settings__package-row">
+            <div><strong>{{item.name}}</strong><small>{{item.pluginKey}} · v{{item.version}} · {{item.source}}</small></div>
+            <span class="plugin-settings__package-state" [class.is-loaded]="item.runtimeState === 'loaded'" [class.is-failed]="item.runtimeState === 'failed'">{{item.runtimeState || item.status}}</span>
+          </article>
+        </div>
+      </section>
 
       <div class="plugin-settings__overlay" *ngIf="planConfigPlugin as planPackage" (click)="closePlanConfig()">
         <section class="plugin-settings__plan-dialog" role="dialog" aria-modal="true" aria-labelledby="plugin-plan-title" (click)="$event.stopPropagation()" (keydown.escape)="closePlanConfig()" tabindex="-1">
