@@ -183,3 +183,8 @@ The browser simulator sends an explicit empty JSON object (`{}`) with the authen
 ## Device card lifecycle actions
 
 Each device card exposes a vertical three-dot action menu. **Unlink** invalidates the current credential, clears granted capabilities and retains the device record as `unlinked`; a new one-time QR pairing creates a fresh device identity and credential. **Revoke** permanently invalidates the current device credential and keeps the revoked record for audit/history. **Suspend** temporarily blocks access and can be reversed by reactivation. **Delete** permanently removes the tenant-scoped device record and cancels its claimed pairing challenge; it is restricted to organization administrators. Unlink and delete are distinct: unlink preserves history, delete removes the record.
+
+
+## Empty-body DELETE requests
+
+The Angular API helper adds `Content-Type: application/json` only when a request includes a body. GET and body-less DELETE requests omit that header. This avoids Fastify's `FST_ERR_CTP_EMPTY_JSON_BODY` parser error while preserving JSON headers for POST/PATCH requests that send JSON. No server parser behavior or authorization checks are relaxed.

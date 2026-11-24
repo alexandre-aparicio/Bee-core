@@ -845,3 +845,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Corrected the browser companion heartbeat request to send an explicit empty JSON object (`{}`) because its shared request helper sets `Content-Type: application/json`. A body-less POST with that content type can be rejected by Fastify's JSON parser with HTTP 400 before the route handler/authentication executes.
 - No backend authentication, device credential, approval, tenant-scope or authorization behavior was changed.
 - **Validation:** source-level request-contract review only. No Fastify integration test, Angular asset build, browser heartbeat, CI or VPS runtime check has been executed. Deploy the merged asset and verify Network shows a successful heartbeat before considering the issue closed.
+
+
+## Connected Devices body-less DELETE 400 — fix prepared (2026-11-24)
+
+- Traced the reported `FST_ERR_CTP_EMPTY_JSON_BODY` response to the Angular `ConnectedDevicesApiService`: its shared request helper unconditionally attached `Content-Type: application/json`, including to the permanent device `DELETE` request, which intentionally has no body.
+- Updated the helper to attach the JSON content type only when `RequestInit.body` is present. JSON POST/PATCH calls keep their content type; GET and body-less DELETE calls omit it. The fix addresses Fastify's parser rejection before route execution without changing backend routes, authentication, tenant isolation or authorization.
+- **Validation pending:** source-level trace and targeted diff only. Angular build, automated tests, browser deletion flow and deployed API verification have not yet run.
