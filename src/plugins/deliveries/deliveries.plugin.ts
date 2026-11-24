@@ -9,11 +9,13 @@ import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
 type DeliveryStatus = "draft" | "assigned" | "picked_up" | "in_transit" | "delivered" | "failed" | "cancelled";
 type DeliveryKind = "delivery" | "pickup";
+type SignaturePoint = { x: number; y: number };
+type DeliveryProof = { recipientName: string; strokes: SignaturePoint[][]; note: string; latitude: number | null; longitude: number | null; recordedBy: string; recordedAt: Date };
 type DeliveryRecord = Document & {
   id: string; tenantId: string; reference: string; kind: DeliveryKind; status: DeliveryStatus;
   recipient: string; phone: string; address: string; notes: string; assignedTo: string | null;
   plannedAt: Date | null; createdBy: string; createdAt: Date; updatedAt: Date;
-  pickedUpAt: Date | null; completedAt: Date | null;
+  pickedUpAt: Date | null; completedAt: Date | null; proof?: DeliveryProof | null; failureReason?: string | null;
 };
 
 const STATUSES: DeliveryStatus[] = ["draft","assigned","picked_up","in_transit","delivered","failed","cancelled"];
@@ -27,6 +29,19 @@ export function deliveryVisibilityFilter(userId: string, canManage: boolean, ass
   if (assignment === "mine") return { assignedTo: userId };
   if (assignment === "unassigned") return { assignedTo: null };
   return {};
+}
+export function isValidSignatureStrokes(value: unknown): value is SignaturePoint[][] {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 40) return false;
+  let total = 0;
+  for (const stroke of value) {
+    if (!Array.isArray(stroke) || stroke.length < 1 || stroke.length > 500) return false;
+    total += stroke.length;
+    if (total > 1500) return false;
+    for (const point of stroke) {
+      if (!point || typeof point !== "object" || !Number.isFinite(point.x) || !Number.isFinite(point.y) || point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) return false;
+    }
+  }
+  return true;
 }
 export function canTransitionDelivery(from: DeliveryStatus, to: DeliveryStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
@@ -62,7 +77,9 @@ export const deliveriesPlugin: BeePlugin = {
       reference: item.reference, kind: item.kind, status: item.status, recipient: item.recipient,
       phone: item.phone, address: item.address, notes: item.notes, assignedToMe: item.assignedTo === tenant.userId, assigned: Boolean(item.assignedTo),
       plannedAt: item.plannedAt, createdAt: item.createdAt, updatedAt: item.updatedAt,
-      pickedUpAt: item.pickedUpAt, completedAt: item.completedAt
+      pickedUpAt: item.pickedUpAt, completedAt: item.completedAt,
+      proof: item.proof ? { recipientName: item.proof.recipientName, note: item.proof.note, latitude: item.proof.latitude, longitude: item.proof.longitude, recordedAt: item.proof.recordedAt, signaturePresent: true } : null,
+      failureReason: item.failureReason ?? null
     });
     const resolveId = (value: string, tenant: AuthenticatedRequest["tenantContext"]): string | null => {
       try { return unmaskResourceId(value, "delivery", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, secret); }
@@ -95,13 +112,13 @@ export const deliveriesPlugin: BeePlugin = {
       const item: Omit<DeliveryRecord, "tenantId"> = {
         id: randomUUID(), reference: "ENT-" + now.toISOString().slice(0,10).replace(/-/g,"") + "-" + randomUUID().slice(0,6).toUpperCase(),
         kind, status: "draft", recipient, phone, address, notes, assignedTo: null, plannedAt,
-        createdBy: tenant.userId, createdAt: now, updatedAt: now, pickedUpAt: null, completedAt: null
+        createdBy: tenant.userId, createdAt: now, updatedAt: now, pickedUpAt: null, completedAt: null, proof: null, failureReason: null
       };
       await rows(tenant.tenantId).insertOne(item);
       return reply.code(201).send({ delivery: publicRecord(item as DeliveryRecord, tenant) });
     });
 
-    ctx.server.patch<{ Params: { deliveryId: string }; Body: { status?: string; assignedToMe?: boolean; assignedToUserId?: string | null } }>("/deliveries/:deliveryId", { preHandler: execute }, async (request, reply) => {
+    ctx.server.patch<{ Params: { deliveryId: string }; Body: { status?: string; assignedToMe?: boolean; assignedToUserId?: string | null; failureReason?: string } }>("/deliveries/:deliveryId", { preHandler: execute }, async (request, reply) => {
       const tenant = (request as AuthenticatedRequest).tenantContext;
       const id = resolveId(request.params.deliveryId, tenant);
       if (!id) return reply.code(404).send({ error: "Delivery not found." });
@@ -131,17 +148,43 @@ export const deliveriesPlugin: BeePlugin = {
       }
       if (body.status !== undefined) {
         const next = String(body.status) as DeliveryStatus;
+        if (next === "delivered") return reply.code(409).send({ error: "Confirm delivery using the proof-of-delivery form." });
         if (!STATUSES.includes(next) || !canTransitionDelivery(item.status, next)) return reply.code(409).send({ error: "This delivery status transition is not allowed." });
         if (!hasTenantPermission(tenant, "deliveries.manage") && item.assignedTo !== tenant.userId) return reply.code(403).send({ error: "Only the assigned member or a delivery manager can update this delivery." });
         update.status = next;
         if (next === "picked_up") update.pickedUpAt = now;
         if (next === "delivered" || next === "failed" || next === "cancelled") update.completedAt = now;
       }
+      if (body.status === "failed" && !String(body.failureReason ?? "").trim()) return reply.code(400).send({ error: "Provide a reason for the delivery incident." });
+      if (body.status === "failed") update.failureReason = String(body.failureReason).replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 1000);
       const changed = await rows(tenant.tenantId).updateOne({ id }, { $set: update });
       if (!changed.matchedCount) return reply.code(404).send({ error: "Delivery not found." });
       const result = await rows(tenant.tenantId).findOne({ id });
       if (!result) return reply.code(404).send({ error: "Delivery not found." });
       return { delivery: publicRecord(result, tenant) };
+    });
+
+    ctx.server.post<{ Params: { deliveryId: string }; Body: { recipientName?: string; strokes?: unknown; note?: string; latitude?: number | null; longitude?: number | null } }>("/deliveries/:deliveryId/proof", { preHandler: execute }, async (request, reply) => {
+      const tenant = (request as AuthenticatedRequest).tenantContext;
+      const id = resolveId(request.params.deliveryId, tenant);
+      if (!id) return reply.code(404).send({ error: "Delivery not found." });
+      const item = await rows(tenant.tenantId).findOne({ id });
+      if (!item) return reply.code(404).send({ error: "Delivery not found." });
+      if (!hasTenantPermission(tenant, "deliveries.manage") && item.assignedTo !== tenant.userId) return reply.code(403).send({ error: "Only the assigned member can confirm this delivery." });
+      if (item.status !== "in_transit" || !canTransitionDelivery(item.status, "delivered")) return reply.code(409).send({ error: "Only an operation in transit can be completed." });
+      const recipientName = clean(request.body?.recipientName, 120);
+      if (!recipientName) return reply.code(400).send({ error: "Recipient name is required." });
+      if (!isValidSignatureStrokes(request.body?.strokes)) return reply.code(400).send({ error: "A valid recipient signature is required." });
+      const latitude = request.body?.latitude ?? null, longitude = request.body?.longitude ?? null;
+      if ((latitude === null) !== (longitude === null) ||
+          (latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) ||
+          (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180))) return reply.code(400).send({ error: "Invalid delivery coordinates." });
+      const now = new Date();
+      const proof: DeliveryProof = { recipientName, strokes: request.body.strokes, note: clean(request.body?.note, 1000), latitude, longitude, recordedBy: tenant.userId, recordedAt: now };
+      const changed = await rows(tenant.tenantId).updateOne({ id, status: "in_transit", proof: { $in: [null] } }, { $set: { proof, status: "delivered", completedAt: now, updatedAt: now } });
+      if (!changed.modifiedCount) return reply.code(409).send({ error: "Delivery changed or proof already recorded. Refresh and try again." });
+      const result = await rows(tenant.tenantId).findOne({ id });
+      return { delivery: result ? publicRecord(result, tenant) : null };
     });
 
     ctx.server.delete<{ Params: { deliveryId: string } }>("/deliveries/:deliveryId", { preHandler: manage }, async (request, reply) => {
