@@ -33,7 +33,9 @@ export class BeePluginManager {
     notes: ["mongoDbName", "sessionIdSecret"],
     mail: ["mongoDbName", "sessionIdSecret"],
     notifications: ["mongoDbName", "sessionIdSecret"],
-    "platform-admin": ["mongoDbName", "sessionIdSecret"],
+    // Platform package upload and verification need the configured storage root
+    // and publisher public key. Never expose the publisher private key to plugins.
+    "platform-admin": ["mongoDbName", "sessionIdSecret", "pluginPackagePath", "pluginPublisherPublicKey"],
     localization: ["mongoDbName", "sessionIdSecret"],
     hello: []
   };
