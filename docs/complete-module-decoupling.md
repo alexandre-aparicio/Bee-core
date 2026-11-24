@@ -13,6 +13,27 @@ The public third-party SDK is explicitly deferred. This work is limited to four 
 
 The acceptance model is that these four package artifacts are delivered through the same upload, verification, persistence, registration and runtime-loading pipeline. All four packages are tenant-facing and require tenant entitlement/grant, installation and enabled state before their routes, navigation entries, frontend assets or APIs can be used. Their actual manifest scopes must be preserved.
 
+## Implementation status in this branch
+
+The first runtime/package phase is now implemented:
+
+- `scripts/build-plugin-packages.mjs` builds versioned, signed ZIP artifacts for Connected Devices, Control Horario, Documents and Hola Mundo. It copies each module's compiled relative-import dependency graph, so the ZIP is loadable independently of the source tree.
+- `npm run build:plugin-packages` requires the publisher private key from the release environment. The manual `.github/workflows/package-release.yml` workflow publishes the four ZIPs as an artifact; the private key is never committed.
+- The package contract distinguishes host runtime dependencies from `tenantDependencies`. Core services such as auth, organizations, files and marketplace are not mistakenly treated as tenant-installable modules.
+- The platform upload endpoint now allows only these four known first-party IDs to transition from bundled packages to ZIP packages. It preserves existing plan visibility, grants, purchasability and the Documents system classification.
+- Startup prefers an uploaded ZIP for each of the four IDs. A temporary bundled fallback remains only while that package has not yet been uploaded, to make the migration deployable without taking the existing modules offline.
+- The ZIP installer accepts a declared frontend entrypoint and allowlisted assets. Hola Mundo is the first package frontend: its Angular component has been removed and the package is rendered in a sandboxed iframe. The host keeps the bearer token and only proxies API requests allowed by the package manifest.
+- Documents, Connected Devices and Control Horario still use their existing statically compiled Angular frontends. Their frontend migration and removal of the temporary backend fallback are not yet complete.
+
+### Verification so far
+
+- Backend TypeScript build: passed.
+- Angular production build: passed.
+- New package test: passed; it generates temporary Ed25519 keys, builds all four ZIPs, installs them through the real ZIP verifier, imports every backend entrypoint, and checks the Hola Mundo frontend assets.
+- Full backend suite: 117 tests, 109 passed, 8 failed, 0 skipped. The eight failures are in existing auth, Private Files isolation, marketplace entitlement, user quota, platform MFA, custom-role policy, stream-ticket memory-bound and tenant-context tests. The new package/frontend tests passed.
+
+This is not yet the end-to-end acceptance point. The remaining work is to migrate the three complex Angular frontends, remove the temporary bundled backend fallback after the signed ZIPs have been uploaded and verified, and add integration tests that exercise upload through tenant grant/install/authorization and frontend/API access across two tenants.
+
 ## Required runtime model
 
 1. **Package upload is the delivery path for the four packages.** Build each package as a versioned ZIP and submit it through the same upload/verification/storage/registration pipeline used by an uploaded package. No special static seed may silently make the module code available.
