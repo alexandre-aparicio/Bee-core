@@ -1,26 +1,11 @@
-<section class="tt-page">
- <header class="tt-header">
+<section class="tt-page bee-page">
+ <header class="tt-header bee-page__header">
   <div><p class="tt-eyebrow">WORKSPACE / PERSONAS</p><h1>Control horario</h1><p>Registra tu jornada, consulta horarios y gestiona incidencias.</p></div>
   <button type="button" class="tt-secondary" (click)="load()" [disabled]="loading">Actualizar</button>
  </header>
  <p *ngIf="error" class="tt-error" role="alert">{{error}}</p><p *ngIf="message" class="tt-message" role="status">{{message}}</p>
- <div class="tt-workspace">
-  <aside class="tt-sidebar" aria-label="Navegación de control horario">
-   <span class="tt-sidebar__label">MI ESPACIO</span>
-   <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='my-day'" (click)="activeSection='my-day';activeSubTab='status'"><span class="tt-nav-icon">◷</span><span>Mi jornada</span></button>
-   <ng-container *ngIf="canManage">
-    <span class="tt-sidebar__label tt-sidebar__label--group">GESTIÓN</span>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='schedule'" (click)="activeSection='schedule'"><span class="tt-nav-icon">▦</span><span>Planificación</span></button>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='requests'" (click)="activeSection='requests';activeSubTab='mine'"><span class="tt-nav-icon">◇</span><span>Incidencias</span><span *ngIf="teamCorrections.length" class="tt-nav-count">{{teamCorrections.length}}</span></button>
-   </ng-container>
-   <ng-container *ngIf="!canManage">
-    <span class="tt-sidebar__label tt-sidebar__label--group">MI INFORMACIÓN</span>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='schedule'" (click)="activeSection='schedule'"><span class="tt-nav-icon">▦</span><span>Mi horario</span></button>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='history'" (click)="activeSection='history'"><span class="tt-nav-icon">◴</span><span>Mi historial</span></button>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='requests'" (click)="activeSection='requests';activeSubTab='mine'"><span class="tt-nav-icon">◇</span><span>Mis solicitudes</span><span *ngIf="corrections.length" class="tt-nav-count">{{corrections.length}}</span></button>
-   </ng-container>
-  </aside>
-  <main class="tt-content">
+ <div class="tt-content-wrapper">
+   <main class="tt-content bee-page__content">
    <ng-container *ngIf="activeSection==='my-day'">
     <div class="tt-content-heading"><div><p class="tt-eyebrow">MI ESPACIO</p><h2>Mi jornada</h2><p>Controla tu fichaje y consulta la actividad registrada.</p></div></div>
     <nav class="tt-tabs" aria-label="Pestañas de mi jornada">
@@ -46,9 +31,9 @@
      <section class="tt-history"><div class="tt-section-heading"><div><h3>Horario semanal</h3><p>Los días desactivados son días libres.</p></div></div>
       <label class="tt-field">Trabajador<select [ngModel]="selectedUserId" (ngModelChange)="selectMember($event)"><option *ngFor="let member of members" [value]="member.userId">{{member.email}} · {{member.role}}</option></select></label>
       <label class="tt-field">Zona horaria<input [(ngModel)]="timezone" placeholder="Europe/Madrid"></label>
-      <div class="tt-schedule-grid"><div class="tt-schedule-row tt-schedule-head"><span>Día</span><span>Activo</span><span>Entrada</span><span>Salida</span><span>Pausa (min)</span></div>
-       <div class="tt-schedule-row" *ngFor="let day of scheduleDraft;let i=index"><strong>{{['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][i]}}</strong><input type="checkbox" [(ngModel)]="day.enabled" [attr.aria-label]="'Activar '+['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][i]"><input type="time" [(ngModel)]="day.start" [disabled]="!day.enabled"><input type="time" [(ngModel)]="day.end" [disabled]="!day.enabled"><input type="number" min="0" max="240" step="5" [(ngModel)]="day.breakMinutes" [disabled]="!day.enabled"></div>
-      </div><div class="tt-actions"><button type="button" class="tt-primary" (click)="saveSchedule()" [disabled]="busy || !selectedUserId">Guardar horario</button></div>
+      <div class="tt-table-wrap"><table class="tt-table"><thead><tr><th scope="col">Día</th><th scope="col">Activo</th><th scope="col">Entrada</th><th scope="col">Salida</th><th scope="col">Pausa (min)</th></tr></thead><tbody>
+       <tr *ngFor="let day of scheduleDraft;let i=index"><th scope="row">{{['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][i]}}</th><td><input type="checkbox" [(ngModel)]="day.enabled" [attr.aria-label]="'Activar '+['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][i]"></td><td><input type="time" [(ngModel)]="day.start" [disabled]="!day.enabled"></td><td><input type="time" [(ngModel)]="day.end" [disabled]="!day.enabled"></td><td><input type="number" min="0" max="240" step="5" [(ngModel)]="day.breakMinutes" [disabled]="!day.enabled"></td></tr>
+      </tbody></table></div><div class="tt-actions"><button type="button" class="tt-primary" (click)="saveSchedule()" [disabled]="busy || !selectedUserId">Guardar horario</button></div>
      </section>
     </ng-container>
     <ng-container *ngIf="!canManage">
