@@ -386,7 +386,7 @@ export class OrganizationRolesComponent implements OnChanges{
  private tenantAssignablePermissions:string[]=[];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
  get groups():string[]{return [...new Set(this.permissions.map(p=>p.group))];}
- get matchingPermissionModules():string[]{const query=this.moduleSearch.trim().toLowerCase();return this.groups.filter(group=>group.toLowerCase().includes(query));}
+ get matchingPermissionModules():string[]{const query=this.moduleSearch.trim().toLowerCase();return this.groups.filter(group=>!this.selectedPermissionModules.includes(group)&&group.toLowerCase().includes(query));}
  get selectedPermissionModules():string[]{return this.groups.filter(group=>this.inGroup(group).some(item=>item.selected));}
  selectedCountForModule(group:string):number{return this.inGroup(group).filter(item=>item.selected).length;}
  openPermissionModule(group:string):void{this.activePermissionModule=group;this.moduleSearch="";}
