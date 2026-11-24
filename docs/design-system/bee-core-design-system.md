@@ -562,3 +562,9 @@ For the System Roles collection, reuse the Organization → Teams composition an
 - Permission initials in System Roles cards and table rows are a compact overlapping stack, not separated chips. Keep a consistent negative inline-start overlap, a surface-colored 2px separator border, and stable stacking order so every circle remains identifiable.
 - Keep the calculated `+N` remainder outside the stack with a clear gap; it must not overlap the final circle.
 - The Cards/Table controls must be geometrically identical to Organization → Teams: 34×32px hit areas, zero button padding, a 1px border, 7px radius, and the same 17px glyphs. Center the glyph both horizontally and vertically with grid placement and a line-height of 1; explicitly reset inherited feature button padding.
+
+
+### Midnight Light mode — Organization Roles
+- Organization → Roles & Permissions MUST follow the same explicit Light-mode host-context strategy as Organization → Teams. Scope the override to `.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]` so it cannot leak into Midnight Dark, Glass or Paper.
+- Map the component's local semantic tokens to the Midnight Light palette: canvas `#f4f6fb`, panel/surface/raised surface `#fff`, foreground `#263248`, muted `#68758b`, border `#dfe5ef`, violet accent `#5542bd`, success `#167447`, warning `#946200`, danger `#b42318`, and the shared Light shadow. Cards, tabs, search, tables, menus, permission circles, tooltips and dialogs must resolve through these tokens rather than retaining dark-mode values.
+- Selected Cards/Table controls and primary actions MUST retain a white foreground over the violet action surface in Light mode, matching Teams. Verify both System Roles and Custom Roles in Light and Dark.
