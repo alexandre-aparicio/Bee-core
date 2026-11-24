@@ -935,3 +935,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added the same narrowly scoped Midnight Light host-context treatment to Roles. Cards, tab panel, search, table headers, menus, permission circles/tooltips and dialogs now resolve through explicit Light palette tokens; selected Cards/Table and primary actions retain white text over violet for contrast.
 - Updated the global design system and Midnight style guide to require this parity and to prevent the Light override leaking into Midnight Dark, Glass or Paper.
 - **Validation:** source-level comparison and CSS contract inspection only. No Angular build, automated tests, browser visual QA, Light/Dark screenshots or deployment were run. Verify System Roles and Custom Roles in both Midnight appearance modes after build/deploy.
+
+
+## Plugin package architecture foundation (2026-11-24)
+
+- Added a common plugin manifest contract for tenant scope and activation policy (`automatic` or `manual`).
+- Declared Documents and Time Tracking as automatic-activation defaults when entitled; Connected Devices remains manual by default because pairing and device grants require an explicit company decision. These declarations do not bypass entitlement, tenant installation, enabled-state or permission checks.
+- Extended the distributable package manifest validator to accept only the two supported activation policies and added tests for both valid values and invalid input.
+- Added `docs/plugin-package-architecture.md` describing the separate platform-package, tenant-entitlement and tenant-activation states; secure ZIP installation requirements; runtime restart behavior; frontend bundle constraints; migration strategy; and implementation sequence.
+- **Scope of this first slice:** this is the common contract and architecture foundation only. Secure ZIP upload/extraction, platform-global package installation records, plan/manual grant synchronization, runtime discovery/loading, Angular remote frontend loading and the full three-plugin internal refactor are not implemented by this change.
+- **Validation pending:** source-level review only. Backend TypeScript build, unit/integration tests, Angular build, package security tests, install/upgrade/rollback tests and browser validation have not been run.
