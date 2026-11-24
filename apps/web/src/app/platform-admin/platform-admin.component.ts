@@ -32,6 +32,11 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
          <article class="platform-admin__tenant-plugin" *ngFor="let plugin of platformPackages">
            <div class="platform-admin__tenant-plugin-main"><span class="platform-admin__tenant-plugin-mark">⌘</span><div><strong>{{plugin.name}}</strong><small>{{plugin.pluginKey}} · v{{plugin.version}} · {{plugin.source}}</small></div></div>
            <div class="platform-admin__tenant-plugin-status"><span class="platform-company-status">{{plugin.status}}</span><small>{{plugin.runtimeState || "Runtime not loaded"}}</small></div>
+           <div class="platform-admin__tenant-plugin-status">
+             <small>Included in plans</small>
+             <label *ngFor="let plan of platformPlans"><input type="checkbox" [checked]="packagePlanSelections[plugin.pluginKey]?.includes(plan.id)" (change)="togglePackagePlan(plugin,plan.id,$any($event.target).checked)"> {{plan.name}}</label>
+             <button type="button" (click)="savePackagePlans(plugin)" [disabled]="plugin.runtimeState !== 'loaded'">Save plan access</button>
+           </div>
          </article>
        </div>
      </section>
@@ -125,7 +130,10 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
              @for(plugin of tenantPlugins;track plugin.id){<article class="platform-admin__tenant-plugin">
                <div class="platform-admin__tenant-plugin-main"><span class="platform-admin__tenant-plugin-mark">⌘</span><div><strong>{{plugin.name}}</strong><small>{{plugin.description || plugin.id}} · v{{plugin.version}}</small></div></div>
                <div class="platform-admin__tenant-plugin-status"><span class="platform-company-status" [class.is-suspended]="!plugin.installed||!plugin.enabled">{{plugin.installed?(plugin.enabled?'Enabled':'Disabled'):plugin.status}}</span><small>{{plugin.installed?'Installed · '+(plugin.enabled?'Available to this company':'Blocked for this company'):'Not installed'}}</small></div>
-               @if(plugin.installed){<button type="button" class="platform-admin__tenant-plugin-action" (click)="toggleTenantPlugin(managedCompany,plugin)" [disabled]="busy||pluginBusyId===managedCompany.id">{{plugin.enabled?'Deactivate':'Activate'}}</button>}
+               @if(plugin.installed){<button type="button" class="platform-admin__tenant-plugin-action" (click)="toggleTenantPlugin(managedCompany,plugin)" [disabled]="busy||pluginBusyId===managedCompany.id">{{plugin.enabled ? 'Deactivate' : 'Activate'}}</button>}
+               @else if(plugin.entitled){<button type="button" class="platform-admin__tenant-plugin-action" (click)="toggleTenantPlugin(managedCompany,plugin)" [disabled]="busy||pluginBusyId===managedCompany.id">Install and activate</button>}
+               @if(!plugin.entitled){<button type="button" class="platform-admin__tenant-plugin-action" (click)="setTenantPluginGrant(managedCompany,plugin,true)" [disabled]="pluginBusyId===managedCompany.id">Grant access</button>}
+               @else if(plugin.accessSource==='manual'){<button type="button" class="platform-admin__tenant-plugin-action" (click)="setTenantPluginGrant(managedCompany,plugin,false)" [disabled]="pluginBusyId===managedCompany.id">Revoke grant</button>}
              </article>}
            </div>}
          </div>
