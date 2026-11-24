@@ -105,9 +105,10 @@ function renderModal(){
 async function confirmAction(){
  if(!pendingAction||busy)return;const action=pendingAction;pendingAction=null;renderModal();busy=true;
  try{
-  await request("/connected-devices/"+encodeURIComponent(action.device.id)+"/"+action.type,"POST",{});
-  notice(action.type==="suspend"?"Device suspended.":action.type==="revoke"?"Device access revoked.":action.type==="unlink"?"Device unlinked. It can be paired again with a new QR code.":"Device deleted.");
+  const path="/connected-devices/"+encodeURIComponent(action.device.id)+(action.type==="delete"?"":"/"+action.type);
+  await request(path,action.type==="delete"?"DELETE":"POST",action.type==="delete"?undefined:{});
   await load();
+  notice(action.type==="suspend"?"Device suspended.":action.type==="revoke"?"Device access revoked.":action.type==="unlink"?"Device unlinked. It can be paired again with a new QR code.":"Device deleted.");
  }catch(error){notice(error.message||"The device action could not be completed.","error");}
  finally{busy=false;}
 }
