@@ -27,7 +27,7 @@ export type PluginPackageDefinition = Document & {
   dependencies: string[];
   activationPolicy?: "automatic" | "manual";
   migrations?: TenantPluginMigration[];
-  codeAvailable: true;
+  codeAvailable: boolean;
   status: "published" | "draft" | "deprecated";
   installTenant?: (db: Db, tenantId: string) => Promise<void>;
   updateTenant?: (db: Db, tenantId: string, previousVersion: string) => Promise<void>;
