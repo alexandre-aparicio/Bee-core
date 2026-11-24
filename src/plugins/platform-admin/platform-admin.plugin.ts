@@ -17,6 +17,8 @@ import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../..
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
 import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
+import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
+import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
@@ -116,6 +118,15 @@ export const platformAdminPlugin:BeePlugin={
     req.platformSession=sessionContext;
     return user;
    }catch{return reply.code(401).send({error:"Unauthorized"}),null;}
+  };
+  const getPlatformPluginDefinition=async(pluginId:string):Promise<PluginPackageDefinition|undefined>=>{
+   const builtIn=getTrustedPluginPackage(pluginId);
+   if(builtIn)return builtIn;
+   const runtime=getRuntimePlugin(pluginId);
+   if(!runtime)return undefined;
+   const metadata=await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({id:pluginId,status:"published",codeAvailable:true});
+   if(!metadata)return undefined;
+   return {...metadata,migrations:runtime.tenantMigrations??[],installTenant:runtime.installTenant,updateTenant:runtime.updateTenant,uninstallTenant:runtime.uninstallTenant};
   };
   const permissionPolicyCollection=db.collection<{id:string;tenantAssignablePermissions:string[];updatedAt:Date;updatedBy:string}>("platform_permission_policies");
   await permissionPolicyCollection.createIndex({id:1},{unique:true,name:"platform_permission_policy_id_unique"});
@@ -379,19 +390,22 @@ export const platformAdminPlugin:BeePlugin={
    ]);
    const globalByPlugin=new Map(platformPackages.map(item=>[item.pluginId,item]));
    const tenantByPlugin=new Map(tenantInstallations.map(item=>[String(item.pluginId),item]));
-   return {tenantId:mask(req.platformSession!,company.id,"tenant"),plugins:TRUSTED_PLUGIN_PACKAGES.map(plugin=>{
+   const externalCatalog=await db.collection<PluginPackageDefinition>("plugin_catalog").find({status:"published",codeAvailable:true}).toArray();
+   const externalDefinitions=externalCatalog.filter(plugin=>!TRUSTED_PLUGIN_PACKAGES.some(builtIn=>builtIn.id===plugin.id));
+   const definitions=[...TRUSTED_PLUGIN_PACKAGES,...externalDefinitions];
+   return {tenantId:mask(req.platformSession!,company.id,"tenant"),plugins:definitions.map(plugin=>{
     const globalPackage=globalByPlugin.get(plugin.id);
     const tenantInstallation=tenantByPlugin.get(plugin.id);
-    const installed=globalPackage?.status==="installed";
+    const installed=globalPackage?.status==="installed"&&(globalPackage.source!=="zip"||globalPackage.runtimeState==="loaded");
     const enabled=!!installed&&tenantInstallation?.status==="installed"&&tenantInstallation?.enabled!==false;
-    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:globalPackage?.version??plugin.version,system:plugin.system,installed,enabled,status:!installed?"uninstalled":enabled?"installed":"disabled",dependencies:plugin.dependencies};
+    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:globalPackage?.version??plugin.version,system:plugin.system,installed,enabled,status:!installed?"uninstalled":enabled?"installed":"disabled",dependencies:plugin.dependencies,activationPolicy:plugin.activationPolicy??"manual"};
    })};
   });
   ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{enabled?:boolean}}>("/platform/companies/:companyId/plugins/:pluginId",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const company=await companies.findOne({id:req.params.companyId,status:"active"});
    if(!company)return reply.code(404).send({error:"Active company not found"});
-   const plugin=getTrustedPluginPackage(req.params.pluginId);
+   const plugin=await getPlatformPluginDefinition(req.params.pluginId);
    if(!plugin)return reply.code(404).send({error:"Trusted plugin package not found"});
    if(typeof req.body?.enabled!=="boolean")return reply.code(400).send({error:"enabled must be a boolean"});
    const superOrganization=await companies.findOne({kind:"super",status:"active"});
