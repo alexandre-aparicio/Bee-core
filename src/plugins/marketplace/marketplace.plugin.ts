@@ -9,12 +9,15 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, setPlatformPackageAvailable, setPlatformPackageInstalled } from "../../core/platform-plugin-registry.js";
+import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
   getTenantSubscription,
   getTrustedPluginPackage,
+  syncAutomaticPluginProvisioning,
   resolvePluginDependencyOrder,
+  type PluginPackageDefinition,
   hasPluginEntitlement,
   isPluginEnabled,
   isPluginInstalled,
@@ -33,6 +36,19 @@ export const marketplacePlugin: BeePlugin = {
   },
   async initialize(ctx) {
     const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    const getMarketplacePackage = async (pluginId:string):Promise<PluginPackageDefinition|undefined> => {
+      const builtIn=getTrustedPluginPackage(pluginId);
+      if(builtIn)return builtIn;
+      const runtime=getRuntimePlugin(pluginId);
+      if(!runtime)return undefined;
+      const metadata=await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({id:pluginId,status:"published",codeAvailable:true});
+      if(!metadata)return undefined;
+      return {...metadata,migrations:runtime.tenantMigrations??[],installTenant:runtime.installTenant,updateTenant:runtime.updateTenant,uninstallTenant:runtime.uninstallTenant};
+    };
+    const getDependencyOrder = async (pluginId:string):Promise<string[]> => {
+      const definitions=await db.collection<PluginPackageDefinition>("plugin_catalog").find({status:"published",codeAvailable:true}).project<{id:string;dependencies:string[]}>({id:1,dependencies:1,_id:0}).toArray();
+      return resolvePluginDependencyOrder(pluginId,definitions);
+    };
     await ensurePlatformPluginRegistry(db);
     const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
     if(sessionIdSecret.length<32)throw new Error("Marketplace: JWT_SECRET must contain at least 32 characters.");
@@ -111,6 +127,8 @@ export const marketplacePlugin: BeePlugin = {
             metadata: { planId: plan.id, status, currentPeriodEnd: periodEnd?.toISOString() ?? null }
           });
           await ctx.events.emit("subscription.updated", { tenantId, planId: plan.id, status });
+          const automaticPackages=await db.collection("plugin_catalog").find({includedInPlans:plan.id,activationPolicy:"automatic",codeAvailable:true}).project<{id:string}>({id:1,_id:0}).toArray();
+          for(const item of automaticPackages)await syncAutomaticPluginProvisioning(db,item.id);
         }
         return { success: true, event: body.event, changed };
       }
@@ -338,9 +356,9 @@ export const marketplacePlugin: BeePlugin = {
       const plugin = catalog.find(item => item.id === pluginId);
       if (!plugin) return reply.code(404).send({ error: "Plugin not visible to this company" });
       if (!plugin.entitled) return reply.code(402).send({ error: "An active plan entitlement or plugin purchase is required" });
-      const trusted = getTrustedPluginPackage(pluginId);
+      const trusted = await getMarketplacePackage(pluginId);
       if (!trusted) return reply.code(404).send({ error: "Trusted plugin package is unavailable" });
-      for (const dependency of resolvePluginDependencyOrder(pluginId)) {
+      for (const dependency of await getDependencyOrder(pluginId)) {
         if (!await hasPluginEntitlement(db, tenant.tenantId, dependency) || !await isPluginInstalled(db, tenant.tenantId, dependency) || !await isPluginEnabled(db, tenant.tenantId, dependency)) {
           return reply.code(409).send({ error: "Required plugin dependency is not installed: " + dependency });
         }
@@ -424,7 +442,7 @@ export const marketplacePlugin: BeePlugin = {
         .find({ tenantId: tenant.tenantId, status: "installed", pluginId: { $ne: pluginId } })
         .toArray();
       for (const installed of otherInstalled) {
-        const dependent = getTrustedPluginPackage(String(installed.pluginId));
+        const dependent = await getMarketplacePackage(String(installed.pluginId));
         if (dependent?.dependencies.includes(pluginId)) return reply.code(409).send({ error: "Plugin is required by installed plugin: " + installed.pluginId });
       }
       const queued = await enqueuePluginUninstallJob(installJobs, { tenantId: tenant.tenantId, pluginId, actorId: tenant.userId });
@@ -452,7 +470,7 @@ export const marketplacePlugin: BeePlugin = {
         try {
           const tenantRecord = await db.collection("tenants").findOne({ id: job.tenantId, status: "active" });
           if (!tenantRecord) throw new Error("Company is not active");
-          const trusted = getTrustedPluginPackage(job.pluginId);
+          const trusted = await getMarketplacePackage(job.pluginId);
           if (!trusted) throw new Error("Trusted plugin package is unavailable");
 
           if (job.action === "uninstall") {
