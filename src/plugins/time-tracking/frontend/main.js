@@ -12,7 +12,7 @@ const request=(path,method="GET",body=undefined)=>new Promise((resolve,reject)=>
 });
 window.addEventListener("message",event=>{
  const data=event.data;if(!data||typeof data!=="object")return;
- if(data.type==="bee-plugin:init"){role=String(data.role||"member");section=String(data.section||"time-tracking-day");activeSection=mapSection(section);void load();}
+ if(data.type==="bee-plugin:init"){role=String(data.role||"member");section=String(data.section||"time-tracking-day");activeSection=mapSection(section);activeSubTab=activeSection==="requests"?"mine":"status";void load();}
  if(data.type==="bee-plugin:api-response"&&typeof data.requestId==="string"){
   const item=pending.get(data.requestId);if(!item)return;pending.delete(data.requestId);
   if(Number(data.status)>=200&&Number(data.status)<300)item.resolve(data.payload||{});else item.reject(new Error(data.payload?.error||"No se pudo completar la operación de control horario."));
