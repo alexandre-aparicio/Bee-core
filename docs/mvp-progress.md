@@ -912,3 +912,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added a Create role action in the same header position and styling as Teams. Since Core-managed system roles are immutable, this action opens the existing Custom Roles creation flow rather than attempting to create a built-in system role.
 - Documented the shared composition and marker behavior in the global design system and Midnight style guide.
 - **Validation pending:** source-level review only. No Angular build, automated tests, browser tooltip interaction, Cards/Table visual comparison, responsive checks, Light/Dark screenshot review or deployment has been run.
+
+
+## System Roles visual correction — overlapping permission circles and centered view icons (2026-11-24)
+
+- Matched the System Roles Cards/Table controls to the actual Organization → Teams implementation. The Roles component's generic button rule was adding 9px × 13px padding; the view-toggle buttons now explicitly reset padding to zero and center their glyphs with grid placement and a unit line-height.
+- Permission initials now form an overlapping horizontal stack in both cards and table rows, with a 2px surface-colored separator and stable stacking order. The calculated `+N` count remains separated from the stack.
+- Removed obsolete text-badge CSS selectors that were left behind after the circle markup was introduced.
+- Source-level checks only; Angular build, automated tests, browser visual verification, Light/Dark screenshots and deployment have not been run.
