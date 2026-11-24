@@ -219,7 +219,8 @@ export async function seedPluginCommerce(db: Db): Promise<void> {
     db.collection("tenant_subscriptions").createIndex({ tenantId: 1 }, { unique: true, name: "tenant_subscription_unique" }),
     db.collection("tenant_plugin_installations").createIndex({ tenantId: 1, pluginId: 1 }, { unique: true, name: "tenant_plugin_installation_unique" }),
     db.collection("plugin_purchases").createIndex({ tenantId: 1, providerReference: 1 }, { unique: true, name: "tenant_plugin_purchase_reference_unique" }),
-    db.collection("tenant_plugin_entitlements").createIndex({ tenantId: 1, pluginId: 1 }, { unique: true, name: "tenant_plugin_entitlement_unique" })
+    db.collection("tenant_plugin_entitlements").createIndex({ tenantId: 1, pluginId: 1 }, { unique: true, name: "tenant_plugin_entitlement_unique" }),
+    db.collection("plugin_plan_package_assignments").createIndex({ planId: 1, pluginId: 1 }, { unique: true, name: "plugin_plan_package_assignment_unique" })
   ]);
   for (const plan of BUILT_IN_PLANS) {
     await plans.updateOne({ id: plan.id }, { $set: plan }, { upsert: true });
@@ -332,7 +333,9 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const installedIds = new Set(installed.map(item => item.pluginId));
   const installedVersions = new Map(installed.map(item => [item.pluginId, item.version]));
   const enabledByPlugin = new Map(installed.map(item => [item.pluginId, item.enabled !== false]));
-  const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...purchasedIds, ...manualGrantIds])];
+  const planAssignments = await db.collection("plugin_plan_package_assignments").find({ planId: effectivePlan.id }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
+  const planAssignedIds = new Set(planAssignments.map(item => item.pluginId));
+  const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...planAssignedIds, ...purchasedIds, ...manualGrantIds])];
   const catalog = await db.collection<PluginPackageDefinition>("plugin_catalog")
     .find({ id: { $in: visibleIds }, status: "published", codeAvailable: true })
     .sort({ name: 1 })
@@ -340,7 +343,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   return catalog
     .filter(plugin => packagesById.has(plugin.id) || plugin.codeAvailable === true)
     .map(plugin => {
-      const planEntitled = effectivePlan.includedPluginIds.includes(plugin.id);
+      const planEntitled = effectivePlan.includedPluginIds.includes(plugin.id) || planAssignedIds.has(plugin.id);
       const purchased = purchasedIds.has(plugin.id);
       const manual = manualGrantIds.has(plugin.id);
       return {
@@ -416,7 +419,8 @@ export async function syncAutomaticPluginProvisioning(db: Db, pluginId: string):
     const plan = await getEffectiveTenantPlan(db, tenantId);
     const manual = await db.collection("tenant_plugin_entitlements").findOne({ tenantId, pluginId, status: "granted" });
     const purchase = await db.collection("plugin_purchases").findOne({ tenantId, pluginId, status: "active", $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] });
-    if (!plan.includedPluginIds.includes(pluginId) && !manual && !purchase) continue;
+    const planAssignment = await db.collection("plugin_plan_package_assignments").findOne({ planId: plan.id, pluginId });
+    if (!plan.includedPluginIds.includes(pluginId) && !planAssignment && !manual && !purchase) continue;
     const installation = await db.collection("tenant_plugin_installations").findOne({ tenantId, pluginId, status: { $in: ["installed", "installing", "updating"] } });
     if (installation) continue;
     const result = await enqueuePluginInstallJob(jobs as any, { tenantId, pluginId, actorId: "system:automatic-plan-provisioning" });
