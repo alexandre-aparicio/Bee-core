@@ -319,8 +319,9 @@ export const platformAdminPlugin:BeePlugin={
   });
   ctx.server.get("/platform/plugin-plans",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
-   const plans=await db.collection("plugin_plans").find({},{projection:{_id:0,id:1,name:1,includedPluginIds:1,visiblePluginIds:1}}).sort({name:1}).toArray();
-   return {plans};
+   const plans=await db.collection("plugin_plans").find({},{projection:{_id:0,id:1,name:1}}).sort({name:1}).toArray();
+   const assignments=await db.collection("plugin_plan_package_assignments").find({}).project<{planId:string;pluginId:string}>({planId:1,pluginId:1,_id:0}).toArray();
+   return {plans:plans.map(plan=>({...plan,packageIds:assignments.filter(item=>item.planId===plan.id).map(item=>item.pluginId)}))};
   });
   ctx.server.put<{Params:{pluginId:string};Body:{planIds?:unknown}}>("/platform/plugin-packages/:pluginId/plans",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
@@ -333,9 +334,9 @@ export const platformAdminPlugin:BeePlugin={
    const plans=db.collection("plugin_plans");
    const available=await plans.find({id:{$in:planIds}}).project<{id:string}>({id:1,_id:0}).toArray();
    if(available.length!==planIds.length)return reply.code(400).send({error:"One or more plan IDs do not exist"});
-   await plans.updateMany({id:{$nin:planIds}},{$pull:{includedPluginIds:pluginId,visiblePluginIds:pluginId}});
-   await plans.updateMany({id:{$in:planIds}},{$addToSet:{includedPluginIds:pluginId,visiblePluginIds:pluginId}});
-   await db.collection("plugin_catalog").updateOne({id:pluginId},{$set:{includedInPlans:planIds,visibleInPlans:planIds,updatedAt:new Date()}});
+   const assignments=db.collection("plugin_plan_package_assignments");
+   await assignments.deleteMany({pluginId,planId:{$nin:planIds}});
+   for(const planId of planIds)await assignments.updateOne({planId,pluginId},{$setOnInsert:{planId,pluginId,createdAt:new Date(),createdBy:actor.id}},{upsert:true});
    const queued=await syncAutomaticPluginProvisioning(db,pluginId);
    await recordPlatformAudit({actorId:actor.id,action:"plugin.plan_entitlements_updated",resourceType:"plugin_package",resourceId:pluginId,metadata:{planIds,automaticInstallJobsQueued:queued}});
    return {success:true,pluginId:mask(req.platformSession!,pluginId,"plugin"),planIds,automaticInstallJobsQueued:queued};
