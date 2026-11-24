@@ -144,6 +144,8 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(alphaNotesOffer.purchasable, true);
     const alphaCannotInstallNotes = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(alphaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCannotInstallNotes.statusCode, 402);
+    const alphaCannotActivateNotes = await app.inject({ method: "PUT", url: "/marketplace/plugins/" + encodeURIComponent(alphaNotesPluginRef) + "/activation", headers: { authorization: "Bearer " + alphaToken }, payload: { enabled: true } });
+    assert.equal(alphaCannotActivateNotes.statusCode, 402, "activation must require an active entitlement");
 
     const betaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaCatalog.statusCode, 200);

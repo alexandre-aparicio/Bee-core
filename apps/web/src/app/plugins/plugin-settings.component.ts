@@ -41,7 +41,7 @@ type PluginRecord = {
         <div class="plugin-settings__heading">
           <span class="plugin-settings__eyebrow">PLATFORM CONFIGURATION</span>
           <h2>{{detail ? detail.name : 'Plugins'}}</h2>
-          <p>{{detail ? 'Plugin information and availability.' : 'Browse modules, manage installation and configure plan access.'}}</p>
+          <p>{{detail ? 'Plugin information and availability.' : 'Browse modules, manage platform packages and configure plan access.'}}</p>
         </div>
       </header>
       <div class="plugin-settings__toolbar" *ngIf="!detail">
@@ -205,7 +205,7 @@ type PluginRecord = {
               <h4>Operations still running</h4>
               <div *ngFor="let job of usage.pendingJobs" class="plugin-settings__tenant-row"><span><strong>{{job.tenantName}}</strong><small>{{job.action}}</small></span><span class="plugin-settings__status">{{job.status}}</span></div>
             </div>
-            <div *ngIf="usage.canRemove" class="plugin-settings__removal-ready">No tenant installations or pending operations remain. The package can now be removed.</div>
+            <div *ngIf="usage.canRemove" class="plugin-settings__removal-ready">No active tenant activations or pending operations remain. Inactive installation records will be retired; tenant data will be preserved.</div>
             <div *ngIf="!usage.canRemove" class="plugin-settings__removal-blocked">Global removal is blocked until every tenant installation and pending operation is cleared.</div>
           </ng-container>
           <footer class="plugin-settings__plan-footer">
