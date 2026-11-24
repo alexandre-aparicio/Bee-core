@@ -8,6 +8,7 @@ import {createHmac} from "node:crypto";
 import {base32Decode} from "../src/core/totp.js";
 import {authPlugin} from "../src/plugins/auth/auth.plugin.js";
 import {organizationsPlugin} from "../src/plugins/organizations/organizations.plugin.js";
+import {marketplacePlugin} from "../src/plugins/marketplace/marketplace.plugin.js";
 import {platformAdminPlugin} from "../src/plugins/platform-admin/platform-admin.plugin.js";
 import {BeeEventBus} from "../src/core/event-bus.js";
 import type {BeeContext,BeeLogger} from "../src/core/types.js";
