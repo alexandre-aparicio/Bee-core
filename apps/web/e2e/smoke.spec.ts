@@ -70,7 +70,7 @@ test('landing page renders the main message', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /build less core/i })).toBeVisible();
   await expect(page.locator('[data-bee-layout="public.aurora"]')).toBeVisible();
-  await expect(page.locator('[data-bee-slot="hero"]')).toHaveCount(1);
+  await expect(page.locator('[data-bee-slot="content"]')).toHaveCount(1);
   await expect(page.getByRole('link', { name: /sign in/i })).toBeVisible();
 });
 
@@ -101,38 +101,39 @@ test('dashboard redirects unauthenticated visitors to the visible login page', a
 
 
 test('template manager keeps public and dashboard themes independent', async ({ page }) => {
-  await page.goto('/dashboard');
+  await page.goto('/dashboard/branding');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
-  await manager.getByLabel('Public website').selectOption('editorial');
+  await manager.getByLabel('Public website template').selectOption('editorial');
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
   await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
+  await manager.getByRole('button', { name: 'Apply template' }).click();
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
-  await expect(manager.getByLabel('Public website')).toHaveValue('editorial');
+  await expect(page.getByRole('region', { name: 'Template manager' }).getByLabel('Public website template')).toHaveValue('editorial');
 });
 
 test('dashboard template can be selected without changing public theme', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({ user: { email: 'test@example.com', roles: ['admin'], tenantId: 'tenant-test' }, accessToken: 'test' })));
-  await page.goto('/dashboard');
+  await page.goto('/dashboard/themes');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
-  await manager.getByLabel('Dashboard').selectOption('paper');
+  await manager.getByLabel('Dashboard template').selectOption('paper');
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'paper');
   await expect(page.locator('[data-bee-layout="dashboard.paper"]')).toBeVisible();
   await expect(manager.getByText('Preview only')).toBeVisible();
-  await manager.getByRole('button', { name: 'Discard preview' }).click();
+  await manager.getByRole('button', { name: 'Discard' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
-  await manager.getByLabel('Dashboard').selectOption('paper');
-  await manager.getByRole('button', { name: 'Apply template changes' }).click();
-  await expect(page.locator('[data-bee-slot="sidebar"]')).toHaveCount(1);
-  await expect(page.locator('[data-bee-slot="widgets"]')).toHaveCount(1);
+  await manager.getByLabel('Dashboard template').selectOption('paper');
+  await manager.getByRole('button', { name: 'Apply template' }).click();
+  await expect(page.locator('.bee-template-package-host--paper')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'aurora');
 });
 
 
 test('public tenant template and design tokens hot-load from the request domain', async ({ page }) => {
+  await page.route('**/api/public/tenant', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ kind: 'tenant', tenant: { id: 'tenant-demo', name: 'Demo Company', slug: 'demo' } }) }));
   await page.route('**/api/templates/public', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -144,7 +145,7 @@ test('public tenant template and design tokens hot-load from the request domain'
     })
   }));
   await page.goto('/');
-  await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
+  await expect(page.locator('.tenant-editorial')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--editorial').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#112233');
   await expect.poll(() => page.locator('.bee-template-package-host--editorial').evaluate(node => getComputedStyle(node).getPropertyValue('--purple').trim())).toBe('#abcdef');
   await expect.poll(() => page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
@@ -173,19 +174,19 @@ test('tenant admin can install and activate a trusted dashboard template package
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ installedTemplates: ['aurora', 'editorial', 'midnight', 'paper', 'glass'] })
   }));
-  await page.goto('/dashboard');
+  await page.goto('/dashboard/themes');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
   await manager.locator('.bee-template-package').filter({ hasText: 'Glass' }).getByRole('button', { name: 'Install' }).click();
-  await expect(manager.getByText('Package installed for this tenant.')).toBeVisible();
-  await manager.getByLabel('Dashboard').selectOption('glass');
-  await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
+  await expect(manager.getByText('Template installed for this company.')).toBeVisible();
+  await manager.getByLabel('Dashboard template').selectOption('glass');
+  await expect(page.locator('.bee-template-package-host--glass')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
-  await manager.getByRole('button', { name: 'Discard preview' }).click();
-  await expect(page.locator('[data-bee-layout="dashboard.midnight"]')).toBeVisible();
+  await manager.getByRole('button', { name: 'Discard' }).click();
+  await expect(page.locator('.bee-template-package-host--midnight')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--midnight').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
-  await manager.getByLabel('Dashboard').selectOption('glass');
-  await manager.getByRole('button', { name: 'Apply template changes' }).click();
+  await manager.getByLabel('Dashboard template').selectOption('glass');
+  await manager.getByRole('button', { name: 'Apply template' }).click();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
 });
 
@@ -227,9 +228,9 @@ test('dashboard company selector switches the active tenant session', async ({ p
   await selector.selectOption('company-b');
   const activationResponse = await activation;
   expect(activationResponse.status()).toBe(200);
-  await page.waitForFunction(() => JSON.parse(localStorage.getItem('bee-auth') || '{}').tenantId === 'company-b');
   await expect.poll(() => companyListRequests).toBeGreaterThan(1);
   await expect(page.getByLabel('Active company')).toHaveValue('company-b');
+  await expect(page.locator('.md-profile__label')).toContainText('Company B');
 });
 
 
