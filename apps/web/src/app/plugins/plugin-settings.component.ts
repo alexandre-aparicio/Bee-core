@@ -115,6 +115,7 @@ type PluginRecord = {
                 <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
                 <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
+                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                   <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
                 </div>
@@ -147,6 +148,7 @@ type PluginRecord = {
                     <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
                     <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
+                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                       <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
                     </div>
