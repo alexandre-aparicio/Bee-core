@@ -346,8 +346,8 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"role.created",resourceId:customRoleInternalId}),"custom role creation should be audited");
     const companyRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(companyRoles.json().roles.some((role:{id:string;name:string})=>role.id===customRoleId&&role.name==="Notes reader"));
-    const crossTenantCustomRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+betaTokens.accessToken}});
-    assert.equal(crossTenantCustomRoles.statusCode,404,"company references cannot be replayed across sessions");
+    const crossSessionRoleReference=await app.inject({method:"DELETE",url:"/companies/"+betaManagerCompanyRef+"/roles/"+encodeURIComponent(customRoleId),headers:{authorization:"Bearer "+betaManagerContext.json().accessToken}});
+    assert.equal(crossSessionRoleReference.statusCode,404,"a role reference issued to another active session cannot be replayed");
     const customRoleUpdate=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Notes reader updated",description:"Updated",permissions:["notes.read","files.read"]}});
     assert.equal(customRoleUpdate.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"role.updated",resourceId:customRoleInternalId}),"custom role update should be audited");
