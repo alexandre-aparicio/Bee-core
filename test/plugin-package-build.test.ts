@@ -39,6 +39,20 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
         assert.match(html, /Hola Mundo/);
         assert.match(script, /bee-plugin:ready/);
+      } else if (item.id === "connected-devices") {
+        assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
+        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/connected-devices"]);
+        assert.ok(installed.manifest.frontend.assets?.includes("frontend/qrcode.min.js"));
+        const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
+        const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
+        const qr = await readFile(join(installed.packageDirectory, "frontend/qrcode.min.js"), "utf8");
+        assert.match(html, /Connected Devices/);
+        assert.match(html, /qrcode.min.js/);
+        assert.match(script, /pairing-challenges/);
+        assert.match(script, /approve/);
+        assert.match(script, /bee-plugin:api-request/);
+        assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
+        assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "documents") {
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/files"]);
