@@ -68,7 +68,7 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.ok(rawCompany);
   await db.collection("platform_plugin_packages").insertOne({pluginId:"hello-world",name:"Hola Mundo",version:"0.1.0",description:"External test package",category:"test",dependencies:[],status:"installed",source:"zip",runtimeState:"loaded",createdAt:new Date(),updatedAt:new Date()});
   await db.collection("plugin_catalog").insertOne({id:"hello-world",name:"Hola Mundo",version:"0.1.0",description:"External test package",category:"test",dependencies:[],status:"published",codeAvailable:true});
-  await db.collection("tenant_plugin_installations").insertOne({id:"hello-world-install",tenantId:rawCompany.id,pluginId:"hello-world",version:"0.1.0",status:"installed"});
+  await db.collection("tenant_plugin_installations").insertOne({id:"hello-world-install",tenantId:rawCompany.id,pluginId:"hello-world",version:"0.1.0",status:"installed",enabled:true});
   await db.collection("tenant_plugin_data").insertOne({tenantId:rawCompany.id,pluginId:"hello-world",value:"keep-me"});
   const packageList=await app.inject({method:"GET",url:"/platform/plugin-packages",headers:rootHeaders});
   assert.equal(packageList.statusCode,200);
@@ -80,11 +80,17 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   const blockedPackageRemoval=await app.inject({method:"DELETE",url:"/platform/plugin-packages/"+encodeURIComponent(helloWorldPackage.id),headers:rootHeaders});
   assert.equal(blockedPackageRemoval.statusCode,409,"global package removal must be blocked while a tenant still has it installed");
   assert.ok(await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world",status:"installed"}),"blocked removal must leave the global package intact");
-  await db.collection("tenant_plugin_installations").updateOne({tenantId:rawCompany.id,pluginId:"hello-world"},{$set:{status:"uninstalled"}});
+  await db.collection("tenant_plugin_installations").updateOne({tenantId:rawCompany.id,pluginId:"hello-world"},{$set:{enabled:false}});
+  const deactivatedPackageUsage=await app.inject({method:"GET",url:"/platform/plugin-packages/"+encodeURIComponent(helloWorldPackage.id)+"/tenants",headers:rootHeaders});
+  assert.equal(deactivatedPackageUsage.statusCode,200);
+  assert.equal(deactivatedPackageUsage.json().installedCount,0);
+  assert.equal(deactivatedPackageUsage.json().inactiveCount,1);
+  assert.equal(deactivatedPackageUsage.json().canRemove,true);
   const safePackageRemoval=await app.inject({method:"DELETE",url:"/platform/plugin-packages/"+encodeURIComponent(helloWorldPackage.id),headers:rootHeaders});
   assert.equal(safePackageRemoval.statusCode,200);assert.equal(safePackageRemoval.json().tenantDataPreserved,true);
   assert.equal(await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world"}),null);
   assert.ok(await db.collection("tenant_plugin_data").findOne({tenantId:rawCompany.id,value:"keep-me"}),"global package removal must preserve tenant-owned data");
+  assert.equal((await db.collection("tenant_plugin_installations").findOne({tenantId:rawCompany.id,pluginId:"hello-world"}))?.status,"uninstalled");
   assert.equal((await db.collection("plugin_catalog").findOne({id:"hello-world"}))?.status,"deprecated");
   const superOrganization=await db.collection("tenants").findOne({kind:"super"});
   assert.ok(superOrganization,"platform installation must be owned by the Super Organization");
