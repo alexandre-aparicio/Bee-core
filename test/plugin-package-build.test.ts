@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { Script } from "node:vm";
 import { buildPluginPackages } from "../scripts/build-plugin-packages.mjs";
 import { installSignedPluginZip } from "../src/core/plugin-zip-installer.js";
 
@@ -47,6 +48,9 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /Documents/);
         assert.match(script, /bee-plugin:api-request/);
         assert.match(script, /__beeBinary/);
+        assert.match(script, /saveFolderShares/);
+        assert.match(script, /dragstart/);
+        assert.doesNotThrow(() => new Script(script), "the standalone Documents frontend must be valid JavaScript");
       } else {
         assert.equal(installed.manifest.frontend.routes.length, 0);
       }
