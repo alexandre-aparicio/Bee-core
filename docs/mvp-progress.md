@@ -1017,3 +1017,6 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added explicit border-box sizing and responsive wrapping: filters take the full row on narrower layouts, with the view switch and upload action remaining grouped on the following row.
 - Search, type filtering, view state, ZIP upload behavior and permissions are unchanged.
 - **Validation pending:** source-level layout correction only; Angular CI and browser responsive/Light/Dark visual QA have not yet run.
+
+
+- Follow-up: keep the single native ZIP file input permanently hidden; the visible Upload plugin button remains its only user-facing trigger, avoiding a second native file-picker control in the toolbar.
