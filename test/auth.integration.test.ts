@@ -294,7 +294,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const rejectCrossCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+betaTokens.accessToken}});
     assert.equal(rejectCrossCompany.statusCode,404,"references issued to another session must not resolve");
     const addBetaMembership=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{email:"beta@example.com",role:"member"}});
-    assert.equal(addBetaMembership.statusCode,201);
+    assert.equal(addBetaMembership.statusCode,202,"membership requests use a uniform accepted response to avoid account enumeration");
     const memberList=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(memberList.json().memberships.some((member:{email:string;role:string})=>member.email==="beta@example.com"&&member.role==="member"));
     const betaCompanyList=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+betaTokens.accessToken}});
