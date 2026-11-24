@@ -10,6 +10,7 @@ import { validateEnvironment } from "./core/environment.js";
 import type { BeeContext, BeeLogger, BeePlugin } from "./core/types.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { registerRuntimePlugin } from "./core/runtime-plugin-registry.js";
+import { syncAutomaticPluginProvisioning } from "./core/plugin-entitlements.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
@@ -224,6 +225,8 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>): Promi
     const runtimeState = !failure && runtimePlugin?.status === "started" ? "loaded" : "failed";
     await registry.updateOne({ pluginId }, { $set: { runtimeState, runtimeError: failure || null, updatedAt: new Date() } });
     await versions.updateOne({ pluginId, version: item.version }, { $set: { runtimeState, runtimeError: failure || null, runtimeCheckedAt: new Date() } });
+    await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: runtimeState === "loaded", updatedAt: new Date() } });
+    if (runtimeState === "loaded") await syncAutomaticPluginProvisioning(db, pluginId);
   }
 }
 
