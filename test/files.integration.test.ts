@@ -121,11 +121,15 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     assert.ok(alphaSession);
     const decodeAlphaFile=(reference:string)=>unmaskResourceId(reference,"file",{sessionId:alphaSession.id,expiresAt:alphaSession.expiresAt},"01234567890123456789012345678901");
     assert.deepEqual(alphaList.json().files.map((file: { id: string }) => decodeAlphaFile(file.id)), [decodeAlphaFile(alphaFileId)]);
-    const betaClaims=JSON.parse(Buffer.from(betaManagerToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
-    const betaSession=await db.collection("refresh_sessions").findOne({id:betaClaims.sid});
-    assert.ok(betaSession);
-    const decodeBetaFile=(reference:string)=>unmaskResourceId(reference,"file",{sessionId:betaSession.id,expiresAt:betaSession.expiresAt},"01234567890123456789012345678901");
-    assert.deepEqual(betaList.json().files.map((file: { id: string }) => decodeBetaFile(file.id)), [decodeBetaFile(betaFileId)]);
+    const betaManagerClaims=JSON.parse(Buffer.from(betaManagerToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const betaManagerSession=await db.collection("refresh_sessions").findOne({id:betaManagerClaims.sid});
+    assert.ok(betaManagerSession);
+    const decodeBetaFile=(reference:string)=>unmaskResourceId(reference,"file",{sessionId:betaManagerSession.id,expiresAt:betaManagerSession.expiresAt},"01234567890123456789012345678901");
+    const betaMemberClaims=JSON.parse(Buffer.from(betaMemberToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
+    const betaMemberSession=await db.collection("refresh_sessions").findOne({id:betaMemberClaims.sid});
+    assert.ok(betaMemberSession);
+    const decodeBetaMemberFile=(reference:string)=>unmaskResourceId(reference,"file",{sessionId:betaMemberSession.id,expiresAt:betaMemberSession.expiresAt},"01234567890123456789012345678901");
+    assert.deepEqual(betaList.json().files.map((file: { id: string }) => decodeBetaMemberFile(file.id)), [decodeBetaFile(betaFileId)],"list references must be decoded with the member session that received them");
 
     const crossSessionRead = await app.inject({ method: "GET", url: "/files/" + alphaFileId, headers: { authorization: "Bearer " + alphaSecondSessionToken } });
     assert.equal(crossSessionRead.statusCode, 404, "a file reference must not resolve in another session of the same user");
