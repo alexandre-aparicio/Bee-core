@@ -396,7 +396,7 @@ export class PluginSettingsComponent implements OnInit {
   }
   trackPlugin(_index: number, plugin: PluginRecord): string { return plugin.id; }
   platformPackageFor(plugin: PluginRecord): PlatformPackage | undefined {
-    return this.platformPackages.find(item => item.pluginKey === plugin.id || item.id === plugin.id);
+    return this.platformPackages.find(item => item.pluginKey === (plugin.pluginKey || plugin.id) || item.id === plugin.id);
   }
   openPlanConfig(plugin: PluginRecord): void {
     this.openMenuId = "";
