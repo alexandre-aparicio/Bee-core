@@ -1,3 +1,11 @@
+## Documents dialogs aligned with the Teams modal (2026-11-24)
+
+- Updated both Documents dialogs (folder sharing and document details) to follow the Teams modal's full-viewport overlay and panel geometry: fixed inset on all four edges, matching overlay stacking level, shared `--bee-overlay` surface, 8px backdrop blur, 24px desktop inset, and the same 760px / 84vh / 820px panel bounds, 20px padding and 16px radius.
+- Aligned the dialog heading hierarchy with Teams: eyebrow above a compact 15px title, consistent spacing, centered header alignment and the existing 34px close control.
+- Standardized both Documents footers to the same right-aligned action row, with consistent vertical alignment, 9px button gap and top divider. The share and details dialogs now share exactly the same footer rule.
+- Kept the dialog surface semantic-token based in Light and Dark; Light mode uses the Documents panel/border tokens rather than forcing a separate hard-coded modal surface. Added the same restrained entrance motion as Teams and reduced the overlay inset on narrow screens.
+- **Validation:** source-level replacement and invariant checks passed for the overlay blur/full-viewport coverage, panel dimensions, title typography, footer alignment, Light tokens and both dialog instances. No Angular build, automated tests, browser interaction, or Light/Dark screenshot comparison has been run; verify that the overlay visually covers and blurs the application header after deployment.
+
 ## Organization → Teams exact Documents styling correction (2026-11-24)
 
 - Corrected the header **New team** control to use the exact same class names as Documents' **Upload text file** button: `documents__button documents__button--secondary`. Removed the Teams-specific primary-button classes and the extra leading glyph so its visual treatment follows the reference control.
