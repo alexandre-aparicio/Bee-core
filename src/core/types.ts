@@ -1,6 +1,7 @@
 import type { BeeEventBus } from "./event-bus.js";
 import type { FastifyInstance } from "fastify";
-import type { MongoClient } from "mongodb";
+import type { Db, MongoClient } from "mongodb";
+import type { TenantPluginMigration } from "./plugin-migrations.js";
 
 export type BeePluginStatus = "registered" | "initialized" | "started" | "stopped" | "failed";
 export type BeeAuthClient = "backend" | "dashboard" | "public";
@@ -29,6 +30,11 @@ export interface BeePlugin {
   initialize?(ctx: BeeContext): Promise<void> | void;
   start?(ctx: BeeContext): Promise<void> | void;
   stop?(ctx: BeeContext): Promise<void> | void;
+  /** Trusted package hooks run per tenant through the Marketplace lifecycle worker. */
+  tenantMigrations?: TenantPluginMigration[];
+  installTenant?(db: Db, tenantId: string): Promise<void>;
+  updateTenant?(db: Db, tenantId: string, previousVersion: string): Promise<void>;
+  uninstallTenant?(db: Db, tenantId: string): Promise<void>;
 }
 
 export type BeePluginActivationPolicy = "automatic" | "manual";
