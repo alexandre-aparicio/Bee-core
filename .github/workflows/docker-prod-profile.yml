@@ -75,7 +75,11 @@ jobs:
           assert web_ports[0].get("host_ip") == "127.0.0.1", web_ports
           assert "bee_core_mongodb_data" in config.get("volumes", {})
           assert "bee_core_files" in config.get("volumes", {})
-          print("Production Compose merge is valid; only loopback web port 3011 is published.")
+          assert set(services["mongodb"].get("networks", {})) == {"database"}
+          assert set(services["bee-core"].get("networks", {})) == {"application", "database"}
+          assert set(services["web"].get("networks", {})) == {"application"}
+          assert config.get("networks", {}).get("database", {}).get("internal") is True
+          print("Production Compose merge is valid; only loopback web port 3011 is published and MongoDB is isolated.")
           PY
       - name: Build and start a clean production stack
         run: |
@@ -103,7 +107,28 @@ jobs:
           set -euo pipefail
           source .env
           mkdir -p .ci-backups
-          network=$(docker network ls --filter label=com.docker.compose.project=bee-core-ci --format '{{.Name}}' | grep '_default$' | head -n1)
+          network=$(docker network ls --filter label=com.docker.compose.project=bee-core-ci --format '{{.Name}}' | grep '_database)
+          test -n "$network"
+          docker run --rm --network "$network" -v "$PWD/.ci-backups:/backup" bee-core-mongodb-tools:ci mongodump --uri="mongodb://$MONGO_ROOT_USERNAME:$MONGO_ROOT_PASSWORD@mongodb:27017/bee_core?authSource=admin" --archive=/backup/bee-core.archive --gzip
+          docker run --rm --volumes-from bee-core -v "$PWD/.ci-backups:/backup" alpine:3.20 tar czf /backup/bee-core-files.tar.gz -C /data/bee-files .
+          test -s .ci-backups/bee-core.archive
+          test -s .ci-backups/bee-core-files.tar.gz
+          docker run --rm --network "$network" -v "$PWD/.ci-backups:/backup" bee-core-mongodb-tools:ci mongorestore --uri="mongodb://$MONGO_ROOT_USERNAME:$MONGO_ROOT_PASSWORD@mongodb:27017/bee_core_restore?authSource=admin" --archive=/backup/bee-core.archive --gzip --nsInclude='bee_core.*' --nsFrom='bee_core.*' --nsTo='bee_core_restore.*'
+          docker compose -p bee-core-ci -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval "if (!db.getSiblingDB('bee_core_restore').ci_sentinel.findOne({_id:'compose-persistence'})) quit(2)"
+          docker volume create bee_core_ci_files_restore >/dev/null
+          docker run --rm -v "$PWD/.ci-backups:/backup:ro" -v bee_core_ci_files_restore:/restore alpine:3.20 sh -ec 'tar xzf /backup/bee-core-files.tar.gz -C /restore && test "$(cat /restore/.ci-persistence-sentinel)" = "bee-core-ci-persisted"'
+      - name: Capture container diagnostics on failure
+        if: failure()
+        run: |
+          docker compose -p bee-core-ci -f docker-compose.yml -f docker-compose.prod.yml ps -a
+          docker compose -p bee-core-ci -f docker-compose.yml -f docker-compose.prod.yml logs --no-color --tail=200
+
+      - name: Stop stack and remove test volumes
+        if: always()
+        run: |
+          docker compose -p bee-core-ci -f docker-compose.yml -f docker-compose.prod.yml down -v --remove-orphans
+          docker volume rm -f bee_core_ci_files_restore >/dev/null 2>&1 || true
+ | head -n1)
           test -n "$network"
           docker run --rm --network "$network" -v "$PWD/.ci-backups:/backup" bee-core-mongodb-tools:ci mongodump --uri="mongodb://$MONGO_ROOT_USERNAME:$MONGO_ROOT_PASSWORD@mongodb:27017/bee_core?authSource=admin" --archive=/backup/bee-core.archive --gzip
           docker run --rm --volumes-from bee-core -v "$PWD/.ci-backups:/backup" alpine:3.20 tar czf /backup/bee-core-files.tar.gz -C /data/bee-files .
