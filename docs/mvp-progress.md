@@ -1,3 +1,12 @@
+## Organization → Roles & Permissions unified role catalogue toolbar (2026-11-24)
+
+- Consolidated the System Roles collection controls into one toolbar row, matching the Plugins/Teams collection composition: search and source filter occupy the left half; result count, Cards/Table and Create role actions are grouped and right-aligned in the right half.
+- Added a working source selector with **All roles**, **Native roles** and **Created roles**. The collection now combines Core-managed system roles and organization-created custom roles; search and Cards/Table operate on the same filtered result set.
+- Custom roles retain their existing organization-scoped data and grant/restriction semantics. Their overflow menu supports View details and Edit; native Core-managed roles remain read-only with unsupported mutation actions disabled.
+- Kept the existing custom-role editor, API endpoints, permission delegation checks and authorization behavior. No backend or permission model changes.
+- Desktop uses the 50/50 toolbar split and 40/30/30 filter rhythm; below 760px the toolbar stacks responsively. Styles use the component's semantic theme tokens for Light/Dark compatibility.
+- **Validation pending:** source-level template/style inspection only. Angular production build, automated tests, browser checks at desktop/tablet/mobile widths, Light/Dark visual QA and VPS deployment have not been run.
+
 ## Plugin catalogue aligned with Organization → Teams (2026-11-24)
 
 - Reworked Settings → Plugins into the same collection workflow as Organization → Teams: inline search, module-type selector (All modules / System modules / Extensions), Cards/Table toggle and the platform-admin Upload plugin action in one toolbar.
