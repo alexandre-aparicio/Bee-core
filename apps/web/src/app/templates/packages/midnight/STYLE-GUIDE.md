@@ -403,3 +403,8 @@ Use the Documents collection hover as the canonical Midnight reference for cards
 - Keep the transition to background and border colors only (approximately 160ms). Do not add glow, scale, elevation, opacity changes or movement to ordinary collection hover.
 - Apply semantic tokens rather than fixed colors. The same rules must remain legible in Midnight Light and Dark; the active surface and accent tokens supply the mode-specific values.
 - Keep hover separate from selected, focus-visible, drag-over and disabled states. Keyboard focus continues to use the documented focus outline.
+
+
+### System-role catalog card pattern
+
+In Midnight, the System Roles catalog uses the same card geometry and subtle hover treatment as Organization → Teams. Keep the role cards equal-height within each grid row, use the established semantic border/surface/accent tokens, and keep permission previews compact: three overlapping neutral badges plus a calculated remainder count. Active/Inactive must always include text, not color alone. The vertical-ellipsis menu and role-details modal must match the shared Teams/Documents interaction and modal contracts in both Light and Dark themes.
