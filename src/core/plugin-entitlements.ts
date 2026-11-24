@@ -346,6 +346,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
         entitled: planEntitled || purchased || manual,
         accessSource: planEntitled ? "plan" : purchased ? "purchase" : manual ? "manual" : null,
         installed: installedIds.has(plugin.id),
+        tenantEnabled: installedIds.has(plugin.id) && (enabledByPlugin.get(plugin.id) ?? true),
         enabled: installedIds.has(plugin.id) && (enabledByPlugin.get(plugin.id) ?? true) && (globallyEnabledByPlugin.get(plugin.id) ?? true),
         globallyEnabled: globallyEnabledByPlugin.get(plugin.id) ?? true,
         installedVersion: installedVersions.get(plugin.id) ?? null
