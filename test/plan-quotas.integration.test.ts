@@ -52,22 +52,26 @@ test("company plan user quota reserves capacity for active members and pending i
     assert.equal(login.statusCode, 200);
     const token = login.json().accessToken as string;
     const headers = { authorization: "Bearer " + token };
+    const companies = await app.inject({ method: "GET", url: "/companies", headers });
+    assert.equal(companies.statusCode, 200);
+    const companyRef = companies.json().companies.find((company: { name: string }) => company.name === "Quota Company")?.id as string;
+    assert.ok(companyRef, "the current company must be returned as a session-bound reference");
 
     const firstInvite = await app.inject({
-      method: "POST", url: "/companies/quota-company/invitations", headers,
+      method: "POST", url: "/companies/" + encodeURIComponent(companyRef) + "/invitations", headers,
       payload: { email: "first-invite@quota.test", role: "member" }
     });
     assert.equal(firstInvite.statusCode, 201);
 
     const secondInvite = await app.inject({
-      method: "POST", url: "/companies/quota-company/invitations", headers,
+      method: "POST", url: "/companies/"+encodeURIComponent(companyRef)+"/invitations", headers,
       payload: { email: "second-invite@quota.test", role: "member" }
     });
     assert.equal(secondInvite.statusCode, 409);
     assert.match(secondInvite.json().error, /user limit/i);
 
     const directAdd = await app.inject({
-      method: "POST", url: "/companies/quota-company/memberships", headers,
+      method: "POST", url: "/companies/" + encodeURIComponent(companyRef) + "/memberships", headers,
       payload: { email: "member@quota.test", role: "member" }
     });
     assert.equal(directAdd.statusCode, 409);
