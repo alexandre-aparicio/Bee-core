@@ -5,6 +5,9 @@ import jwt from "@fastify/jwt";
 import {MongoClient} from "mongodb";
 import bcrypt from "bcryptjs";
 import {createHmac} from "node:crypto";
+import {mkdtemp,rm} from "node:fs/promises";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
 import {base32Decode} from "../src/core/totp.js";
 import {authPlugin} from "../src/plugins/auth/auth.plugin.js";
 import {organizationsPlugin} from "../src/plugins/organizations/organizations.plugin.js";
@@ -23,10 +26,10 @@ const totpCode=(secret:string,at=Date.now()):string=>{
 };
 
 test("platform admin requires enrolled and recent MFA and audits sensitive actions",{skip:!uri},async()=>{
- const dbName="bee_platform_test_"+Date.now(),client=new MongoClient(uri!);await client.connect();const db=client.db(dbName);
+ const dbName="bee_platform_test_"+Date.now(),client=new MongoClient(uri!);await client.connect();const db=client.db(dbName);const pluginPackagePath=await mkdtemp(join(tmpdir(),"bee-platform-packages-"));
  const app=Fastify(),logger:BeeLogger={info(){},warn(){},error(){}};
  app.register(jwt,{secret:jwtSecret});
- const ctx:BeeContext={appName:"Platform test",version:"test",events:new BeeEventBus(),logger,server:app,mongoClient:client,config:{jwtSecret,mongoUri:uri!,mongoDbName:dbName,authAdminEmail:"platform@example.test",authAdminPassword:"Platform-test-12345",authMfaEncryptionKey:Buffer.alloc(32).toString("base64")}};
+ const ctx:BeeContext={appName:"Platform test",version:"test",events:new BeeEventBus(),logger,server:app,mongoClient:client,config:{jwtSecret,mongoUri:uri!,mongoDbName:dbName,pluginPackagePath,authAdminEmail:"platform@example.test",authAdminPassword:"Platform-test-12345",authMfaEncryptionKey:Buffer.alloc(32).toString("base64")}};
  try{
   await authPlugin.initialize?.(ctx);await organizationsPlugin.initialize?.(ctx);await marketplacePlugin.initialize?.(ctx);await platformAdminPlugin.initialize?.(ctx);await app.ready();
   const rootLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"platform@example.test",password:"Platform-test-12345",client:"dashboard"}});
@@ -63,12 +66,30 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.ok(!/^[0-9a-f-]{36}$/i.test(platformPlugins.json().tenantId));
   const rawCompany=await db.collection("tenants").findOne({slug:"acme-test"});
   assert.ok(rawCompany);
+  await db.collection("platform_plugin_packages").insertOne({pluginId:"hello-world",name:"Hola Mundo",version:"0.1.0",description:"External test package",category:"test",dependencies:[],status:"installed",source:"zip",runtimeState:"loaded",createdAt:new Date(),updatedAt:new Date()});
+  await db.collection("plugin_catalog").insertOne({id:"hello-world",name:"Hola Mundo",version:"0.1.0",description:"External test package",category:"test",dependencies:[],status:"published",codeAvailable:true});
+  await db.collection("tenant_plugin_installations").insertOne({id:"hello-world-install",tenantId:rawCompany.id,pluginId:"hello-world",version:"0.1.0",status:"installed"});
+  await db.collection("tenant_plugin_data").insertOne({tenantId:rawCompany.id,pluginId:"hello-world",value:"keep-me"});
+  const packageList=await app.inject({method:"GET",url:"/platform/plugin-packages",headers:rootHeaders});
+  assert.equal(packageList.statusCode,200);
+  const helloWorldPackage=packageList.json().packages.find((item:any)=>item.pluginKey==="hello-world");
+  assert.ok(helloWorldPackage?.id,"platform package routes must use opaque resource references");
+  const packageUsage=await app.inject({method:"GET",url:"/platform/plugin-packages/"+encodeURIComponent(helloWorldPackage.id)+"/tenants",headers:rootHeaders});
+  assert.equal(packageUsage.statusCode,200);assert.equal(packageUsage.json().installedCount,1);assert.equal(packageUsage.json().canRemove,false);
+  assert.equal(packageUsage.json().tenants[0].name,"Acme Test");
+  const blockedPackageRemoval=await app.inject({method:"DELETE",url:"/platform/plugin-packages/"+encodeURIComponent(helloWorldPackage.id),headers:rootHeaders});
+  assert.equal(blockedPackageRemoval.statusCode,409,"global package removal must be blocked while a tenant still has it installed");
+  assert.ok(await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world",status:"installed"}),"blocked removal must leave the global package intact");
+  await db.collection("tenant_plugin_installations").updateOne({tenantId:rawCompany.id,pluginId:"hello-world"},{$set:{status:"uninstalled"}});
+  const safePackageRemoval=await app.inject({method:"DELETE",url:"/platform/plugin-packages/"+encodeURIComponent(helloWorldPackage.id),headers:rootHeaders});
+  assert.equal(safePackageRemoval.statusCode,200);assert.equal(safePackageRemoval.json().tenantDataPreserved,true);
+  assert.equal(await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world"}),null);
+  assert.ok(await db.collection("tenant_plugin_data").findOne({tenantId:rawCompany.id,value:"keep-me"}),"global package removal must preserve tenant-owned data");
+  assert.equal((await db.collection("plugin_catalog").findOne({id:"hello-world"}))?.status,"deprecated");
   const superOrganization=await db.collection("tenants").findOne({kind:"super"});
   assert.ok(superOrganization,"platform installation must be owned by the Super Organization");
   const helloWorld=platformPlugins.json().plugins.find((plugin:any)=>plugin.name==="Hola Mundo");
   assert.equal(helloWorld,undefined,"Hello Mundo must not be exposed as a bundled platform plugin; it is available only after a signed ZIP upload");
-  const helloWorldPackage=await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world",status:{$ne:"deprecated"}});
-  assert.equal(helloWorldPackage,null,"the legacy bundled Hello Mundo package must not remain active in the platform registry");
   const pluginRows=platformPlugins.json().plugins as Array<{id:string;name:string;installed:boolean;enabled:boolean;system:boolean}>;
   const documentsPlugin=pluginRows.find(plugin=>plugin.name==="Documents")!;
   const filesPlugin=pluginRows.find(plugin=>plugin.name==="Private Files")!;
@@ -96,5 +117,5 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   const tenantLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"acme-owner@example.test",password:"Acme-owner-Password-123",client:"dashboard"}});assert.equal(tenantLogin.statusCode,200);
   const tenantHeaders={authorization:"Bearer "+tenantLogin.json().accessToken};
   const forbidden=await app.inject({method:"GET",url:"/platform/companies",headers:tenantHeaders});assert.equal(forbidden.statusCode,403,"company owners must not access global platform endpoints");
- }finally{await marketplacePlugin.stop?.();await app.close().catch(()=>{});await client.db(dbName).dropDatabase();await client.close();}
+ }finally{await marketplacePlugin.stop?.();await app.close().catch(()=>{});await client.db(dbName).dropDatabase();await rm(pluginPackagePath,{recursive:true,force:true});await client.close();}
 });

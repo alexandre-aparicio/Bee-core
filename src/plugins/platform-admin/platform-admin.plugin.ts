@@ -9,6 +9,8 @@ declare module "fastify" {
  }
 }
 import bcrypt from "bcryptjs";
+import { lstat, rm } from "node:fs/promises";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
@@ -324,6 +326,85 @@ export const platformAdminPlugin:BeePlugin={
     await recordPlatformAudit({actorId:actor.id,action:"plugin.package_upload_failed",resourceType:"plugin_package",metadata:{error:message.slice(0,300)}});
     return reply.code(status).send({error:message});
    }
+  });
+  ctx.server.get<{Params:{pluginId:string}}>("/platform/plugin-packages/:pluginId/tenants",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const pluginId=String(req.params.pluginId??"");
+   const packageRecord=await db.collection("platform_plugin_packages").findOne({pluginId});
+   if(!packageRecord)return reply.code(404).send({error:"Platform package not found"});
+   if(packageRecord.source!=="zip")return reply.code(409).send({error:"Only externally uploaded ZIP packages can be removed"});
+   const [installations,pendingJobs]=await Promise.all([
+    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"}}).project<{tenantId:string;status:string;version?:string;updatedAt?:Date}>({tenantId:1,status:1,version:1,updatedAt:1,_id:0}).toArray(),
+    db.collection("plugin_install_jobs").find({pluginId,status:{$in:["queued","running"]}}).project<{tenantId:string;action:string;status:string}>({tenantId:1,action:1,status:1,_id:0}).toArray()
+   ]);
+   const tenantIds=[...new Set([...installations,...pendingJobs].map(item=>item.tenantId))];
+   const tenantRows=tenantIds.length?await companies.find({id:{$in:tenantIds}}).project<{id:string;name:string;slug?:string;kind?:string;status:string}>({id:1,name:1,slug:1,kind:1,status:1,_id:0}).toArray():[];
+   const tenantById=new Map(tenantRows.map(item=>[item.id,item]));
+   return {
+    pluginId,
+    package:{name:packageRecord.name,version:packageRecord.version,status:packageRecord.status,runtimeState:packageRecord.runtimeState},
+    canRemove:installations.length===0&&pendingJobs.length===0,
+    installedCount:installations.length,
+    pendingJobCount:pendingJobs.length,
+    tenants:installations.map(item=>({name:tenantById.get(item.tenantId)?.name??"Unknown tenant",slug:tenantById.get(item.tenantId)?.slug??null,kind:tenantById.get(item.tenantId)?.kind??"tenant",companyStatus:tenantById.get(item.tenantId)?.status??"unknown",installationStatus:item.status,version:item.version??null,updatedAt:item.updatedAt??null})),
+    pendingJobs:pendingJobs.map(item=>({tenantName:tenantById.get(item.tenantId)?.name??"Unknown tenant",action:item.action,status:item.status}))
+   };
+  });
+  ctx.server.delete<{Params:{pluginId:string}}>("/platform/plugin-packages/:pluginId",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const pluginId=String(req.params.pluginId??"");
+   if(!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId))return reply.code(400).send({error:"Invalid plugin ID"});
+   if(CORE_RUNTIME_PLUGIN_IDS.has(pluginId))return reply.code(409).send({error:"Core runtime plugins cannot be removed"});
+   const packages=db.collection("platform_plugin_packages");
+   const packageRecord=await packages.findOne({pluginId});
+   if(!packageRecord)return reply.code(404).send({error:"Platform package not found"});
+   if(packageRecord.source!=="zip")return reply.code(409).send({error:"Only externally uploaded ZIP packages can be removed"});
+   if(packageRecord.status!=="installed")return reply.code(409).send({error:"Package is not in an installed state"});
+   const dependent=await packages.findOne({pluginId:{$ne:pluginId},status:"installed",dependencies:pluginId});
+   if(dependent)return reply.code(409).send({error:"Cannot remove this package while another installed package depends on it: "+dependent.pluginId});
+   const claimed=await packages.updateOne({pluginId,status:"installed",source:"zip"},{$set:{status:"removing",updatedAt:new Date()}});
+   if(claimed.modifiedCount!==1)return reply.code(409).send({error:"Package lifecycle changed; refresh and try again"});
+   const [installations,pendingJobs,versions]=await Promise.all([
+    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"}}).toArray(),
+    db.collection("plugin_install_jobs").find({pluginId,status:{$in:["queued","running"]}}).toArray(),
+    db.collection("platform_plugin_package_versions").find({pluginId}).project<{version:string;packageDirectory?:string}>({version:1,packageDirectory:1,_id:0}).toArray()
+   ]);
+   if(installations.length||pendingJobs.length){
+    await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
+    return reply.code(409).send({error:"Package still has tenant installations or lifecycle jobs",installedCount:installations.length,pendingJobCount:pendingJobs.length});
+   }
+   const storageRoot=resolve(String(ctx.config.pluginPackagePath??"/data/bee-plugins"));
+   const pluginRoot=resolve(storageRoot,pluginId);
+   const relativePluginRoot=relative(storageRoot,pluginRoot);
+   if(!relativePluginRoot||relativePluginRoot.startsWith(".."+sep)||isAbsolute(relativePluginRoot)){
+    await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
+    return reply.code(400).send({error:"Resolved plugin storage path is unsafe"});
+   }
+   for(const version of versions){
+    if(!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(String(version.version))||version.packageDirectory&&resolve(version.packageDirectory)!==resolve(pluginRoot,String(version.version))){
+     await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
+     return reply.code(409).send({error:"Stored package version path does not match its registered identity"});
+    }
+   }
+   try{
+    const info=await lstat(pluginRoot);
+    if(!info.isDirectory()||info.isSymbolicLink())throw new Error("Stored plugin package path is not a regular directory");
+    await rm(pluginRoot,{recursive:true,force:false});
+   }catch(error){
+    if((error as NodeJS.ErrnoException).code!=="ENOENT"){
+     await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
+     return reply.code(500).send({error:"Could not remove stored package files; registry entry was preserved"});
+    }
+   }
+   await Promise.all([
+    packages.deleteOne({pluginId,status:"removing"}),
+    db.collection("platform_plugin_package_versions").deleteMany({pluginId}),
+    db.collection("plugin_plan_package_assignments").deleteMany({pluginId}),
+    db.collection("tenant_plugin_entitlements").deleteMany({pluginId})
+   ]);
+   await db.collection("plugin_catalog").updateOne({id:pluginId},{$set:{status:"deprecated",codeAvailable:false,updatedAt:new Date()}});
+   await recordPlatformAudit({actorId:actor.id,action:"plugin.package_removed",resourceType:"plugin_package",resourceId:pluginId,metadata:{version:packageRecord.version,tenantInstallations:0,tenantDataPreserved:true}});
+   return {success:true,pluginId,restartRequired:true,tenantDataPreserved:true,message:"Package removed from the platform registry. Restart Bee Core to unload its runtime from the current process."};
   });
   ctx.server.get("/platform/plugin-plans",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;

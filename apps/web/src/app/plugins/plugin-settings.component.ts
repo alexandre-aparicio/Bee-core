@@ -16,6 +16,8 @@ type PlatformPackage = {
   source: string;
 };
 
+type PackageTenantUsage = { pluginId: string; canRemove: boolean; installedCount: number; pendingJobCount: number; tenants: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; pendingJobs: Array<{tenantName:string;action:string;status:string}>; };
+
 type PlatformPlan = {
   id: string;
   name: string;
@@ -108,6 +110,7 @@ type PluginRecord = {
                 <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
                 <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
+                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                   <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">{{busyId === plugin.id ? 'Installing…' : 'Install'}}</button>
                   <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">{{busyId === plugin.id ? 'Uninstalling…' : 'Uninstall'}}</button>
                   <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
@@ -141,6 +144,7 @@ type PluginRecord = {
                     <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
                     <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
+                      <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                       <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">Install</button>
                       <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">Uninstall</button>
                       <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
@@ -168,6 +172,42 @@ type PluginRecord = {
           <footer class="plugin-settings__plan-footer">
             <button type="button" class="plugin-settings__cancel" (click)="closePlanConfig()">Cancel</button>
             <button type="button" class="plugin-settings__save" (click)="savePackagePlans(planPackage)" [disabled]="planPackage.runtimeState !== 'loaded' || packageSavingId===planPackage.pluginKey">{{packageSavingId===planPackage.pluginKey ? 'Saving…' : 'Save changes'}}</button>
+          </footer>
+        </section>
+      </div>
+      <div class="plugin-settings__overlay" *ngIf="packageRemovalPlugin as removalPackage" (click)="closePackageRemoval()">
+        <section class="plugin-settings__plan-dialog plugin-settings__removal-dialog" role="dialog" aria-modal="true" aria-labelledby="plugin-removal-title" (click)="$event.stopPropagation()" (keydown.escape)="closePackageRemoval()" tabindex="-1">
+          <header class="plugin-settings__plan-heading">
+            <div><span class="plugin-settings__eyebrow">PLATFORM PACKAGE</span><h3 id="plugin-removal-title">Remove {{removalPackage.name}}?</h3><p>v{{removalPackage.version}} · {{removalPackage.pluginKey}}</p></div>
+            <button type="button" class="plugin-settings__close" (click)="closePackageRemoval()" aria-label="Close package removal">×</button>
+          </header>
+          <p class="plugin-settings__plan-description">Uninstall this plugin separately from every company before removing the global package. Tenant data is not deleted by the global removal.</p>
+          <div class="plugin-settings__removal-summary" *ngIf="packageUsageLoading">Checking tenant installations…</div>
+          <p *ngIf="packageUsageError" class="plugin-settings__error" role="alert">{{packageUsageError}}</p>
+          <ng-container *ngIf="!packageUsageLoading && packageUsage as usage">
+            <div class="plugin-settings__removal-counts">
+              <div><strong>{{usage.installedCount}}</strong><span>Tenant installations</span></div>
+              <div><strong>{{usage.pendingJobCount}}</strong><span>Operations in progress</span></div>
+            </div>
+            <div *ngIf="usage.tenants.length" class="plugin-settings__tenant-list">
+              <h4>Companies that still have the plugin</h4>
+              <div *ngFor="let tenant of usage.tenants" class="plugin-settings__tenant-row">
+                <span><strong>{{tenant.name}}</strong><small>{{tenant.kind === 'super' ? 'Platform organization' : tenant.slug || 'Tenant'}} · {{tenant.companyStatus}}</small></span>
+                <span class="plugin-settings__status">{{tenant.installationStatus}}</span>
+              </div>
+              <p class="plugin-settings__removal-hint">Open each company and use Settings → Plugins → Uninstall. When the job finishes, refresh this list.</p>
+            </div>
+            <div *ngIf="usage.pendingJobs.length" class="plugin-settings__tenant-list">
+              <h4>Operations still running</h4>
+              <div *ngFor="let job of usage.pendingJobs" class="plugin-settings__tenant-row"><span><strong>{{job.tenantName}}</strong><small>{{job.action}}</small></span><span class="plugin-settings__status">{{job.status}}</span></div>
+            </div>
+            <div *ngIf="usage.canRemove" class="plugin-settings__removal-ready">No tenant installations or pending operations remain. The package can now be removed.</div>
+            <div *ngIf="!usage.canRemove" class="plugin-settings__removal-blocked">Global removal is blocked until every tenant installation and pending operation is cleared.</div>
+          </ng-container>
+          <footer class="plugin-settings__plan-footer">
+            <button type="button" class="plugin-settings__cancel" (click)="closePackageRemoval()">Close</button>
+            <button type="button" class="plugin-settings__cancel" (click)="refreshPackageUsage()" [disabled]="packageUsageLoading || packageRemovalBusy">↻ Refresh status</button>
+            <button type="button" class="plugin-settings__save plugin-settings__danger" (click)="confirmRemovePackage()" [disabled]="!packageUsage?.canRemove || packageUsageLoading || packageRemovalBusy">{{packageRemovalBusy ? 'Removing…' : 'Remove global package'}}</button>
           </footer>
         </section>
       </div>
@@ -257,6 +297,21 @@ type PluginRecord = {
     .plugin-settings__plan-heading p,.plugin-settings__plan-description{font-size:12px;opacity:.68;margin:4px 0 0}
     .plugin-settings__close{width:32px;height:32px;border:1px solid var(--border,#8885);border-radius:8px;background:transparent;color:inherit;font-size:20px}
     .plugin-settings__plan-description{margin:16px 0}
+    .plugin-settings__removal-dialog{width:min(100%,620px)}
+    .plugin-settings__removal-counts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+    .plugin-settings__removal-counts>div{display:grid;gap:4px;padding:13px;border:1px solid var(--border,#8885);border-radius:10px}
+    .plugin-settings__removal-counts strong{font-size:22px}
+    .plugin-settings__removal-counts span,.plugin-settings__tenant-row small{font-size:10px;opacity:.65}
+    .plugin-settings__tenant-list{display:grid;gap:8px;margin:14px 0}
+    .plugin-settings__tenant-list h4{margin:0;font-size:12px}
+    .plugin-settings__tenant-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 11px;border:1px solid var(--border,#8885);border-radius:9px}
+    .plugin-settings__tenant-row>span:first-child{display:grid;gap:3px;min-width:0}
+    .plugin-settings__tenant-row strong{font-size:11px}
+    .plugin-settings__removal-hint,.plugin-settings__removal-blocked,.plugin-settings__removal-ready,.plugin-settings__removal-summary{padding:11px 12px;border:1px solid var(--border,#8885);border-radius:9px;font-size:11px;line-height:1.5}
+    .plugin-settings__removal-blocked{border-color:color-mix(in srgb,#d89b32 55%,var(--border,#8885))}
+    .plugin-settings__removal-ready{border-color:color-mix(in srgb,#16a36a 45%,var(--border,#8885))}
+    .plugin-settings__removal-hint{margin:0;opacity:.72}
+    .plugin-settings__danger{background:var(--bee-status-danger,#b83232);border-color:var(--bee-status-danger,#b83232)}
     .plugin-settings__plan-list{display:grid;gap:8px}
     .plugin-settings__plan-list label{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--border,#8885);border-radius:9px;cursor:pointer}
     .plugin-settings__plan-list label>span{display:grid;gap:3px}
@@ -279,6 +334,11 @@ export class PluginSettingsComponent implements OnInit {
   search = "";
   moduleTypeFilter: "all" | "system" | "extension" = "all";
   planConfigPlugin: PlatformPackage | null = null;
+  packageRemovalPlugin: PlatformPackage | null = null;
+  packageUsage: PackageTenantUsage | null = null;
+  packageUsageLoading = false;
+  packageUsageError = '';
+  packageRemovalBusy = false;
   openMenuId = "";
   @Input() accessToken = "";
   @Input() canManage = false;
@@ -366,6 +426,34 @@ export class PluginSettingsComponent implements OnInit {
       this.message = "Plan access updated for " + plugin.name + ".";
     } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not save plan access"; }
     finally { this.packageSavingId = ""; }
+  }
+  openPackageRemoval(plugin: PluginRecord): void {
+    const pkg = this.platformPackageFor(plugin);
+    if (!this.isPlatformAdmin || !pkg || pkg.source !== 'zip') return;
+    this.openMenuId = ''; this.packageRemovalPlugin = pkg; this.packageUsage = null; this.packageUsageError = '';
+    void this.refreshPackageUsage();
+  }
+  closePackageRemoval(): void { if (this.packageRemovalBusy) return; this.packageRemovalPlugin = null; this.packageUsage = null; this.packageUsageError = ''; }
+  async refreshPackageUsage(): Promise<void> {
+    const pkg = this.packageRemovalPlugin; if (!pkg || this.packageUsageLoading) return;
+    this.packageUsageLoading = true; this.packageUsageError = '';
+    try {
+      const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.id) + '/tenants', { headers: { authorization: 'Bearer ' + this.token } });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not check tenant installations');
+      this.packageUsage = result as PackageTenantUsage;
+    } catch (error) { this.packageUsageError = error instanceof Error ? error.message : 'Could not check tenant installations'; }
+    finally { this.packageUsageLoading = false; }
+  }
+  async confirmRemovePackage(): Promise<void> {
+    const pkg = this.packageRemovalPlugin; if (!pkg || !this.packageUsage?.canRemove || this.packageRemovalBusy) return;
+    this.packageRemovalBusy = true; this.packageUsageError = '';
+    try {
+      const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.id), { method: 'DELETE', headers: { authorization: 'Bearer ' + this.token } });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not remove platform package');
+      this.message = pkg.name + ' removed from the platform. Restart Bee Core to unload it from the current runtime; tenant data was preserved.';
+      this.packageRemovalPlugin = null; this.packageUsage = null; await this.loadPlatformPackages(); await this.load();
+    } catch (error) { this.packageUsageError = error instanceof Error ? error.message : 'Could not remove platform package'; }
+    finally { this.packageRemovalBusy = false; }
   }
   async uploadPluginZip(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement; const file = input.files?.[0]; input.value = ""; if (!file) return;
