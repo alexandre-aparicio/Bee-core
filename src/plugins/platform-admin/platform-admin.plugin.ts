@@ -15,7 +15,7 @@ import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain
 import { getTenantSubscription, getTenantPluginCatalog, getTrustedPluginPackage, hasPluginEntitlement, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
-import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
+import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, retireBundledPlatformPackage, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
 import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "../../core/plugin-package.js";
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
@@ -60,6 +60,8 @@ export const platformAdminPlugin:BeePlugin={
   await seedBundledPlatformPackages(db,TRUSTED_PLUGIN_PACKAGES);
   const migratedPlatformPackages=await migrateLegacyPlatformPackageInstalls(db,superOrganization.id);
   if(migratedPlatformPackages)ctx.logger.info("Legacy platform package installations migrated",{count:migratedPlatformPackages});
+  // Hello World must only be available as a separately uploaded, signed ZIP.
+  await retireBundledPlatformPackage(db,"hello-world");
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
