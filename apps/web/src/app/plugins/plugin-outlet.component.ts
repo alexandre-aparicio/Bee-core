@@ -77,9 +77,9 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       frame.style.display = "block";
       const entrypoint = runtime.entrypoint.split("/").map(encodeURIComponent).join("/");
       frame.src = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" + encodeURIComponent(runtime.version) + "/assets/" + entrypoint;
+      this.remoteHost.nativeElement.appendChild(frame);
       const frameWindow = frame.contentWindow;
       if (frameWindow) this.frames.set(frameWindow, { pluginId, apiPrefixes: runtime.apiPrefixes });
-      this.remoteHost.nativeElement.appendChild(frame);
     }
   }
 
@@ -128,8 +128,9 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     let body: string | undefined;
     if (message["body"] !== undefined) {
       try {
-        body = JSON.stringify(message["body"]);
-        if (body.length > 256 * 1024) throw new Error("Request body too large");
+        const serialized = JSON.stringify(message["body"]);
+        if (typeof serialized !== "string" || serialized.length > 256 * 1024) throw new Error("Request body too large");
+        body = serialized;
       } catch {
         target.postMessage({ type: "bee-plugin:api-response", requestId: message["requestId"], status: 413, payload: { error: "Plugin API request body is invalid or too large" } }, "*");
         return;
