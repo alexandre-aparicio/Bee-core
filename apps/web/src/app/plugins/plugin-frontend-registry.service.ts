@@ -1,5 +1,6 @@
 import { Injectable, type Type } from "@angular/core";
 import { BeeNotesComponent } from "../notes/notes.component";
+import { BeeDeliveriesComponent } from "../deliveries/deliveries.component";
 import { BeeDocumentsComponent } from "../documents/documents.component";
 import { BeeConnectedDevicesComponent } from "../connected-devices/connected-devices.component";
 import { BeeTimeTrackingComponent } from "../time-tracking/time-tracking.component";
@@ -26,6 +27,7 @@ export type BeePluginFrontendRegistration = {
 @Injectable({ providedIn: "root" })
 export class BeePluginFrontendRegistry {
   private readonly registrations = new Map<string, BeePluginFrontendRegistration>([
+    ["deliveries", { component: BeeDeliveriesComponent, inputs: context => ({ tenantId: context.tenantId, role: context.role, accessToken: context.accessToken }) }],
     ["documents", { component: BeeDocumentsComponent, inputs: context => ({ tenantId: context.tenantId, accessToken: context.accessToken }) }],
     ["connected-devices", { component: BeeConnectedDevicesComponent, inputs: context => ({ tenantId: context.tenantId, role: context.role, accessToken: context.accessToken }) }],
     ["time-tracking", { component: BeeTimeTrackingComponent, inputs: context => ({ tenantId: context.tenantId, role: context.role, accessToken: context.accessToken, section: context.section }) }],
