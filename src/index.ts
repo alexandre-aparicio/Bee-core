@@ -3,7 +3,8 @@ import websocket from "@fastify/websocket";
 import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
 import { pathToFileURL } from "node:url";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { readFile } from "node:fs/promises";
+import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { BeeEventBus } from "./core/event-bus.js";
 import { BeePluginManager } from "./core/plugin-manager.js";
 import { validateEnvironment } from "./core/environment.js";
@@ -151,6 +152,32 @@ app.get("/health", async () => ({
   database: "connected"
 }));
 app.get("/plugins", async () => ({ plugins: plugins.list() }));
+app.get<{Params:{pluginId:string;version:string;"*":string}}>("/plugin-packages/:pluginId/:version/assets/*",async(request,reply)=>{
+  const {pluginId,version}=request.params;
+  const assetPath=String(request.params["*"]??"");
+  if(!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId)||!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\\\")||assetPath.includes("\\0")){
+    return reply.code(404).send({error:"Plugin asset not found"});
+  }
+  const db=mongoClient.db(environment.mongoDbName);
+  const packageRecord=await db.collection("platform_plugin_packages").findOne({pluginId,version,status:"installed",source:"zip",runtimeState:"loaded"});
+  if(!packageRecord||typeof packageRecord.packageDirectory!=="string")return reply.code(404).send({error:"Plugin asset not found"});
+  const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId,version});
+  const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;assets?:string[]}}|undefined;
+  const allowed=new Set([...(manifest?.frontend?.assets??[]),...(manifest?.frontend?.entrypoint?[manifest.frontend.entrypoint]:[])]);
+  if(!allowed.has(assetPath))return reply.code(404).send({error:"Plugin asset not found"});
+  const packageDirectory=resolve(packageRecord.packageDirectory);
+  const assetFile=resolve(packageDirectory,assetPath);
+  const relativeAsset=relative(packageDirectory,assetFile);
+  if(!relativeAsset||relativeAsset.startsWith(".."+sep)||isAbsolute(relativeAsset))return reply.code(404).send({error:"Plugin asset not found"});
+  let data:Buffer;
+  try{data=await readFile(assetFile);}catch{return reply.code(404).send({error:"Plugin asset not found"});}
+  const contentTypes:Record<string,string>={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".woff2":"font/woff2"};
+  reply.header("Content-Type",contentTypes[extname(assetPath).toLowerCase()]??"application/octet-stream");
+  reply.header("X-Content-Type-Options","nosniff");
+  reply.header("Cache-Control","public, max-age=300");
+  reply.header("Content-Security-Policy","default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'");
+  return reply.send(data);
+});
 app.get("/", async () => ({
   name: "Bee-Core",
   slogan: "All Is a Plugin",
