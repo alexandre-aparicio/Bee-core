@@ -12,6 +12,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   @Input() tenantId = "";
   @Input() role = "member";
   @Input() accessToken = "";
+  @Input() section = "";
   @ViewChild("pluginHost", { read: ViewContainerRef, static: true }) private host!: ViewContainerRef;
   private viewReady = false;
 
@@ -40,7 +41,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
         this.i18n.registerCatalog(pluginId, "es", registration.translations.es);
       }
       const component = this.host.createComponent(registration.component);
-      for (const [name, value] of Object.entries(registration.inputs({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken }))) {
+      for (const [name, value] of Object.entries(registration.inputs({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section }))) {
         component.setInput(name, value);
       }
     }

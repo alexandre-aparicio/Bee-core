@@ -6,7 +6,7 @@ import {
   lucideLanguages, lucideLayoutDashboard, lucideLock, lucideLogOut, lucideMail,
   lucideMenu, lucideMoon, lucidePalette, lucidePlug, lucidePuzzle, lucideServer,
   lucideSettings, lucideShieldCheck, lucideSun, lucideUsers, lucideUsersRound,
-  lucideWorkflow, lucideSearch, lucideRefreshCw, lucidePlus
+  lucideWorkflow, lucideSearch, lucideRefreshCw, lucidePlus, lucideClock, lucideCalendarDays, lucideHistory, lucideClipboardList
 } from '@ng-icons/lucide';
 
 const ICONS: Record<string, string> = {
@@ -17,6 +17,7 @@ const ICONS: Record<string, string> = {
   tenants: 'lucideBuilding2', integrations: 'lucidePlug', plans: 'lucideCreditCard',
   security: 'lucideLock', infrastructure: 'lucideServer', localization: 'lucideLanguages',
   themes: 'lucidePalette', domains: 'lucideGlobe', workflow: 'lucideWorkflow',
+  clock: 'lucideClock', calendar: 'lucideCalendarDays', history: 'lucideHistory', 'clipboard-list': 'lucideClipboardList',
   documentation: 'lucideFileText', home: 'lucideHouse', menu: 'lucideMenu',
   logout: 'lucideLogOut', search: 'lucideSearch', refresh: 'lucideRefreshCw', plus: 'lucidePlus', chevronDown: 'lucideChevronDown', chevronRight: 'lucideChevronRight',
   light: 'lucideSun', dark: 'lucideMoon', help: 'lucideCircleHelp'
@@ -32,7 +33,7 @@ const ICONS: Record<string, string> = {
     lucideLanguages, lucideLayoutDashboard, lucideLock, lucideLogOut, lucideMail,
     lucideMenu, lucideMoon, lucidePalette, lucidePlug, lucidePuzzle, lucideServer,
     lucideSettings, lucideShieldCheck, lucideSun, lucideUsers, lucideUsersRound,
-    lucideWorkflow, lucideSearch, lucideRefreshCw, lucidePlus
+    lucideWorkflow, lucideSearch, lucideRefreshCw, lucidePlus, lucideClock, lucideCalendarDays, lucideHistory, lucideClipboardList
   })],
   template: '<ng-icon [name]="resolvedIcon" [size]="size" [strokeWidth]="strokeWidth"></ng-icon>',
   styles: [':host{display:inline-flex;align-items:center;justify-content:center;line-height:1;flex:none}ng-icon{display:inline-flex;align-items:center;justify-content:center;}']

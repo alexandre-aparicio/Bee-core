@@ -374,7 +374,7 @@ export class AppComponent implements OnInit {
   activeSection = 'dashboard';
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
-    dashboard: '/dashboard', documents: '/dashboard/documents', 'connected-devices': '/dashboard/connected-devices', 'time-tracking': '/dashboard/time-tracking?section=day', 'time-tracking-day':'/dashboard/time-tracking?section=day', 'time-tracking-schedule':'/dashboard/time-tracking?section=schedule', 'time-tracking-history':'/dashboard/time-tracking?section=history', 'time-tracking-requests':'/dashboard/time-tracking?section=requests', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
+    dashboard: '/dashboard', documents: '/dashboard/documents', 'connected-devices': '/dashboard/connected-devices', 'time-tracking': '/dashboard/time-tracking/my_jorney', 'time-tracking-day':'/dashboard/time-tracking/my_jorney', 'time-tracking-schedule':'/dashboard/time-tracking/schedule', 'time-tracking-history':'/dashboard/time-tracking/history', 'time-tracking-requests':'/dashboard/time-tracking/requests', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-plans': '/dashboard/settings/plans-licensing',
@@ -396,8 +396,10 @@ export class AppComponent implements OnInit {
     {id:'settings-localization',label:'Localization',icon:'localization',description:'Languages, regions, currencies and global formats.'}
   ];
   private syncActiveSectionFromPath(): void {
-    if (this.path === '/dashboard/time-tracking' || this.path === '/dashboard/time-tracking/') {
-      const section = new URLSearchParams(window.location.search).get('section') || 'day';
+    if (this.path === '/dashboard/time-tracking' || this.path.startsWith('/dashboard/time-tracking/')) {
+      const pathSection = this.path.split('/').filter(Boolean)[2] || 'my_jorney';
+      const legacySection = new URLSearchParams(window.location.search).get('section');
+      const section = legacySection || pathSection;
       this.activeSection = section === 'schedule' ? 'time-tracking-schedule' : section === 'history' ? 'time-tracking-history' : section === 'requests' ? 'time-tracking-requests' : 'time-tracking-day';
       this.expandedMenuId = 'time-tracking';
       if (!this.isPluginEnabled('time-tracking')) this.activeSection = 'dashboard';

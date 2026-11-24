@@ -10,6 +10,7 @@ export type BeePluginFrontendContext = {
   tenantId: string;
   role: string;
   accessToken: string;
+  section: string;
 };
 
 export type BeePluginFrontendRegistration = {
@@ -27,7 +28,7 @@ export class BeePluginFrontendRegistry {
   private readonly registrations = new Map<string, BeePluginFrontendRegistration>([
     ["documents", { component: BeeDocumentsComponent, inputs: context => ({ tenantId: context.tenantId, accessToken: context.accessToken }) }],
     ["connected-devices", { component: BeeConnectedDevicesComponent, inputs: context => ({ tenantId: context.tenantId, role: context.role, accessToken: context.accessToken }) }],
-    ["time-tracking", { component: BeeTimeTrackingComponent, inputs: context => ({ tenantId: context.tenantId, role: context.role, accessToken: context.accessToken }) }],
+    ["time-tracking", { component: BeeTimeTrackingComponent, inputs: context => ({ tenantId: context.tenantId, role: context.role, accessToken: context.accessToken, section: context.section }) }],
     ["notes", {
       component: BeeNotesComponent,
       inputs: context => ({

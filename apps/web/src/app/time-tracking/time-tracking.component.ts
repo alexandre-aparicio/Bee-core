@@ -11,14 +11,14 @@ type Correction={id:string;sessionId:string;userEmail?:string;eventType:"clock_i
 @Component({selector:"bee-time-tracking",standalone:true,providers:[TimeTrackingApiService],imports:[CommonModule,FormsModule],templateUrl:"./time-tracking.component.html",styleUrls:["./time-tracking.component.css"]})
 export class BeeTimeTrackingComponent implements OnInit {
  constructor(private readonly api:TimeTrackingApiService){}
- @Input() tenantId=""; @Input() role="member"; @Input() accessToken="";
+ @Input() tenantId=""; @Input() role="member"; @Input() accessToken=""; @Input() section="";
  session:TimeSession|null=null; mySchedule:Schedule|null=null; history:TimeSession[]=[]; corrections:Correction[]=[]; teamCorrections:Correction[]=[]; members:TeamMember[]=[];
  loading=false; busy=false; error=""; message=""; activeSection:"my-day"|"schedule"|"history"|"requests"="my-day"; activeSubTab:"status"|"activity"|"mine"|"team"="status";
  selectedUserId=""; timezone="Europe/Madrid";
  scheduleDraft:ScheduleDay[]=Array.from({length:7},(_,day)=>({day,enabled:false,start:"09:00",end:"17:00",breakMinutes:0}));
  correctionTarget:{sessionId:string;eventType:"clock_in"|"clock_out";originalAt:string}|null=null;
  requestedAt=""; correctionReason="";
- ngOnInit():void{const section=new URLSearchParams(window.location.search).get("section");this.activeSection=section==="schedule"?"schedule":section==="history"?"history":section==="requests"?"requests":"my-day";void this.load();}
+ ngOnInit():void{const legacy=new URLSearchParams(window.location.search).get("section");const section=this.section||legacy||"time-tracking-day";this.activeSection=section==="time-tracking-schedule"||section==="schedule"?"schedule":section==="time-tracking-history"||section==="history"?"history":section==="time-tracking-requests"||section==="requests"?"requests":"my-day";void this.load();}
  get canManage():boolean{return ["owner","admin","manager","super_admin","superadmin"].includes(this.role.toLowerCase());}
  private request(path:string,method="GET",body?:unknown):Promise<any>{return this.api.request(this.accessToken,path,method,body);}
  async load():Promise<void>{
