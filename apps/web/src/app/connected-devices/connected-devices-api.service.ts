@@ -8,7 +8,8 @@ export type ConnectedDevice={
 export class ConnectedDevicesApiService{
  private readonly base="/api/connected-devices";
  private async request<T>(token:string,path:string,init:RequestInit={}):Promise<T>{
-  const response=await fetch(this.base+path,{...init,headers:{authorization:"Bearer "+token,"content-type":"application/json",...(init.headers||{})}});
+  const headers=new Headers(init.headers);headers.set("authorization","Bearer "+token);if(init.body!==undefined&&init.body!==null&&!headers.has("content-type"))headers.set("content-type","application/json");
+  const response=await fetch(this.base+path,{...init,headers});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.error||"Connected Devices request failed");
   return data as T;
