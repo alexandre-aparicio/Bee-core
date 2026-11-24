@@ -348,7 +348,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(cleanupConcurrentPurchase.statusCode, 200);
     assert.equal(cleanupConcurrentPurchase.json().changed, true);
     const alphaPurchasedCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
-    assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; name: string; entitled: boolean; accessSource: string }) => plugin.id === "notes" && plugin.entitled && plugin.accessSource === "purchase"));
+    assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; name: string; entitled: boolean; accessSource: string }) => plugin.pluginKey === "notes" && plugin.entitled && plugin.accessSource === "purchase"));
     const alphaNotesInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(alphaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaNotesInstall.statusCode, 202);
     const alphaInstallJob = await waitForInstallJob(await resolveJobId(alphaToken,alphaNotesInstall.json().jobId as string));
