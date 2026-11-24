@@ -264,6 +264,7 @@ export const platformAdminPlugin:BeePlugin={
    if(archiveBase64.length>Math.ceil(50*1024*1024*4/3)+8||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(archiveBase64))return reply.code(413).send({error:"ZIP payload must be canonical base64 and no larger than 50 MB"});
    const archive=Buffer.from(archiveBase64,"base64");
    if(archive.length>50*1024*1024||archive.toString("base64")!==archiveBase64)return reply.code(413).send({error:"ZIP payload is invalid or exceeds 50 MB"});
+   const packages=db.collection("platform_plugin_packages");
    try{
     const installed=await installSignedPluginZip({
      archive,
@@ -271,7 +272,6 @@ export const platformAdminPlugin:BeePlugin={
      publisherPublicKey:String(ctx.config.pluginPublisherPublicKey??""),
      runtimeVersion:ctx.version,
      validateManifest:async manifest=>{
-      const packages=db.collection("platform_plugin_packages");
       const existing=await packages.findOne({pluginId:manifest.id});
       if(existing&&existing.source!=="zip")throw new Error("Plugin ID is reserved by a built-in package");
       if(existing?.version&&existing.version!==manifest.version){
@@ -340,6 +340,7 @@ export const platformAdminPlugin:BeePlugin={
    await assignments.deleteMany({pluginId,planId:{$nin:planIds}});
    for(const planId of planIds)await assignments.updateOne({planId,pluginId},{$setOnInsert:{planId,pluginId,createdAt:new Date(),createdBy:actor.id}},{upsert:true});
    const queued=await syncAutomaticPluginProvisioning(db,pluginId);
+   const upgraded=await syncPluginPackageVersionUpdates(db,pluginId);
    await recordPlatformAudit({actorId:actor.id,action:"plugin.plan_entitlements_updated",resourceType:"plugin_package",resourceId:pluginId,metadata:{planIds,automaticInstallJobsQueued:queued,tenantUpgradeJobsQueued:upgraded}});
    return {success:true,pluginId:mask(req.platformSession!,pluginId,"plugin"),planIds,automaticInstallJobsQueued:queued,tenantUpgradeJobsQueued:upgraded};
   });
