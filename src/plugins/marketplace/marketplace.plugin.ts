@@ -371,6 +371,8 @@ export const marketplacePlugin: BeePlugin = {
       const plugin = catalog.find(item => item.id === pluginId);
       if (!plugin) return reply.code(404).send({ error: "Plugin not visible to this company" });
       if (!plugin.entitled) return reply.code(402).send({ error: "An active plan entitlement or plugin purchase is required" });
+      const externalPackage = await db.collection("platform_plugin_packages").findOne({ pluginId, source: "zip" });
+      if (externalPackage && externalPackage.status !== "installed") return reply.code(409).send({ error: "External plugin package is not available for new installations" });
       const trusted = await getMarketplacePackage(pluginId);
       if (!trusted) return reply.code(404).send({ error: "Trusted plugin package is unavailable" });
       for (const dependency of await getDependencyOrder(pluginId)) {
