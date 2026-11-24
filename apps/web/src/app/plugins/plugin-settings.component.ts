@@ -16,6 +16,8 @@ type PlatformPackage = {
   source: string;
 };
 
+type PackageTenantUsage = { pluginId: string; canRemove: boolean; installedCount: number; pendingJobCount: number; tenants: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; pendingJobs: Array<{tenantName:string;action:string;status:string}>; };
+
 type PlatformPlan = {
   id: string;
   name: string;
@@ -108,6 +110,7 @@ type PluginRecord = {
                 <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
                 <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
+                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                   <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">{{busyId === plugin.id ? 'Installing…' : 'Install'}}</button>
                   <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">{{busyId === plugin.id ? 'Uninstalling…' : 'Uninstall'}}</button>
                   <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
@@ -141,6 +144,7 @@ type PluginRecord = {
                     <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
                     <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
+                      <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                       <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">Install</button>
                       <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">Uninstall</button>
                       <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
@@ -279,6 +283,11 @@ export class PluginSettingsComponent implements OnInit {
   search = "";
   moduleTypeFilter: "all" | "system" | "extension" = "all";
   planConfigPlugin: PlatformPackage | null = null;
+  packageRemovalPlugin: PlatformPackage | null = null;
+  packageUsage: PackageTenantUsage | null = null;
+  packageUsageLoading = false;
+  packageUsageError = '';
+  packageRemovalBusy = false;
   openMenuId = "";
   @Input() accessToken = "";
   @Input() canManage = false;
@@ -366,6 +375,34 @@ export class PluginSettingsComponent implements OnInit {
       this.message = "Plan access updated for " + plugin.name + ".";
     } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not save plan access"; }
     finally { this.packageSavingId = ""; }
+  }
+  openPackageRemoval(plugin: PluginRecord): void {
+    const pkg = this.platformPackageFor(plugin);
+    if (!this.isPlatformAdmin || !pkg || pkg.source !== 'zip') return;
+    this.openMenuId = ''; this.packageRemovalPlugin = pkg; this.packageUsage = null; this.packageUsageError = '';
+    void this.refreshPackageUsage();
+  }
+  closePackageRemoval(): void { if (this.packageRemovalBusy) return; this.packageRemovalPlugin = null; this.packageUsage = null; this.packageUsageError = ''; }
+  async refreshPackageUsage(): Promise<void> {
+    const pkg = this.packageRemovalPlugin; if (!pkg || this.packageUsageLoading) return;
+    this.packageUsageLoading = true; this.packageUsageError = '';
+    try {
+      const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.pluginKey) + '/tenants', { headers: { authorization: 'Bearer ' + this.token } });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not check tenant installations');
+      this.packageUsage = result as PackageTenantUsage;
+    } catch (error) { this.packageUsageError = error instanceof Error ? error.message : 'Could not check tenant installations'; }
+    finally { this.packageUsageLoading = false; }
+  }
+  async confirmRemovePackage(): Promise<void> {
+    const pkg = this.packageRemovalPlugin; if (!pkg || !this.packageUsage?.canRemove || this.packageRemovalBusy) return;
+    this.packageRemovalBusy = true; this.packageUsageError = '';
+    try {
+      const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.pluginKey), { method: 'DELETE', headers: { authorization: 'Bearer ' + this.token } });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not remove platform package');
+      this.message = pkg.name + ' removed from the platform. Restart Bee Core to unload it from the current runtime; tenant data was preserved.';
+      this.packageRemovalPlugin = null; this.packageUsage = null; await this.loadPlatformPackages(); await this.load();
+    } catch (error) { this.packageUsageError = error instanceof Error ? error.message : 'Could not remove platform package'; }
+    finally { this.packageRemovalBusy = false; }
   }
   async uploadPluginZip(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement; const file = input.files?.[0]; input.value = ""; if (!file) return;
