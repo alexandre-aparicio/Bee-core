@@ -32,8 +32,8 @@ function render(){
  renderCrumbs();
  const visibleFolders=folders.filter(item=>(item.parentId||null)===(currentFolderId||null));
  const cards=[
- ...visibleFolders.map(folder=>'<article class="item folder"><h3>📁 '+escapeHtml(folder.name)+'</h3><div class="meta">Folder · '+Number(folder.documentCount||0)+' documents<br>Created '+escapeHtml(date(folder.createdAt))+'</div><div class="item-actions"><button class="btn" data-open="'+escapeHtml(folder.id)+'">Open folder</button>'+(folder.canManageShares?'<button class="btn" data-share="'+escapeHtml(folder.id)+'" data-mode="groups">Share group</button><button class="btn" data-share="'+escapeHtml(folder.id)+'" data-mode="users">Share user</button>':"")+(folder.canMove&&folder.parentId?'<button class="btn" data-folder-out="'+escapeHtml(folder.id)+'">Move out</button>':"")+'</div></article>'),
- ...documents.map(doc=>'<article class="item"><h3>📄 '+escapeHtml(doc.title)+'</h3><div class="meta">'+escapeHtml(doc.description||doc.originalName||"Document")+'<br>'+escapeHtml(doc.uploadedBy?.email||"")+' · '+escapeHtml(date(doc.uploadedAt))+'<br>'+escapeHtml(doc.visibility==="public"?"Public":"Private")+'</div><div class="item-actions"><button class="btn" data-details="'+escapeHtml(doc.id)+'">Details</button><button class="btn" data-download="'+escapeHtml(doc.id)+'">Download</button>'+(doc.canMove&&doc.folderId?'<button class="btn" data-doc-out="'+escapeHtml(doc.id)+'">Move out</button>':"")+'<button class="btn" data-publish="'+escapeHtml(doc.id)+'" data-public="'+String(doc.visibility==="public")+'">'+(doc.visibility==="public"?"Make private":"Publish")+'</button></div></article>')
+ ...visibleFolders.map(folder=>'<article class="item folder" draggable="true" data-drag-folder="'+escapeHtml(folder.id)+'" data-drop-folder="'+escapeHtml(folder.id)+'"><h3>📁 '+escapeHtml(folder.name)+'</h3><div class="meta">Folder · '+Number(folder.documentCount||0)+' documents<br>Created '+escapeHtml(date(folder.createdAt))+'</div><div class="item-actions"><button class="btn" data-open="'+escapeHtml(folder.id)+'">Open folder</button>'+(folder.canManageShares?'<button class="btn" data-share="'+escapeHtml(folder.id)+'" data-mode="groups">Share group</button><button class="btn" data-share="'+escapeHtml(folder.id)+'" data-mode="users">Share user</button>':"")+(folder.canMove&&folder.parentId?'<button class="btn" data-folder-out="'+escapeHtml(folder.id)+'">Move out</button>':"")+'</div></article>'),
+ ...documents.map(doc=>'<article class="item" draggable="true" data-drag-doc="'+escapeHtml(doc.id)+'"><h3>📄 '+escapeHtml(doc.title)+'</h3><div class="meta">'+escapeHtml(doc.description||doc.originalName||"Document")+'<br>'+escapeHtml(doc.uploadedBy?.email||"")+' · '+escapeHtml(date(doc.uploadedAt))+'<br>'+escapeHtml(doc.visibility==="public"?"Public":"Private")+'</div><div class="item-actions"><button class="btn" data-details="'+escapeHtml(doc.id)+'">Details</button><button class="btn" data-download="'+escapeHtml(doc.id)+'">Download</button>'+(doc.canMove&&doc.folderId?'<button class="btn" data-doc-out="'+escapeHtml(doc.id)+'">Move out</button>':"")+'<button class="btn" data-publish="'+escapeHtml(doc.id)+'" data-public="'+String(doc.visibility==="public")+'">'+(doc.visibility==="public"?"Make private":"Publish")+'</button></div></article>')
  ];
  $("content").innerHTML=cards.length?'<div class="grid">'+cards.join("")+'</div>':'<div class="empty"><strong>'+(currentFolderId?"This folder is empty":"No documents yet")+'</strong><p>Create a folder or upload a text file to get started.</p></div>';
  $("content").querySelectorAll("[data-open]").forEach(button=>button.addEventListener("click",()=>openFolder(button.dataset.open)));
@@ -43,6 +43,14 @@ function render(){
  $("content").querySelectorAll("[data-details]").forEach(button=>button.addEventListener("click",()=>openDetails(button.dataset.details)));
  $("content").querySelectorAll("[data-publish]").forEach(button=>button.addEventListener("click",()=>togglePublication(button.dataset.publish,button.dataset.public!=="true")));
  $("content").querySelectorAll("[data-share]").forEach(button=>button.addEventListener("click",()=>void openShareDialog(button.dataset.share,button.dataset.mode)));
+ $("content").querySelectorAll("[data-drag-folder],[data-drag-doc]").forEach(item=>item.addEventListener("dragstart",event=>{
+  const node=event.currentTarget;const kind=node.dataset.dragFolder?"folder":"document";const id=node.dataset.dragFolder||node.dataset.dragDoc;
+  event.dataTransfer?.setData("text/plain",JSON.stringify({kind,id}));if(event.dataTransfer)event.dataTransfer.effectAllowed="move";
+ }));
+ $("content").querySelectorAll("[data-drop-folder]").forEach(item=>{item.addEventListener("dragover",event=>event.preventDefault());item.addEventListener("drop",event=>{event.preventDefault();void dropItem(event,item.dataset.dropFolder);});});
+ const rootCrumb=$("crumbs").querySelector('[data-folder=""]');
+ rootCrumb?.addEventListener("dragover",event=>event.preventDefault());
+ rootCrumb?.addEventListener("drop",event=>{event.preventDefault();void dropItem(event,null);});
 }
 async function load(){
  if(busy)return;busy=true;clearNotice();$("content").innerHTML='<div class="empty">Loading documents…</div>';
@@ -56,6 +64,17 @@ async function load(){
   render();
  }catch(error){notify(error.message||"Could not load documents.");$("content").innerHTML='<div class="empty">Documents could not be loaded. Check your access and try again.</div>';}
  finally{busy=false;}
+}
+async function dropItem(event,targetFolderId){
+ let dragged;try{dragged=JSON.parse(event.dataTransfer?.getData("text/plain")||"");}catch{return;}
+ if(!dragged||typeof dragged.id!=="string"||!["folder","document"].includes(dragged.kind))return;
+ if(dragged.kind==="folder"&&(dragged.id===targetFolderId||folders.find(item=>item.id===dragged.id)?.parentId===targetFolderId))return;
+ if(dragged.kind==="document"&&documents.find(item=>item.id===dragged.id)?.folderId===targetFolderId)return;
+ try{
+  if(dragged.kind==="document")await request("/documents/"+encodeURIComponent(dragged.id)+"/location","PATCH",{folderId:targetFolderId});
+  else await request("/documents/folders/"+encodeURIComponent(dragged.id)+"/location","PATCH",{parentId:targetFolderId});
+  notify(dragged.kind==="document"?"Document moved successfully.":"Folder moved successfully.",true);await load();
+ }catch(error){notify(error.message||"Could not move item.");}
 }
 async function openFolder(id){currentFolderId=id;await load();}
 $("refresh").addEventListener("click",()=>void load());
