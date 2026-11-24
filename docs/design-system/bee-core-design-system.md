@@ -347,6 +347,36 @@ Use a toast for a completed action whose confirmation does not need to remain at
 - Clicking outside should not unexpectedly discard unsaved data.
 - Do not nest dialogs.
 
+### 5.10.1 Canonical modal layout and cross-feature consistency
+
+All first-party modal dialogs MUST use one shared layout contract. Equivalent dialogs in different features (including Organization → Teams and Documents) MUST look and behave the same; feature-specific content may vary, but the overlay, panel geometry, heading, close control, body flow, footer and action-button treatment MUST NOT drift.
+
+**Overlay and panel**
+- Render the backdrop as a viewport-level sibling of the dialog panel, not inside a page/card/scroll container. It MUST use `position: fixed; inset: 0`, cover the dashboard shell and header, and use a stacking level above all application chrome (the established Teams/Documents reference is `z-index: 10000`).
+- Use the shared neutral-dark `--bee-overlay` token in both Light and Dark modes, with the same restrained 8px backdrop blur (including vendor-prefixed support). Never derive the backdrop color from the active page canvas.
+- Center the panel in the available viewport. The reference desktop geometry is `width: min(760px, 100%)`, `max-height: min(84vh, 820px)`, `padding: 20px`, `border-radius: 16px`, and `gap: 16px`; use the same values for equivalent dialogs unless a documented content constraint requires a deliberate variant.
+- The panel MUST own its border, active surface, foreground and neutral shadow through semantic theme tokens. It MUST remain within the viewport on small screens (reference overlay inset: 12px; desktop: 24px).
+- Keep the backdrop fixed while the panel/body scrolls. Long content MUST scroll inside the panel; do not scroll or blur only a nested page region.
+
+**Header and close control**
+- Use the same header structure and alignment in every modal: optional uppercase eyebrow/scope label first, then the dialog title and optional concise description; place the close icon button at the opposite edge of the same header row.
+- Align header items vertically centered and keep the same gap, title size/weight/line-height, eyebrow treatment, description treatment and close-button hit area across features. The current Teams reference uses a compact 15px title and a 34px close control.
+- Use the same shared icon-button class/variant and accessible name (for example, “Close dialog”); do not create feature-specific close-button geometry or hover/focus behavior.
+
+**Body and footer**
+- Keep the body between header and footer with consistent vertical rhythm. The body may scroll; header and footer remain visible when practical.
+- Every modal footer MUST use the same action-row alignment: actions grouped at the inline end (right in LTR), vertically centered, with a 9px gap and a top divider/padding. Keep the same order convention: secondary action (Cancel) before primary action; destructive confirmation uses the destructive variant in the primary position.
+- Reuse the same button variants/classes and dimensions as the shared application buttons. Do not independently restyle modal buttons per feature. Loading/disabled/focus/hover states must match the global button contract.
+- Do not place one modal's footer actions on the left or spread them across the row while another equivalent modal uses the canonical right-aligned group.
+
+**Behavior and accessibility**
+- Use dialog semantics (`role="dialog"` or `alertdialog` for urgent destructive confirmation), `aria-modal="true"`, an accessible title and description, initial focus, contained tab navigation, Escape handling when safe, and focus restoration to the trigger.
+- Close via the close control and Cancel where applicable. Clicking the backdrop MUST NOT discard unsaved work; require explicit confirmation when closing would lose meaningful input.
+- Destructive dialogs MUST name the affected object and consequence. Do not rely on color alone to communicate danger.
+- Respect reduced motion. Opening/closing motion must be brief and consistent; motion must not replace state or focus feedback.
+
+**Implementation rule:** prefer a shared dialog primitive/style contract where available. If a feature still has local markup/CSS, it MUST reproduce this contract exactly rather than introducing another modal design. A deviation requires a documented reason and approval in the design-system documentation.
+
 ### 5.11 Pagination, filters and bulk actions
 
 - Keep pagination controls and result counts consistent.
