@@ -183,3 +183,10 @@ The browser simulator sends an explicit empty JSON object (`{}`) with the authen
 ## Device card lifecycle actions
 
 Each device card exposes a vertical three-dot action menu. **Unlink** invalidates the current credential, clears granted capabilities and retains the device record as `unlinked`; a new one-time QR pairing creates a fresh device identity and credential. **Revoke** permanently invalidates the current device credential and keeps the revoked record for audit/history. **Suspend** temporarily blocks access and can be reversed by reactivation. **Delete** permanently removes the tenant-scoped device record and cancels its claimed pairing challenge; it is restricted to organization administrators. Unlink and delete are distinct: unlink preserves history, delete removes the record.
+
+
+## Device lifecycle confirmation dialogs and JSON request headers
+
+Device lifecycle warnings and destructive-action confirmations are presented in an accessible in-app modal dialog rather than the browser's native `window.confirm`. The modal identifies the selected action and device, provides an explicit cancel path, and uses a danger treatment for irreversible revoke/delete operations. API errors are also surfaced in a modal so warnings are not buried in the device-card layout.
+
+The Connected Devices API client now adds `Content-Type: application/json` only when a request actually has a body. Body-less DELETE requests no longer advertise an empty JSON payload, avoiding Fastify's `FST_ERR_CTP_EMPTY_JSON_BODY` parser error. Mutating POST operations that require an empty JSON payload continue to send an explicit `{}` body.
