@@ -386,12 +386,6 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 }
 /* Light mode: keep Documents surfaces readable when the Midnight shell switches appearance. */
 :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]){
- --bg:#f5f7fb;
- --panel:#ffffff;
- --muted:#667085;
- --border:#dce2eb;
- --purple:#6752d8;
- --cyan:#087f78;
  color:#20283a;
 }
 :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .documents__button--primary,
