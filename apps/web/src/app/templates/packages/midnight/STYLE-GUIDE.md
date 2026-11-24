@@ -411,3 +411,9 @@ In Midnight, the System Roles catalog uses the same card geometry and subtle hov
 ### System Roles collection controls and permission markers
 
 The System Roles tab MUST use the same collection composition as Organization → Teams: a Cards/Table segmented view control in the collection header, the primary Create role action at the far edge, and a search field below the header. Cards and table rows MUST share the same content, filtering and restrained hover behavior. Permission previews use compact circular initials (for example, View members → VM, View plugins → VP, View files → VF); each circle exposes the complete permission label through a hover/focus tooltip and accessible name. Keep the marker surface, border, accent and tooltip theme-token based in Light and Dark. The Create role action opens the existing Custom Roles creation flow; built-in Core roles remain immutable.
+
+
+### System Roles permission-circle overlap and view-toggle alignment
+
+- Stack the permission circles with a consistent negative inline-start margin and a 2px separator matching the active collection surface. Preserve the order and tooltip/focus behavior; place `+N` after the stack with visible spacing.
+- The Roles Cards/Table buttons must match Teams exactly: 34×32px, zero padding, 17px glyph, 7px radius, centered with `display:grid; place-items:center` and `line-height:1`. Reset inherited button padding locally so the glyph cannot drift off-center.
