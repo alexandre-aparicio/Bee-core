@@ -62,7 +62,7 @@ export function satisfiesPluginVersion(version: string, range: string): boolean 
   return range.split("||").some(alternative => {
     const token = alternative.trim();
     if (token === "*") return true;
-    const match = /^(\\^|~|>=|<=|>|<)?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(token);
+    const match = /^(\^|~|>=|<=|>|<)?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(token);
     if (!match) return false;
     const operator = match[1] ?? "=";
     const requested = versionTuple(match[2]!);
