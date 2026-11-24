@@ -1,5 +1,5 @@
 import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
-import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { validatePluginManifest, type BeeBusinessPluginManifest } from "./plugin-package.js";
@@ -173,7 +173,7 @@ export async function installSignedPluginZip(options: {
   publisherPublicKey: string;
   runtimeVersion: string;
 }): Promise<InstalledZipPackage> {
-  const { archive, storageRoot, publisherPublicKey, runtimeVersion } = options;
+  const { archive, storageRoot, publisherPublicKey, runtimeVersion, validateManifest: validateBeforeStorage } = options;
   if (!Buffer.isBuffer(archive) || archive.length < 22 || archive.length > MAX_ARCHIVE_BYTES) fail("ZIP archive size is outside the allowed limits");
   const entries = readZipDirectory(archive);
   const files = new Map<string, Buffer>();
