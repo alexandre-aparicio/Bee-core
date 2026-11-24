@@ -1055,3 +1055,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Kept Teams-specific search, status filtering, view switching and create permissions unchanged. On narrow screens the complete toolbar stacks as a unit; desktop keeps all controls on one line. Theme colors continue to use semantic Teams tokens for Light/Dark compatibility.
 - Matched the Plugins responsive breakpoint: the toolbar stacks at 760px and below. Removed duplicate view-toggle CSS so its active-state foreground uses the same semantic action-text token as Plugins.
 - **Validation pending:** Angular production build and Playwright test discovery are running in CI. Browser visual comparison at desktop/tablet/mobile widths, Light/Dark screenshots and deployment have not been run.
+
+## Organization → Roles & Permissions — Available Permissions module carousel (2026-11-24)
+
+- Replaced the plain permission list with a dedicated module catalogue: two module panels per desktop row, each showing up to four permission tiles in a 2×2 layout. Panels keep consistent height even when a module has fewer than four permissions.
+- Each module has an independent four-item carousel. The next arrow appears only when another page exists; the previous arrow appears only after navigating forward. Page counters are shown only for modules with multiple pages, and navigation in one module does not affect another.
+- Added directional slide-in motion for forward/back navigation, with reduced-motion support. The permission data, grantability calculation and protected/restriction-only policy remain sourced from the existing API; no permission or authorization rules were changed.
+- Added Cards/Table switching. The table exposes permission name/description, module, action, access policy and technical key.
+- Styling uses the existing semantic Midnight/Bee tokens for surfaces, borders, accent, status and focus. The existing Midnight Light host-context palette is retained; the default theme continues to inherit its normal theme tokens. Responsive layout collapses to one module per row on narrow screens.
+- **Validation pending:** source-level implementation only. Angular production build, automated tests, browser interaction/animation, responsive checks and Light/Dark visual QA have not yet been run. No deployment has been performed.
