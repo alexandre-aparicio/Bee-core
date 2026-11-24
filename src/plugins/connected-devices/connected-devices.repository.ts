@@ -1,6 +1,6 @@
 import type { Collection, Db, Document } from "mongodb";
 
-export type ConnectedDeviceStatus = "pending" | "active" | "suspended" | "revoked" | "expired";
+export type ConnectedDeviceStatus = "pending" | "active" | "suspended" | "revoked" | "expired" | "unlinked";
 export type ConnectedDeviceRecord = Document & {
   id:string; tenantId:string; ownerUserId:string; requestedBy:string; name:string;
   deviceType:string; platform:string; appVersion:string|null;

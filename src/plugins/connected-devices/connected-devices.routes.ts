@@ -61,7 +61,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
    if(!ownerActive)await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:{$ne:"revoked"}},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
    return reply.code(403).send({error:"Connected Devices or the device owner membership is no longer active."});
   }
-  if(device.status==="revoked"||device.status==="suspended")return reply.code(403).send({error:"Device access is not active."});
+  if(device.status==="revoked"||device.status==="suspended"||device.status==="unlinked")return reply.code(403).send({error:"Device access is not active."});
   return {status:device.status,deviceId:device.id,grantedCapabilities:device.status==="active"?device.grantedCapabilities:[]};
  });
  ctx.server.get("/connected-devices",async(request:any,reply:any)=>{
@@ -103,6 +103,25 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!await isConnectedDeviceOwnerActive(db,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
   const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"suspended"},{$set:{status:"active",updatedAt:new Date()}});
   if(!result.modifiedCount)return reply.code(409).send({error:"The device state changed. Refresh and try again."});
+  return {success:true};
+ });
+
+ ctx.server.post("/connected-devices/:deviceId/unlink",async(request:any,reply:any)=>{
+  const tenant=await dashboardTenant(request,reply);if(!tenant)return;
+  const id=clean(request.params.deviceId,64),filter:any={tenantId:tenant.tenantId,id,status:{$nin:["revoked","unlinked"]}};
+  if(!isDeviceAdministrator(tenant))filter.ownerUserId=tenant.userId;
+  const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential);
+  const result=await repository.devices.updateOne(filter,{$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:tenant.userId,updatedAt:now}});
+  if(!result.modifiedCount)return reply.code(404).send({error:"Device not found or already unlinked."});
+  return {success:true};
+ });
+ ctx.server.delete("/connected-devices/:deviceId",async(request:any,reply:any)=>{
+  const tenant=await dashboardTenant(request,reply);if(!tenant)return;
+  if(!isDeviceAdministrator(tenant))return reply.code(403).send({error:"Organization administrator permission required to delete device records."});
+  const id=clean(request.params.deviceId,64),device=await repository.devices.findOne({tenantId:tenant.tenantId,id});
+  if(!device)return reply.code(404).send({error:"Device not found."});
+  await repository.devices.deleteOne({tenantId:tenant.tenantId,id});
+  await repository.challenges.updateMany({tenantId:tenant.tenantId,deviceId:id,status:"claimed"},{$set:{status:"cancelled"}});
   return {success:true};
  });
  ctx.server.post("/connected-devices/:deviceId/revoke",async(request:any,reply:any)=>{

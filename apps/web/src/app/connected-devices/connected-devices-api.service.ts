@@ -1,7 +1,7 @@
 import {Injectable} from "@angular/core";
 export type ConnectedDevice={
  id:string;name:string;deviceType:string;platform:string;appVersion:string|null;owner?:{name:string;email:string};
- requestedCapabilities:string[];grantedCapabilities:string[];status:"pending"|"active"|"suspended"|"revoked"|"expired";
+ requestedCapabilities:string[];grantedCapabilities:string[];status:"pending"|"active"|"suspended"|"revoked"|"expired"|"unlinked";
  createdAt:string;updatedAt:string;approvedAt:string|null;lastSeenAt:string|null;
 };
 @Injectable()
@@ -20,4 +20,6 @@ export class ConnectedDevicesApiService{
  suspend(token:string,id:string):Promise<unknown>{return this.request(token,"/"+encodeURIComponent(id)+"/suspend",{method:"POST",body:"{}"});}
  activate(token:string,id:string):Promise<unknown>{return this.request(token,"/"+encodeURIComponent(id)+"/activate",{method:"POST",body:"{}"});}
  revoke(token:string,id:string):Promise<unknown>{return this.request(token,"/"+encodeURIComponent(id)+"/revoke",{method:"POST",body:"{}"});}
+ unlink(token:string,id:string):Promise<unknown>{return this.request(token,"/"+encodeURIComponent(id)+"/unlink",{method:"POST",body:"{}"});}
+ remove(token:string,id:string):Promise<unknown>{return this.request(token,"/"+encodeURIComponent(id),{method:"DELETE"});}
 }
