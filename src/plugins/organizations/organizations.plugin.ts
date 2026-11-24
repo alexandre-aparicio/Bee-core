@@ -404,6 +404,20 @@ export const organizationsPlugin:BeePlugin={
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:status==="suspended"?"member.suspended":"member.activated",outcome:"success",resourceType:"membership",resourceId:target.userId});
    return {success:true,status,sessionsRevoked:true};
   });
+  ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/role-audit-events",async(req,reply)=>{
+   const auth=await authenticate(req,reply);if(!auth)return;
+   const companyId=req.params.companyId;
+   const actor=await requireCompanyPermission(auth,companyId,"members.read",reply);if(!actor)return;
+   if(actor.role!=="owner"&&actor.role!=="admin"&&actor.role!=="super_admin"){
+    await auditOrganizationEvent({tenantId:companyId,actorId:auth.user!.id,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission:"audit.read"}});
+    return reply.code(403).send({error:"Only company owners and administrators can read role audit events"});
+   }
+   const roleActions:TenantAuditEvent["action"][]=["role.created","role.updated","role.deleted","member.added","member.invited","member.role_changed","member.suspended","member.activated"];
+   const rows=await auditEvents.find({tenantId:companyId,action:{$in:roleActions}},{projection:{_id:0,tenantId:0}}).sort({occurredAt:-1,id:-1}).limit(101).toArray();
+   const hasMore=rows.length>100;
+   const events=rows.slice(0,100).map(({id,actorId,action:recordAction,outcome,resourceType,resourceId,metadata,occurredAt})=>({id:mask(auth,id,"audit-event"),actorId:mask(auth,actorId,"user"),action:recordAction,outcome,resourceType,resourceId:resourceId?mask(auth,resourceId,resourceType==="plugin"?"plugin":resourceType==="role"?"role":resourceType==="invitation"?"invitation":resourceType==="membership"?"membership":resourceType==="user"?"user":resourceType==="tenant"?"tenant":resourceType==="file"?"file":resourceType==="note"?"note":resourceType==="job"?"job":"audit-event"):undefined,metadata:maskAuditMetadata(auth,metadata),occurredAt}));
+   return {events,hasMore};
+  });
   ctx.server.get<{Params:{companyId:string};Querystring:{page?:string;limit?:string;action?:string}}>("/companies/:companyId/audit-events",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const companyId=req.params.companyId;
