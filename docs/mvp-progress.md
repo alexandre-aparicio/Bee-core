@@ -1064,3 +1064,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added Cards/Table switching. The table exposes permission name/description, module, action, access policy and technical key.
 - Styling uses the existing semantic Midnight/Bee tokens for surfaces, borders, accent, status and focus. The existing Midnight Light host-context palette is retained; the default theme continues to inherit its normal theme tokens. Responsive layout collapses to one module per row on narrow screens.
 - **Validation pending:** source-level implementation only. Angular production build, automated tests, browser interaction/animation, responsive checks and Light/Dark visual QA have not yet been run. No deployment has been performed.
+
+## Organization → Roles & Permissions — permission catalogue hover and grouped table accordion (2026-11-24)
+
+- Added the same restrained violet hover treatment used by the System Roles cards to each module panel in Available Permissions. Individual permission tiles use a complementary cyan/mint-tinted hover surface and border, preserving the Midnight palette and semantic theme tokens.
+- Replaced the flat Available Permissions table with module-grouped accordion sections. Each header displays the module name and permission count (for example, **+ Documents (4)**); expanding it reveals only that module's permission rows.
+- Enforced a single-open accordion state: opening another module closes the previously expanded one, keeping the table compact. The module heading exposes its expanded state through `aria-expanded` and an associated content region.
+- Permission data, access policy labels, grantability logic and backend authorization are unchanged.
+- **Validation pending:** source-level implementation and template/CSS inspection only. Angular build, automated tests, browser interaction, keyboard accessibility, responsive checks and Midnight Light/Dark visual QA have not yet been run. No deployment has been performed.
+
