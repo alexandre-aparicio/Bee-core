@@ -44,6 +44,12 @@ export interface BeeBusinessPluginManifest {
   };
 }
 
+/** Core-host services are runtime dependencies, not tenant-installable packages. */
+export const CORE_RUNTIME_PLUGIN_IDS = new Set([
+  "auth", "organizations", "teams", "files", "marketplace",
+  "platform-admin", "notifications", "mail", "localization", "hello"
+]);
+
 const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const pluginId = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 const permissionKey = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_]*)+$/;
