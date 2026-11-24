@@ -204,7 +204,7 @@ export async function installSignedPluginZip(options: {
     fail("Plugin package is not compatible with this Bee Core runtime");
   }
   if (!files.has(manifest.backend.entrypoint)) fail("Declared backend entrypoint is missing from the ZIP");
-  if (manifest.frontend.routes.length && !files.has("frontend/index.js")) fail("Packages with frontend routes must include frontend/index.js");
+  if (manifest.frontend.routes.length) fail("External frontend routes are not supported yet; publish a backend-only package with an empty frontend.routes array");
   if (!files.has("README.md")) fail("Package must include README.md");
   if (validateBeforeStorage) await validateBeforeStorage(manifest);
 
