@@ -125,6 +125,16 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__tab-panel{min-width:0;border:1px solid var(--border,#8885);border-radius:15px;padding:20px;background:var(--panel,rgba(130,145,170,.045))}
  .org-roles__section-heading{align-items:center;margin-bottom:16px}.org-roles__section-heading p,.org-roles__editor-heading p{font-size:12px;max-width:780px}
  .org-roles__section-tag,.org-roles__permission-count,.org-roles__list-heading>span{font-size:10px;border:1px solid var(--border,#8885);border-radius:30px;padding:6px 9px;white-space:nowrap;opacity:.75}
+ .org-roles .teams-workspace__view-toggle{display:flex;align-items:center;gap:5px;padding:5px;border:0;border-radius:10px;background:transparent}
+ .org-roles .teams-workspace__view-toggle button{display:grid;place-items:center;width:34px;height:32px;border:1px solid var(--border,#8885);border-radius:7px;background:transparent;color:var(--muted,inherit);font:inherit;font-size:17px;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,color .16s ease}
+ .org-roles .teams-workspace__view-toggle button:hover{border-color:var(--purple,#8c72ff);color:inherit}
+ .org-roles .teams-workspace__view-toggle button.is-active{border-color:var(--purple,#8c72ff);background:var(--purple,#8c72ff);color:var(--bg,#fff)}
+ .org-roles .teams-workspace__view-toggle button:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:2px}
+ .org-roles .documents__button{display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:8px;padding:8px 13px;border:1px solid var(--border,#8885);border-radius:9px;background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,transform .16s ease}
+ .org-roles .documents__button:hover:not(:disabled){background:color-mix(in srgb,var(--purple,#8c72ff) 10%,transparent);border-color:color-mix(in srgb,var(--purple,#8c72ff) 55%,var(--border,#8885))}
+ .org-roles .documents__button:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:2px}
+ .org-roles .documents__button:active:not(:disabled){transform:translateY(1px)}
+ .org-roles .documents__button:disabled{cursor:not-allowed;opacity:.48}
  .org-roles__collection-header{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-bottom:14px}
  .org-roles__toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
  .org-roles__search{display:flex;align-items:center;gap:8px;width:min(100%,340px);height:36px;padding:0 10px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.035));color:var(--muted,inherit)}
