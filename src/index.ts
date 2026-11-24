@@ -46,7 +46,7 @@ const corsAllowedOrigins = new Set(
     .map(origin => origin.trim())
     .filter(Boolean)
 );
-const corsAllowedMethods = new Set(["GET", "POST", "PATCH", "DELETE", "OPTIONS"]);
+const corsAllowedMethods = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
 const corsAllowedHeaders = new Set([
   "authorization",
   "content-type",
