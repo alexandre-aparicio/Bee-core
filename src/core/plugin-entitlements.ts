@@ -405,6 +405,8 @@ export function getBuiltInPlan(planId: string): PluginPlan | undefined {
 export async function syncAutomaticPluginProvisioning(db: Db, pluginId: string): Promise<number> {
   const definition = await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({ id: pluginId, status: "published", codeAvailable: true });
   if (!definition || (definition.activationPolicy ?? "manual") !== "automatic") return 0;
+  const globalPackage = await db.collection("platform_plugin_packages").findOne({ pluginId, status: "installed" });
+  if (!globalPackage || (globalPackage.source === "zip" && globalPackage.runtimeState !== "loaded")) return 0;
   const jobs = db.collection("plugin_install_jobs");
   await ensurePluginInstallJobIndexes(jobs as any);
   const tenants = await db.collection("tenants").find({ kind: { $ne: "super" }, status: "active" }, { projection: { id: 1 } }).toArray();
