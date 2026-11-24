@@ -34,6 +34,7 @@ export class BeeTimeTrackingComponent implements OnInit {
   const [members,corrections]=await Promise.all([this.request("/time-tracking/team/members"),this.request("/time-tracking/team/corrections?status=pending")]);
   this.members=members.members??[];this.teamCorrections=corrections.corrections??[];
   if(!this.selectedUserId&&this.members.length)this.selectedUserId=this.members[0].userId;
+  if(this.selectedUserId)await this.selectMember(this.selectedUserId);
  }
  async act(action:"clock-in"|"break-start"|"break-end"|"clock-out"):Promise<void>{
   if(this.busy)return;this.busy=true;this.error="";this.message="";
