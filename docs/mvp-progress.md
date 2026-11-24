@@ -1138,3 +1138,15 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Read `angular.json`: global order is contract, base, six package token files, then `styles.css`. Package layout components load their package stylesheet before `core/appearance-modes.css`.
 - Source-level validation during editing found zero remaining hex/RGB/HSL literals, public-Light selectors or `--surface` fallbacks in `styles.css`. The stylesheet's consumed `--bee-*` tokens were checked against the contract and both mode blocks in all six packages.
 - **Not verified:** no commands, scripts, build, tests, Playwright, screenshots, browser or runtime were executed. CSS parsing, actual rendering and visual equivalence require local validation.
+
+
+## Template refactor — Step 2 completion by source review (2026-11-25)
+
+- Re-read the complete `apps/web/src/styles.css` after the global palette migration. It contains no hexadecimal or RGB/HSL color literals and no named `white`/`black` color declarations. Global `:root` contains only font/rendering concerns; `body` consumes package `--bee-bg` and `--bee-text`.
+- Replaced flattened brand/action gradient endpoints with a dedicated `--bee-accent-strong` token, and preserved architecture panel depth with `--bee-surface` and `--bee-surface-deep`. Both new tokens are declared in the contract and both Light/Dark blocks of all six packages.
+- Kept legacy aliases only in `base.css` on `.bee-template-package-host`, marked temporary for Step 8; no legacy aliases are defined with literal colors.
+- Removed the global public-Light override block; package token files own public Light and Dark appearance.
+- Updated `docs/template-token-mapping.md` with role-specific color families, preserved gradient endpoints and documented visual unifications.
+- Re-read the style order: Angular global styles load contract, base, six package token files, then `styles.css`; package layout styles load before core appearance-mode styles. This is source-order verification only.
+- Verified by reading that every `--bee-*` token used by `styles.css` is declared in the contract and in both mode blocks of all six package token files. No build, script, test, Playwright, screenshot or browser execution was performed, per the repository brief.
+- **Step 2 status:** complete by source review. Visual equivalence, CSS parsing and runtime behavior remain for the human validation checklist.
