@@ -22,8 +22,8 @@ const TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
   picked_up: ["in_transit","failed","cancelled"], in_transit: ["delivered","failed"],
   delivered: [], failed: ["assigned","cancelled"], cancelled: []
 };
-export function canAccessDelivery(assignedTo: string | null, userId: string, canManage: boolean): boolean {
-  return canManage || assignedTo === userId;
+export function deliveryVisibilityFilter(userId: string, canManage: boolean): Record<string, unknown> {
+  return canManage ? {} : { assignedTo: userId };
 }
 export function canTransitionDelivery(from: DeliveryStatus, to: DeliveryStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
@@ -70,11 +70,10 @@ export const deliveriesPlugin: BeePlugin = {
     ctx.server.get("/deliveries", { preHandler: read }, async request => {
       const tenant = (request as AuthenticatedRequest).tenantContext;
       const query = request.query as { status?: string; assignedToMe?: string };
-      const filter: any = {};
-      if (query.status && STATUSES.includes(query.status as DeliveryStatus)) filter.status = query.status;
       const canManageDeliveries = hasTenantPermission(tenant, "deliveries.manage");
-      if (!canManageDeliveries) filter.assignedTo = tenant.userId;
-      else if (query.assignedToMe === "true") filter.assignedTo = tenant.userId;
+      const filter: any = deliveryVisibilityFilter(tenant.userId, canManageDeliveries);
+      if (query.status && STATUSES.includes(query.status as DeliveryStatus)) filter.status = query.status;
+      if (canManageDeliveries && query.assignedToMe === "true") filter.assignedTo = tenant.userId;
       const items = await rows(tenant.tenantId).find(filter).sort({ updatedAt: -1 }).limit(300).toArray();
       return { deliveries: items.map(item => publicRecord(item, tenant)) };
     });
