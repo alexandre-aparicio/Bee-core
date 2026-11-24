@@ -16,7 +16,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
   <nav class="org-roles__tabs" aria-label="Roles and permissions sections">
    <button type="button" [class.is-active]="activeTab==='system'" [attr.aria-selected]="activeTab==='system'" (click)="activeTab='system'"><span>01</span>System Roles <small>{{systemRoles.length}}</small></button>
    <button type="button" [class.is-active]="activeTab==='permissions'" [attr.aria-selected]="activeTab==='permissions'" (click)="activeTab='permissions'"><span>02</span>Available Permissions <small>{{permissions.length}}</small></button>
-   <button type="button" [class.is-active]="activeTab==='custom'" [attr.aria-selected]="activeTab==='custom'" (click)="activeTab='custom'"><span>03</span>Role Audit <small>Live</small></button>
+   <button type="button" [class.is-active]="activeTab==='audit'" [attr.aria-selected]="activeTab==='audit'" (click)="activeTab='audit'"><span>03</span>Role Audit <small>Live</small></button>
   </nav>
   <section class="org-roles__tab-panel" *ngIf="activeTab==='system'">
    <div class="org-roles__section-heading"><div><h3>Roles</h3><p>Browse Core-managed native roles and organization-created roles in one collection. Native role permissions are maintained by Core; custom roles follow the organization delegation policy.</p></div><span class="org-roles__section-tag">{{systemRoles.length}} native · {{roles.length}} created</span></div>
@@ -401,7 +401,7 @@ export class OrganizationRolesComponent implements OnChanges{
  permissionLabel(key:string):string{return this.permissions.find(item=>item.key===key)?.label||key;}
  permissionInitials(label:string):string{return label.trim().split(/\s+/).filter(Boolean).slice(0,2).map(word=>word.charAt(0).toUpperCase()).join("");}
  createCustomRole():void{this.activeTab="audit";this.openCreate();}
- editCatalogRole(item:SystemRole):void{const role=this.roles.find(candidate=>candidate.id===item.customId);if(!role)return;this.activeTab="custom";this.edit(role);}
+ editCatalogRole(item:SystemRole):void{const role=this.roles.find(candidate=>candidate.id===item.customId);if(!role)return;this.activeTab="audit";this.edit(role);}
  openSystemRole(item:SystemRole):void{this.selectedSystemRole=item;}
  closeSystemRole():void{this.selectedSystemRole=null;}
  openCreate():void{this.reset();this.modalOpen=true;this.moduleSearch="";this.activePermissionModule=null;}
