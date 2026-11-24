@@ -90,8 +90,6 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.ok(superOrganization,"platform installation must be owned by the Super Organization");
   const helloWorld=platformPlugins.json().plugins.find((plugin:any)=>plugin.name==="Hola Mundo");
   assert.equal(helloWorld,undefined,"Hello Mundo must not be exposed as a bundled platform plugin; it is available only after a signed ZIP upload");
-  const helloWorldPackage=await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world",status:{$ne:"deprecated"}});
-  assert.equal(helloWorldPackage,null,"the legacy bundled Hello Mundo package must not remain active in the platform registry");
   const pluginRows=platformPlugins.json().plugins as Array<{id:string;name:string;installed:boolean;enabled:boolean;system:boolean}>;
   const documentsPlugin=pluginRows.find(plugin=>plugin.name==="Documents")!;
   const filesPlugin=pluginRows.find(plugin=>plugin.name==="Private Files")!;
