@@ -347,7 +347,9 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"role.created",resourceId:customRoleInternalId}),"custom role creation should be audited");
     const companyRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.ok(companyRoles.json().roles.some((role:{id:string;name:string})=>role.id===customRoleId&&role.name==="Notes reader"));
-    const crossTenantCustomRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+betaTokens.accessToken}});
+    const betaFreshLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
+    assert.equal(betaFreshLogin.statusCode,200,"the cross-session replay check requires a valid, non-revoked session");
+    const crossTenantCustomRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+betaFreshLogin.json().accessToken}});
     assert.equal(crossTenantCustomRoles.statusCode,404,"company references cannot be replayed across sessions");
     const customRoleUpdate=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Notes reader updated",description:"Updated",permissions:["notes.read","files.read"]}});
     assert.equal(customRoleUpdate.statusCode,200);
