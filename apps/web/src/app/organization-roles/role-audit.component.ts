@@ -107,7 +107,7 @@ export class RoleAuditComponent implements OnChanges {
   const requestId=++this.sequence,tenant=this.tenantId;this.loading=true;this.error="";
   try{
    const base="/companies/"+encodeURIComponent(tenant);
-   const [roleData,memberData,auditData]=await Promise.all([this.get(base+"/roles"),this.get(base+"/memberships"),this.get(base+"/audit-events?page=1&limit=100")]);
+   const [roleData,memberData,auditData]=await Promise.all([this.get(base+"/roles"),this.get(base+"/memberships"),this.get(base+"/role-audit-events")]);
    if(requestId!==this.sequence||tenant!==this.tenantId)return;
    const customs:RoleRecord[]=(roleData.roles||[]).map((r:any)=>({...r,id:String(r.id),name:r.name,mode:r.mode??"grant",permissions:Array.isArray(r.permissions)?r.permissions:[]}));
    const native:RoleRecord[]=(roleData.systemRoles||[]).map((r:any)=>({...r,key:r.key,label:r.label,mode:"grant",permissions:Array.isArray(r.permissions)?r.permissions:[]}));
