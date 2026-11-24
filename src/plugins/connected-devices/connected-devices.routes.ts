@@ -7,7 +7,7 @@ const clean=(value:unknown,max=80):string=>String(value??"").replace(/[<>\u0000-
 
 export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  const {db,repository,dashboardTenant,authenticateDevice}=deps;
- const auditEvents=db.collection<TenantAuditEvent>("tenant_audit_events");
+ const auditEvents=db.collection("tenant_audit_events");
  const auditDeviceEvent=async(event:{tenantId:string;actorId:string;action:TenantAuditEvent["action"];outcome?:"success"|"denied";resourceType?:string;resourceId?:string;metadata?:TenantAuditEvent["metadata"]})=>{
   try{
    await appendTenantAuditEvent(auditEvents,{id:randomUUID(),tenantId:event.tenantId,actorId:event.actorId,action:event.action,outcome:event.outcome??"success",resourceType:event.resourceType??"connected_device",resourceId:event.resourceId,metadata:event.metadata,occurredAt:new Date()});
