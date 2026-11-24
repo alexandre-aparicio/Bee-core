@@ -212,7 +212,7 @@ type PluginRecord = {
         </section>
       </div>
     </section>
-  ,
+  `,
   styles: [`
     :host{display:block;min-width:0}
     .plugin-settings{color:inherit;min-width:0}
