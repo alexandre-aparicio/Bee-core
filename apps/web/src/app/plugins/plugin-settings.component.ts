@@ -438,7 +438,7 @@ export class PluginSettingsComponent implements OnInit {
     const pkg = this.packageRemovalPlugin; if (!pkg || this.packageUsageLoading) return;
     this.packageUsageLoading = true; this.packageUsageError = '';
     try {
-      const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.pluginKey) + '/tenants', { headers: { authorization: 'Bearer ' + this.token } });
+      const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.id) + '/tenants', { headers: { authorization: 'Bearer ' + this.token } });
       const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not check tenant installations');
       this.packageUsage = result as PackageTenantUsage;
     } catch (error) { this.packageUsageError = error instanceof Error ? error.message : 'Could not check tenant installations'; }
@@ -448,7 +448,7 @@ export class PluginSettingsComponent implements OnInit {
     const pkg = this.packageRemovalPlugin; if (!pkg || !this.packageUsage?.canRemove || this.packageRemovalBusy) return;
     this.packageRemovalBusy = true; this.packageUsageError = '';
     try {
-      const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.pluginKey), { method: 'DELETE', headers: { authorization: 'Bearer ' + this.token } });
+      const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.id), { method: 'DELETE', headers: { authorization: 'Bearer ' + this.token } });
       const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not remove platform package');
       this.message = pkg.name + ' removed from the platform. Restart Bee Core to unload it from the current runtime; tenant data was preserved.';
       this.packageRemovalPlugin = null; this.packageUsage = null; await this.loadPlatformPackages(); await this.load();
