@@ -51,6 +51,21 @@ npm install
 npm start
 ```
 
+## API CORS origins
+
+The API allows cross-origin requests only from the exact origins listed in
+`BEE_CORS_ORIGINS` (comma-separated, without paths). The default includes
+Capacitor's Android and iOS origins:
+
+```dotenv
+BEE_CORS_ORIGINS=https://localhost,capacitor://localhost
+```
+
+Add a trusted browser development origin explicitly when needed. Do not use
+`*` for production. Preflight requests are restricted to the API's supported
+methods and the `authorization`, `content-type`, and
+`x-device-pairing-secret` headers.
+
 ## Authentication persistence
 
 Users and refresh sessions are stored in MongoDB collections `users` and `refresh_sessions`. Refresh tokens are SHA-256 hashed, rotated on refresh, and TTL-indexed for expiration cleanup. See [docs/auth.md](docs/auth.md).
