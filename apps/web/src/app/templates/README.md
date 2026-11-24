@@ -53,7 +53,7 @@ The current public tenant landing page resolves the hostname to a tenant and dis
 
 The product no longer offers arbitrary color selection in the template manager. Template packages own their visual identity. Dashboard users choose only a supported appearance mode (light/dark) once that mode is implemented for each template.
 
-The existing engine/API still contains legacy custom-token persistence and SSE compatibility. This is not a supported product customization surface and must be removed with a versioned migration after all clients use template-owned palettes and the new appearance-mode preference. Do not reintroduce color pickers or tenant-defined hex palettes.
+The client engine no longer applies legacy custom color tokens and no longer sends theme-token save requests. Legacy `tokens` and `customized` fields in older public-preference responses or template SSE events are ignored; selection, installation and event handling remain unchanged. The server payload contract is not changed by this client migration. Do not reintroduce color pickers or tenant-defined hex palettes.
 
 ## Scope and safety
 

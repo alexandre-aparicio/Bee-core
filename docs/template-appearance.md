@@ -41,7 +41,7 @@ Template packages define their own fixed palette and must support both modes. Th
 Each first-party template has a package directory under `apps/web/src/app/templates/packages/<template-id>/`:
 
 - `manifest.ts`: package identity, target, version, supported slots and registered Angular layout component.
-- `theme-tokens.ts`: fixed semantic palette for that template.
+- `tokens.css`: fixed semantic palette for that template, scoped by package identity and appearance mode.
 - `components/layout.component.ts`: standalone Angular layout wrapper.
 - `styles.css`: template-specific layout rules.
 - `assets/`: package-owned preview and future images/fonts/illustrations.
