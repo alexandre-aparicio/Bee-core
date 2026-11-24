@@ -29,7 +29,7 @@ test("company plan user quota reserves capacity for active members and pending i
     { id: "quota-membership-member", userId: "quota-member", tenantId: "quota-company", role: "member", status: "active", createdAt: now, updatedAt: now }
   ]);
   await seedPluginCommerce(db);
-  await db.collection("plugin_plans").updateOne({ id: "starter" }, { $set: { maxUsers: 2 } });
+  await db.collection("plugin_plans").updateOne({ id: "starter" }, { $set: { maxUsers: 3 } }); // two active members + one pending invitation
 
   const app = Fastify();
   app.register(jwt, { secret: "01234567890123456789012345678901" });
