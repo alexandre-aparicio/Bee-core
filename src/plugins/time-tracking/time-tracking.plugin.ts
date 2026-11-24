@@ -35,7 +35,7 @@ export const timeTrackingPlugin:BeePlugin={
   const clock=[requireAuth(db,"dashboard",secret),requireTenantPermissions("time-tracking.read","time-tracking.clock"),requireInstalledPlugin(db,"time-tracking")];
   const manage=[requireAuth(db,"dashboard",secret),requireTenantPermissions("time-tracking.manage"),requireInstalledPlugin(db,"time-tracking")];
   const collection=(tenantId:string)=>new TenantCollection<TimeSession>(sessions,tenantId);
-  const publicSession=(row:TimeSession)=>({status:row.status,startedAt:row.startedAt,endedAt:row.endedAt,events:row.events.map(event=>({type:event.type,occurredAt:event.occurredAt,source:event.source}))});
+  const publicSession=(row:TimeSession)=>({id:row.id,status:row.status,startedAt:row.startedAt,endedAt:row.endedAt,events:row.events.map(event=>({type:event.type,occurredAt:event.occurredAt,source:event.source}))});
   const operationId=(value:unknown)=>String(value??"").trim().slice(0,100);
   const sourceOf=(value:unknown):"web"|"android"=>value==="android"?"android":"web";
   ctx.server.get("/time-tracking/me/status",{preHandler:read},async(request)=>{
