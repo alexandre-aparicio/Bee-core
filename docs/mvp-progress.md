@@ -1112,3 +1112,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 
 - Unified the Midnight, Paper and Glass dashboard page into one `packages/shared/dashboard-page.component.ts`; package page components are now thin wrappers that preserve the pre-existing per-template document-guard and Settings access-token differences. Replaced `md-/pd-/gd-` shell prefixes with the shared `bee-dash-*` family in those pages, their package styles and core appearance selectors. The wrapper CSS still contains legacy color literals and is part of the pending feature/style migration.
 - Scoped Glass's translucent light-surface override to `data-bee-dashboard-mode="light"`, so it no longer unconditionally overrides the dark glass surface block.
+
+
+## Template base/package refactor — follow-up static corrections (2026-11-24)
+
+- Updated `apps/web/scripts/check-template-tokens.mjs` so the package scan explicitly excludes `shared` and processes only directories containing `manifest.ts`. A package with a manifest but missing/unreadable `tokens.css` is reported as an error; errors set a non-zero process exit code. The script was re-read after the edit. It has **not** been executed.
+- Normalized repeated identical `:is()` selectors in `apps/web/src/app/templates/core/appearance-modes.css` and removed its `.bee-dash-workspace` light-mode rule after reading the shared dashboard markup and `base.css`; the shared dashboard component does not emit that class. The file was re-read after editing. This is only a static repair: the file still contains a large light-mode palette and 59 `!important` occurrences, so Step 3 remains outstanding.
+- Read `apps/web/e2e/smoke.spec.ts`; no `md-`, `pd-` or `gd-` class-prefix selectors were found in that file, so no E2E selector edit was required there. This does **not** constitute a whole-repository prefix search.
+- Verified by reading the package registry imports in `packages/index.ts`: all referenced manifests, token modules and layout component files exist in the branch tree. Verified that all nine global stylesheet paths listed in `angular.json` exist. This does not validate Angular resolution or compilation.
+- Added `docs/template-token-mapping.md` with the initial literal-to-semantic-token map and explicit visual unifications to review. Extend this map before making additional color substitutions.
+- **Not verified:** no repository-wide executable grep, npm/node command, style checker, Angular build, Playwright execution, screenshot, browser, server, Docker or VPS operation was performed. The refactor remains in progress; no PR was opened and `main` was not modified.
