@@ -374,7 +374,7 @@ export class AppComponent implements OnInit {
   activeSection = 'dashboard';
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
-    dashboard: '/dashboard', documents: '/dashboard/documents', 'connected-devices': '/dashboard/connected-devices', 'time-tracking': '/dashboard/time-tracking', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
+    dashboard: '/dashboard', documents: '/dashboard/documents', 'connected-devices': '/dashboard/connected-devices', 'time-tracking': '/dashboard/time-tracking?section=day', 'time-tracking-day':'/dashboard/time-tracking?section=day', 'time-tracking-schedule':'/dashboard/time-tracking?section=schedule', 'time-tracking-history':'/dashboard/time-tracking?section=history', 'time-tracking-requests':'/dashboard/time-tracking?section=requests', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-plans': '/dashboard/settings/plans-licensing',
@@ -438,7 +438,7 @@ export class AppComponent implements OnInit {
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManagePlugins(): boolean { return this.isPlatformAdmin || ['super_admin','owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
-  get sectionTitle(): string { const organizationTitles: Record<string,string> = {'organization-company':'nav.organization.company','organization-users':'nav.organization.users','organization-teams':'nav.organization.teams','organization-roles':'nav.organization.roles'}; const key=organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'nav.notifications' : this.activeSection === 'messages' ? 'nav.notifications.chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.labelKey || this.navigationItems.find(item => item.id === this.activeSection)?.labelKey || 'nav.dashboard'); return this.i18n.t(key); }
+  get sectionTitle(): string { const organizationTitles: Record<string,string> = {'organization-company':'nav.organization.company','organization-users':'nav.organization.users','organization-teams':'nav.organization.teams','organization-roles':'nav.organization.roles'}; const timeTrackingTitles: Record<string,string> = {'time-tracking-day':'nav.timeTracking','time-tracking-schedule':'nav.timeTracking','time-tracking-history':'nav.timeTracking','time-tracking-requests':'nav.timeTracking'}; const key=timeTrackingTitles[this.activeSection] || organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'nav.notifications' : this.activeSection === 'messages' ? 'nav.notifications.chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.labelKey || this.navigationItems.find(item => item.id === this.activeSection)?.labelKey || 'nav.dashboard'); return this.i18n.t(key); }
   get settingsNavigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;description:string}> {
     const role = (this.activeCompanyRole || '').toLowerCase();
     const allowed = this.isPlatformAdmin
@@ -467,7 +467,8 @@ export class AppComponent implements OnInit {
     const defaults: Record<string, string> = {
       settings: 'settings-general',
       notifications: 'notifications',
-      organization: 'organization-company'
+      organization: 'organization-company',
+      'time-tracking': 'time-tracking-day'
     };
     const target = defaults[menuId];
     if (!target) return;
@@ -478,6 +479,7 @@ export class AppComponent implements OnInit {
     }
     this.navigateSection(target);
   }
+  get canManageTimeTracking(): boolean { return ['owner','admin','manager','super_admin','superadmin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get canReadActivity(): boolean {
     // Keep navigation visibility aligned with AuditLogComponent.canRead.
     return ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase());
@@ -511,7 +513,7 @@ export class AppComponent implements OnInit {
     if (window.location.pathname !== route) window.history.pushState({}, '', route);
     this.path = route;
     this.activeSection = targetId;
-    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : '');
+    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : targetId.startsWith('time-tracking-') ? 'time-tracking' : '');
     this.menuOpen = false;
   }
 
