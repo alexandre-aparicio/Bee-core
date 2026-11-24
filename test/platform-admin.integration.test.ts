@@ -81,7 +81,7 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.equal(blockedPackageRemoval.statusCode,409,"global package removal must be blocked while a tenant still has it installed");
   assert.ok(await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world",status:"installed"}),"blocked removal must leave the global package intact");
   await db.collection("tenant_plugin_installations").updateOne({tenantId:rawCompany.id,pluginId:"hello-world"},{$set:{status:"uninstalled"}});
-  const safePackageRemoval=await app.inject({method:"DELETE",url:"/platform/plugin-packages/hello-world",headers:rootHeaders});
+  const safePackageRemoval=await app.inject({method:"DELETE",url:"/platform/plugin-packages/"+encodeURIComponent(helloWorldPackage.id),headers:rootHeaders});
   assert.equal(safePackageRemoval.statusCode,200);assert.equal(safePackageRemoval.json().tenantDataPreserved,true);
   assert.equal(await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world"}),null);
   assert.ok(await db.collection("tenant_plugin_data").findOne({tenantId:rawCompany.id,value:"keep-me"}),"global package removal must preserve tenant-owned data");
