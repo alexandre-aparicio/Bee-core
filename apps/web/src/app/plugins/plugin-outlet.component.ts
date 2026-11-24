@@ -138,7 +138,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
           const encoded = binary["base64"];
           const fileName = binary["fileName"];
           const fileType = binary["contentType"];
-          if (typeof encoded !== "string" || encoded.length > 2 * 1024 * 1024 || typeof fileName !== "string" ||
+          if (typeof encoded !== "string" || encoded.length > 14 * 1024 * 1024 || typeof fileName !== "string" ||
               fileName.length > 255 || typeof fileType !== "string" || fileType !== "text/plain") {
             throw new Error("Invalid or oversized binary upload");
           }
