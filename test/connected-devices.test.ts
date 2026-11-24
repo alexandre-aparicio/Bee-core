@@ -82,21 +82,44 @@ test("connected-device dashboard routes enforce tenant scope and append tenant a
  const ctx:any={server:{get:(path:string,handler:any)=>routes.set("GET "+path,handler),post:(path:string,handler:any)=>routes.set("POST "+path,handler),patch:(path:string,handler:any)=>routes.set("PATCH "+path,handler),delete:(path:string,handler:any)=>routes.set("DELETE "+path,handler)},logger:{error(){}}};
  registerConnectedDevicesRoutes(ctx,{db,repository:{devices:deviceCollection,challenges:challengeCollection},dashboardTenant:async()=>tenant,authenticateDevice:async()=>null});
  const reply=()=>({statusCode:200,payload:null as any,code(status:number){this.statusCode=status;return this;},send(payload:any){this.payload=payload;return payload;}});
- const approve=routes.get("POST /connected-devices/:deviceId/approve")!;
- let response=reply();
- await approve({params:{deviceId:"device-1"},body:{grantedCapabilities:["scanner.use"]},headers:{}},response);
- assert.equal(response.statusCode,404,"a device belonging to another tenant must not be found");
+ const invoke=async(key:string,request:any)=>{
+  const handler=routes.get(key);assert.ok(handler,"route registered: "+key);
+  const response=reply();await handler(request,response);return response;
+ };
+ const foreignDeviceRequest={params:{deviceId:"device-1"},body:{grantedCapabilities:["scanner.use"],name:"Changed by foreign tenant"},headers:{}};
+ const foreignAttempts:Array<[string,any,string]>=[
+  ["POST /connected-devices/:deviceId/approve",foreignDeviceRequest,"device.approve"],
+  ["POST /connected-devices/:deviceId/suspend",foreignDeviceRequest,"device.suspend"],
+  ["POST /connected-devices/:deviceId/activate",foreignDeviceRequest,"device.activate"],
+  ["POST /connected-devices/:deviceId/unlink",foreignDeviceRequest,"device.unlink"],
+  ["DELETE /connected-devices/:deviceId",foreignDeviceRequest,"device.delete"],
+  ["POST /connected-devices/:deviceId/revoke",foreignDeviceRequest,"device.revoke"],
+  ["PATCH /connected-devices/:deviceId",foreignDeviceRequest,"device.rename"],
+  ["POST /connected-devices/pairing-challenges/:challengeId/cancel",{params:{challengeId:"challenge-beta"},body:{},headers:{}},"pairing.cancel"]
+ ];
+ for(const [key,request] of foreignAttempts){
+  const response=await invoke(key,request);
+  assert.equal(response.statusCode,404,key+" must hide a resource owned by another tenant");
+ }
+ assert.equal(device.tenantId,"tenant-beta");
  assert.equal(device.status,"pending","cross-tenant attempts must not mutate the foreign device");
- assert.equal(auditEvents.length,0,"a foreign tenant's device must never receive an audit event from the requester");
+ assert.equal(device.name,"Scanner","cross-tenant rename must not mutate the foreign device");
+ assert.equal(auditEvents.length,foreignAttempts.length,"each cross-tenant resource denial must be audited");
+ assert.ok(auditEvents.every(event=>event.tenantId==="tenant-alpha"),"denials must be written only to the requesting tenant audit stream");
+ assert.ok(auditEvents.every(event=>event.actorId==="admin-alpha"&&event.action==="permission.denied"&&event.outcome==="denied"));
+ assert.deepEqual(new Set(auditEvents.map(event=>event.metadata.operation)),new Set(foreignAttempts.map(([, ,operation])=>operation)));
+ assert.ok(!auditEvents.some(event=>event.tenantId==="tenant-beta"),"the foreign tenant must never receive an event from the requester");
+
  device.tenantId="tenant-alpha";
- response=reply();
- await approve({params:{deviceId:"device-1"},body:{grantedCapabilities:["scanner.use"]},headers:{}},response);
+ const approved=await invoke("POST /connected-devices/:deviceId/approve",{...foreignDeviceRequest,body:{grantedCapabilities:["scanner.use"]}});
  assert.equal(device.status,"active");
- assert.equal(response.statusCode,200);
- assert.equal(auditEvents.length,1);
- assert.equal(auditEvents[0].tenantId,"tenant-alpha");
- assert.equal(auditEvents[0].actorId,"admin-alpha");
- assert.equal(auditEvents[0].action,"device.approved");
- assert.equal(auditEvents[0].resourceId,"device-1");
- assert.equal(auditEvents[0].metadata.grantedCapabilities,"scanner.use");
+ assert.equal(approved.statusCode,200);
+ assert.equal(auditEvents.length,foreignAttempts.length+1);
+ const successEvent=auditEvents.at(-1);
+ assert.equal(successEvent.tenantId,"tenant-alpha");
+ assert.equal(successEvent.actorId,"admin-alpha");
+ assert.equal(successEvent.action,"device.approved");
+ assert.equal(successEvent.outcome,"success");
+ assert.equal(successEvent.resourceId,"device-1");
+ assert.equal(successEvent.metadata.grantedCapabilities,"scanner.use");
 });
