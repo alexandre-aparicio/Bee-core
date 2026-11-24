@@ -417,3 +417,9 @@ The System Roles tab MUST use the same collection composition as Organization �
 
 - Stack the permission circles with a consistent negative inline-start margin and a 2px separator matching the active collection surface. Preserve the order and tooltip/focus behavior; place `+N` after the stack with visible spacing.
 - The Roles Cards/Table buttons must match Teams exactly: 34×32px, zero padding, 17px glyph, 7px radius, centered with `display:grid; place-items:center` and `line-height:1`. Reset inherited button padding locally so the glyph cannot drift off-center.
+
+
+### Organization Roles — Midnight Light parity
+- Organization → Roles & Permissions uses the same explicit Midnight Light host-context token mapping as Organization → Teams. The override is scoped to the Midnight package in Light mode and remaps local surfaces, foreground, muted text, borders, accent, semantic status colors and shadow; it must not affect Midnight Dark, Glass or Paper.
+- System-role cards, tabs, search, table, overflow menus, permission circles/tooltips and role dialogs must use the mapped semantic tokens. Selected Cards/Table controls and primary actions keep a white foreground over violet for contrast, matching Teams.
+- Any new Roles surface or control must be checked in both Midnight Light and Midnight Dark; a light dashboard canvas alone does not count as Light-mode support.
