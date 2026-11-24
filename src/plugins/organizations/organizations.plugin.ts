@@ -125,7 +125,10 @@ export const organizationsPlugin:BeePlugin={
   const rolePermissions=COMPANY_ROLE_PERMISSIONS;
   const requireCompanyPermission=async(auth:{claims:Claims;tenantContext:TenantContext;user:{id:string;email:string;enabled:boolean;tenantId?:string}|null},companyId:string,permission:string,reply:any)=>{
    const activeTenantId=auth.tenantContext.tenantId;
-   if(companyId!==activeTenantId){reply.code(403).send({error:"Switch to this company before accessing its resources"});return null;}
+   if(companyId!==activeTenantId){
+    if(auth.user&&activeTenantId)await auditOrganizationEvent({tenantId:activeTenantId,actorId:auth.user.id,action:"permission.denied",outcome:"denied",resourceType:"company",metadata:{permission,reason:"inactive_company_reference"}});
+    reply.code(403).send({error:"Switch to this company before accessing its resources"});return null;
+   }
    const actor=await memberships.findOne({userId:auth.user!.id,tenantId:companyId,status:"active"});
    const effectivePermissions=auth.tenantContext.permissions;
    if(!actor||!effectivePermissions.includes(permission)){

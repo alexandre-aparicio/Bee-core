@@ -9,7 +9,7 @@ import { createDocumentsServices, type Folder, type BeeDocument } from "./docume
 import { DocumentsRepository } from "./documents.repository.js";
 
 export const documentsPlugin:BeePlugin={
- manifest:{name:"documents",version:"0.1.0",description:"Tenant document library, folder ACLs and controlled public delivery",dependencies:["auth","organizations","files"],scope:"tenant",activationPolicy:"automatic"},
+ manifest:{name:"documents",version:"0.1.0",description:"Tenant document library, folder ACLs and controlled public delivery",dependencies:["auth","organizations","files"],scope:"tenant",activationPolicy:"automatic",frontend:{routes:[{path:"/dashboard/documents",component:"documents"}]}},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const secret=String(ctx.config.sessionIdSecret??"");

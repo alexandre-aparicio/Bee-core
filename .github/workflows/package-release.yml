@@ -1,0 +1,44 @@
+name: Build signed module packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      runtime_version:
+        description: Bee Core runtime version required by the packages
+        required: true
+        default: "0.3.1"
+
+permissions:
+  contents: read
+
+jobs:
+  packages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BEE_PLUGIN_PUBLISHER_PRIVATE_KEY: ${{ secrets.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY }}
+      BEE_RUNTIME_VERSION: ${{ inputs.runtime_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build backend
+        run: npm run build
+      - name: Require the configured package signing key
+        shell: bash
+        run: |
+          if [[ -z "$BEE_PLUGIN_PUBLISHER_PRIVATE_KEY" ]]; then
+            echo "::error::Configure the BEE_PLUGIN_PUBLISHER_PRIVATE_KEY repository secret before building release packages."
+            exit 1
+          fi
+      - name: Build four signed ZIP packages
+        run: npm run build:plugin-packages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bee-core-first-party-plugin-packages
+          path: artifacts/plugin-packages/*.zip
+          if-no-files-found: error
+          retention-days: 14

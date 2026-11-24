@@ -29,9 +29,19 @@ export interface BeeBusinessPluginManifest {
     maxRuntimeVersion?: string;
   };
   dependencies: BeePluginDependency[];
+  /** Dependencies that must be installed for each tenant; separate from host runtime dependencies. */
+  tenantDependencies?: string[];
   permissions: BeePluginPermission[];
   backend: { entrypoint: string };
-  frontend: { routes: Array<{ path: string; component: string }> };
+  frontend: {
+    routes: Array<{ path: string; component: string }>;
+    /** Package-owned HTML entrypoint served inside a sandboxed iframe. */
+    entrypoint?: string;
+    /** Explicit allowlist of files that the package asset endpoint may serve. */
+    assets?: string[];
+    /** API path prefixes that the host may proxy for this isolated frontend. */
+    apiPrefixes?: string[];
+  };
   collections: string[];
   migrations: BeePluginMigration[];
   settingsSchema: Record<string, unknown>;
@@ -41,6 +51,12 @@ export interface BeeBusinessPluginManifest {
     storageKey: string;
   };
 }
+
+/** Core-host services are runtime dependencies, not tenant-installable packages. */
+export const CORE_RUNTIME_PLUGIN_IDS = new Set([
+  "auth", "organizations", "teams", "files", "marketplace",
+  "platform-admin", "notifications", "mail", "localization", "hello"
+]);
 
 const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const pluginId = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
@@ -103,12 +119,18 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   if (item.compatibility.maxRuntimeVersion !== undefined && (typeof item.compatibility.maxRuntimeVersion !== "string" || !semver.test(item.compatibility.maxRuntimeVersion))) throw new Error("Invalid maximum runtime version");
   const versionRange = /^(?:\*|(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s+\|\|\s+(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)*$/;
   if (!Array.isArray(item.dependencies) || item.dependencies.some((dependency: any) => !record(dependency) || typeof dependency.pluginId !== "string" || !pluginId.test(dependency.pluginId) || typeof dependency.versionRange !== "string" || !versionRange.test(dependency.versionRange.trim()))) throw new Error("Invalid plugin dependencies");
+  if (item.tenantDependencies !== undefined && (!Array.isArray(item.tenantDependencies) || item.tenantDependencies.some((id: unknown) => typeof id !== "string" || !pluginId.test(id)) || new Set(item.tenantDependencies).size !== item.tenantDependencies.length)) throw new Error("Invalid tenant plugin dependencies");
   if (new Set(item.dependencies.map((dependency: any) => dependency.pluginId)).size !== item.dependencies.length) throw new Error("Plugin dependencies must be unique");
   if (!Array.isArray(item.permissions) || item.permissions.some((permission: any) => !record(permission) || typeof permission.key !== "string" || !permissionKey.test(permission.key) || typeof permission.description !== "string" || !permission.description.trim())) throw new Error("Invalid plugin permissions");
   if (new Set(item.permissions.map((permission: any) => permission.key)).size !== item.permissions.length) throw new Error("Plugin permissions must be unique");
   if (!record(item.backend) || typeof item.backend.entrypoint !== "string" || !item.backend.entrypoint.startsWith("dist/") || item.backend.entrypoint.includes("..") || item.backend.entrypoint.includes("\\") || item.backend.entrypoint.startsWith("/")) throw new Error("Backend entrypoint must be a safe path under dist/");
   if (!item.backend.entrypoint.endsWith(".mjs")) throw new Error("Backend entrypoint must be an ES module (.mjs)");
   if (!record(item.frontend) || !Array.isArray(item.frontend.routes) || item.frontend.routes.some((route: any) => !record(route) || typeof route.path !== "string" || !route.path.startsWith("/") || route.path.startsWith("//") || route.path.includes("..") || route.path.includes("?") || route.path.includes("#") || typeof route.component !== "string" || !pluginId.test(route.component))) throw new Error("Invalid frontend route registrations");
+  const safeFrontendPath = (path: unknown): path is string => typeof path === "string" && path.startsWith("frontend/") && !path.includes("..") && !path.includes("\\") && !path.includes("\0") && !path.startsWith("/");
+  if (item.frontend.entrypoint !== undefined && !safeFrontendPath(item.frontend.entrypoint)) throw new Error("Invalid frontend entrypoint");
+  if (item.frontend.assets !== undefined && (!Array.isArray(item.frontend.assets) || item.frontend.assets.some((path: unknown) => !safeFrontendPath(path)) || new Set(item.frontend.assets).size !== item.frontend.assets.length)) throw new Error("Invalid frontend asset allowlist");
+  if (item.frontend.entrypoint && !item.frontend.assets?.includes(item.frontend.entrypoint)) throw new Error("Frontend entrypoint must be present in the asset allowlist");
+  if (item.frontend.apiPrefixes !== undefined && (!Array.isArray(item.frontend.apiPrefixes) || item.frontend.apiPrefixes.some((path: unknown) => typeof path !== "string" || !path.startsWith("/") || path.startsWith("//") || path.includes("..") || path.includes("\\") || path.includes("?") || path.includes("#")) || new Set(item.frontend.apiPrefixes).size !== item.frontend.apiPrefixes.length)) throw new Error("Invalid frontend API prefix allowlist");
   if (new Set(item.frontend.routes.map((route: any) => route.path)).size !== item.frontend.routes.length) throw new Error("Frontend route paths must be unique");
   if (!Array.isArray(item.collections) || item.collections.some((name: unknown) => typeof name !== "string" || !collectionName.test(name))) throw new Error("Invalid tenant collection names");
   if (new Set(item.collections).size !== item.collections.length) throw new Error("Plugin collection names must be unique");

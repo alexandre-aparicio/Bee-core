@@ -3,7 +3,6 @@ import { BeeNotesComponent } from "../notes/notes.component";
 import { BeeDocumentsComponent } from "../documents/documents.component";
 import { BeeConnectedDevicesComponent } from "../connected-devices/connected-devices.component";
 import { BeeTimeTrackingComponent } from "../time-tracking/time-tracking.component";
-import { BeeHelloWorldComponent } from "./hello-world.component";
 import { NOTES_EN, NOTES_ES } from "../i18n/catalogs/modules/notes.catalog";
 
 export type BeePluginFrontendContext = {
@@ -37,10 +36,6 @@ export class BeePluginFrontendRegistry {
       }),
       translations: { en: NOTES_EN, es: NOTES_ES }
     }],
-    ["hello-world", {
-      component: BeeHelloWorldComponent,
-      inputs: () => ({})
-    }]
   ]);
 
   resolve(pluginId: string): BeePluginFrontendRegistration | undefined {

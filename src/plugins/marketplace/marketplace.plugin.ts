@@ -307,6 +307,18 @@ export const marketplacePlugin: BeePlugin = {
       if (!tenant) return;
       return { tenantId: mask(tenant,tenant.tenantId,"tenant"), plugins: (await getTenantPluginCatalog(db, tenant.tenantId)).map(plugin=>publicPlugin(tenant,plugin)) };
     });
+    ctx.server.get<{Params:{pluginId:string}}>("/marketplace/plugins/:pluginId/runtime",async(request:any,reply:any)=>{
+      const tenant=await authenticate(request,reply);if(!tenant)return;
+      const plugin=(await getTenantPluginCatalog(db,tenant.tenantId)).find(item=>item.id===request.params.pluginId);
+      if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled)return reply.code(403).send({error:"Plugin is not available for this company"});
+      const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId:plugin.id,status:"installed",source:"zip",runtimeState:"loaded"});
+      if(!globalPackage)return reply.code(404).send({error:"Plugin frontend package is not loaded"});
+      const version=String(globalPackage.version??"");
+      const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId:plugin.id,version});
+      const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
+      if(!manifest?.frontend?.entrypoint)return reply.code(404).send({error:"Plugin has no packaged frontend"});
+      return {pluginId:plugin.id,version,entrypoint:manifest.frontend.entrypoint,apiPrefixes:manifest.frontend.apiPrefixes??[],routes:manifest.frontend.routes??[]};
+    });
     ctx.server.get("/public/tenant/plugins", async (request: any, reply: any) => {
       const hostname = String(request.hostname ?? "").trim().toLowerCase().replace(/\.$/, "");
       const baseDomain = String(ctx.config.publicBaseDomain ?? "beecore.beeprojects.net").trim().toLowerCase().replace(/^\.+|\.+$/g, "");

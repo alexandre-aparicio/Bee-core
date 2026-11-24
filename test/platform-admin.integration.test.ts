@@ -8,6 +8,7 @@ import {createHmac} from "node:crypto";
 import {base32Decode} from "../src/core/totp.js";
 import {authPlugin} from "../src/plugins/auth/auth.plugin.js";
 import {organizationsPlugin} from "../src/plugins/organizations/organizations.plugin.js";
+import {marketplacePlugin} from "../src/plugins/marketplace/marketplace.plugin.js";
 import {platformAdminPlugin} from "../src/plugins/platform-admin/platform-admin.plugin.js";
 import {BeeEventBus} from "../src/core/event-bus.js";
 import type {BeeContext,BeeLogger} from "../src/core/types.js";
@@ -27,7 +28,7 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
  app.register(jwt,{secret:jwtSecret});
  const ctx:BeeContext={appName:"Platform test",version:"test",events:new BeeEventBus(),logger,server:app,mongoClient:client,config:{jwtSecret,mongoUri:uri!,mongoDbName:dbName,authAdminEmail:"platform@example.test",authAdminPassword:"Platform-test-12345",authMfaEncryptionKey:Buffer.alloc(32).toString("base64")}};
  try{
-  await authPlugin.initialize?.(ctx);await organizationsPlugin.initialize?.(ctx);await platformAdminPlugin.initialize?.(ctx);await app.ready();
+  await authPlugin.initialize?.(ctx);await organizationsPlugin.initialize?.(ctx);await marketplacePlugin.initialize?.(ctx);await platformAdminPlugin.initialize?.(ctx);await app.ready();
   const rootLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"platform@example.test",password:"Platform-test-12345",client:"dashboard"}});
   assert.equal(rootLogin.statusCode,200);const rootTokens=rootLogin.json();assert.equal(rootTokens.platformRole,"superadmin");assert.equal(rootTokens.mfaSetupRequired,true);
   const rootHeaders={authorization:"Bearer "+rootTokens.accessToken};
@@ -50,7 +51,7 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.equal(staleMfa.statusCode,403,"sensitive platform actions must require MFA verification within 15 minutes");
   assert.ok(await db.collection("platform_audit_events").findOne({actorId:"bootstrap-admin",action:"security.mfa_recent_required"}),"stale MFA denial must be audited");
   await db.collection("refresh_sessions").updateOne({id:rootSession.id},{$set:{mfaVerifiedAt:new Date()}});
-  const platformMe=await app.inject({method:"GET",url:"/platform/me",headers:rootHeaders});assert.equal(platformMe.statusCode,200);assert.equal(platformMe.json().role,"superadmin");
+  const platformMe=await app.inject({method:"GET",url:"/platform/me",headers:rootHeaders});assert.equal(platformMe.statusCode,200);assert.equal(platformMe.json().role,"super_admin");
 
   const created=await app.inject({method:"POST",url:"/platform/companies",headers:rootHeaders,payload:{name:"Acme Test",ownerEmail:"acme-owner@example.test",ownerPassword:"Acme-owner-Password-123"}});
   assert.equal(created.statusCode,201);const companyId=created.json().company.id as string;
@@ -117,5 +118,5 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   const tenantLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"acme-owner@example.test",password:"Acme-owner-Password-123",client:"dashboard"}});assert.equal(tenantLogin.statusCode,200);
   const tenantHeaders={authorization:"Bearer "+tenantLogin.json().accessToken};
   const forbidden=await app.inject({method:"GET",url:"/platform/companies",headers:tenantHeaders});assert.equal(forbidden.statusCode,403,"company owners must not access global platform endpoints");
- }finally{await app.close().catch(()=>{});await client.db(dbName).dropDatabase();await client.close();}
+ }finally{await marketplacePlugin.stop?.();await app.close().catch(()=>{});await client.db(dbName).dropDatabase();await client.close();}
 });

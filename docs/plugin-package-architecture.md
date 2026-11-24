@@ -2,7 +2,7 @@
 
 ## Status
 
-This document describes the implemented signed backend package pipeline and remaining frontend/runtime limitations. Superadmin can upload a signed ZIP, the server validates and extracts it into persistent storage, registers it globally, and loads its backend plugin on the next Bee Core restart. Angular remote frontend loading remains intentionally unsupported.
+This document describes the signed package pipeline and the staged frontend migration. Superadmin can upload a signed ZIP, the server validates and extracts it into persistent storage, registers it globally, and loads its backend plugin on restart. A first sandboxed iframe frontend path is implemented and used by Hola Mundo; the three larger business modules still use their current Angular frontend components while they are migrated.
 
 ## Three independent state dimensions
 
@@ -57,7 +57,7 @@ Uninstalling a platform package must be blocked while tenant installations or de
 
 ## Current package format and frontend limitation
 
-The current installer deliberately accepts backend-only ZIP packages: frontend.routes must be an empty array. The Angular dashboard is statically compiled; extracting a frontend bundle does not make its components available. Do not execute uploaded frontend JavaScript in the dashboard. A future isolated web-component/iframe bridge with a narrow capability API, CSP policy and trusted origin is required before frontend routes can be accepted.
+The installer accepts a package-owned frontend entrypoint and an explicit asset allowlist. The runtime serves only declared files and applies a restrictive Content-Security-Policy. The dashboard mounts the page in an iframe with scripts enabled but without same-origin access. The host retains the bearer token; the iframe can request backend calls only through a parent-window message bridge, and only for API prefixes declared in the signed manifest. The token is never sent into the iframe. Hola Mundo is the reference implementation. The bridge is not a general-purpose sandbox for arbitrary backend code: signed backend plugins remain trusted code running inside the Bee Core process.
 
 ## Migration of the three built-in modules
 
@@ -74,7 +74,7 @@ The current installer deliberately accepts backend-only ZIP packages: frontend.r
 4. Add Super Organization package-management UI and audit trail. (Upload, package list, plan assignment and manual tenant grants implemented.)
 5. Implement plan-driven automatic provisioning and explicit manual grants, with dependency resolution. (Backend provisioning queue implemented.)
 6. Migrate the three built-in plugins to the same lifecycle and persistence conventions without changing their APIs or deleting tenant data.
-7. Implement the trusted frontend bundle/route contract. (Pending; installer rejects non-empty frontend.routes.)
+7. Implement the sandboxed frontend bundle/route contract. (Partially implemented; Hola Mundo is packaged and loaded remotely. Documents, Connected Devices and Time Tracking still use statically compiled Angular components.)
 8. Add integration tests for install, upgrade, rollback, plan changes, tenant isolation, disable/re-enable and dependency removal.
 
 No stage is complete until the relevant backend tests, Angular build, browser checks and migration/rollback tests have run.
@@ -89,7 +89,7 @@ ZIP package versions are recorded in `platform_plugin_package_versions`. The ext
 
 ## Current limitations
 
-- Uploaded packages are backend-only. No uploaded frontend bundle is executed or mounted into Angular.
+- Only Hola Mundo currently uses the package-owned sandboxed frontend. Documents, Connected Devices and Time Tracking still have static Angular frontend registrations.
 - The package backend is trusted executable code inside the Bee Core process. Signature verification establishes publisher trust; it is not a sandbox.
 - Manifest permission declarations are currently validated and stored as package metadata; they are not automatically added to the tenant role catalog. External route handlers must enforce tenant context, entitlement, installation/enabled state and permissions using the existing Core guards.
 - The public key setting currently supports one configured publisher key, not a multi-publisher trust store or key rotation UI.
