@@ -4,7 +4,7 @@
   <button type="button" class="tt-secondary" (click)="load()" [disabled]="loading">Actualizar</button>
  </header>
  <p *ngIf="error" class="tt-error" role="alert">{{error}}</p><p *ngIf="message" class="tt-message" role="status">{{message}}</p>
- <section class="tt-page bee-page">
+ <div class="tt-content-wrapper">
    <main class="tt-content bee-page__content">
    <ng-container *ngIf="activeSection==='my-day'">
     <div class="tt-content-heading"><div><p class="tt-eyebrow">MI ESPACIO</p><h2>Mi jornada</h2><p>Controla tu fichaje y consulta la actividad registrada.</p></div></div>
@@ -65,6 +65,6 @@
     </ng-container>
    </ng-container>
   </main>
- </section>
+ </div>
  <div *ngIf="correctionTarget" class="tt-modal-backdrop"><section class="tt-modal" role="dialog" aria-modal="true" aria-labelledby="tt-correction-title"><h2 id="tt-correction-title">Solicitar corrección</h2><p>La modificación no se aplicará hasta que un responsable la apruebe.</p><label class="tt-field">Fecha y hora correcta<input type="datetime-local" [(ngModel)]="requestedAt"></label><label class="tt-field">Motivo<textarea rows="3" [(ngModel)]="correctionReason" maxlength="1000" placeholder="Explica por qué debe corregirse este fichaje"></textarea></label><div class="tt-actions"><button type="button" class="tt-secondary" (click)="closeCorrection()">Cancelar</button><button type="button" class="tt-primary" (click)="submitCorrection()" [disabled]="busy || !requestedAt || correctionReason.trim().length<5">Enviar solicitud</button></div></section></div>
 </section>
