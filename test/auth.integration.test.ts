@@ -444,13 +444,29 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:reusedSession!.tenantId,actorId:"test-user",action:"auth.refresh.reuse",outcome:"denied","metadata.reason":"rotated_token_reuse"}),"refresh-token reuse must be recorded in tenant audit history");
     const accessAfterReuse=await app.inject({method:"GET",url:"/auth/me",headers:{authorization:"Bearer "+refreshed.accessToken}});
     assert.equal(accessAfterReuse.statusCode,401,"access tokens from a compromised refresh-token family must stop working immediately");
-    const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+
+    // The refresh-token reuse response revokes that complete session family. Start a fresh owner session
+    // before continuing unrelated membership and logout assertions.
+    const ownerFreshLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
+    assert.equal(ownerFreshLogin.statusCode,200);
+    const ownerFreshCookie=String(ownerFreshLogin.headers["set-cookie"]??"").split(";")[0];
+    const ownerFreshCompanies=await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+ownerFreshLogin.json().accessToken}});
+    assert.equal(ownerFreshCompanies.statusCode,200);
+    const ownerFreshCompanyRef=ownerFreshCompanies.json().companies.find((company:{name:string})=>company.name==="Second Company")?.id as string;
+    assert.ok(ownerFreshCompanyRef,"fresh session must receive its own opaque company reference");
+    const ownerFreshActivate=await app.inject({method:"POST",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/activate",headers:{authorization:"Bearer "+ownerFreshLogin.json().accessToken}});
+    assert.equal(ownerFreshActivate.statusCode,200);
+    const ownerFreshMembers=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/memberships",headers:{authorization:"Bearer "+ownerFreshActivate.json().accessToken}});
+    assert.equal(ownerFreshMembers.statusCode,200);
+    const betaFreshMemberRef=ownerFreshMembers.json().members.find((member:{email:string})=>member.email==="beta@example.com")?.userId as string;
+    assert.ok(betaFreshMemberRef,"fresh session must receive its own opaque membership reference");
+    const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/memberships/"+encodeURIComponent(betaFreshMemberRef),headers:{authorization:"Bearer "+ownerFreshActivate.json().accessToken}});
     assert.equal(removeBetaMember.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
-    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken, cookie:rotatedRefreshCookie }, payload: {} });
+    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + ownerFreshActivate.json().accessToken, cookie:ownerFreshCookie }, payload: {} });
     assert.equal(logout.statusCode, 200);
     assert.match(String(logout.headers["set-cookie"]??""),/Max-Age=0/,"logout must clear the refresh cookie");
-    const revokedSessionReference=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+refreshed.accessToken}});
+    const revokedSessionReference=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(ownerFreshCompanyRef)+"/audit-events",headers:{authorization:"Bearer "+ownerFreshActivate.json().accessToken}});
     assert.equal(revokedSessionReference.statusCode,401,"session-bound resource references must stop resolving as soon as logout revokes their issuing session");
     const logoutAudit = await db.collection("tenant_audit_events").find({actorId:"test-user",action:"auth.logout"}).toArray();
     assert.equal(logoutAudit.length,1,"logout should be audited for the authenticated user");
