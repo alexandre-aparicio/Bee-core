@@ -977,3 +977,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Fixed the platform ZIP upload handler's package-registry collection scope: the registry collection is now created in the request handler and shared with manifest validation and package persistence, rather than being declared only inside the validation callback.
 - Fixed plan assignment reconciliation to call `syncPluginPackageVersionUpdates` and define the `upgraded` count before including it in the audit event and API response. This keeps plan changes consistent with the manual entitlement path.
 - **Validation pending:** this correction addresses the three TypeScript compiler errors reported by the VPS, but no TypeScript build, automated tests, Docker build or live tenant provisioning test has been run here. Rebuild and run the test suite before deployment.
+
+
+## Global plugin package management moved to Settings → Plugins (2026-11-24)
+
+- Corrected the placement of global signed ZIP package management: upload, global package status and plan assignments now live under **Settings → Plugins**, visible to the platform superadministrator.
+- Removed global package upload/registry/plan controls from **Settings → Tenants**. Tenant management retains only tenant-scoped entitlement grants/revocations and install/activate/deactivate controls for the selected company.
+- The Settings → Plugins screen continues to show the existing plugin catalogue and now also presents the global package registry. The API endpoints and backend lifecycle/security behavior are unchanged.
+- Validation pending: TypeScript/Angular build, platform-admin authorization check, browser navigation and upload/plan-assignment smoke tests have not been run.
