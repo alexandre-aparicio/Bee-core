@@ -393,7 +393,7 @@ export const marketplacePlugin: BeePlugin = {
         return reply.code(403).send({ error: "Plugin management permission required" });
       }
       if (!await hasPluginEntitlement(db, tenant.tenantId, pluginId)) return reply.code(402).send({ error: "An active plan entitlement or plugin purchase is required" });
-      const trusted = getTrustedPluginPackage(pluginId);
+      const trusted = await getMarketplacePackage(pluginId);
       if (!trusted) return reply.code(404).send({ error: "Trusted plugin package is unavailable" });
       const installation = await db.collection("tenant_plugin_installations").findOne({ tenantId: tenant.tenantId, pluginId });
       if (!installation || installation.status !== "installed") return reply.code(409).send({ error: "Only an installed plugin can be updated" });
@@ -481,7 +481,7 @@ export const marketplacePlugin: BeePlugin = {
               .find({ tenantId: job.tenantId, status: "installed", pluginId: { $ne: job.pluginId } })
               .toArray();
             for (const installed of otherInstalled) {
-              const dependent = getTrustedPluginPackage(String(installed.pluginId));
+              const dependent = await getMarketplacePackage(String(installed.pluginId));
               if (dependent?.dependencies.includes(job.pluginId)) throw new Error("Plugin is required by installed plugin: " + installed.pluginId);
             }
             await db.collection("tenant_plugin_installations").updateOne(
@@ -498,7 +498,7 @@ export const marketplacePlugin: BeePlugin = {
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else if (job.action === "install") {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
-            for (const dependency of resolvePluginDependencyOrder(job.pluginId)) {
+            for (const dependency of await getDependencyOrder(job.pluginId)) {
               if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency) || !await isPluginEnabled(db, job.tenantId, dependency)) {
                 throw new Error("Required plugin dependency is not installed: " + dependency);
               }
