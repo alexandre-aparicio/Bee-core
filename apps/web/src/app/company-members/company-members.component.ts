@@ -205,20 +205,22 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__section-actions{display:flex;align-items:center;gap:8px}
     .bee-users__section-head p{margin-top:4px}
     .bee-users__count{flex:none;padding:5px 9px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
-    .bee-users__toolbar{display:flex;align-items:center;gap:16px;width:100%;min-width:0;margin-bottom:12px}
-    .bee-users__toolbar-filters,.bee-users__toolbar-view{display:flex;align-items:center;flex:0 0 50%;width:50%;min-width:0}
+    .bee-users__toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:16px;width:100%;min-width:0;margin-bottom:12px}
+    .bee-users__toolbar-filters,.bee-users__toolbar-view{display:flex;align-items:center;min-width:0}
     .bee-users__toolbar-filters{gap:9px}
     .bee-users__toolbar-view{justify-content:flex-end;padding-right:8px}
     .bee-users__view-toggle{display:flex;align-items:center;gap:5px;padding:5px;border:0;border-radius:10px;background:transparent}
     .bee-users__view-toggle button{display:grid;place-items:center;width:34px;height:32px;padding:0;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--muted);font:inherit;font-size:17px;line-height:1;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,color .16s ease}
     .bee-users__view-toggle button span{display:block;margin:0;padding:0;line-height:1}
     .bee-users__view-toggle button:hover{border-color:var(--purple);color:inherit}
+    .bee-users__view-toggle button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
     .bee-users__view-toggle button.is-active{border-color:var(--purple);background:var(--purple);color:var(--bg)}
     .bee-users__cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;min-width:0}
     .bee-users__card{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:190px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--panel);transition:border-color .16s ease,background-color .16s ease}
     .bee-users__card:hover{border-color:color-mix(in srgb,var(--purple) 48%,var(--border));background:color-mix(in srgb,var(--panel) 92%,var(--purple))}
     .bee-users__card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}
     .bee-users__card .bee-users__identity{min-width:0;flex:1}
+    .bee-users__card .bee-users__restrictions{margin:0}
     .bee-users__card .bee-users__identity-copy strong{max-width:100%;white-space:normal;overflow-wrap:anywhere}
     .bee-users__card-field{display:grid;gap:6px;min-width:0}
     .bee-users__card-field>span{color:var(--muted);font-size:10px;font-weight:650}
@@ -300,7 +302,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     @keyframes bee-users-spin{to{transform:rotate(360deg)}}
     @media(max-width:1100px){.bee-users__workspace{grid-template-columns:minmax(0,1fr) 270px}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.bee-users__cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:820px){.bee-users__workspace{grid-template-columns:1fr}.bee-users__invite-panel{order:-1}.bee-users__invite-form{grid-template-columns:repeat(2,minmax(0,1fr))}.bee-users__invite-form>label{min-width:0}.bee-users__invite-form .bee-users__button{align-self:end}}
-    @media(max-width:620px){.bee-users{gap:14px}.bee-users__toolbar{align-items:stretch;flex-direction:column;gap:10px}.bee-users__toolbar-filters,.bee-users__toolbar-view{width:100%;flex-basis:100%}.bee-users__toolbar-view{justify-content:flex-end;padding-right:0}.bee-users__cards{grid-template-columns:minmax(0,1fr)}.bee-users__section-head{align-items:flex-start}.bee-users__section-actions{flex-wrap:wrap;justify-content:flex-end}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.bee-users__metric{padding:12px}.bee-users__metric strong{font-size:22px}.bee-users__directory,.bee-users__invitations,.bee-users__invite-panel{padding:13px}.bee-users__toolbar{flex-direction:column}.bee-users__filter{width:100%}.bee-users__invite-form{grid-template-columns:1fr}.bee-users__invite-form .bee-users__button{align-self:stretch}.bee-users__invitation{gap:8px;flex-wrap:wrap}.bee-users__invitation-copy{flex-basis:calc(100% - 58px)}.bee-users__invitation .bee-users__status{margin-left:46px}.bee-users__table{min-width:650px}}
+    @media(max-width:620px){.bee-users{gap:14px}.bee-users__toolbar{grid-template-columns:minmax(0,1fr);gap:10px}.bee-users__toolbar-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(128px,auto);width:100%}.bee-users__toolbar-view{width:100%}.bee-users__toolbar-view{justify-content:flex-end;padding-right:0}.bee-users__cards{grid-template-columns:minmax(0,1fr)}.bee-users__section-head{align-items:flex-start}.bee-users__section-actions{flex-wrap:wrap;justify-content:flex-end}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.bee-users__metric{padding:12px}.bee-users__metric strong{font-size:22px}.bee-users__directory,.bee-users__invitations,.bee-users__invite-panel{padding:13px}.bee-users__filter{width:auto}.bee-users__invite-form{grid-template-columns:1fr}.bee-users__invite-form .bee-users__button{align-self:stretch}.bee-users__invitation{gap:8px;flex-wrap:wrap}.bee-users__invitation-copy{flex-basis:calc(100% - 58px)}.bee-users__invitation .bee-users__status{margin-left:46px}.bee-users__table{min-width:650px}}
     @media(prefers-reduced-motion:reduce){.bee-users__button,.bee-users__card,.bee-users__view-toggle button,.bee-users__spinner{transition:none;animation:none}}
   `]
 
