@@ -1,4 +1,5 @@
-.bee-template-package-host[data-bee-template="studio"][data-bee-public-mode="light"] {
+.bee-template-package-host[data-bee-template="studio"][data-bee-public-mode="light"],
+html[data-bee-active-template="studio"][data-bee-active-mode="light"] {
   color-scheme: light;
   --bee-bg: #f4f0e9;
   --bee-surface: #fffaf2;
@@ -44,7 +45,8 @@
 
 }
 
-.bee-template-package-host[data-bee-template="studio"][data-bee-public-mode="dark"] {
+.bee-template-package-host[data-bee-template="studio"][data-bee-public-mode="dark"],
+html[data-bee-active-template="studio"][data-bee-active-mode="dark"] {
   color-scheme: dark;
   --bee-bg: #211b18;
   --bee-surface: #302721;

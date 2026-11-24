@@ -401,6 +401,9 @@ export class BeeTemplateEngine {
     document.body.dataset['beeDashboardTemplate'] = this.selection.dashboard;
     document.body.dataset['beePublicMode'] = this.getMode('public');
     document.body.dataset['beeDashboardMode'] = this.getMode('dashboard');
+    const activeTarget: BeeTemplateTarget = window.location.pathname === '/dashboard' || window.location.pathname.startsWith('/dashboard/') ? 'dashboard' : 'public';
+    document.documentElement.dataset['beeActiveTemplate'] = this.selection[activeTarget];
+    document.documentElement.dataset['beeActiveMode'] = this.getMode(activeTarget);
     const publicHost = this.themeHost('public');
     const dashboardHost = this.themeHost('dashboard');
     if (publicHost) {

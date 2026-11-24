@@ -81,7 +81,7 @@ footer .bee-template-manager{width:min(100%,420px);margin:0 0 15px}
 
 /* Tenant-scoped runtime theme tokens (updated over SSE without a rebuild). */
 :root{--bee-runtime-bg:var(--bg);--bee-runtime-panel:var(--panel);--bee-runtime-muted:var(--muted);--bee-runtime-border:var(--border);--bee-runtime-accent:var(--purple);--bee-runtime-secondary:var(--cyan)}
-body{background:var(--bg)}
+
 .bee-template-manager__theme{display:flex;flex-direction:column;gap:10px;padding-top:10px;border-top:1px solid var(--border)}
 .bee-template-manager__theme>strong{font-size:11px;color:inherit}
 .bee-template-manager__colors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}

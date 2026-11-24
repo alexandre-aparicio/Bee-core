@@ -41,12 +41,18 @@ for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !
 
   const modeAttribute = target === 'public' ? 'public' : 'dashboard';
   const blocks = new Map();
-  const blockPattern = /\.bee-template-package-host\[data-bee-template="([^"]+)"\]\[data-bee-(public|dashboard)-mode="(light|dark)"\]\s*\{([^}]*)\}/g;
+  const blockPattern = /([^{}]+)\{([^{}]*)\}/g;
   for (const match of tokens.matchAll(blockPattern)) {
-    if (match[1] !== id) continue;
-    if (match[2] !== modeAttribute) errors.push(`${id}: ${match[3]} block uses data-bee-${match[2]}-mode but target is ${target}`);
-    const declared = new Set([...match[4].matchAll(/^\s*(--bee-[\w-]+)\s*:/gm)].map(item => item[1]));
-    blocks.set(match[3], declared);
+    const selectors = match[1];
+    if (!selectors.includes(`.bee-template-package-host[data-bee-template="${id}"][data-bee-${modeAttribute}-mode="`)) continue;
+    const mode = selectors.match(/data-bee-(?:public|dashboard)-mode="(light|dark)"/)?.[1];
+    if (!mode) continue;
+    const htmlSelector = `html[data-bee-active-template="${id}"][data-bee-active-mode="${mode}"]`;
+    if (!selectors.includes(htmlSelector)) errors.push(`${id}: ${mode} block is missing html active-template scope`);
+    const selectorTarget = selectors.match(/data-bee-(public|dashboard)-mode=/)?.[1];
+    if (selectorTarget !== modeAttribute) errors.push(`${id}: ${mode} block uses data-bee-${selectorTarget}-mode but target is ${target}`);
+    const declared = new Set([...match[2].matchAll(/^\s*(--bee-[\w-]+)\s*:/gm)].map(item => item[1]));
+    blocks.set(mode, declared);
   }
 
   for (const mode of declaredModes) {
