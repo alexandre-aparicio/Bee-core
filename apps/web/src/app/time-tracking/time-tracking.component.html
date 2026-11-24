@@ -5,7 +5,6 @@
   <button type="button" [class.is-active]="activeTab==='my-time'" (click)="activeTab='my-time'">Mi jornada</button>
   <button *ngIf="canManage" type="button" [class.is-active]="activeTab==='schedules'" (click)="activeTab='schedules'">Horarios</button>
   <button type="button" [class.is-active]="activeTab==='requests'" (click)="activeTab='requests'">Mis solicitudes <span *ngIf="corrections.length">{{corrections.length}}</span></button>
-  <button *ngIf="canManage" type="button" [class.is-active]="activeTab==='requests'" (click)="activeTab='requests'">Revisión de equipo <span *ngIf="teamCorrections.length">{{teamCorrections.length}}</span></button>
  </nav>
  <ng-container *ngIf="activeTab==='my-time'">
   <section class="tt-clock"><div class="tt-clock__top"><span>ESTADO ACTUAL</span><span class="tt-status" [class.tt-status--working]="session?.status==='working'" [class.tt-status--break]="session?.status==='on_break'">{{session?.status==='working'?'Trabajando':session?.status==='on_break'?'En pausa':'Sin jornada activa'}}</span></div>
