@@ -12,7 +12,7 @@ import bcrypt from "bcryptjs";
 import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
-import { getTenantSubscription, getTrustedPluginPackage, hasPluginEntitlement, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
+import { getTenantSubscription, getTrustedPluginPackage, hasPluginEntitlement, syncAutomaticPluginProvisioning, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
@@ -282,6 +282,16 @@ export const platformAdminPlugin:BeePlugin={
      {$setOnInsert:{pluginId:manifest.id,version:manifest.version,digest,storageKey,packageDirectory,publisher:manifest.publisher,manifest,runtimeState:"stored_pending_runtime",installedAt:now,installedBy:actor.id,createdAt:now}},
      {upsert:true}
     );
+    await db.collection("plugin_catalog").updateOne(
+     {id:manifest.id},
+     {$set:{
+      id:manifest.id,name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,
+      visibleInPlans:[],includedInPlans:[],purchasable:false,system:false,
+      dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),
+      activationPolicy:manifest.activationPolicy??"manual",codeAvailable:false,status:"published"
+     },$setOnInsert:{createdAt:now}},
+     {upsert:true}
+    );
     await packages.updateOne(
      {pluginId:manifest.id},
      {$set:{name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),activationPolicy:manifest.activationPolicy??"manual",status:"installed",source:"zip",runtimeState:"stored_pending_runtime",publisher:manifest.publisher,digest,packageDirectory,backendEntrypoint:manifest.backend.entrypoint,frontendRoutes:manifest.frontend.routes,installedAt:now,installedBy:actor.id,updatedAt:now},$setOnInsert:{pluginId:manifest.id,createdAt:now}},
@@ -295,6 +305,43 @@ export const platformAdminPlugin:BeePlugin={
     await recordPlatformAudit({actorId:actor.id,action:"plugin.package_upload_failed",resourceType:"plugin_package",metadata:{error:message.slice(0,300)}});
     return reply.code(status).send({error:message});
    }
+  });
+  ctx.server.put<{Params:{pluginId:string};Body:{planIds?:unknown}}>("/platform/plugin-packages/:pluginId/plans",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const pluginId=req.params.pluginId;
+   const requested=req.body?.planIds;
+   if(!Array.isArray(requested)||requested.length>50||requested.some(id=>typeof id!=="string"))return reply.code(400).send({error:"planIds must be an array of plan IDs"});
+   const planIds=[...new Set((requested as string[]).map(id=>id.trim()))];
+   const packageRecord=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed"});
+   if(!packageRecord)return reply.code(404).send({error:"Installed platform package not found"});
+   const plans=db.collection("plugin_plans");
+   const available=await plans.find({id:{$in:planIds}}).project<{id:string}>({id:1,_id:0}).toArray();
+   if(available.length!==planIds.length)return reply.code(400).send({error:"One or more plan IDs do not exist"});
+   await plans.updateMany({id:{$nin:planIds}},{$pull:{includedPluginIds:pluginId,visiblePluginIds:pluginId}});
+   await plans.updateMany({id:{$in:planIds}},{$addToSet:{includedPluginIds:pluginId,visiblePluginIds:pluginId}});
+   await db.collection("plugin_catalog").updateOne({id:pluginId},{$set:{includedInPlans:planIds,visibleInPlans:planIds,updatedAt:new Date()}});
+   const queued=await syncAutomaticPluginProvisioning(db,pluginId);
+   await recordPlatformAudit({actorId:actor.id,action:"plugin.plan_entitlements_updated",resourceType:"plugin_package",resourceId:pluginId,metadata:{planIds,automaticInstallJobsQueued:queued}});
+   return {success:true,pluginId:mask(req.platformSession!,pluginId,"plugin"),planIds,automaticInstallJobsQueued:queued};
+  });
+  ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{granted?:boolean}}>("/platform/companies/:companyId/plugin-entitlements/:pluginId",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const company=await companies.findOne({id:req.params.companyId,status:"active",kind:{$ne:"super"}});
+   if(!company)return reply.code(404).send({error:"Active tenant not found"});
+   if(typeof req.body?.granted!=="boolean")return reply.code(400).send({error:"granted must be a boolean"});
+   const packageRecord=await db.collection("platform_plugin_packages").findOne({pluginId:req.params.pluginId,status:"installed"});
+   if(!packageRecord)return reply.code(404).send({error:"Installed platform package not found"});
+   if(packageRecord.source==="zip"&&packageRecord.runtimeState!=="loaded")return reply.code(409).send({error:"Plugin backend is not loaded yet; restart Bee Core and verify the package before granting access"});
+   const grants=db.collection("tenant_plugin_entitlements");
+   if(req.body.granted){
+    const now=new Date();
+    await grants.updateOne({tenantId:company.id,pluginId:req.params.pluginId},{$set:{status:"granted",source:"manual",grantedBy:actor.id,grantedAt:now,updatedAt:now},$setOnInsert:{id:randomUUID(),tenantId:company.id,pluginId:req.params.pluginId,createdAt:now}},{upsert:true});
+   }else{
+    await grants.deleteOne({tenantId:company.id,pluginId:req.params.pluginId,source:"manual"});
+   }
+   const queued=req.body.granted?await syncAutomaticPluginProvisioning(db,req.params.pluginId):0;
+   await recordPlatformAudit({actorId:actor.id,action:req.body.granted?"plugin.tenant_entitlement_granted":"plugin.tenant_entitlement_revoked",tenantId:company.id,resourceType:"plugin_package",resourceId:req.params.pluginId,metadata:{source:"manual",granted:req.body.granted,automaticInstallJobsQueued:queued}});
+   return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,req.params.pluginId,"plugin"),granted:req.body.granted,automaticInstallJobsQueued:queued};
   });
   ctx.server.get("/platform/plugin-packages",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
