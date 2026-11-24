@@ -14,6 +14,9 @@ export const CORE_PERMISSION_CATALOG:readonly PermissionDefinition[]=[
 {key:"documents.write",module:"documents",resource:"documents",action:"write",label:"Manage documents",description:"Create folders, register documents and manage publication.",customRoleAssignable:true},
 {key:"notes.read",module:"notes",resource:"notes",action:"read",label:"View notes",description:"Read organization notes.",customRoleAssignable:true},
 {key:"notes.write",module:"notes",resource:"notes",action:"write",label:"Manage notes",description:"Create and modify organization notes.",customRoleAssignable:true},
+{key:"time-tracking.read",module:"time-tracking",resource:"time-tracking",action:"read",label:"View time records",description:"View personal time-tracking status and history.",customRoleAssignable:true},
+{key:"time-tracking.clock",module:"time-tracking",resource:"time-tracking",action:"clock",label:"Register working time",description:"Clock in, manage breaks and clock out.",customRoleAssignable:true},
+{key:"time-tracking.manage",module:"time-tracking",resource:"time-tracking",action:"manage",label:"Manage time tracking",description:"Review team records and manage time-tracking settings.",customRoleAssignable:true},
 {key:"mail.read",module:"mail",resource:"mail",action:"read",label:"Read mail",description:"Read connected mailbox messages.",customRoleAssignable:true},
 {key:"mail.send",module:"mail",resource:"mail",action:"send",label:"Send mail",description:"Send messages through connected mailboxes.",customRoleAssignable:true},
 {key:"mail.manage",module:"mail",resource:"mail",action:"manage",label:"Manage mailboxes",description:"Configure and manage organization mailboxes.",customRoleAssignable:false,sensitive:true}
