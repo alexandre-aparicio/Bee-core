@@ -371,6 +371,8 @@ export const marketplacePlugin: BeePlugin = {
       const plugin = catalog.find(item => item.id === pluginId);
       if (!plugin) return reply.code(404).send({ error: "Plugin not visible to this company" });
       if (!plugin.entitled) return reply.code(402).send({ error: "An active plan entitlement or plugin purchase is required" });
+      const platformPackage = await db.collection("platform_plugin_packages").findOne({ pluginId, status: "installed" });
+      if (!platformPackage) return reply.code(409).send({ error: "Plugin package is not available on the platform" });
       const trusted = await getMarketplacePackage(pluginId);
       if (!trusted) return reply.code(404).send({ error: "Trusted plugin package is unavailable" });
       for (const dependency of await getDependencyOrder(pluginId)) {
@@ -443,7 +445,9 @@ export const marketplacePlugin: BeePlugin = {
         return reply.code(403).send({ error: "Plugin management permission required" });
       }
       const pluginId = String(request.params.pluginId ?? "");
-      const trusted = getTrustedPluginPackage(pluginId);
+      const platformPackage = await db.collection("platform_plugin_packages").findOne({ pluginId, status: "installed" });
+      if (!platformPackage) return reply.code(409).send({ error: "Plugin package is not available on the platform" });
+      const trusted = await getMarketplacePackage(pluginId);
       if (!trusted) return reply.code(404).send({ error: "Plugin package not found" });
       if (trusted.system) return reply.code(409).send({ error: "System plugins cannot be uninstalled" });
       const activeKey = tenant.tenantId + ":" + pluginId;
