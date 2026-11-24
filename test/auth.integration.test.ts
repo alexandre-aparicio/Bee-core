@@ -311,7 +311,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const staleOwnerRoleCreate=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+staleOwnerOrganizationToken},payload:{name:"Forged owner role",permissions:["notes.read"]}});
     assert.equal(staleOwnerRoleCreate.statusCode,401,"plaintext legacy identity claims must be rejected");
     assert.equal(await db.collection("company_roles").countDocuments({tenantId:secondCompanyInternalId,name:"Forged owner role"}),0);
-    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user-beta",action:"permission.denied",outcome:"denied","metadata.permission":"members.manage"}),"denied company permission should be audited");
+    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user-beta",action:"permission.denied",outcome:"denied","metadata.permission":"members.invite"}),"denied company permission should be audited");
     const betaUserRef=memberList.json().memberships.find((member:{email:string})=>member.email==="beta@example.com").userId as string;
     const updateBetaRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{role:"manager"}});
     assert.equal(updateBetaRole.statusCode,200);
