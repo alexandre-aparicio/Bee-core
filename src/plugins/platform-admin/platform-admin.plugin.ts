@@ -108,7 +108,7 @@ export const platformAdminPlugin:BeePlugin={
      await recordPlatformAudit({actorId:user.id,action:"security.mfa_required",resourceType:"security",metadata:{reason:"mfa_not_enrolled"}});
      return reply.code(403).send({error:"Active MFA enrollment required"}),null;
     }
-    if(!session.mfaVerifiedAt||Date.now()-session.mfaVerifiedAt.getTime()>15*60*1000){
+    if(!session.mfaVerifiedAt||session.mfaVerifiedAt.getTime()>Date.now()||Date.now()-session.mfaVerifiedAt.getTime()>15*60*1000){
      await recordPlatformAudit({actorId:user.id,action:"security.mfa_recent_required",resourceType:"security",metadata:{reason:"mfa_verification_stale"}});
      return reply.code(403).send({error:"Recent MFA verification required"}),null;
     }
