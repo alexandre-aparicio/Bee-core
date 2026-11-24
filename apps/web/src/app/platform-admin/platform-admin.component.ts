@@ -165,7 +165,7 @@ export class PlatformAdminComponent implements OnInit {
  @Output() backToList=new EventEmitter<void>();
  companies:PlatformCompany[]=[];
  platformPackages:Array<{id:string;pluginKey:string;name:string;version:string;description:string;status:string;source:string;runtimeState:string|null;activationPolicy:string}> = [];
- platformPlans:Array<{id:string;name:string;includedPluginIds:string[];visiblePluginIds:string[]}> = [];
+ platformPlans:Array<{id:string;name:string;packageIds:string[]}> = [];
  packagePlanSelections:Record<string,string[]> = {};
  pluginPackagesLoading=false;pluginUploadBusy=false;
  pluginStates:Record<string,{id:string;installed:boolean;enabled:boolean;status:string;name:string}>={};
@@ -178,7 +178,7 @@ export class PlatformAdminComponent implements OnInit {
  closeCreate(){if(this.busy)return;this.showCreateModal=false;this.error='';}
  toggleMenu(id:string){this.openMenuId=this.openMenuId===id?'':id;}
  async loadPlatformPlans(){
-  try{const r=await fetch("/api/platform/plugin-plans",{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to load plans");this.platformPlans=d.plans??[];for(const plugin of this.platformPackages){this.packagePlanSelections[plugin.pluginKey]=this.platformPlans.filter(plan=>plan.includedPluginIds?.includes(plugin.pluginKey)).map(plan=>plan.id);}}
+  try{const r=await fetch("/api/platform/plugin-plans",{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to load plans");this.platformPlans=d.plans??[];for(const plugin of this.platformPackages){this.packagePlanSelections[plugin.pluginKey]=this.platformPlans.filter(plan=>plan.packageIds?.includes(plugin.pluginKey)).map(plan=>plan.id);}}
   catch(e){this.error=e instanceof Error?e.message:"Unable to load plans";}
  }
  togglePackagePlan(plugin:any,planId:string,checked:boolean){
