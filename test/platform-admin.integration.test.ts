@@ -50,7 +50,7 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.equal(staleMfa.statusCode,403,"sensitive platform actions must require MFA verification within 15 minutes");
   assert.ok(await db.collection("platform_audit_events").findOne({actorId:"bootstrap-admin",action:"security.mfa_recent_required"}),"stale MFA denial must be audited");
   await db.collection("refresh_sessions").updateOne({id:rootSession.id},{$set:{mfaVerifiedAt:new Date()}});
-  const platformMe=await app.inject({method:"GET",url:"/platform/me",headers:rootHeaders});assert.equal(platformMe.statusCode,200);assert.equal(platformMe.json().role,"superadmin");
+  const platformMe=await app.inject({method:"GET",url:"/platform/me",headers:rootHeaders});assert.equal(platformMe.statusCode,200);assert.equal(platformMe.json().role,"super_admin");
 
   const created=await app.inject({method:"POST",url:"/platform/companies",headers:rootHeaders,payload:{name:"Acme Test",ownerEmail:"acme-owner@example.test",ownerPassword:"Acme-owner-Password-123"}});
   assert.equal(created.statusCode,201);const companyId=created.json().company.id as string;
