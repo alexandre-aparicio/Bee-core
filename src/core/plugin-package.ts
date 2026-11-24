@@ -47,6 +47,42 @@ const pluginId = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 const permissionKey = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_]*)+$/;
 const collectionName = /^[a-z][a-z0-9_]*$/;
 const sha256 = /^[a-f0-9]{64}$/i;
+function versionTuple(value: string): [number, number, number] {
+  const match = /^(\\d+)\\.(\\d+)\\.(\\d+)/.exec(value);
+  if (!match) throw new Error("Invalid semantic version");
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+function compareVersionTuple(a: [number,number,number], b: [number,number,number]): number {
+  for (let i=0;i<3;i++) if (a[i] !== b[i]) return a[i]! - b[i]!;
+  return 0;
+}
+/** Supports exact, *, ^, ~, comparison operators and || alternatives. */
+export function satisfiesPluginVersion(version: string, range: string): boolean {
+  const current = versionTuple(version);
+  return range.split("||").some(alternative => {
+    const token = alternative.trim();
+    if (token === "*") return true;
+    const match = /^(\\^|~|>=|<=|>|<)?(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(token);
+    if (!match) return false;
+    const operator = match[1] ?? "=";
+    const requested = versionTuple(match[2]!);
+    const comparison = compareVersionTuple(current, requested);
+    if (operator === "=") return comparison === 0;
+    if (operator === ">") return comparison > 0;
+    if (operator === ">=") return comparison >= 0;
+    if (operator === "<") return comparison < 0;
+    if (operator === "<=") return comparison <= 0;
+    if (operator === "~") return comparison >= 0 && current[0] === requested[0] && current[1] === requested[1];
+    if (operator === "^") {
+      if (comparison < 0) return false;
+      if (requested[0] > 0) return current[0] === requested[0];
+      if (requested[1] > 0) return current[0] === 0 && current[1] === requested[1];
+      return current[0] === 0 && current[1] === 0 && current[2] === requested[2];
+    }
+    return false;
+  });
+}
+
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
