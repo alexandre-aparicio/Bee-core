@@ -106,7 +106,7 @@ test('template manager keeps public and dashboard themes independent', async ({ 
   await expect(manager).toBeVisible();
   await manager.getByLabel('Public website template').selectOption('editorial');
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
-  await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
+  await expect(page.locator('.bee-template-package-host--editorial')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
   await manager.getByRole('button', { name: 'Apply template' }).click();
   await page.reload();
@@ -121,7 +121,7 @@ test('dashboard template can be selected without changing public theme', async (
   await expect(manager).toBeVisible();
   await manager.getByLabel('Dashboard template').selectOption('paper');
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'paper');
-  await expect(page.locator('[data-bee-layout="dashboard.paper"]')).toBeVisible();
+  await expect(page.locator('.bee-template-package-host--paper')).toBeVisible();
   await expect(manager.getByText('Preview only')).toBeVisible();
   await manager.getByRole('button', { name: 'Discard' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
@@ -255,7 +255,7 @@ test('dashboard marketplace shows company packages and installs an entitled plug
     contentType: 'application/json',
     body: JSON.stringify({ tenantId: 'company-pro', plugins: [
       { id: 'files', name: 'Private Files', version: '0.1.0', description: 'Private company file and image storage', category: 'platform', system: true, entitled: true, accessSource: 'plan', installed: true },
-      { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: true, accessSource: 'plan', installed: notesInstalled }
+      { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: true, accessSource: 'plan', installed: notesInstalled, enabled: notesInstalled }
     ] })
   }));
   await page.route('**/api/notes', route => {
@@ -441,8 +441,8 @@ test('a new member can register from a one-time invitation and land in the invit
 
   await page.goto('/invite/accept#token=one-time-invitation-token');
   await expect(page.getByRole('heading', { name: 'Join your organization' })).toBeVisible();
-  await page.getByLabel('Create a password').fill('Invite-Password-2026!');
-  await page.getByLabel('Confirm password').fill('Invite-Password-2026!');
+  await page.locator('input[name="invitationPassword"]').fill('Invite-Password-2026!');
+  await page.locator('input[name="invitationPasswordConfirm"]').fill('Invite-Password-2026!');
   await page.getByRole('button', { name: 'Create account and join' }).click();
   await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard');
   await expect(page.getByLabel('Active company')).toHaveValue('company-b');
@@ -568,7 +568,7 @@ test('Settings > Tenants supports card/list views, tenant management and create 
   await page.getByRole('button', { name: /new tenant/i }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Create a tenant' })).toBeVisible();
-  await dialog.getByPlaceholder('Dragchart').fill('New Tenant');
+  await dialog.locator('input[name="companyName"]').fill('New Tenant');
   await dialog.locator('input[name="companySlug"]').fill('new-tenant');
   await dialog.getByPlaceholder('owner@company.com').fill('owner@new-tenant.test');
   await dialog.getByRole('button', { name: 'Create tenant' }).click();
@@ -577,7 +577,7 @@ test('Settings > Tenants supports card/list views, tenant management and create 
 
 
 test('Settings plugins supports cards/list and only enables plugin details', async ({ page }) => {
-  await mockDashboardSession(page, { tenantId: 'super-organization', companyName: 'Super Organization', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
+  await mockDashboardSession(page, { tenantId: 'tenant-ref', companyName: 'Bee Tenant', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'platform-admin-token',
     user: { email: 'root@example.test', roles: ['admin'], tenantId: 'tenant-ref' }
@@ -616,7 +616,7 @@ test('Settings plugins supports cards/list and only enables plugin details', asy
 
 
 test('Settings exposes the seven role-authorized sections and General has exactly three cards', async ({ page }) => {
-  await mockDashboardSession(page, { tenantId: 'super-organization', companyName: 'Super Organization', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
+  await mockDashboardSession(page, { tenantId: 'tenant-demo', companyName: 'Bee Demo', role: 'super_admin', email: 'platform@example.test', token: 'platform-admin-token', platformRole: 'superadmin' });
   await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
     accessToken: 'platform-admin-token',
     platformRole: 'superadmin',
