@@ -3,7 +3,9 @@ import { TenantCollection } from "../../core/tenant-collection.js";
 import { requireAuth, requireTenantPermissions, type AuthenticatedRequest } from "../auth/auth.guard.js";
 import { requireInstalledPlugin } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
-import type { TimeTrackingRepository, ClockEvent, TimeSession, ScheduleDay, WorkSchedule, Correction } from "./time-tracking.repository.js";
+import type { TimeTrackingRepository, ClockEvent, TimeSession, WorkSchedule, Correction } from "./time-tracking.repository.js";
+import { normalizeOperationId as operationId, normalizeSource as sourceOf, validateScheduleDays as validateDays, isChronological } from "./time-tracking.service.js";
+
 
 /** Mounts the plugin-owned HTTP interface on the shared Fastify runtime. */
 export async function registerTimeTrackingRoutes(ctx:any,repository:TimeTrackingRepository):Promise<void>{
@@ -14,8 +16,6 @@ export async function registerTimeTrackingRoutes(ctx:any,repository:TimeTracking
   const manage=[requireAuth(db,"dashboard",secret),requireTenantPermissions("time-tracking.manage"),requireInstalledPlugin(db,"time-tracking")];
   const collection=(tenantId:string)=>new TenantCollection<TimeSession>(sessions,tenantId);
   const publicSession=(row:TimeSession)=>({id:row.id,status:row.status,startedAt:row.startedAt,endedAt:row.endedAt,events:row.events.map(event=>({type:event.type,occurredAt:event.occurredAt,source:event.source}))});
-  const operationId=(value:unknown)=>String(value??"").trim().slice(0,100);
-  const sourceOf=(value:unknown):"web"|"android"=>value==="android"?"android":"web";
   ctx.server.get("/time-tracking/me/status",{preHandler:read},async(request)=>{
    const tenant=(request as AuthenticatedRequest).tenantContext;
    const active=await collection(tenant.tenantId).findOne({userId:tenant.userId,active:true});
@@ -55,16 +55,6 @@ export async function registerTimeTrackingRoutes(ctx:any,repository:TimeTracking
 
   // Phase 2: tenant-scoped weekly schedules. One interval per weekday in this
   // milestone; split shifts can be added later without changing the API owner.
-  const validTime=(value:unknown)=>typeof value==="string"&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-  const validateDays=(value:unknown):ScheduleDay[]|null=>{
-   if(!Array.isArray(value)||value.length>7)return null;
-   const seen=new Set<number>(),result:ScheduleDay[]=[];
-   for(const raw of value){
-    if(!raw||!Number.isInteger(raw.day)||raw.day<0||raw.day>6||seen.has(raw.day)||!validTime(raw.start)||!validTime(raw.end)||raw.start>=raw.end||!Number.isInteger(raw.breakMinutes)||raw.breakMinutes<0||raw.breakMinutes>240)return null;
-    seen.add(raw.day);result.push({day:raw.day,start:raw.start,end:raw.end,breakMinutes:raw.breakMinutes});
-   }
-   return result.sort((a,b)=>a.day-b.day);
-  };
   const publicSchedule=(row:WorkSchedule)=>({userId:row.userId,timezone:row.timezone,days:row.days,updatedAt:row.updatedAt});
   const resolveMember=async(userRef:string,tenantId:string,request:any):Promise<string|null>=>{
    try{
@@ -117,7 +107,6 @@ export async function registerTimeTrackingRoutes(ctx:any,repository:TimeTracking
   });
 
   // Phase 3: employees can request entry/exit corrections; managers decide.
-  const isChronological=(session:TimeSession,eventType:"clock_in"|"clock_out",requestedAt:Date)=>session.events.filter(event=>event.type!==eventType).every(event=>eventType==="clock_in"?requestedAt.getTime()<event.occurredAt.getTime():requestedAt.getTime()>event.occurredAt.getTime());
   ctx.server.post<{Body:{sessionId?:string;eventType?:string;requestedAt?:string;reason?:string}}>("/time-tracking/me/corrections",{preHandler:clock},async(request,reply)=>{
    const tenant=(request as AuthenticatedRequest).tenantContext;
    const sessionId=String(request.body?.sessionId??"").trim();
