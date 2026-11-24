@@ -175,8 +175,44 @@ type PluginRecord = {
           </footer>
         </section>
       </div>
+      <div class="plugin-settings__overlay" *ngIf="packageRemovalPlugin as removalPackage" (click)="closePackageRemoval()">
+        <section class="plugin-settings__plan-dialog plugin-settings__removal-dialog" role="dialog" aria-modal="true" aria-labelledby="plugin-removal-title" (click)="$event.stopPropagation()" (keydown.escape)="closePackageRemoval()" tabindex="-1">
+          <header class="plugin-settings__plan-heading">
+            <div><span class="plugin-settings__eyebrow">PLATFORM PACKAGE</span><h3 id="plugin-removal-title">Remove {{removalPackage.name}}?</h3><p>v{{removalPackage.version}} · {{removalPackage.pluginKey}}</p></div>
+            <button type="button" class="plugin-settings__close" (click)="closePackageRemoval()" aria-label="Close package removal">×</button>
+          </header>
+          <p class="plugin-settings__plan-description">Uninstall this plugin separately from every company before removing the global package. Tenant data is not deleted by the global removal.</p>
+          <div class="plugin-settings__removal-summary" *ngIf="packageUsageLoading">Checking tenant installations…</div>
+          <p *ngIf="packageUsageError" class="plugin-settings__error" role="alert">{{packageUsageError}}</p>
+          <ng-container *ngIf="!packageUsageLoading && packageUsage as usage">
+            <div class="plugin-settings__removal-counts">
+              <div><strong>{{usage.installedCount}}</strong><span>Tenant installations</span></div>
+              <div><strong>{{usage.pendingJobCount}}</strong><span>Operations in progress</span></div>
+            </div>
+            <div *ngIf="usage.tenants.length" class="plugin-settings__tenant-list">
+              <h4>Companies that still have the plugin</h4>
+              <div *ngFor="let tenant of usage.tenants" class="plugin-settings__tenant-row">
+                <span><strong>{{tenant.name}}</strong><small>{{tenant.kind === 'super' ? 'Platform organization' : tenant.slug || 'Tenant'}} · {{tenant.companyStatus}}</small></span>
+                <span class="plugin-settings__status">{{tenant.installationStatus}}</span>
+              </div>
+              <p class="plugin-settings__removal-hint">Open each company and use Settings → Plugins → Uninstall. When the job finishes, refresh this list.</p>
+            </div>
+            <div *ngIf="usage.pendingJobs.length" class="plugin-settings__tenant-list">
+              <h4>Operations still running</h4>
+              <div *ngFor="let job of usage.pendingJobs" class="plugin-settings__tenant-row"><span><strong>{{job.tenantName}}</strong><small>{{job.action}}</small></span><span class="plugin-settings__status">{{job.status}}</span></div>
+            </div>
+            <div *ngIf="usage.canRemove" class="plugin-settings__removal-ready">No tenant installations or pending operations remain. The package can now be removed.</div>
+            <div *ngIf="!usage.canRemove" class="plugin-settings__removal-blocked">Global removal is blocked until every tenant installation and pending operation is cleared.</div>
+          </ng-container>
+          <footer class="plugin-settings__plan-footer">
+            <button type="button" class="plugin-settings__cancel" (click)="closePackageRemoval()">Close</button>
+            <button type="button" class="plugin-settings__cancel" (click)="refreshPackageUsage()" [disabled]="packageUsageLoading || packageRemovalBusy">↻ Refresh status</button>
+            <button type="button" class="plugin-settings__save plugin-settings__danger" (click)="confirmRemovePackage()" [disabled]="!packageUsage?.canRemove || packageUsageLoading || packageRemovalBusy">{{packageRemovalBusy ? 'Removing…' : 'Remove global package'}}</button>
+          </footer>
+        </section>
+      </div>
     </section>
-  `,
+  ,
   styles: [`
     :host{display:block;min-width:0}
     .plugin-settings{color:inherit;min-width:0}
@@ -261,6 +297,21 @@ type PluginRecord = {
     .plugin-settings__plan-heading p,.plugin-settings__plan-description{font-size:12px;opacity:.68;margin:4px 0 0}
     .plugin-settings__close{width:32px;height:32px;border:1px solid var(--border,#8885);border-radius:8px;background:transparent;color:inherit;font-size:20px}
     .plugin-settings__plan-description{margin:16px 0}
+    .plugin-settings__removal-dialog{width:min(100%,620px)}
+    .plugin-settings__removal-counts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+    .plugin-settings__removal-counts>div{display:grid;gap:4px;padding:13px;border:1px solid var(--border,#8885);border-radius:10px}
+    .plugin-settings__removal-counts strong{font-size:22px}
+    .plugin-settings__removal-counts span,.plugin-settings__tenant-row small{font-size:10px;opacity:.65}
+    .plugin-settings__tenant-list{display:grid;gap:8px;margin:14px 0}
+    .plugin-settings__tenant-list h4{margin:0;font-size:12px}
+    .plugin-settings__tenant-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 11px;border:1px solid var(--border,#8885);border-radius:9px}
+    .plugin-settings__tenant-row>span:first-child{display:grid;gap:3px;min-width:0}
+    .plugin-settings__tenant-row strong{font-size:11px}
+    .plugin-settings__removal-hint,.plugin-settings__removal-blocked,.plugin-settings__removal-ready,.plugin-settings__removal-summary{padding:11px 12px;border:1px solid var(--border,#8885);border-radius:9px;font-size:11px;line-height:1.5}
+    .plugin-settings__removal-blocked{border-color:color-mix(in srgb,#d89b32 55%,var(--border,#8885))}
+    .plugin-settings__removal-ready{border-color:color-mix(in srgb,#16a36a 45%,var(--border,#8885))}
+    .plugin-settings__removal-hint{margin:0;opacity:.72}
+    .plugin-settings__danger{background:var(--bee-status-danger,#b83232);border-color:var(--bee-status-danger,#b83232)}
     .plugin-settings__plan-list{display:grid;gap:8px}
     .plugin-settings__plan-list label{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--border,#8885);border-radius:9px;cursor:pointer}
     .plugin-settings__plan-list label>span{display:grid;gap:3px}
