@@ -1029,3 +1029,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Matched the Teams secondary action treatment for Upload plugin: transparent surface, shared border/radius, 38px minimum height, typography, hover and pressed feedback.
 - At tablet/mobile widths the two halves stack cleanly; the action group stays right-aligned and all controls retain their order.
 - Light/Dark appearance continues to use the existing semantic theme tokens. Validation pending: Angular CI and browser visual checks.
+
+## Toolbar proportions and Teams filter alignment (2026-11-24)
+
+- Reduced the Settings → Plugins search and module-type filter widths to a 40% / 30% split within the filter area, leaving the remaining 30% intentionally empty instead of stretching both controls equally.
+- Updated Organization → Teams to use the same 40% / 30% / 30% filter rhythm. The search field and status selector now share one explicit grid row, with a reserved empty third column and no desktop wrapping.
+- Kept narrow-screen controls in the same row with constrained minimum sizing; the grid can shrink without allowing the status selector to drop below the search field. Existing Cards/Table, Upload plugin, New team and filtering behavior is unchanged.
+- **Validation pending:** source-level CSS/template inspection only. Angular production build, automated tests, browser responsive checks and Light/Dark visual QA have not been run. No deployment has been performed.
