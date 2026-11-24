@@ -25,8 +25,8 @@ export class BeeTimeTrackingComponent implements OnInit {
  async load():Promise<void>{
   if(!this.accessToken)return;this.loading=true;this.error="";
   try{
-   const [status,history,corrections]=await Promise.all([this.request("/time-tracking/me/status"),this.request("/time-tracking/me/sessions?limit=30"),this.request("/time-tracking/me/corrections")]);
-   this.session=status.session??null;this.history=history.sessions??[];this.corrections=corrections.corrections??[];
+   const [status,history,corrections,schedule]=await Promise.all([this.request("/time-tracking/me/status"),this.request("/time-tracking/me/sessions?limit=30"),this.request("/time-tracking/me/corrections"),this.request("/time-tracking/me/schedule")]);
+   this.session=status.session??null;this.history=history.sessions??[];this.corrections=corrections.corrections??[];this.mySchedule=schedule.schedule??null;
    if(this.canManage)await this.loadTeam();
   }catch(error){this.error=error instanceof Error?error.message:"Could not load time tracking";}finally{this.loading=false;}
  }
