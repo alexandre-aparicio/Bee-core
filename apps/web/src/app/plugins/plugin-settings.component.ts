@@ -60,7 +60,7 @@ type PluginRecord = {
             <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
           </div>
           <button *ngIf="isPlatformAdmin" type="button" class="plugin-settings__upload" (click)="pluginZipInput.click()" [disabled]="pluginUploadBusy">{{pluginUploadBusy ? 'Uploading…' : '＋ Upload plugin'}}</button>
-          <input #pluginZipInput type="file" accept=".zip,application/zip" [hidden]="!isPlatformAdmin" (change)="uploadPluginZip($event)">
+          <input #pluginZipInput type="file" accept=".zip,application/zip" hidden (change)="uploadPluginZip($event)">
         </div>
       </div>
 
