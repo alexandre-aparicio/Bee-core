@@ -165,5 +165,4 @@ export async function registerTimeTrackingRoutes(ctx:any,repository:TimeTracking
    if(!changed.modifiedCount)return reply.code(409).send({error:"This correction was already reviewed"});
    return {success:true,status:decision};
   });
-  ctx.logger.info("Time Tracking initialized: clock, weekly schedules and correction review.");
 }
