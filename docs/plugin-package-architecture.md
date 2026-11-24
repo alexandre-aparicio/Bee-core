@@ -8,7 +8,7 @@ This document describes the implemented signed backend package pipeline and rema
 
 Bee Core must not overload the word "installed". The platform package and each tenant have separate state:
 
-1. **Platform package** — a package version has been uploaded, validated, stored and registered by Super Organization. This makes its code available to the Bee Core runtime.
+1. **Platform package** — a package version has been uploaded, signature-verified, stored and registered by Super Organization. Its backend becomes available after the next Bee Core restart and startup verification.
 2. **Tenant entitlement** — a tenant receives access through its subscription plan, an explicit Super Organization grant, or a purchase.
 3. **Tenant activation** — the tenant may use the plugin only after its tenant installation/migrations have completed and it is enabled.
 
@@ -80,15 +80,11 @@ The current installer deliberately accepts backend-only ZIP packages: frontend.r
 No stage is complete until the relevant backend tests, Angular build, browser checks and migration/rollback tests have run.
 
 
-## Global package registry — implementation slice
+## Global package registry
 
-The backend now maintains `platform_plugin_packages` as the platform-level source of truth, separate from `tenant_plugin_installations`:
+The backend maintains `platform_plugin_packages` as the platform-level source of truth, separate from `tenant_plugin_installations`. Built-in package metadata is seeded idempotently, legacy Super Organization installations are migrated, and Marketplace global install operations synchronize the registry.
 
-- Built-in package metadata is seeded idempotently as `available` without pretending that every package is installed.
-- Existing Super Organization installation rows are migrated into the registry at platform-admin startup, preserving compatibility with the current Settings → Plugins installation flow.
-- Super Organization marketplace install/uninstall jobs synchronize the global package state. ZIP-sourced records are protected from bundled-package synchronization.
-- Superadmin endpoints expose the global package registry at `GET /platform/plugin-packages`; company plugin state reads global installation from this registry and tenant enabled state from tenant installation rows.
-- This is a database/state normalization step. It does not yet accept ZIP uploads or dynamically load external backend/frontend code.
+ZIP package versions are recorded in `platform_plugin_package_versions`. The extracted package files are stored under the persistent plugin volume, while runtime readiness is tracked independently as `stored_pending_runtime`, `loaded` or `failed`. Tenant plan assignments live in `plugin_plan_package_assignments`; manual tenant grants live in `tenant_plugin_entitlements`. Neither grants nor plan changes copy package files into tenants.
 
 
 ## Current limitations
