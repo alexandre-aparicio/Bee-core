@@ -22,6 +22,7 @@ import { connectedDevicesPlugin } from "./plugins/connected-devices/connected-de
 import { timeTrackingPlugin } from "./plugins/time-tracking/time-tracking.plugin.js";
 import { marketplacePlugin } from "./plugins/marketplace/marketplace.plugin.js";
 import { notesPlugin } from "./plugins/notes/notes.plugin.js";
+import { deliveriesPlugin } from "./plugins/deliveries/deliveries.plugin.js";
 import { notificationsPlugin } from "./plugins/notifications/notifications.plugin.js";
 import { mailPlugin } from "./plugins/mail/mail.plugin.js";
 import { platformAdminPlugin } from "./plugins/platform-admin/platform-admin.plugin.js";
@@ -138,6 +139,7 @@ plugins.register(connectedDevicesPlugin);
 plugins.register(timeTrackingPlugin);
 plugins.register(marketplacePlugin);
 plugins.register(notesPlugin);
+plugins.register(deliveriesPlugin);
 plugins.register(platformAdminPlugin);
 plugins.register(notificationsPlugin);
 plugins.register(mailPlugin);

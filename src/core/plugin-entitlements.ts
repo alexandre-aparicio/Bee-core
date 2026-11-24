@@ -69,9 +69,9 @@ type TenantPluginPurchase = Document & {
 };
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: null, storageMb: 10240 }
+  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "hello-world", "connected-devices", "time-tracking", "deliveries"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking", "deliveries"], maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking", "deliveries"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking", "deliveries"], maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking", "deliveries"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking", "deliveries"], maxUsers: null, storageMb: 10240 }
 ];
 
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
@@ -101,6 +101,21 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"],
     includedInPlans: ["starter", "pro", "enterprise"], purchasable: false, system: false,
     dependencies: [], activationPolicy: "manual", codeAvailable: true, status: "published"
+  },
+  {
+    id: "deliveries",
+    name: "Entregas y Recogidas",
+    version: "0.1.0",
+    description: "Gestión de entregas, recogidas, asignaciones y seguimiento de operaciones",
+    category: "operations",
+    visibleInPlans: ["starter", "pro", "enterprise"],
+    includedInPlans: ["starter", "pro", "enterprise"],
+    purchasable: false,
+    system: false,
+    dependencies: [],
+    activationPolicy: "manual",
+    codeAvailable: true,
+    status: "published"
   },
   {
     id: "notes",
