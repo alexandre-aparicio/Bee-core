@@ -291,7 +291,7 @@ export const platformAdminPlugin:BeePlugin={
     return reply.code(201).send({success:true,package:{id:mask(req.platformSession!,manifest.id,"plugin"),pluginKey:manifest.id,name:manifest.name,version:manifest.version,status:"installed",runtimeState:"stored_pending_runtime",activationPolicy:manifest.activationPolicy??"manual",extractedFiles,extractedBytes,storageKey}});
    }catch(error){
     const message=error instanceof Error?error.message:"Plugin package installation failed";
-    const status=/not configured/.test(message)?503:/already stored|already being installed/.test(message)?409:/signature|digest|manifest|ZIP|archive|path|entrypoint|compatible|storageKey|README|frontend|backend|publisher|version/i.test(message)?400:500;
+    const status=/not configured/.test(message)?503:/already stored|already being installed|reserved by a built-in|must be newer|dependency is not installed|dependency is not healthy/.test(message)?409:/signature|digest|manifest|ZIP|archive|path|entrypoint|compatible|storageKey|README|frontend|backend|publisher|version/i.test(message)?400:500;
     await recordPlatformAudit({actorId:actor.id,action:"plugin.package_upload_failed",resourceType:"plugin_package",metadata:{error:message.slice(0,300)}});
     return reply.code(status).send({error:message});
    }
