@@ -38,6 +38,15 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
         assert.match(html, /Hola Mundo/);
         assert.match(script, /bee-plugin:ready/);
+      } else if (item.id === "documents") {
+        assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
+        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/files"]);
+        assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
+        const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
+        const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
+        assert.match(html, /Documents/);
+        assert.match(script, /bee-plugin:api-request/);
+        assert.match(script, /__beeBinary/);
       } else {
         assert.equal(installed.manifest.frontend.routes.length, 0);
       }
