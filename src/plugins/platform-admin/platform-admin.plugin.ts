@@ -17,6 +17,7 @@ import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../..
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
 import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
+import { satisfiesPluginVersion } from "../../core/plugin-package.js";
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
 
@@ -283,6 +284,7 @@ export const platformAdminPlugin:BeePlugin={
        const dependencyPackage=await packages.findOne({pluginId:dependency.pluginId,status:"installed"});
        if(!dependencyPackage)throw new Error("Required platform dependency is not installed: "+dependency.pluginId);
        if(dependencyPackage.runtimeState==="failed")throw new Error("Required platform dependency is not healthy: "+dependency.pluginId);
+       if(!satisfiesPluginVersion(String(dependencyPackage.version??"0.0.0"),dependency.versionRange))throw new Error("Installed dependency version does not satisfy "+dependency.pluginId+" "+dependency.versionRange);
       }
      }
     });
