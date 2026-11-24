@@ -16,7 +16,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
   <nav class="org-roles__tabs" aria-label="Roles and permissions sections">
    <button type="button" [class.is-active]="activeTab==='system'" [attr.aria-selected]="activeTab==='system'" (click)="activeTab='system'"><span>01</span>System Roles <small>{{systemRoles.length}}</small></button>
    <button type="button" [class.is-active]="activeTab==='permissions'" [attr.aria-selected]="activeTab==='permissions'" (click)="activeTab='permissions'"><span>02</span>Available Permissions <small>{{permissions.length}}</small></button>
-   <button *ngIf="canReadAudit" type="button" [class.is-active]="activeTab==='audit'" [attr.aria-selected]="activeTab==='audit'" (click)="activeTab='audit'"><span>03</span>Role Audit <small>Live</small></button>
+   <button *ngIf="canReadAudit" type="button" [class.is-active]="activeTab==='audit'" [attr.aria-selected]="activeTab==='audit'" (click)="activeTab='audit'"><span>03</span>Role Audit <small>Audit</small></button>
   </nav>
   <section class="org-roles__tab-panel" *ngIf="activeTab==='system'">
    <div class="org-roles__section-heading"><div><h3>Roles</h3><p>Browse Core-managed native roles and organization-created roles in one collection. Native role permissions are maintained by Core; custom roles follow the organization delegation policy.</p></div><span class="org-roles__section-tag">{{systemRoles.length}} native · {{roles.length}} created</span></div>
