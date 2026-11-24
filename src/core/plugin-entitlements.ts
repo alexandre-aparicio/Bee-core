@@ -318,12 +318,12 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const installed = await installations.find({ status: { $in: ["installed", "updating", "uninstalling"] } }).toArray();
   const installedIds = new Set(installed.map(item => item.pluginId));
   const installedVersions = new Map(installed.map(item => [item.pluginId, item.version]));
-  const platformPackages = await db.collection("platform_plugin_packages").find({ pluginId: { $in: visibleIds } }).project<{pluginId:string;globallyEnabled?:boolean}>({pluginId:1,globallyEnabled:1,_id:0}).toArray();
-  const globallyEnabledByPlugin = new Map(platformPackages.map(item => [item.pluginId, item.globallyEnabled !== false]));
   const enabledByPlugin = new Map(installed.map(item => [item.pluginId, item.enabled !== false]));
   const planAssignments = await db.collection("plugin_plan_package_assignments").find({ planId: effectivePlan.id }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
   const planAssignedIds = new Set(planAssignments.map(item => item.pluginId));
   const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...planAssignedIds, ...purchasedIds, ...manualGrantIds])];
+  const platformPackages = await db.collection("platform_plugin_packages").find({ pluginId: { $in: visibleIds } }).project<{pluginId:string;globallyEnabled?:boolean}>({pluginId:1,globallyEnabled:1,_id:0}).toArray();
+  const globallyEnabledByPlugin = new Map(platformPackages.map(item => [item.pluginId, item.globallyEnabled !== false]));
   const catalog = await db.collection<PluginPackageDefinition>("plugin_catalog")
     .find({ id: { $in: visibleIds }, status: "published", codeAvailable: true })
     .sort({ name: 1 })
