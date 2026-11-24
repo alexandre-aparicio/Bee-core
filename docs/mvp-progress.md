@@ -5,7 +5,8 @@
 - Custom roles retain their existing organization-scoped data and grant/restriction semantics. Their overflow menu supports View details and Edit; native Core-managed roles remain read-only with unsupported mutation actions disabled.
 - Kept the existing custom-role editor, API endpoints, permission delegation checks and authorization behavior. No backend or permission model changes.
 - Desktop uses the 50/50 toolbar split and 40/30/30 filter rhythm; below 760px the toolbar stacks responsively. Styles use the component's semantic theme tokens for Light/Dark compatibility.
-- **Validation pending:** source-level template/style inspection only. Angular production build, automated tests, browser checks at desktop/tablet/mobile widths, Light/Dark visual QA and VPS deployment have not been run.
+- **CI validation (run 45454764853, 2026-11-24): passed.** GitHub Actions completed dependency installation, Angular production build and Playwright test discovery successfully. Playwright discovery validates test collection only; it does not execute browser E2E tests.
+- **Still pending:** actual browser E2E execution, visual checks at desktop/tablet/mobile widths, Light/Dark visual QA and VPS deployment.
 
 ## Plugin catalogue aligned with Organization → Teams (2026-11-24)
 
