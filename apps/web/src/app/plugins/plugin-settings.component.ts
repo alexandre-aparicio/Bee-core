@@ -64,6 +64,21 @@ type PluginRecord = {
         </div>
       </div>
 
+      <section *ngIf="isPlatformAdmin" class="plugin-settings__packages" aria-label="Installed platform packages">
+        <header class="plugin-settings__packages-head">
+          <div><strong>Installed platform packages</strong><p>Signed ZIP packages loaded by the Bee-Core runtime.</p></div>
+          <button type="button" (click)="loadPlatformPackages()" [disabled]="pluginPackagesLoading">{{pluginPackagesLoading ? 'Refreshing…' : 'Refresh packages'}}</button>
+        </header>
+        <p *ngIf="pluginPackagesLoading && !platformPackages.length" class="plugin-settings__state">Loading platform packages…</p>
+        <p *ngIf="!pluginPackagesLoading && !packageError && !platformPackages.length" class="plugin-settings__state">No platform packages have been installed.</p>
+        <div *ngIf="platformPackages.length" class="plugin-settings__package-list">
+          <article *ngFor="let item of platformPackages" class="plugin-settings__package-row">
+            <div><strong>{{item.name}}</strong><small>{{item.pluginKey}} · v{{item.version}} · {{item.source}}</small></div>
+            <span class="plugin-settings__package-state" [class.is-loaded]="item.runtimeState === 'loaded'" [class.is-failed]="item.runtimeState === 'failed'">{{item.runtimeState || item.status}}</span>
+          </article>
+        </div>
+      </section>
+
       <p *ngIf="loading" class="plugin-settings__state">Loading modules…</p>
       <p *ngIf="error" class="plugin-settings__error" role="alert">{{error}}</p>
       <p *ngIf="packageError && !planConfigPlugin" class="plugin-settings__error" role="alert">{{packageError}}</p>
@@ -200,6 +215,19 @@ type PluginRecord = {
     .plugin-settings__upload{display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:8px;padding:8px 13px;border:1px solid var(--border,#8885);border-radius:9px;background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:600;line-height:1.2;white-space:nowrap;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,transform .16s ease}
     .plugin-settings__upload:hover:not(:disabled){background:color-mix(in srgb,var(--purple,#777) 10%,transparent);border-color:color-mix(in srgb,var(--purple,#777) 55%,var(--border,#8885))}
     .plugin-settings__upload:active:not(:disabled){transform:translateY(1px)}
+    .plugin-settings__packages{margin:0 0 22px;padding:14px;border:1px solid var(--border,#8885);border-radius:12px;background:var(--panel,#8881)}
+    .plugin-settings__packages-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+    .plugin-settings__packages-head strong{font-size:13px}
+    .plugin-settings__packages-head p{margin:4px 0 0;font-size:11px;opacity:.65}
+    .plugin-settings__packages-head button{padding:7px 10px;border:1px solid var(--border,#8885);border-radius:8px;background:transparent;color:inherit;font-size:11px}
+    .plugin-settings__package-list{display:grid;gap:7px}
+    .plugin-settings__package-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 11px;border:1px solid var(--border,#8885);border-radius:9px}
+    .plugin-settings__package-row>div{display:grid;gap:3px;min-width:0}
+    .plugin-settings__package-row strong{font-size:12px}
+    .plugin-settings__package-row small{font-size:10px;opacity:.62}
+    .plugin-settings__package-state{flex:0 0 auto;padding:4px 8px;border:1px solid var(--border,#8885);border-radius:20px;font-size:10px}
+    .plugin-settings__package-state.is-loaded{color:var(--bee-status-success,#16a36a);border-color:color-mix(in srgb,#16a36a 45%,var(--border,#8885))}
+    .plugin-settings__package-state.is-failed{color:var(--bee-status-danger,#d66);border-color:color-mix(in srgb,#d66 45%,var(--border,#8885))}
     .plugin-settings__cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,245px),1fr));gap:12px}
     .plugin-settings__card{position:relative;display:flex;flex-direction:column;gap:12px;min-width:0;min-height:174px;padding:14px;border:1px solid var(--border,#8885);border-radius:11px;background:var(--panel,#8881);transition:border-color .16s,background .16s}
     .plugin-settings__card:hover{border-color:color-mix(in srgb,var(--purple,#777) 48%,var(--border,#8885));background:color-mix(in srgb,var(--panel,#8881) 92%,var(--purple,#777))}
