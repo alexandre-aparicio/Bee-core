@@ -240,7 +240,7 @@ export const organizationsPlugin:BeePlugin={
    ]);
    const assignedRoleName=assignedRole?.name??invitation.role;
    const assignedRestrictionNames=assignedRestrictions.map(item=>item.name);
-   await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"invitation",resourceId:invitation.id,metadata:{role:invitation.role,roleName:assignedRoleName,restrictionRoleNames:assignedRestrictionNames.join(", ").slice(0,256),actorEmail:auth.user!.email,targetEmail:email,phase:"created",changeSummary:"Invited "+email+" with "+assignedRoleName+(assignedRestrictionNames.length?"; restrictions: "+assignedRestrictionNames.join(", "):"")}});
+   await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"invitation",resourceId:invitation.id,metadata:{role:invitation.role,roleName:assignedRoleName,restrictionRoleNames:assignedRestrictionNames.join(", ").slice(0,256),actorEmail:auth.user!.email,targetEmail:email,phase:"created",changeSummary:("Invited "+email+" with "+assignedRoleName+(assignedRestrictionNames.length?"; restrictions: "+assignedRestrictionNames.join(", "):"")).slice(0,256)}});
    return reply.code(201).send({invitation:{id:mask(auth,invitation.id,"invitation"),email,role,expiresAt:invitation.expiresAt},acceptanceToken:token});
   });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/invitations",async(req,reply)=>{
@@ -314,7 +314,7 @@ export const organizationsPlugin:BeePlugin={
     const now=new Date();
     if(existing)await memberships.updateOne({id:existing.id},{$set:{role,status:"active",updatedAt:now}});
     else await memberships.insertOne({id:randomUUID(),userId:target.id,tenantId:req.params.companyId,role,status:"active",createdAt:now,updatedAt:now});
-    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.added",outcome:"success",resourceType:"membership",resourceId:target.id,metadata:{role,actorEmail:auth.user!.email,targetEmail:target.email,changeSummary:"Added "+target.email+" as "+role}});
+    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.added",outcome:"success",resourceType:"membership",resourceId:target.id,metadata:{role,actorEmail:auth.user!.email,targetEmail:target.email,changeSummary:("Added "+target.email+" as "+role).slice(0,256)}});
    }
    // Unknown, disabled, already-active and over-limit addresses receive the same response.
    return reply.code(202).send({success:true,message:"The membership request has been accepted for processing."});
