@@ -212,6 +212,7 @@ Rules:
 - Header, body and footer regions should align across equivalent cards.
 - Surface colors/borders/shadows come from template tokens, never literal per-feature colors.
 - Interactive cards must expose keyboard interaction and a visible focus state; otherwise keep them non-interactive.
+- **Unified collection hover:** interactive record cards and table rows representing the same kind of item MUST share one subtle hover treatment. Hover changes the surface tint only; it MUST NOT change layout, dimensions, content, opacity or introduce a strong glow/scale effect. Use the active template's semantic hover-surface token rather than feature-local literal colors. The treatment is pointer-only feedback, never the sole way to expose actions or state; keyboard focus MUST remain independently visible.
 
 ### 5.2 Buttons and actions
 
@@ -301,6 +302,7 @@ A field consists of a persistent label, control, optional help text and validati
 - Provide clear empty, loading and error states.
 - Align numeric values consistently; avoid mixing unrelated data types in a column.
 - Keep row height, padding, separators and hover behavior consistent.
+- In a collection that also has a card presentation, table-row hover MUST use the same semantic hover-surface treatment as the corresponding cards. Do not give cards and rows different accent colors or hover intensity.
 - Long values should wrap, truncate with an accessible way to inspect, or occupy a deliberate secondary line.
 - Row actions belong in a predictable final column or consistent overflow menu.
 - Do not expose internal database IDs or opaque tokens as user-facing identity.
