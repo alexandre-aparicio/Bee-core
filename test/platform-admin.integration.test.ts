@@ -70,10 +70,14 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   await db.collection("plugin_catalog").insertOne({id:"hello-world",name:"Hola Mundo",version:"0.1.0",description:"External test package",category:"test",dependencies:[],status:"published",codeAvailable:true});
   await db.collection("tenant_plugin_installations").insertOne({id:"hello-world-install",tenantId:rawCompany.id,pluginId:"hello-world",version:"0.1.0",status:"installed"});
   await db.collection("tenant_plugin_data").insertOne({tenantId:rawCompany.id,pluginId:"hello-world",value:"keep-me"});
-  const packageUsage=await app.inject({method:"GET",url:"/platform/plugin-packages/hello-world/tenants",headers:rootHeaders});
+  const packageList=await app.inject({method:"GET",url:"/platform/plugin-packages",headers:rootHeaders});
+  assert.equal(packageList.statusCode,200);
+  const helloWorldPackage=packageList.json().packages.find((item:any)=>item.pluginKey==="hello-world");
+  assert.ok(helloWorldPackage?.id,"platform package routes must use opaque resource references");
+  const packageUsage=await app.inject({method:"GET",url:"/platform/plugin-packages/"+encodeURIComponent(helloWorldPackage.id)+"/tenants",headers:rootHeaders});
   assert.equal(packageUsage.statusCode,200);assert.equal(packageUsage.json().installedCount,1);assert.equal(packageUsage.json().canRemove,false);
   assert.equal(packageUsage.json().tenants[0].name,"Acme Test");
-  const blockedPackageRemoval=await app.inject({method:"DELETE",url:"/platform/plugin-packages/hello-world",headers:rootHeaders});
+  const blockedPackageRemoval=await app.inject({method:"DELETE",url:"/platform/plugin-packages/"+encodeURIComponent(helloWorldPackage.id),headers:rootHeaders});
   assert.equal(blockedPackageRemoval.statusCode,409,"global package removal must be blocked while a tenant still has it installed");
   assert.ok(await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world",status:"installed"}),"blocked removal must leave the global package intact");
   await db.collection("tenant_plugin_installations").updateOne({tenantId:rawCompany.id,pluginId:"hello-world"},{$set:{status:"uninstalled"}});
