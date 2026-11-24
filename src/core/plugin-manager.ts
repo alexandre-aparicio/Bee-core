@@ -31,6 +31,7 @@ export class BeePluginManager {
     "time-tracking": ["mongoDbName", "sessionIdSecret"],
     marketplace: ["mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
     notes: ["mongoDbName", "sessionIdSecret"],
+    deliveries: ["mongoDbName", "sessionIdSecret"],
     mail: ["mongoDbName", "sessionIdSecret"],
     notifications: ["mongoDbName", "sessionIdSecret"],
     "platform-admin": ["mongoDbName", "sessionIdSecret"],
