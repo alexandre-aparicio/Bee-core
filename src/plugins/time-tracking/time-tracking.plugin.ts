@@ -28,6 +28,7 @@ export const timeTrackingPlugin:BeePlugin={
    schedules.createIndex({tenantId:1,userId:1},{unique:true,name:"time_tracking_schedule_user_unique"}),
    corrections.createIndex({tenantId:1,id:1},{unique:true,name:"time_tracking_correction_id_unique"}),
    corrections.createIndex({tenantId:1,userId:1,createdAt:-1},{name:"time_tracking_correction_user_history"}),
+   corrections.createIndex({tenantId:1,sessionId:1,eventType:1},{unique:true,partialFilterExpression:{status:"pending"},name:"time_tracking_one_pending_correction_per_event"}),
    corrections.createIndex({tenantId:1,status:1,createdAt:1},{name:"time_tracking_correction_review_queue"})
   ]);
   const secret=String(ctx.config.sessionIdSecret??ctx.config.jwtSecret??"");
@@ -139,6 +140,7 @@ export const timeTrackingPlugin:BeePlugin={
   });
 
   // Phase 3: employees can request entry/exit corrections; managers decide.
+  const isChronological=(session:TimeSession,eventType:"clock_in"|"clock_out",requestedAt:Date)=>session.events.filter(event=>event.type!==eventType).every(event=>eventType==="clock_in"?requestedAt.getTime()<event.occurredAt.getTime():requestedAt.getTime()>event.occurredAt.getTime());
   ctx.server.post<{Body:{sessionId?:string;eventType?:string;requestedAt?:string;reason?:string}}>("/time-tracking/me/corrections",{preHandler:clock},async(request,reply)=>{
    const tenant=(request as AuthenticatedRequest).tenantContext;
    const sessionId=String(request.body?.sessionId??"").trim();
@@ -152,10 +154,11 @@ export const timeTrackingPlugin:BeePlugin={
    if(!event)return reply.code(409).send({error:"The requested event does not exist in this session"});
    if(eventType==="clock_out"&&session.status!=="closed")return reply.code(409).send({error:"You can only correct the exit of a closed session"});
    if(Math.abs(requestedAt.getTime()-event.occurredAt.getTime())>7*24*60*60*1000)return reply.code(400).send({error:"A correction cannot move an event by more than seven days"});
+   if(!isChronological(session,eventType,requestedAt))return reply.code(400).send({error:"The corrected time must remain before/after the other events in the work session"});
    const pending=await corrections.findOne({tenantId:tenant.tenantId,sessionId,userId:tenant.userId,eventType,status:"pending"});
    if(pending)return reply.code(409).send({error:"There is already a pending correction for this event"});
    const now=new Date(),row:Omit<Correction,"tenantId">={id:randomUUID(),sessionId,userId:tenant.userId,eventType,originalAt:event.occurredAt,requestedAt,reason,status:"pending",createdAt:now};
-   await new TenantCollection<Correction>(corrections,tenant.tenantId).insertOne(row);
+   try{await new TenantCollection<Correction>(corrections,tenant.tenantId).insertOne(row);}catch(error){if((error as {code?:number}).code===11000)return reply.code(409).send({error:"There is already a pending correction for this event"});throw error;}
    return reply.code(201).send({correction:{id:row.id,eventType,originalAt:row.originalAt,requestedAt:row.requestedAt,reason,status:row.status,createdAt:row.createdAt}});
   });
   ctx.server.get("/time-tracking/me/corrections",{preHandler:read},async request=>{
@@ -186,6 +189,7 @@ export const timeTrackingPlugin:BeePlugin={
     if(!session)return reply.code(409).send({error:"The original work session no longer exists"});
     const event=session.events.find(item=>item.type===correction.eventType);
     if(!event||event.occurredAt.getTime()!==correction.originalAt.getTime())return reply.code(409).send({error:"The original event changed after the request; refresh the review queue"});
+    if(!isChronological(session,correction.eventType,correction.requestedAt))return reply.code(409).send({error:"The requested time would make the work session events invalid"});
     const set:any={"events.$[event].occurredAt":correction.requestedAt,updatedAt:now};
     if(correction.eventType==="clock_in")set.startedAt=correction.requestedAt;else set.endedAt=correction.requestedAt;
     const changed=await sessions.updateOne({tenantId:tenant.tenantId,id:session.id,userId:correction.userId},{$set:set},{arrayFilters:[{"event.type":correction.eventType}]});
