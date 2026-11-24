@@ -24,7 +24,7 @@ export const timeTrackingPlugin: BeePlugin = {
     phase: "install",
     async up(db) {
       for (const index of timeTrackingIndexes) {
-        await db.collection("tenant_time_tracking_sessions").createIndex(index.key as Record<string, 1>, index.options);
+        await db.collection("tenant_time_tracking_sessions").createIndex(index.key as Record<string, number>, index.options);
       }
     },
     async down(db) {
