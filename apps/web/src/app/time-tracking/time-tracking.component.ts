@@ -16,7 +16,7 @@ export class BeeTimeTrackingComponent implements OnInit {
  scheduleDraft:ScheduleDay[]=Array.from({length:7},(_,day)=>({day,enabled:false,start:"09:00",end:"17:00",breakMinutes:0}));
  correctionTarget:{sessionId:string;eventType:"clock_in"|"clock_out";originalAt:string}|null=null;
  requestedAt=""; correctionReason="";
- ngOnInit():void{void this.load();}
+ ngOnInit():void{const section=new URLSearchParams(window.location.search).get("section");this.activeSection=section==="schedule"?"schedule":section==="history"?"history":section==="requests"?"requests":"my-day";void this.load();}
  get canManage():boolean{return ["owner","admin","manager","super_admin","superadmin"].includes(this.role.toLowerCase());}
  private async request(path:string,method="GET",body?:unknown):Promise<any>{
   const response=await fetch("/api"+path,{method,headers:{authorization:"Bearer "+this.accessToken,...(body!==undefined?{"content-type":"application/json"}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
