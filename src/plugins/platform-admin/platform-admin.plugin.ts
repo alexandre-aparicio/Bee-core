@@ -16,6 +16,7 @@ import { getTenantSubscription, getTrustedPluginPackage, hasPluginEntitlement, T
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
+import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
@@ -244,6 +245,55 @@ export const platformAdminPlugin:BeePlugin={
    const usersById=new Map((await users.find({id:{$in:rows.map(row=>row.userId)}},{projection:{id:1,email:1,enabled:1,createdAt:1}}).toArray()).map(user=>[user.id,user]));
    return {tenantId:mask(req.platformSession!,company.id,"tenant"),users:rows.map(row=>{const user=usersById.get(row.userId);return {userId:mask(req.platformSession!,row.userId,"user"),email:user?.email??"Unknown user",role:row.role,status:!user?.enabled?"disabled":row.status,createdAt:row.createdAt};})};
   });
+  ctx.server.post<{Body:{archiveBase64?:string}}>("/platform/plugin-packages",{bodyLimit:70*1024*1024},async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const archiveBase64=req.body?.archiveBase64;
+   if(typeof archiveBase64!=="string"||!archiveBase64.length)return reply.code(400).send({error:"archiveBase64 is required"});
+   if(archiveBase64.length>Math.ceil(50*1024*1024*4/3)+8||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(archiveBase64))return reply.code(413).send({error:"ZIP payload must be canonical base64 and no larger than 50 MB"});
+   const archive=Buffer.from(archiveBase64,"base64");
+   if(archive.length>50*1024*1024||archive.toString("base64")!==archiveBase64)return reply.code(413).send({error:"ZIP payload is invalid or exceeds 50 MB"});
+   try{
+    const installed=await installSignedPluginZip({
+     archive,
+     storageRoot:String(ctx.config.pluginPackagePath??"/data/bee-plugins"),
+     publisherPublicKey:String(ctx.config.pluginPublisherPublicKey??""),
+     runtimeVersion:ctx.version
+    });
+    const {manifest,digest,storageKey,packageDirectory,extractedFiles,extractedBytes}=installed;
+    const packages=db.collection("platform_plugin_packages");
+    const existing=await packages.findOne({pluginId:manifest.id});
+    if(existing&&existing.source!=="zip")return reply.code(409).send({error:"Plugin ID is reserved by a built-in package"});
+    if(existing?.version&&existing.version!==manifest.version){
+     const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
+     const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
+     const isUpgrade=incoming[0]!>current[0]!||(incoming[0]===current[0]&&incoming[1]!>current[1]!)||(incoming[0]===current[0]&&incoming[1]===current[1]&&incoming[2]!>current[2]!);
+     if(!isUpgrade)return reply.code(409).send({error:"Package version must be newer than the currently installed version"});
+    }
+    for(const dependency of manifest.dependencies.filter(item=>!item.optional)){
+     const dependencyPackage=await packages.findOne({pluginId:dependency.pluginId,status:"installed"});
+     if(!dependencyPackage)return reply.code(409).send({error:"Required platform dependency is not installed: "+dependency.pluginId});
+     if(dependencyPackage.runtimeState==="failed")return reply.code(409).send({error:"Required platform dependency is not healthy: "+dependency.pluginId});
+    }
+    const now=new Date();
+    await db.collection("platform_plugin_package_versions").updateOne(
+     {pluginId:manifest.id,version:manifest.version},
+     {$setOnInsert:{pluginId:manifest.id,version:manifest.version,digest,storageKey,packageDirectory,publisher:manifest.publisher,manifest,runtimeState:"stored_pending_runtime",installedAt:now,installedBy:actor.id,createdAt:now}},
+     {upsert:true}
+    );
+    await packages.updateOne(
+     {pluginId:manifest.id},
+     {$set:{name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),activationPolicy:manifest.activationPolicy??"manual",status:"installed",source:"zip",runtimeState:"stored_pending_runtime",publisher:manifest.publisher,digest,packageDirectory,backendEntrypoint:manifest.backend.entrypoint,frontendRoutes:manifest.frontend.routes,installedAt:now,installedBy:actor.id,updatedAt:now},$setOnInsert:{pluginId:manifest.id,createdAt:now}},
+     {upsert:true}
+    );
+    await recordPlatformAudit({actorId:actor.id,action:"plugin.package_uploaded",resourceType:"plugin_package",resourceId:manifest.id,metadata:{version:manifest.version,digest,publisher:manifest.publisher,extractedFiles,extractedBytes,runtimeState:"stored_pending_runtime"}});
+    return reply.code(201).send({success:true,package:{id:mask(req.platformSession!,manifest.id,"plugin"),pluginKey:manifest.id,name:manifest.name,version:manifest.version,status:"installed",runtimeState:"stored_pending_runtime",activationPolicy:manifest.activationPolicy??"manual",extractedFiles,extractedBytes,storageKey}});
+   }catch(error){
+    const message=error instanceof Error?error.message:"Plugin package installation failed";
+    const status=/not configured/.test(message)?503:/already stored|already being installed/.test(message)?409:/signature|digest|manifest|ZIP|archive|path|entrypoint|compatible|storageKey|README|frontend|backend|publisher|version/i.test(message)?400:500;
+    await recordPlatformAudit({actorId:actor.id,action:"plugin.package_upload_failed",resourceType:"plugin_package",metadata:{error:message.slice(0,300)}});
+    return reply.code(status).send({error:message});
+   }
+  });
   ctx.server.get("/platform/plugin-packages",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const packages=await listPlatformPluginPackages(db);
@@ -256,6 +306,8 @@ export const platformAdminPlugin:BeePlugin={
     version:item.version,
     dependencies:item.dependencies,
     activationPolicy:item.activationPolicy??"manual",
+    runtimeState:item.runtimeState??(item.source==="bundled"?"loaded":null),
+    publisher:item.publisher??null,
     status:item.status,
     source:item.source,
     installedAt:item.installedAt,
