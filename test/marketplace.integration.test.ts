@@ -184,6 +184,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaDeactivate = await app.inject({ method: "PUT", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/activation", headers: { authorization: "Bearer " + betaToken }, payload: { enabled: false } });
     assert.equal(betaDeactivate.statusCode, 200);
     assert.equal(betaDeactivate.json().enabled, false);
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.disabled",resourceId:"notes"}),1,"tenant deactivation must be audited");
     const betaDisabledCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaDisabledCatalog.json().plugins.find((plugin: { pluginKey: string }) => plugin.pluginKey === "notes").enabled, false);
     const betaDisabledNotes = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
@@ -191,6 +192,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaReactivate = await app.inject({ method: "PUT", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/activation", headers: { authorization: "Bearer " + betaToken }, payload: { enabled: true } });
     assert.equal(betaReactivate.statusCode, 200);
     assert.equal(betaReactivate.json().enabled, true);
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.enabled",resourceId:"notes"}),1,"tenant activation must be audited");
     const betaNoteCreate = await app.inject({
       method: "POST",
       url: "/notes",
@@ -221,13 +223,13 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaAfterUninstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterUninstall.statusCode, 403);
     assert.equal(await db.collection("tenant_notes").countDocuments({ tenantId: "market-beta" }), 1);
-    const betaReinstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } });
-    assert.equal(betaReinstall.statusCode, 202);
-    await waitForInstallJob(await resolveJobId(betaToken,betaReinstall.json().jobId as string));
-    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.installed",resourceType:"plugin",resourceId:"notes"}),2,"plugin reinstall should produce a second install event");
+    const betaReactivateAfterUninstall = await app.inject({ method: "PUT", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/activation", headers: { authorization: "Bearer " + betaToken }, payload: { enabled: true } });
+    assert.equal(betaReactivateAfterUninstall.statusCode, 200);
+    assert.equal((await db.collection("tenant_plugin_installations").findOne({tenantId:"market-beta",pluginId:"notes"}))?.status,"installed");
+    assert.equal((await db.collection("tenant_plugin_installations").findOne({tenantId:"market-beta",pluginId:"notes"}))?.enabled,true);
     const betaAfterReinstall = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterReinstall.statusCode, 200);
-    assert.equal(betaAfterReinstall.json().notes.length, 1);
+    assert.equal(betaAfterReinstall.json().notes.length, 1,"activation after deactivation/uninstall must retain tenant-owned data");
 
     await db.collection("tenant_plugin_installations").updateOne(
       { tenantId: "market-beta", pluginId: "notes" },

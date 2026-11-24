@@ -106,7 +106,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
     await this.runAction(plugin, "POST", "update");
   }
 
-  private async waitForLifecycleJob(jobId: string, action: "install" | "update" | "uninstall"): Promise<void> {
+  private async waitForLifecycleJob(jobId: string): Promise<void> {
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {
       const response = await fetch("/api/marketplace/install-jobs/" + encodeURIComponent(jobId), {
@@ -121,7 +121,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       this.message = job.status === "running" ? verb + this.plugins.find(item => item.id === this.busyId)?.name + "…" : "Waiting for plugin lifecycle worker…";
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-    throw new Error("Plugin " + action + " is still running. Refresh the marketplace to check its status.");
+    throw new Error("Plugin update is still running. Refresh the marketplace to check its status.");
   }
 
   async toggleActivation(plugin: MarketplacePlugin): Promise<void> {
@@ -162,7 +162,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       if (!response.ok) throw new Error(result.error || "Plugin action failed");
       if (result.jobId) {
         this.message = plugin.name + " update queued…";
-        await this.waitForLifecycleJob(result.jobId as string, "update");
+        await this.waitForLifecycleJob(result.jobId as string);
       }
       await this.load();
       this.message = plugin.name + " updated for this company.";
