@@ -423,3 +423,11 @@ The System Roles tab MUST use the same collection composition as Organization �
 - Organization → Roles & Permissions uses the same explicit Midnight Light host-context token mapping as Organization → Teams. The override is scoped to the Midnight package in Light mode and remaps local surfaces, foreground, muted text, borders, accent, semantic status colors and shadow; it must not affect Midnight Dark, Glass or Paper.
 - System-role cards, tabs, search, table, overflow menus, permission circles/tooltips and role dialogs must use the mapped semantic tokens. Selected Cards/Table controls and primary actions keep a white foreground over violet for contrast, matching Teams.
 - Any new Roles surface or control must be checked in both Midnight Light and Midnight Dark; a light dashboard canvas alone does not count as Light-mode support.
+
+
+### Organization → Users collection (Midnight)
+
+- Match Documents' collection toolbar: two equal 50% zones, with search/status filters on the left and the Cards/Table selector right-aligned in the right zone with a small right inset. Stack the zones cleanly on mobile.
+- Reuse Documents' view selector exactly: 34×32px buttons, 5px gap, 7px radius, 17px centered glyph, zero padding, semantic border and violet selected state. Keep keyboard focus and aria-pressed behavior.
+- Users cards use three columns on desktop, two on tablet and one on mobile; equal-height cards per row, 12px gap, 12px radius, 16px padding and the Documents restrained violet hover tint. Table rows use the matching 5% violet hover tint.
+- Cards and Table show the same filtered members and preserve all existing role assignment, restriction, status and overflow actions. Use Midnight semantic tokens so panels, controls, borders, text and selected states remain correct in Light and Dark.
