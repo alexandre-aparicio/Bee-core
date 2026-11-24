@@ -1,3 +1,11 @@
+## Plugin catalogue aligned with Organization → Teams (2026-11-24)
+
+- Reworked Settings → Plugins into the same collection workflow as Organization → Teams: inline search, module-type selector (All modules / System modules / Extensions), Cards/Table toggle and the platform-admin Upload plugin action in one toolbar.
+- Replaced the previous compact three-column plugin tiles with uniform collection cards, consistent icon/menu placement, metadata/status chips, subtle hover treatment, responsive columns and a matching table view.
+- Moved global package plan assignment out of the page-level panel. Platform administrators now reach **Configure plans** from each eligible module card/table vertical-ellipsis menu; the existing plan assignment API, runtime-loaded guard and tenant activation separation remain unchanged.
+- Kept search and type filtering client-side and shared by Cards and Table; preserved existing plugin detail, install/uninstall lifecycle and ZIP upload behavior.
+- **Validation:** source-level review only. No Angular production build, automated tests, browser interaction, responsive screenshots or Light/Dark visual QA have been run.
+
 ## Organization → Users Cards/Table collection layout (2026-11-24)
 
 - Reworked the Members directory toolbar to match the Documents collection pattern: the left 50% contains search and status filter; the right 50% contains the Cards/Table selector aligned to the right with an inset. The selector follows Documents dimensions, spacing, glyph size, border, selected and focus behavior.
