@@ -145,9 +145,39 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
       </div>
       <label class="org-roles__mode-label">Role behavior<select name="roleMode" [(ngModel)]="mode" (ngModelChange)="updateMode($event)" [disabled]="!canManage"><option value="grant">Grant role — explicitly allows selected permissions</option><option value="restriction">Restriction role — explicitly denies selected permissions</option></select></label>
       <p class="org-roles__mode-hint">{{mode==='restriction'?'Selected permissions are explicit denials. Denials always override permissions granted by the primary role.':'Selected permissions are grants. They remain limited by the global delegation policy.'}}</p>
-      <div class="org-roles__groups"><section *ngFor="let group of groups"><h4>{{group}}</h4>
-       <label class="org-roles__permission" *ngFor="let item of inGroup(group)"><input type="checkbox" [checked]="item.selected" (change)="item.selected=$any($event.target).checked" [disabled]="!canManage||!item.assignable"><span><strong>{{item.label}}</strong><small>{{item.action}} · {{item.description}}</small><code>{{item.key}}</code></span><em *ngIf="!item.assignable">System protected</em><em *ngIf="item.assignable&&item.sensitive">Sensitive</em></label>
-      </section></div>
+      <section class="org-roles__module-builder" aria-label="Module permissions">
+       <div class="org-roles__module-search-wrap">
+        <label class="org-roles__module-search-label" for="org-role-module-search">Add permissions by module</label>
+        <div class="org-roles__module-search"><span aria-hidden="true">⌕</span><input id="org-role-module-search" name="moduleSearch" [(ngModel)]="moduleSearch" autocomplete="off" placeholder="Type a module name…" [disabled]="!canManage"><button type="button" *ngIf="moduleSearch" (click)="moduleSearch=''" aria-label="Clear module search">×</button></div>
+        <div class="org-roles__module-suggestions" *ngIf="moduleSearch.trim() && !activePermissionModule">
+         <button type="button" *ngFor="let group of matchingPermissionModules" (click)="openPermissionModule(group)"><span><strong>{{group}}</strong><small>{{inGroup(group).length}} available permissions</small></span><span aria-hidden="true">＋</span></button>
+         <p *ngIf="!matchingPermissionModules.length">No matching modules available.</p>
+        </div>
+       </div>
+       <section class="org-roles__module-permission-card" *ngIf="activePermissionModule as module">
+        <header><div><span class="org-roles__module-eyebrow">MODULE PERMISSIONS</span><h4>{{module}}</h4><p>Select the permissions this role should {{mode==='restriction'?'deny':'grant'}}.</p></div><button type="button" class="org-roles__module-close" (click)="closePermissionModule()" aria-label="Close module permissions">×</button></header>
+        <div class="org-roles__module-permission-grid">
+         <label class="org-roles__module-permission" *ngFor="let item of inGroup(module)">
+          <input type="checkbox" [checked]="item.selected" (change)="item.selected=$any($event.target).checked" [disabled]="!canManage||!item.assignable">
+          <span><strong>{{item.label}}</strong><small>{{item.description}}</small><code>{{item.key}}</code></span>
+          <em *ngIf="!item.assignable">Protected</em><em *ngIf="item.assignable&&item.sensitive">Sensitive</em>
+         </label>
+        </div>
+        <footer><span>{{selectedCountForModule(module)}} selected · {{inGroup(module).length}} available</span><button type="button" class="org-roles__primary" (click)="closePermissionModule()">Save module</button></footer>
+       </section>
+       <div class="org-roles__assigned-modules">
+        <div class="org-roles__assigned-heading"><strong>Assigned modules</strong><span>{{selectedPermissionModules.length}} modules</span></div>
+        <div class="org-roles__module-chip-grid" *ngIf="selectedPermissionModules.length; else noAssignedModules">
+         <div class="org-roles__module-chip" *ngFor="let module of selectedPermissionModules">
+          <button type="button" class="org-roles__module-chip-edit" (click)="openPermissionModule(module)" [disabled]="!canManage" [attr.aria-label]="'Edit '+module+' permissions'" title="Edit permissions">✎</button>
+          <span class="org-roles__module-chip-name" [title]="module">{{module}}</span>
+          <span class="org-roles__module-chip-count">{{selectedCountForModule(module)}}</span>
+          <button type="button" class="org-roles__module-chip-remove" (click)="removePermissionModule(module)" [disabled]="!canManage" [attr.aria-label]="'Remove '+module+' module'" title="Remove module">×</button>
+         </div>
+        </div>
+        <ng-template #noAssignedModules><p class="org-roles__module-empty">Search for a module above to start assigning permissions.</p></ng-template>
+       </div>
+      </section>
       <div class="org-roles__actions" *ngIf="canManage"><button class="org-roles__primary" type="submit" [disabled]="busy||!name.trim()">{{busy?'Saving…':editingId?'Save changes':'Create role'}}</button><button type="button" *ngIf="editingId" (click)="remove()" [disabled]="busy">Delete role</button><button type="button" (click)="reset()" [disabled]="busy">Clear form</button></div>
      </form>
     </div>
@@ -291,7 +321,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  @keyframes orgPermissionEnter{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
  @keyframes orgPermissionReturn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
  .org-roles__modal-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:var(--bee-overlay);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:orgRoleFade .16s ease-out}
- .org-roles__modal{width:min(760px,100%);max-height:min(84vh,820px);overflow:auto;border:1px solid var(--border,#8885);border-radius:16px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow);padding:20px;display:grid;gap:16px;animation:orgRoleRise .2s ease-out}
+ .org-roles__modal{width:min(900px,100%);max-height:min(84vh,820px);overflow:auto;border:1px solid var(--border,#8885);border-radius:16px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow);padding:20px;display:grid;gap:16px;animation:orgRoleRise .2s ease-out}
  .org-roles__modal-top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin:0}
  .org-roles__modal-top h2{font-size:15px;line-height:1.3;margin:3px 0 0}.org-roles__modal-top p{font-size:11px}.org-roles__modal-eyebrow{font-size:9px;letter-spacing:.15em;font-weight:700;opacity:.55}
  .org-roles__modal-close{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;padding:0!important;font-size:18px;line-height:1;border:1px solid var(--border,#8885);border-radius:8px!important;background:var(--surface,transparent)}
@@ -309,9 +339,26 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__editor form>label,.org-roles__form-grid label{display:grid;gap:6px;margin:12px 0;font-size:11px;font-weight:700}
  .org-roles__editor input:not([type=checkbox]),.org-roles__editor select{width:100%;box-sizing:border-box;padding:10px 11px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.05));color:inherit;font-size:12px}
  .org-roles__mode-hint{font-size:11px!important;margin:7px 0 12px!important}
- .org-roles__groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
- .org-roles__groups section{border:1px solid var(--border,#8885);border-radius:10px;padding:12px;min-width:0}
- .org-roles__groups h4{text-transform:capitalize;font-size:12px}
+ .org-roles__module-builder{display:grid;gap:13px;margin:16px 0}
+ .org-roles__module-search-wrap{position:relative;display:grid;gap:6px}
+ .org-roles__module-search-label,.org-roles__assigned-heading{font-size:11px;font-weight:700}
+ .org-roles__module-search{height:38px;display:flex;align-items:center;gap:9px;padding:0 11px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface,rgba(130,145,170,.05));color:inherit}
+ .org-roles__module-search>span{font-size:18px;opacity:.6}.org-roles__module-search input{flex:1;min-width:0;border:0!important;outline:0;background:transparent!important;padding:0!important;color:inherit;font-size:12px}.org-roles__module-search button{padding:0 4px;border:0;background:transparent;font-size:17px}
+ .org-roles__module-suggestions{position:absolute;z-index:5;top:100%;left:0;right:0;max-height:220px;overflow:auto;margin-top:4px;padding:5px;border:1px solid var(--border,#8885);border-radius:10px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow)}
+ .org-roles__module-suggestions button{width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:0;border-radius:7px;background:transparent;text-align:left}.org-roles__module-suggestions button:hover{background:var(--surface,rgba(130,145,170,.08))}.org-roles__module-suggestions button span:first-child{display:grid;gap:2px}.org-roles__module-suggestions strong{font-size:11px}.org-roles__module-suggestions small,.org-roles__module-suggestions p{font-size:9px;opacity:.65}
+ .org-roles__module-permission-card{border:1px solid var(--purple,#8c72ff);border-radius:12px;padding:13px;background:var(--surface,rgba(130,145,170,.045));box-shadow:0 0 0 1px color-mix(in srgb,var(--purple,#8c72ff) 10%,transparent)}
+ .org-roles__module-permission-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}.org-roles__module-permission-card>header h4{font-size:13px;margin:2px 0}.org-roles__module-permission-card>header p{font-size:10px}.org-roles__module-eyebrow{font-size:8px;letter-spacing:.13em;font-weight:700;color:var(--purple,#8c72ff)}
+ .org-roles__module-close{width:27px;height:27px;padding:0!important;display:grid;place-items:center;border-radius:50%!important}
+ .org-roles__module-permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .org-roles__module-permission{display:flex;align-items:flex-start;gap:8px;min-width:0;padding:9px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--panel,rgba(130,145,170,.035));cursor:pointer}
+ .org-roles__module-permission input{margin:2px 0 0;accent-color:var(--purple,#8c72ff)}.org-roles__module-permission>span{flex:1;min-width:0}.org-roles__module-permission strong,.org-roles__module-permission small,.org-roles__module-permission code{display:block}.org-roles__module-permission strong{font-size:10px}.org-roles__module-permission small,.org-roles__module-permission code{margin-top:3px;font-size:9px;opacity:.65}.org-roles__module-permission code{overflow-wrap:anywhere}.org-roles__module-permission em{font-size:8px;color:var(--warning,#c58a35);font-style:normal;white-space:nowrap}
+ .org-roles__module-permission-card>footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;padding-top:10px;border-top:1px solid var(--border,#8885);font-size:10px;opacity:.8}.org-roles__module-permission-card>footer button{font-size:10px;padding:7px 12px}
+ .org-roles__assigned-modules{display:grid;gap:8px}.org-roles__assigned-heading{display:flex;justify-content:space-between;align-items:center}.org-roles__assigned-heading span{font-size:9px;opacity:.6;font-weight:500}
+ .org-roles__module-chip-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+ .org-roles__module-chip{height:34px;min-width:0;display:flex;align-items:center;gap:5px;padding:0 6px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.045));transition:border-color .16s ease,background .16s ease}
+ .org-roles__module-chip:hover{border-color:var(--purple,#8c72ff);background:color-mix(in srgb,var(--purple,#8c72ff) 8%,var(--surface,transparent))}
+ .org-roles__module-chip button{width:21px;height:21px;flex:0 0 21px;display:grid;place-items:center;padding:0;border:0;border-radius:6px;background:transparent;font-size:13px;line-height:1}.org-roles__module-chip button:hover{background:var(--panel,rgba(130,145,170,.12));color:var(--purple,#8c72ff)}.org-roles__module-chip .org-roles__module-chip-remove:hover{color:var(--danger,#d65b5b)}
+ .org-roles__module-chip-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:650}.org-roles__module-chip-count{font-size:9px;opacity:.6;font-variant-numeric:tabular-nums}.org-roles__module-empty{padding:10px;border:1px dashed var(--border,#8885);border-radius:8px;font-size:10px!important}
  .org-roles__permission{display:flex;align-items:flex-start;gap:9px;padding:10px 0;border-top:1px solid var(--border,#8884);font-size:11px}
  .org-roles__permission input{margin-top:3px;accent-color:var(--purple,#8c72ff)}.org-roles__permission span{flex:1;min-width:0}
  .org-roles__permission strong,.org-roles__permission small,.org-roles__permission code{display:block}.org-roles__permission small,.org-roles__permission code{font-size:9px;opacity:.65;margin-top:3px}.org-roles__permission code{overflow-wrap:anywhere}
@@ -320,7 +367,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__primary{background:var(--purple,#8c72ff)!important;color:#fff!important;border-color:var(--purple,#8c72ff)!important}
  .org-roles__error{color:#d65b5b!important;opacity:1!important}.org-roles__success{color:#269b70!important;opacity:1!important}
  .org-roles__notice,.org-roles__empty{padding:12px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface,rgba(130,145,170,.04));font-size:11px}
- @media(max-width:760px){.org-roles__header,.org-roles__section-heading,.org-roles__editor-heading{align-items:flex-start;flex-direction:column}.org-roles__permission-groups,.org-roles__groups,.org-roles__form-grid,.org-roles__detail-badges{grid-template-columns:1fr}.org-roles__permission-group{min-height:230px}.org-roles__details-summary{grid-template-columns:1fr}}
+ @media(max-width:760px){.org-roles__header,.org-roles__section-heading,.org-roles__editor-heading{align-items:flex-start;flex-direction:column}.org-roles__permission-groups,.org-roles__module-permission-grid,.org-roles__form-grid,.org-roles__detail-badges{grid-template-columns:1fr}.org-roles__module-chip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.org-roles__permission-group{min-height:230px}.org-roles__details-summary{grid-template-columns:1fr}}
  @media(max-width:600px){.org-roles__toolbar{align-items:stretch}.org-roles__search{width:auto;flex:1;min-width:0}.org-roles__collection-header{justify-content:space-between}.org-roles__table-wrap table{min-width:620px}}
  @media(max-width:520px){.org-roles__tab-panel{padding:13px}.org-roles__tabs{padding:0 4px}.org-roles__tabs button{padding:12px 8px}.org-roles__modal-backdrop{padding:12px}.org-roles__modal{max-height:min(90vh,820px)}.org-roles__permission-group{padding:10px}.org-roles__permission-tile{padding:8px}}
  :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles{--bg:#f4f6fb;--panel:#fff;--surface:#fff;--surface-raised:#fff;--muted:#68758b;--border:#dfe5ef;--purple:#5542bd;--cyan:#0891b2;--bee-status-success:#167447;--bee-status-warning:#946200;--bee-status-danger:#b42318;--warning:#946200;--bee-shadow:0 12px 32px #25385818;color:#263248}
@@ -335,9 +382,16 @@ export class OrganizationRolesComponent implements OnChanges{
  activeTab:"system"|"permissions"|"custom"="system";
  roles:CustomRole[]=[];systemRoles:SystemRole[]=[];systemSearch="";roleSourceFilter:"all"|"native"|"created"="all";systemView:"cards"|"table"="cards";selectedSystemRole:SystemRole|null=null;name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";modalOpen=false;
  permissions:PermissionOption[]=[];permissionView:"cards"|"table"="cards";permissionPages:Record<string,number>={};permissionDirections:Record<string,"next"|"previous">={};expandedPermissionGroup:string|null=null;
+ moduleSearch="";activePermissionModule:string|null=null;
  private tenantAssignablePermissions:string[]=[];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
  get groups():string[]{return [...new Set(this.permissions.map(p=>p.group))];}
+ get matchingPermissionModules():string[]{const query=this.moduleSearch.trim().toLowerCase();return this.groups.filter(group=>group.toLowerCase().includes(query));}
+ get selectedPermissionModules():string[]{return this.groups.filter(group=>this.inGroup(group).some(item=>item.selected));}
+ selectedCountForModule(group:string):number{return this.inGroup(group).filter(item=>item.selected).length;}
+ openPermissionModule(group:string):void{this.activePermissionModule=group;this.moduleSearch="";}
+ closePermissionModule():void{this.activePermissionModule=null;this.moduleSearch="";}
+ removePermissionModule(group:string):void{for(const item of this.inGroup(group))item.selected=false;if(this.activePermissionModule===group)this.closePermissionModule();}
  get filteredSystemRoles():SystemRole[]{const native=this.roleSourceFilter==="created"?[]:this.systemRoles;const created=this.roleSourceFilter==="native"?[]:this.roles.map(item=>({key:item.id,label:item.name,description:item.description||"Organization-created role",protected:false,permissions:item.permissions,active:true,custom:true,customId:item.id}));const query=this.systemSearch.trim().toLowerCase();return [...native,...created].filter(item=>!query||item.label.toLowerCase().includes(query)||item.description.toLowerCase().includes(query)||item.permissions.some(key=>key.toLowerCase().includes(query)||this.permissionLabel(key).toLowerCase().includes(query)));}
  inGroup(group:string):PermissionOption[]{return this.permissions.filter(p=>p.group===group);}
  togglePermissionGroup(group:string):void{this.expandedPermissionGroup=this.expandedPermissionGroup===group?null:group;}
@@ -358,11 +412,11 @@ export class OrganizationRolesComponent implements OnChanges{
  editCatalogRole(item:SystemRole):void{const role=this.roles.find(candidate=>candidate.id===item.customId);if(!role)return;this.activeTab="custom";this.edit(role);}
  openSystemRole(item:SystemRole):void{this.selectedSystemRole=item;}
  closeSystemRole():void{this.selectedSystemRole=null;}
- openCreate():void{this.reset();this.modalOpen=true;}
- closeModal():void{this.modalOpen=false;}
+ openCreate():void{this.reset();this.modalOpen=true;this.moduleSearch="";this.activePermissionModule=null;}
+ closeModal():void{this.modalOpen=false;this.moduleSearch="";this.activePermissionModule=null;}
  @HostListener("document:keydown.escape") onEscape():void{if(this.selectedSystemRole)this.closeSystemRole();else if(this.modalOpen)this.closeModal();}
- edit(item:CustomRole):void{this.modalOpen=true;this.editingId=item.id;this.name=item.name;this.description=item.description||"";this.mode=item.mode??"grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=item.permissions.includes(p.key);this.error="";this.message="";}
- reset():void{this.modalOpen=false;this.editingId="";this.name="";this.description="";this.mode="grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=["members.read","plugins.read"].includes(p.key)&&p.assignable;this.error="";this.message="";}
+ edit(item:CustomRole):void{this.modalOpen=true;this.editingId=item.id;this.name=item.name;this.description=item.description||"";this.mode=item.mode??"grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=item.permissions.includes(p.key);this.moduleSearch="";this.activePermissionModule=null;this.error="";this.message="";}
+ reset():void{this.modalOpen=false;this.editingId="";this.name="";this.description="";this.mode="grant";this.updateMode(this.mode);for(const p of this.permissions)p.selected=["members.read","plugins.read"].includes(p.key)&&p.assignable;this.moduleSearch="";this.activePermissionModule=null;this.error="";this.message="";}
  async save(event:Event):Promise<void>{event.preventDefault();if(!this.canManage||this.busy||!this.name.trim())return;this.busy=true;this.error="";this.message="";const body={name:this.name.trim(),description:this.description.trim(),mode:this.mode,permissions:this.permissions.filter(p=>p.selected&&p.assignable).map(p=>p.key)};try{if(this.editingId)await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(this.editingId),"PUT",body);else await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles","POST",body);this.message=this.editingId?"Role updated.":"Role created.";this.reset();await this.load();}catch(error){this.error=error instanceof Error?error.message:"Could not save role";}finally{this.busy=false;}}
  async remove():Promise<void>{if(!this.canManage||!this.editingId||this.busy)return;this.busy=true;this.error="";this.message="";try{await this.request("/companies/"+encodeURIComponent(this.tenantId)+"/roles/"+encodeURIComponent(this.editingId),"DELETE");this.message="Role deleted.";this.reset();await this.load();}catch(error){this.error=error instanceof Error?error.message:"Could not delete role";}finally{this.busy=false;}}
 }
