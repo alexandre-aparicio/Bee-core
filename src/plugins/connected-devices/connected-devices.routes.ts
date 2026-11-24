@@ -139,6 +139,29 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const result=await repository.devices.updateOne(filter,{$set:{name,updatedAt:new Date()}});
   if(!result.modifiedCount)return reply.code(404).send({error:"Device not found."});return {success:true};
  });
+ ctx.server.post("/connected-devices/device/unlink",async(request:any,reply:any)=>{
+  const secret=clean(request.headers["x-device-pairing-secret"],256),id=clean(request.body?.deviceId,64);
+  if(secret.length<40||!id)return reply.code(401).send({error:"Device pairing credential and device ID required."});
+  const device=await repository.devices.findOne({id,credentialHash:hashDeviceSecret(secret),status:{$in:["pending","active"]}});
+  if(!device)return reply.code(404).send({error:"Device not found or already unlinked."});
+  const now=new Date();
+  if(device.status==="pending"&&device.pairingExpiresAt<=now)return reply.code(410).send({error:"Pairing request expired."});
+  const [entitled,installed,enabled,ownerActive]=await Promise.all([
+   hasPluginEntitlement(db,device.tenantId,"connected-devices"),
+   isPluginInstalled(db,device.tenantId,"connected-devices"),
+   isPluginEnabled(db,device.tenantId,"connected-devices"),
+   isConnectedDeviceOwnerActive(db,device)
+  ]);
+  if(!entitled||!installed||!enabled||!ownerActive)return reply.code(403).send({error:"Connected Devices or the device owner is no longer active."});
+  const invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential);
+  const result=await repository.devices.updateOne(
+   {tenantId:device.tenantId,id:device.id,credentialHash:hashDeviceSecret(secret),status:{$in:["pending","active"]}},
+   {$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:"device",updatedAt:now}}
+  );
+  if(!result.modifiedCount)return reply.code(409).send({error:"The device state changed. Refresh and try again."});
+  await repository.challenges.updateMany({tenantId:device.tenantId,deviceId:device.id,status:"claimed"},{$set:{status:"cancelled"}});
+  return {success:true};
+ });
  ctx.server.post("/connected-devices/device/heartbeat",async(request:any,reply:any)=>{
   const device=await authenticateDevice(request,reply);if(!device)return;
   const now=new Date();await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{lastSeenAt:now,updatedAt:now}});
