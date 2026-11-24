@@ -34,7 +34,7 @@ export async function ensurePlatformPluginRegistry(db: Db): Promise<void> {
 
 export async function seedBundledPlatformPackages(
   db: Db,
-  definitions: readonly Array<{
+  definitions: ReadonlyArray<{
     id: string;
     name: string;
     version: string;
@@ -46,6 +46,8 @@ export async function seedBundledPlatformPackages(
   const packages = db.collection<PlatformPluginPackage>("platform_plugin_packages");
   const now = new Date();
   for (const definition of definitions) {
+    const existing = await packages.findOne({ pluginId: definition.id });
+    if (existing?.source === "zip") continue;
     await packages.updateOne(
       { pluginId: definition.id },
       {
@@ -81,8 +83,10 @@ export async function migrateLegacyPlatformPackageInstalls(db: Db, superOrganiza
   let migrated = 0;
   for (const installation of legacy) {
     if (!installation.pluginId) continue;
+    const existing = await packages.findOne({ pluginId: installation.pluginId });
+    if (existing?.source === "zip") continue;
     const result = await packages.updateOne(
-      { pluginId: installation.pluginId, source: { $ne: "zip" } },
+      { pluginId: installation.pluginId },
       {
         $set: {
           status: "installed",
@@ -114,9 +118,12 @@ export async function setPlatformPackageInstalled(
   version: string,
   actorId: string | null
 ): Promise<void> {
+  const packages = db.collection<PlatformPluginPackage>("platform_plugin_packages");
+  const existing = await packages.findOne({ pluginId });
+  if (existing?.source === "zip") return;
   const now = new Date();
-  await db.collection<PlatformPluginPackage>("platform_plugin_packages").updateOne(
-    { pluginId, source: { $ne: "zip" } },
+  await packages.updateOne(
+    { pluginId },
     {
       $set: { status: "installed", version, source: "bundled", installedAt: now, installedBy: actorId, updatedAt: now },
       $setOnInsert: {
@@ -133,8 +140,11 @@ export async function setPlatformPackageInstalled(
 }
 
 export async function setPlatformPackageAvailable(db: Db, pluginId: string): Promise<void> {
-  await db.collection<PlatformPluginPackage>("platform_plugin_packages").updateOne(
-    { pluginId, source: { $ne: "zip" } },
+  const packages = db.collection<PlatformPluginPackage>("platform_plugin_packages");
+  const existing = await packages.findOne({ pluginId });
+  if (existing?.source === "zip") return;
+  await packages.updateOne(
+    { pluginId },
     { $set: { status: "available", installedAt: null, installedBy: null, updatedAt: new Date() } }
   );
 }
