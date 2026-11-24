@@ -109,11 +109,14 @@ function readZipDirectory(archive: Buffer): ZipEntry[] {
 function extractEntry(archive: Buffer, entry: ZipEntry): Buffer {
   const offset = entry.localOffset;
   if (offset + 30 > archive.length || archive.readUInt32LE(offset) !== 0x04034b50) fail("ZIP local file header is malformed");
+  const localFlags = archive.readUInt16LE(offset + 6);
+  const localMethod = archive.readUInt16LE(offset + 8);
   const nameLength = archive.readUInt16LE(offset + 26);
   const extraLength = archive.readUInt16LE(offset + 28);
   const dataOffset = offset + 30 + nameLength + extraLength;
   const dataEnd = dataOffset + entry.compressedSize;
-  if (dataEnd > archive.length || dataEnd > entry.localOffset + 30 + nameLength + extraLength + entry.compressedSize) fail("ZIP file data bounds are invalid");
+  if (localFlags !== entry.flags || localMethod !== entry.method) fail("ZIP local and central headers do not match");
+  if (dataOffset > entry.centralOffset || dataEnd > entry.centralOffset || dataEnd > archive.length) fail("ZIP file data bounds are invalid");
   let localName: string;
   try { localName = new TextDecoder("utf-8", { fatal: true }).decode(archive.subarray(offset + 30, offset + 30 + nameLength)); }
   catch { fail("ZIP local filename is invalid"); }
@@ -126,7 +129,6 @@ function extractEntry(archive: Buffer, entry: ZipEntry): Buffer {
   if (output!.length !== entry.uncompressedSize || crc32(output!) !== entry.crc32) fail("ZIP entry size or CRC check failed");
   return output!;
 }
-
 function canonicalSignaturePayload(manifest: BeeBusinessPluginManifest): Buffer {
   return Buffer.from(["bee-plugin-package-v1", manifest.id, manifest.version, manifest.publisher, manifest.package.sha256].join("\n"), "utf8");
 }
@@ -172,6 +174,7 @@ export async function installSignedPluginZip(options: {
   storageRoot: string;
   publisherPublicKey: string;
   runtimeVersion: string;
+  validateManifest?: (manifest: BeeBusinessPluginManifest) => Promise<void>;
 }): Promise<InstalledZipPackage> {
   const { archive, storageRoot, publisherPublicKey, runtimeVersion, validateManifest: validateBeforeStorage } = options;
   if (!Buffer.isBuffer(archive) || archive.length < 22 || archive.length > MAX_ARCHIVE_BYTES) fail("ZIP archive size is outside the allowed limits");
@@ -209,8 +212,17 @@ export async function installSignedPluginZip(options: {
   const packageDirectory = resolve(root, manifest.id, manifest.version);
   const relativeTarget = relative(root, packageDirectory);
   if (!relativeTarget || relativeTarget.startsWith(".." + sep) || isAbsolute(relativeTarget)) fail("Resolved package storage path is unsafe");
-  const staging = await mkdtemp(join(root, ".bee-plugin-staging-"));
+  const lockRoot = join(root, ".locks");
+  await mkdir(lockRoot, { recursive: true, mode: 0o750 });
+  const lockPath = join(lockRoot, `${manifest.id}-${manifest.version}.lock`);
+  try { await mkdir(lockPath, { mode: 0o700 }); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") fail("This plugin version is already being installed");
+    throw error;
+  }
+  let staging = "";
   try {
+    staging = await mkdtemp(join(root, ".bee-plugin-staging-"));
     for (const [name, data] of files) {
       const target = resolve(staging, name);
       const rel = relative(staging, target);
@@ -219,14 +231,16 @@ export async function installSignedPluginZip(options: {
       await writeFile(target, data, { flag: "wx", mode: 0o640 });
     }
     await mkdir(dirname(packageDirectory), { recursive: true, mode: 0o750 });
-    try { await rename(staging, packageDirectory); }
-    catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EEXIST" || (error as NodeJS.ErrnoException).code === "ENOTEMPTY") fail("This plugin version is already stored");
-      throw error;
-    }
+    await lstat(packageDirectory).then(
+      () => fail("This plugin version is already stored"),
+      error => { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+    );
+    await rename(staging, packageDirectory);
   } catch (error) {
-    await rm(staging, { recursive: true, force: true });
+    if (staging) await rm(staging, { recursive: true, force: true });
     throw error;
+  } finally {
+    await rm(lockPath, { recursive: true, force: true });
   }
   return { manifest, digest, storageKey: expectedStorageKey, packageDirectory, extractedFiles: files.size, extractedBytes };
 }
