@@ -11,6 +11,7 @@ import type { BeeContext, BeeLogger, BeePlugin } from "./core/types.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { registerRuntimePlugin } from "./core/runtime-plugin-registry.js";
 import { syncAutomaticPluginProvisioning } from "./core/plugin-entitlements.js";
+import { satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
@@ -178,6 +179,12 @@ async function loadSignedZipPlugins(): Promise<Map<string,string>> {
         runtimeVersion: ctx.version
       });
       if (manifest.id !== item.pluginId || manifest.version !== item.version) throw new Error("Stored package manifest does not match its registry record");
+      for (const dependency of manifest.dependencies.filter(item => !item.optional)) {
+        const installedDependency = await registry.findOne({ pluginId: dependency.pluginId, status: "installed" });
+        if (!installedDependency || !satisfiesPluginVersion(String(installedDependency.version ?? "0.0.0"), dependency.versionRange)) {
+          throw new Error("Required runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
+        }
+      }
       const entrypoint = resolve(expectedDirectory, manifest.backend.entrypoint);
       const relativeEntrypoint = relative(expectedDirectory, entrypoint);
       if (!relativeEntrypoint || relativeEntrypoint.startsWith(".." + sep) || isAbsolute(relativeEntrypoint)) {
