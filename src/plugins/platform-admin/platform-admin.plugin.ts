@@ -462,6 +462,22 @@ export const platformAdminPlugin:BeePlugin={
    await recordPlatformAudit({actorId:actor.id,action:req.body.granted?"plugin.tenant_entitlement_granted":"plugin.tenant_entitlement_revoked",tenantId:company.id,resourceType:"plugin_package",resourceId:req.params.pluginId,metadata:{source:"manual",granted:req.body.granted,automaticInstallJobsQueued:queued,tenantUpgradeJobsQueued:upgraded}});
    return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,req.params.pluginId,"plugin"),granted:req.body.granted,automaticInstallJobsQueued:queued,tenantUpgradeJobsQueued:upgraded};
   });
+  ctx.server.put<{Params:{pluginId:string};Body:{enabled?:boolean}}>("/platform/plugin-packages/:pluginId/activation",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const pluginId=String(req.params.pluginId??"");
+   if(!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId))return reply.code(400).send({error:"Invalid plugin ID"});
+   if(typeof req.body?.enabled!=="boolean")return reply.code(400).send({error:"enabled must be a boolean"});
+   const packages=db.collection("platform_plugin_packages");
+   const current=await packages.findOne({pluginId,status:{$ne:"deprecated"}});
+   if(!current)return reply.code(404).send({error:"Platform package not found"});
+   if(current.status!=="installed")return reply.code(409).send({error:"Install the platform package before changing its global availability"});
+   if((current.globallyEnabled!==false)===req.body.enabled)return {success:true,pluginId,globallyEnabled:req.body.enabled,unchanged:true};
+   const now=new Date();
+   const updated=await packages.updateOne({pluginId,status:"installed",globallyEnabled:current.globallyEnabled??true},{$set:{globallyEnabled:req.body.enabled,globallyEnabledAt:now,globallyEnabledBy:actor.id,updatedAt:now}});
+   if(!updated.modifiedCount)return reply.code(409).send({error:"Platform package changed concurrently; refresh and retry"});
+   await recordPlatformAudit({actorId:actor.id,action:req.body.enabled?"plugin.globally_enabled":"plugin.globally_disabled",resourceType:"plugin_package",resourceId:pluginId,metadata:{globallyEnabled:req.body.enabled,tenantInstallationsPreserved:true}});
+   return {success:true,pluginId,globallyEnabled:req.body.enabled,tenantInstallationsPreserved:true};
+  });
   ctx.server.get("/platform/plugin-packages",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const packages=await listPlatformPluginPackages(db);
@@ -478,6 +494,7 @@ export const platformAdminPlugin:BeePlugin={
     publisher:item.publisher??null,
     status:item.status,
     source:item.source,
+    globallyEnabled:item.globallyEnabled!==false,
     installedAt:item.installedAt,
     updatedAt:item.updatedAt
    }))};
