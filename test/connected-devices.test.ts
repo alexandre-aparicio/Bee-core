@@ -1,6 +1,7 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {CONNECTED_DEVICE_CAPABILITIES,createPairingSecrets,hashDeviceSecret,isConnectedDeviceOwnerActive,isDeviceAdministrator,normalizeRequestedCapabilities,publicDevice} from "../src/plugins/connected-devices/connected-devices.service.js";
+import {registerConnectedDevicesRoutes} from "../src/plugins/connected-devices/connected-devices.routes.js";
 import type {Db} from "mongodb";
 test("capability requests are unique, bounded and restricted to the supported vocabulary",()=>{
  assert.deepEqual(normalizeRequestedCapabilities(["scanner.use","scanner.use","catalog.read"]),["scanner.use","catalog.read"]);
@@ -44,4 +45,58 @@ test("device access requires an active user, membership and tenant",async()=>{
  assert.equal(await isConnectedDeviceOwnerActive(makeDb(null,{_id:1},{_id:1}),device),false);
  assert.equal(await isConnectedDeviceOwnerActive(makeDb({_id:1},null,{_id:1}),device),false);
  assert.equal(await isConnectedDeviceOwnerActive(makeDb({_id:1},{_id:1},null),device),false);
+});
+
+test("connected-device dashboard routes enforce tenant scope and append tenant audit events",async()=>{
+ const routes=new Map<string,(request:any,reply:any)=>Promise<any>>();
+ const auditEvents:any[]=[];
+ const tenant={tenantId:"tenant-alpha",userId:"admin-alpha",role:"owner"};
+ const device:any={id:"device-1",tenantId:"tenant-beta",ownerUserId:"owner-beta",requestedBy:"owner-beta",name:"Scanner",deviceType:"mobile",platform:"android",appVersion:null,requestedCapabilities:["scanner.use"],grantedCapabilities:[],credentialHash:"x".repeat(64),status:"pending",pairingExpiresAt:new Date(Date.now()+60_000),createdAt:new Date(),updatedAt:new Date(),approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null};
+ const matches=(record:any,filter:any):boolean=>{
+  for(const [key,value] of Object.entries(filter??{})){
+   if(key==="$and"){if(!(value as any[]).every(item=>matches(record,item)))return false;continue;}
+   const actual=record[key];
+   if(value&&typeof value==="object"&&!Array.isArray(value)){
+    const operators=value as Record<string,unknown>;
+    if("$in" in operators&&!((operators.$in as unknown[]).includes(actual)))return false;
+    if("$nin" in operators&&(operators.$nin as unknown[]).includes(actual))return false;
+    if("$ne" in operators&&actual===operators.$ne)return false;
+    if("$gt" in operators&&!(actual instanceof Date&&actual>(operators.$gt as Date)))return false;
+    if("$lte" in operators&&!(actual instanceof Date&&actual<=(operators.$lte as Date)))return false;
+   }else if(actual!==value)return false;
+  }
+  return true;
+ };
+ const deviceCollection={
+  findOne:async(filter:any)=>matches(device,filter)?device:null,
+  updateOne:async(filter:any,update:any)=>{
+   if(!matches(device,filter))return {modifiedCount:0};
+   Object.assign(device,update.$set??{});return {modifiedCount:1};
+  },
+  deleteOne:async(filter:any)=>matches(device,filter)?{deletedCount:1}:{deletedCount:0},
+  updateMany:async()=>({modifiedCount:0}),
+  find:()=>({sort:()=>({limit:()=>({toArray:async()=>[]})})})
+ };
+ const challengeCollection={updateMany:async()=>({modifiedCount:0}),findOne:async()=>null,countDocuments:async()=>0,insertOne:async()=>({insertedId:"challenge"})};
+ const db:any={collection:(name:string)=>name==="tenant_audit_events"?{insertOne:async(event:any)=>{auditEvents.push(event);return {insertedId:event.id};}}:{findOne:async()=>({_id:1})}};
+ const ctx:any={server:{get:(path:string,handler:any)=>routes.set("GET "+path,handler),post:(path:string,handler:any)=>routes.set("POST "+path,handler),patch:(path:string,handler:any)=>routes.set("PATCH "+path,handler),delete:(path:string,handler:any)=>routes.set("DELETE "+path,handler)},logger:{error(){}}};
+ registerConnectedDevicesRoutes(ctx,{db,repository:{devices:deviceCollection,challenges:challengeCollection},dashboardTenant:async()=>tenant,authenticateDevice:async()=>null});
+ const reply=()=>({statusCode:200,payload:null as any,code(status:number){this.statusCode=status;return this;},send(payload:any){this.payload=payload;return payload;}});
+ const approve=routes.get("POST /connected-devices/:deviceId/approve")!;
+ let response=reply();
+ await approve({params:{deviceId:"device-1"},body:{grantedCapabilities:["scanner.use"]},headers:{}},response);
+ assert.equal(response.statusCode,404,"a device belonging to another tenant must not be found");
+ assert.equal(device.status,"pending","cross-tenant attempts must not mutate the foreign device");
+ assert.equal(auditEvents.length,0,"a foreign tenant's device must never receive an audit event from the requester");
+ device.tenantId="tenant-alpha";
+ response=reply();
+ await approve({params:{deviceId:"device-1"},body:{grantedCapabilities:["scanner.use"]},headers:{}},response);
+ assert.equal(device.status,"active");
+ assert.equal(response.statusCode,200);
+ assert.equal(auditEvents.length,1);
+ assert.equal(auditEvents[0].tenantId,"tenant-alpha");
+ assert.equal(auditEvents[0].actorId,"admin-alpha");
+ assert.equal(auditEvents[0].action,"device.approved");
+ assert.equal(auditEvents[0].resourceId,"device-1");
+ assert.equal(auditEvents[0].metadata.grantedCapabilities,"scanner.use");
 });
