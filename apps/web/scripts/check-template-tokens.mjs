@@ -8,6 +8,7 @@ const contract = await readFile(contractPath, 'utf8');
 const requiredTokens = [...contract.matchAll(/^\s*(--bee-[\w-]+)\s*:/gm)].map(match => match[1]);
 const packageDirs = await readdir(packageRoot, { withFileTypes: true });
 const errors = [];
+const warnings = [];
 const results = [];
 
 for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !== 'shared')) {
@@ -18,7 +19,10 @@ for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !
   try {
     manifest = await readFile(manifestPath, 'utf8');
   } catch (error) {
-    if (error.code === 'ENOENT') continue;
+    if (error.code === 'ENOENT') {
+      warnings.push(`${id}: package directory has no manifest.ts`);
+      continue;
+    }
     errors.push(`${id}: unable to read manifest.ts (${error.message})`);
     continue;
   }
@@ -67,5 +71,5 @@ for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !
   results.push({ id, target, defaultMode, appearanceModes: declaredModes, tokenBlocks: [...blocks.keys()] });
 }
 
-console.log(JSON.stringify({ requiredTokenCount: requiredTokens.length, packages: results, errors }, null, 2));
+console.log(JSON.stringify({ requiredTokenCount: requiredTokens.length, packages: results, warnings, errors }, null, 2));
 if (errors.length) process.exitCode = 1;
