@@ -1,0 +1,18 @@
+[allowlist]
+description = "Known public placeholders, RFC test vectors, and historical CI-only fixture credentials. These are not deployable secrets."
+condition = "AND"
+paths = [
+  '''(^|/)\.env(\.production)?\.example$''',
+  '''^test/totp\.test\.ts$''',
+  '''^docs/auth\.md$''',
+  '''^\.github/workflows/(frontend-security-migration|web-ci)\.yml$'''
+]
+regexes = [
+  '''REPLACE_WITH_[A-Z0-9_]+''',
+  '''YOUR_(ACCESS|REFRESH)_TOKEN''',
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
+  '''ci-only-secret-that-is-long-enough-for-bee-core-auth-tests-2026''',
+  '''CI-Admin-Password-2026!''',
+  '''MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=''',
+  '''ci-only-mail-encryption-key-for-browser-tests-2026'''
+]
