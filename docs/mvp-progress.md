@@ -1,3 +1,11 @@
+## Plugin catalogue aligned with Organization → Teams (2026-11-24)
+
+- Reworked Settings → Plugins into the same collection workflow as Organization → Teams: inline search, module-type selector (All modules / System modules / Extensions), Cards/Table toggle and the platform-admin Upload plugin action in one toolbar.
+- Replaced the previous compact three-column plugin tiles with uniform collection cards, consistent icon/menu placement, metadata/status chips, subtle hover treatment, responsive columns and a matching table view.
+- Moved global package plan assignment out of the page-level panel. Platform administrators now reach **Configure plans** from each eligible module card/table vertical-ellipsis menu; the existing plan assignment API, runtime-loaded guard and tenant activation separation remain unchanged.
+- Kept search and type filtering client-side and shared by Cards and Table; preserved existing plugin detail, install/uninstall lifecycle and ZIP upload behavior.
+- **Validation:** CI bootstrap integrated into `main` via PR #188 (`21382c02b09a09e986e5bfbf87be08e607fb1122`). The first real build of this branch found a missing `})` closing the Angular `@Component` decorator before the class declaration; corrected in commit `db98b9539638bf8b34b65282b5d968078b0fc3d6`. A fresh Angular build and Playwright test-discovery run are pending. No browser interaction, responsive screenshots or Light/Dark visual QA have been run.
+
 ## Organization → Users Cards/Table collection layout (2026-11-24)
 
 - Reworked the Members directory toolbar to match the Documents collection pattern: the left 50% contains search and status filter; the right 50% contains the Cards/Table selector aligned to the right with an inset. The selector follows Documents dimensions, spacing, glyph size, border, selected and focus behavior.
@@ -991,3 +999,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Fixed the frontend build regression introduced when global package management moved into Settings → Plugins: restored explicit `PlatformPackage` and `PlatformPlan` TypeScript interfaces in `plugin-settings.component.ts`.
 - The interfaces match the backend response contracts: packages expose the masked `id`, `pluginKey`, name/version/status/source and optional runtime metadata; plans expose `id`, `name` and optional assigned `packageIds`.
 - The reported missing-name errors (`TS2304`) are addressed at source level. **Validation pending:** no Angular build, Docker build, browser smoke test or live ZIP/plan-assignment test has been run after this correction. Re-run `npm run build` in the web workspace and the full Docker build before treating the deployment as verified.
+
+
+## Settings → Plugins catalogue layout (2026-11-24)
+
+- Reworked the module catalogue toolbar to follow the Organization → Teams interaction pattern: inline search, module-type filter, Cards/Table switch and Upload plugin action in one row.
+- Standardized module cards and moved plan availability configuration into each module's vertical-ellipsis menu, opening a focused plan-selection dialog.
+- Kept the existing package upload, installation lifecycle and tenant activation behavior; this change is limited to the Angular settings UI and progress documentation.
+- CI infrastructure is now available on `main` through PR #188. Its own Angular production build and Playwright test-discovery job completed successfully. This does **not** validate this catalogue branch; the branch must receive its own CI run before merge.
+- Browser interaction, responsive layout and Light/Dark visual QA remain pending.
