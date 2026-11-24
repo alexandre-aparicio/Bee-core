@@ -44,10 +44,14 @@ async function load(){
  if(busy)return;busy=true;clearNotice();$("content").innerHTML='<div class="empty">Loading documents…</div>';
  try{
   const query=currentFolderId?"?folderId="+encodeURIComponent(currentFolderId):"";
-  const [folderResult,documentResult]=await Promise.all([request("/documents/folders"),request("/documents"+query)]);
+  const [folderResult,initialDocuments]=await Promise.all([request("/documents/folders"),request("/documents"+query)]);
   folders=Array.isArray(folderResult.folders)?folderResult.folders:[];
+  let documentResult=initialDocuments;
+  if(currentFolderId&&!folders.some(item=>item.id===currentFolderId)){
+   currentFolderId=null;
+   documentResult=await request("/documents");
+  }
   documents=Array.isArray(documentResult.documents)?documentResult.documents:[];
-  if(currentFolderId&&!folders.some(item=>item.id===currentFolderId)){currentFolderId=null;return await load();}
   render();
  }catch(error){notify(error.message||"Could not load documents.");$("content").innerHTML='<div class="empty">Documents could not be loaded. Check your access and try again.</div>';}
  finally{busy=false;}
