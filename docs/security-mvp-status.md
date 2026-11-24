@@ -45,7 +45,7 @@
 - Frontend uses `nginxinc/nginx-unprivileged`, runs as UID 101 and listens on 8080.
 - The production Compose profile keeps MongoDB and the API unpublished on host ports.
 - CI workflows are configured to build the Compose stack, exercise authentication/session revocation, upload boundaries, response headers, rate limiting and run the repository's tenant-isolation integration tests.
-- Gitleaks is configured to scan the checked-out tree and full Git history. A configured workflow is not evidence of a clean scan until its run completes successfully.
+- A Gitleaks workflow is included on the current security/CI branch and checks out full Git history. The current `main` did not contain tracked workflow files at inspection time; no clean scan can be claimed until this branch is reviewed and the workflow completes successfully.
 
 ## Outstanding application work
 
