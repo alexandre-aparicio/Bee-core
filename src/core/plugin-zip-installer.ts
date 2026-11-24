@@ -10,7 +10,7 @@ const MAX_ENTRY_UNCOMPRESSED = 20 * 1024 * 1024;
 const MAX_ENTRIES = 2_000;
 const MAX_COMPRESSION_RATIO = 200;
 
-type ZipEntry = { name: string; directory: boolean; method: number; compressedSize: number; uncompressedSize: number; crc32: number; localOffset: number; };
+type ZipEntry = { name: string; directory: boolean; method: number; flags: number; compressedSize: number; uncompressedSize: number; crc32: number; localOffset: number; centralOffset: number; };
 export type InstalledZipPackage = { manifest: BeeBusinessPluginManifest; digest: string; storageKey: string; packageDirectory: string; extractedFiles: number; extractedBytes: number; };
 
 function fail(message: string): never { throw new Error(message); }
@@ -99,7 +99,7 @@ function readZipDirectory(archive: Buffer): ZipEntry[] {
     if (uncompressedSize > 0 && (compressedSize === 0 || uncompressedSize / compressedSize > MAX_COMPRESSION_RATIO)) fail("ZIP compression ratio exceeds the allowed limit");
     totalUncompressed += uncompressedSize;
     if (totalUncompressed > MAX_TOTAL_UNCOMPRESSED) fail("ZIP total uncompressed size exceeds the allowed limit");
-    entries.push({ name, directory, method, compressedSize, uncompressedSize, crc32: crc, localOffset });
+    entries.push({ name, directory, method, flags, compressedSize, uncompressedSize, crc32: crc, localOffset, centralOffset });
     cursor = end;
   }
   if (cursor !== centralOffset + centralSize) fail("ZIP central directory size does not match its entries");
