@@ -10,7 +10,7 @@ type Correction={id:string;sessionId:string;userEmail?:string;eventType:"clock_i
 @Component({selector:"bee-time-tracking",standalone:true,imports:[CommonModule,FormsModule],templateUrl:"./time-tracking.component.html",styleUrls:["./time-tracking.component.css"]})
 export class BeeTimeTrackingComponent implements OnInit {
  @Input() tenantId=""; @Input() role="member"; @Input() accessToken="";
- session:TimeSession|null=null; history:TimeSession[]=[]; corrections:Correction[]=[]; teamCorrections:Correction[]=[]; members:TeamMember[]=[];
+ session:TimeSession|null=null; mySchedule:Schedule|null=null; history:TimeSession[]=[]; corrections:Correction[]=[]; teamCorrections:Correction[]=[]; members:TeamMember[]=[];
  loading=false; busy=false; error=""; message=""; activeTab:"my-time"|"schedules"|"requests"="my-time";
  selectedUserId=""; timezone="Europe/Madrid";
  scheduleDraft:ScheduleDay[]=Array.from({length:7},(_,day)=>({day,enabled:false,start:"09:00",end:"17:00",breakMinutes:0}));
