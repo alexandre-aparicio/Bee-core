@@ -270,6 +270,7 @@ export const platformAdminPlugin:BeePlugin={
    // The Super Organization owns the one platform package installation.
    // Tenant rows below represent activation/configuration, not package copies.
    await getTenantSubscription(db,superOrganization.id);
+   await migrateLegacyPlatformPackageInstalls(db,superOrganization.id);
    const [platformPackages,tenantInstallations]=await Promise.all([
     listPlatformPluginPackages(db),
     db.collection("tenant_plugin_installations").find({tenantId:company.id}).toArray()
