@@ -999,3 +999,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Fixed the frontend build regression introduced when global package management moved into Settings → Plugins: restored explicit `PlatformPackage` and `PlatformPlan` TypeScript interfaces in `plugin-settings.component.ts`.
 - The interfaces match the backend response contracts: packages expose the masked `id`, `pluginKey`, name/version/status/source and optional runtime metadata; plans expose `id`, `name` and optional assigned `packageIds`.
 - The reported missing-name errors (`TS2304`) are addressed at source level. **Validation pending:** no Angular build, Docker build, browser smoke test or live ZIP/plan-assignment test has been run after this correction. Re-run `npm run build` in the web workspace and the full Docker build before treating the deployment as verified.
+
+
+## Settings → Plugins catalogue layout (2026-11-24)
+
+- Reworked the module catalogue toolbar to follow the Organization → Teams interaction pattern: inline search, module-type filter, Cards/Table switch and Upload plugin action in one row.
+- Standardized module cards and moved plan availability configuration into each module's vertical-ellipsis menu, opening a focused plan-selection dialog.
+- Kept the existing package upload, installation lifecycle and tenant activation behavior; this change is limited to the Angular settings UI and progress documentation.
+- CI infrastructure is now available on `main` through PR #188. Its own Angular production build and Playwright test-discovery job completed successfully. This does **not** validate this catalogue branch; the branch must receive its own CI run before merge.
+- Browser interaction, responsive layout and Light/Dark visual QA remain pending.
