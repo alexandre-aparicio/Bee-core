@@ -1,0 +1,41 @@
+name: Bee-Core Angular CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/angular.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  angular:
+    name: Angular build and browser smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build Angular application
+        run: npm run build
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Run browser smoke tests
+        env:
+          CI: "true"
+        run: npm run test:e2e
