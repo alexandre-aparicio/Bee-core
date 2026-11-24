@@ -1036,3 +1036,12 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Updated Organization → Teams to use the same 40% / 30% / 30% filter rhythm. The search field and status selector now share one explicit grid row, with a reserved empty third column and no desktop wrapping.
 - Kept narrow-screen controls in the same row with constrained minimum sizing; the grid can shrink without allowing the status selector to drop below the search field. Existing Cards/Table, Upload plugin, New team and filtering behavior is unchanged.
 - **Validation pending:** source-level CSS/template inspection only. Angular production build, automated tests, browser responsive checks and Light/Dark visual QA have not been run. No deployment has been performed.
+
+
+## Organization → Teams toolbar parity with Settings → Plugins (2026-11-24)
+
+- Rebuilt the Teams directory toolbar as one shared row: search and status selector on the left; Cards/Table and New team actions grouped and right-aligned on the right. Removed the separate header-level view toggle so the controls are no longer split across two rows.
+- Matched the Settings → Plugins toolbar geometry and control treatment: 50/50 desktop columns, 40/30/30 filter rhythm inside the left half, 36px search/select controls, identical 34×32 view buttons, and the same 38px secondary-action dimensions, border, radius, typography and hover/pressed feedback.
+- Kept Teams-specific search, status filtering, view switching and create permissions unchanged. On narrow screens the complete toolbar stacks as a unit; desktop keeps all controls on one line. Theme colors continue to use semantic Teams tokens for Light/Dark compatibility.
+- Matched the Plugins responsive breakpoint: the toolbar stacks at 760px and below. Removed duplicate view-toggle CSS so its active-state foreground uses the same semantic action-text token as Plugins.
+- **Validation pending:** Angular production build and Playwright test discovery are running in CI. Browser visual comparison at desktop/tablet/mobile widths, Light/Dark screenshots and deployment have not been run.
