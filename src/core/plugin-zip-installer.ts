@@ -206,6 +206,7 @@ export async function installSignedPluginZip(options: {
   if (!files.has(manifest.backend.entrypoint)) fail("Declared backend entrypoint is missing from the ZIP");
   if (manifest.frontend.routes.length && !files.has("frontend/index.js")) fail("Packages with frontend routes must include frontend/index.js");
   if (!files.has("README.md")) fail("Package must include README.md");
+  if (validateBeforeStorage) await validateBeforeStorage(manifest);
 
   const root = resolve(storageRoot);
   await mkdir(root, { recursive: true, mode: 0o750 });
