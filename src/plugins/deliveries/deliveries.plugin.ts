@@ -47,11 +47,12 @@ export const deliveriesPlugin: BeePlugin = {
     const rows = (tenantId: string) => new TenantCollection<DeliveryRecord>(raw, tenantId);
     const read = [requireAuth(db, "dashboard", secret), requireTenantPermissions("deliveries.read"), requireInstalledPlugin(db, "deliveries")];
     const write = [requireAuth(db, "dashboard", secret), requireTenantPermissions("deliveries.write"), requireInstalledPlugin(db, "deliveries")];
+    const execute = [requireAuth(db, "dashboard", secret), requireTenantPermissions("deliveries.execute"), requireInstalledPlugin(db, "deliveries")];
     const manage = [requireAuth(db, "dashboard", secret), requireTenantPermissions("deliveries.manage"), requireInstalledPlugin(db, "deliveries")];
     const publicRecord = (item: DeliveryRecord, tenant: AuthenticatedRequest["tenantContext"]) => ({
       id: maskResourceId(item.id, "delivery", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, secret),
       reference: item.reference, kind: item.kind, status: item.status, recipient: item.recipient,
-      phone: item.phone, address: item.address, notes: item.notes, assignedTo: item.assignedTo,
+      phone: item.phone, address: item.address, notes: item.notes, assignedToMe: item.assignedTo === tenant.userId, assigned: Boolean(item.assignedTo),
       plannedAt: item.plannedAt, createdAt: item.createdAt, updatedAt: item.updatedAt,
       pickedUpAt: item.pickedUpAt, completedAt: item.completedAt
     });
@@ -90,7 +91,7 @@ export const deliveriesPlugin: BeePlugin = {
       return reply.code(201).send({ delivery: publicRecord(item as DeliveryRecord, tenant) });
     });
 
-    ctx.server.patch<{ Params: { deliveryId: string }; Body: { status?: string; assignedToMe?: boolean } }>("/deliveries/:deliveryId", { preHandler: write }, async (request, reply) => {
+    ctx.server.patch<{ Params: { deliveryId: string }; Body: { status?: string; assignedToMe?: boolean } }>("/deliveries/:deliveryId", { preHandler: execute }, async (request, reply) => {
       const tenant = (request as AuthenticatedRequest).tenantContext;
       const id = resolveId(request.params.deliveryId, tenant);
       if (!id) return reply.code(404).send({ error: "Delivery not found." });

@@ -2,7 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, Input, OnChanges, OnInit, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
-type Delivery = { id:string; reference:string; kind:"delivery"|"pickup"; status:string; recipient:string; phone:string; address:string; notes:string; assignedTo:string|null; plannedAt:string|null; createdAt:string };
+type Delivery = { id:string; reference:string; kind:"delivery"|"pickup"; status:string; recipient:string; phone:string; address:string; notes:string; assignedToMe:boolean; assigned:boolean; plannedAt:string|null; createdAt:string };
 @Component({
   selector:"bee-deliveries", standalone:true, imports:[CommonModule,FormsModule],
   template:`
@@ -56,7 +56,7 @@ export class BeeDeliveriesComponent implements OnInit,OnChanges {
   async assign(item:Delivery):Promise<void>{await this.update(item,{assignedToMe:true});}
   async changeStatus(item:Delivery,status:string):Promise<void>{await this.update(item,{status});}
   private async update(item:Delivery,body:unknown):Promise<void>{if(this.saving)return;this.saving=true;this.error="";try{await this.request("/api/deliveries/"+encodeURIComponent(item.id),"PATCH",body);await this.load();}catch(e){this.error=e instanceof Error?e.message:"No se pudo actualizar la operación.";}finally{this.saving=false;}}
-  canUpdate(item:Delivery):boolean{return this.canManage||item.assignedTo!==null;}
+  canUpdate(item:Delivery):boolean{return this.canManage||item.assignedToMe;}
   nextStatuses(status:string):string[]{const map:Record<string,string[]>={draft:["assigned","cancelled"],assigned:["picked_up","in_transit","failed","cancelled"],picked_up:["in_transit","failed","cancelled"],in_transit:["delivered","failed"],failed:["assigned","cancelled"]};return map[status]||[];}
   statusLabel(status:string):string{return ({draft:"Borrador",assigned:"Asignada",picked_up:"Recogida",in_transit:"En tránsito",delivered:"Entregada",failed:"Incidencia",cancelled:"Cancelada"} as Record<string,string>)[status]||status;}
 }
