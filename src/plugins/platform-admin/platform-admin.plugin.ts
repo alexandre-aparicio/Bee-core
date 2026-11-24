@@ -473,7 +473,9 @@ export const platformAdminPlugin:BeePlugin={
    if(current.status!=="installed")return reply.code(409).send({error:"Install the platform package before changing its global availability"});
    if((current.globallyEnabled!==false)===req.body.enabled)return {success:true,pluginId,globallyEnabled:req.body.enabled,unchanged:true};
    const now=new Date();
-   const updated=await packages.updateOne({pluginId,status:"installed",globallyEnabled:current.globallyEnabled??true},{$set:{globallyEnabled:req.body.enabled,globallyEnabledAt:now,globallyEnabledBy:actor.id,updatedAt:now}});
+   const expectedState:any={pluginId,status:"installed"};
+   if(typeof current.globallyEnabled==="boolean")expectedState.globallyEnabled=current.globallyEnabled;else expectedState.globallyEnabled={$exists:false};
+   const updated=await packages.updateOne(expectedState,{$set:{globallyEnabled:req.body.enabled,globallyEnabledAt:now,globallyEnabledBy:actor.id,updatedAt:now}});
    if(!updated.modifiedCount)return reply.code(409).send({error:"Platform package changed concurrently; refresh and retry"});
    await recordPlatformAudit({actorId:actor.id,action:req.body.enabled?"plugin.globally_enabled":"plugin.globally_disabled",resourceType:"plugin_package",resourceId:pluginId,metadata:{globallyEnabled:req.body.enabled,tenantInstallationsPreserved:true}});
    return {success:true,pluginId,globallyEnabled:req.body.enabled,tenantInstallationsPreserved:true};
