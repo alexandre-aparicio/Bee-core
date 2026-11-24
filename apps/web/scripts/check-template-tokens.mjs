@@ -10,16 +10,25 @@ const packageDirs = await readdir(packageRoot, { withFileTypes: true });
 const errors = [];
 const results = [];
 
-for (const entry of packageDirs.filter(item => item.isDirectory())) {
+for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !== 'shared')) {
   const id = entry.name;
   const manifestPath = join(packageRoot, id, 'manifest.ts');
-  const tokensPath = join(packageRoot, id, 'tokens.css');
+
   let manifest;
+  try {
+    manifest = await readFile(manifestPath, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') continue;
+    errors.push(`${id}: unable to read manifest.ts (${error.message})`);
+    continue;
+  }
+
+  const tokensPath = join(packageRoot, id, 'tokens.css');
   let tokens;
   try {
-    [manifest, tokens] = await Promise.all([readFile(manifestPath, 'utf8'), readFile(tokensPath, 'utf8')]);
+    tokens = await readFile(tokensPath, 'utf8');
   } catch (error) {
-    errors.push(`${id}: missing manifest.ts or tokens.css (${error.message})`);
+    errors.push(`${id}: missing or unreadable tokens.css (${error.message})`);
     continue;
   }
 
