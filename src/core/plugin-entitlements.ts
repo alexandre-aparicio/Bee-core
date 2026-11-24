@@ -68,7 +68,7 @@ type TenantPluginPurchase = Document & {
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
   { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "hello-world", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], maxUsers: 25, storageMb: 1024 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: 25, storageMb: 1024 },
   { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], maxUsers: null, storageMb: 10240 }
 ];
 
