@@ -255,6 +255,7 @@ export const platformAdminPlugin:BeePlugin={
     category:item.category,
     version:item.version,
     dependencies:item.dependencies,
+    activationPolicy:item.activationPolicy??"manual",
     status:item.status,
     source:item.source,
     installedAt:item.installedAt,
