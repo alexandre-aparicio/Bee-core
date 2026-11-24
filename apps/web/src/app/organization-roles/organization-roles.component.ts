@@ -64,14 +64,47 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
   </section>
   <section class="org-roles__tab-panel" *ngIf="activeTab==='permissions'">
    <div class="org-roles__section-heading"><div><h3>Available permissions</h3><p>Core capabilities that can be reviewed and, subject to platform policy, assigned to custom grant roles. Restriction roles can deny permissions without granting new access.</p></div><span class="org-roles__section-tag">{{permissions.length}} registered</span></div>
+   <div class="org-roles__permissions-toolbar">
+    <span class="org-roles__result-count">{{permissions.length}} registered permissions</span>
+    <div class="teams-workspace__view-toggle" role="group" aria-label="Permission catalogue display mode">
+     <button type="button" [class.is-active]="permissionView==='cards'" [attr.aria-pressed]="permissionView==='cards'" (click)="permissionView='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
+     <button type="button" [class.is-active]="permissionView==='table'" [attr.aria-pressed]="permissionView==='table'" (click)="permissionView='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
+    </div>
+   </div>
    <div *ngIf="loading" class="org-roles__empty">Loading permission catalogue…</div>
-   <div class="org-roles__permission-groups">
-    <section class="org-roles__permission-group" *ngFor="let group of groups"><h4>{{group}}</h4>
-     <article class="org-roles__permission-card" *ngFor="let item of inGroup(group)">
-      <div class="org-roles__permission-copy"><strong>{{item.label}}</strong><small>{{item.action}} · {{item.description}}</small><code>{{item.key}}</code></div>
-      <span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable by custom roles':'Restriction only / protected'}}</span>
-     </article>
+   <div class="org-roles__permission-groups" *ngIf="!loading && permissionView==='cards'">
+    <section class="org-roles__permission-group" *ngFor="let group of groups">
+     <header class="org-roles__permission-group-heading">
+      <div><h4>{{group}}</h4><span>{{inGroup(group).length}} permissions</span></div>
+     </header>
+     <div class="org-roles__permission-grid" [class.is-next]="permissionDirections[group]!=='previous'" [class.is-previous]="permissionDirections[group]==='previous'">
+      <article class="org-roles__permission-tile" *ngFor="let item of permissionPageItems(group);trackBy:trackPermission">
+       <div class="org-roles__permission-tile-top">
+        <span class="org-roles__permission-action">{{item.action}}</span>
+        <span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable':'Protected'}}</span>
+       </div>
+       <strong>{{item.label}}</strong>
+       <p>{{item.description}}</p>
+       <code>{{item.key}}</code>
+      </article>
+     </div>
+     <nav class="org-roles__permission-pagination" *ngIf="permissionPageCount(group)>1" [attr.aria-label]="group+' permission pages'">
+      <button type="button" *ngIf="permissionPage(group)>0" (click)="changePermissionPage(group,-1)" [attr.aria-label]="'Previous '+group+' permissions'" title="Previous permissions"><span aria-hidden="true">←</span></button>
+      <span class="org-roles__permission-page-count">{{permissionPage(group)+1}} / {{permissionPageCount(group)}}</span>
+      <button type="button" *ngIf="permissionPage(group)<permissionPageCount(group)-1" (click)="changePermissionPage(group,1)" [attr.aria-label]="'Next '+group+' permissions'" title="Next permissions"><span aria-hidden="true">→</span></button>
+     </nav>
     </section>
+   </div>
+   <div class="org-roles__permission-table-wrap" *ngIf="!loading && permissionView==='table'">
+    <table>
+     <thead><tr><th>Permission</th><th>Module</th><th>Action</th><th>Access policy</th><th>Code</th></tr></thead>
+     <tbody><tr *ngFor="let item of permissions;trackBy:trackPermission">
+      <td><strong>{{item.label}}</strong><small>{{item.description}}</small></td>
+      <td>{{item.group}}</td><td><span class="org-roles__permission-action">{{item.action}}</span></td>
+      <td><span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable by custom roles':'Restriction only / protected'}}</span></td>
+      <td><code>{{item.key}}</code></td>
+     </tr></tbody>
+    </table>
    </div>
    <p class="org-roles__footnote">The global delegation policy controls which capabilities may be granted to tenant custom roles. Protected capabilities remain unavailable for grants. Backend authorization remains authoritative.</p>
   </section>
@@ -194,13 +227,40 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__detail-badges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
  .org-roles__detail-badges>span{display:grid;gap:4px;min-width:0;padding:9px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,transparent)}
  .org-roles__detail-badges strong{font-size:11px}.org-roles__detail-badges code{font-size:9px;color:var(--muted,inherit);overflow-wrap:anywhere}
- .org-roles__permission-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
- .org-roles__permission-group h4{text-transform:capitalize;font-size:13px;margin-bottom:10px}
- .org-roles__permission-card{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--border,#8884)}
- .org-roles__permission-copy{min-width:0;flex:1}.org-roles__permission-copy strong,.org-roles__permission-copy small,.org-roles__permission-copy code{display:block}
- .org-roles__permission-copy strong{font-size:12px}.org-roles__permission-copy small{font-size:10px;opacity:.65;margin:3px 0}.org-roles__permission-copy code{font-size:9px;opacity:.55;overflow-wrap:anywhere}
- .org-roles__permission-state{font-size:9px;white-space:nowrap;opacity:.68}.org-roles__permission-state.is-protected{color:var(--warning,#c58a35);opacity:1}
+ .org-roles__permissions-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px}
+ .org-roles__permissions-toolbar .org-roles__result-count{font-size:10px;color:var(--muted,inherit)}
+ .org-roles__permission-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:14px}
+ .org-roles__permission-group{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;min-width:0;min-height:250px;padding:13px;border:1px solid var(--border,#8885);border-radius:12px;background:var(--surface,rgba(130,145,170,.035));overflow:hidden}
+ .org-roles__permission-group-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:9px;border-bottom:1px solid var(--border,#8885)}
+ .org-roles__permission-group-heading h4{text-transform:capitalize;font-size:13px;margin:0}
+ .org-roles__permission-group-heading span{font-size:9px;color:var(--muted,inherit);white-space:nowrap}
+ .org-roles__permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(94px,1fr));gap:8px;min-width:0}
+ .org-roles__permission-tile{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;min-height:94px;padding:9px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface-raised,var(--panel));animation:orgPermissionEnter .28s cubic-bezier(.2,.75,.25,1) both}
+ .org-roles__permission-grid.is-previous .org-roles__permission-tile{animation-name:orgPermissionReturn}
+ .org-roles__permission-tile-top{display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;min-width:0}
+ .org-roles__permission-action{display:inline-flex;align-items:center;max-width:100%;padding:3px 6px;border:1px solid color-mix(in srgb,var(--purple,#8c72ff) 30%,var(--border,#8885));border-radius:5px;background:color-mix(in srgb,var(--purple,#8c72ff) 9%,transparent);color:var(--purple,#8c72ff);font-size:8px;font-weight:750;letter-spacing:.045em;text-transform:uppercase;overflow-wrap:anywhere}
+ .org-roles__permission-tile strong{font-size:10px;line-height:1.3;overflow-wrap:anywhere}
+ .org-roles__permission-tile p{font-size:9px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+ .org-roles__permission-tile code{margin-top:auto;max-width:100%;font-size:8px;color:var(--muted,inherit);overflow-wrap:anywhere}
+ .org-roles__permission-state{font-size:8px;line-height:1.2;color:var(--bee-status-success,#299d70);white-space:nowrap}
+ .org-roles__permission-state.is-protected{color:var(--warning,#c58a35);opacity:1}
+ .org-roles__permission-pagination{display:flex;align-items:center;justify-content:center;gap:10px;min-height:27px}
+ .org-roles__permission-pagination button{display:grid;place-items:center;width:27px;height:27px;padding:0;border:1px solid var(--border,#8885);border-radius:7px;background:var(--surface-raised,var(--panel));color:inherit;font-size:15px;line-height:1;transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
+ .org-roles__permission-pagination button:hover{border-color:var(--purple,#8c72ff);background:color-mix(in srgb,var(--purple,#8c72ff) 9%,var(--surface-raised,var(--panel)))}
+ .org-roles__permission-pagination button:active{transform:translateX(1px)}
+ .org-roles__permission-pagination button:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:2px}
+ .org-roles__permission-page-count{font-size:9px;color:var(--muted,inherit);font-variant-numeric:tabular-nums}
+ .org-roles__permission-table-wrap{width:100%;overflow-x:auto;border:1px solid var(--border,#8885);border-radius:10px}
+ .org-roles__permission-table-wrap table{width:100%;min-width:720px;border-collapse:collapse}
+ .org-roles__permission-table-wrap th{padding:10px 12px;background:color-mix(in srgb,var(--muted,#888) 6%,var(--surface,transparent));color:var(--muted,inherit);font-size:10px;font-weight:650;text-align:start}
+ .org-roles__permission-table-wrap td{padding:10px 12px;border-top:1px solid var(--border,#8885);font-size:10px;vertical-align:middle}
+ .org-roles__permission-table-wrap td:first-child{min-width:190px}
+ .org-roles__permission-table-wrap td strong,.org-roles__permission-table-wrap td small{display:block}
+ .org-roles__permission-table-wrap td small{margin-top:3px;color:var(--muted,inherit);font-size:9px}
+ .org-roles__permission-table-wrap code{font-size:9px;color:var(--muted,inherit);overflow-wrap:anywhere}
  .org-roles__footnote{font-size:11px;margin-top:14px!important}
+ @keyframes orgPermissionEnter{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+ @keyframes orgPermissionReturn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
  .org-roles__modal-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:var(--bee-overlay);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:orgRoleFade .16s ease-out}
  .org-roles__modal{width:min(760px,100%);max-height:min(84vh,820px);overflow:auto;border:1px solid var(--border,#8885);border-radius:16px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow);padding:20px;display:grid;gap:16px;animation:orgRoleRise .2s ease-out}
  .org-roles__modal-top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin:0}
@@ -208,7 +268,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__modal-close{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;padding:0!important;font-size:18px;line-height:1;border:1px solid var(--border,#8885);border-radius:8px!important;background:var(--surface,transparent)}
  .org-roles__editor--modal{border:0;padding:0;background:transparent}.org-roles__editor--modal .org-roles__editor-heading{display:none}
  @keyframes orgRoleFade{from{opacity:0}to{opacity:1}}@keyframes orgRoleRise{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
- @media(prefers-reduced-motion:reduce){.org-roles__modal-backdrop,.org-roles__modal{animation:none}}
+ @media(prefers-reduced-motion:reduce){.org-roles__modal-backdrop,.org-roles__modal,.org-roles__permission-tile{animation:none!important;transition:none!important}}
  .org-roles__custom-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
  .org-roles__list-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.org-roles__list-heading strong{font-size:12px}
  .org-roles__role-card{display:grid;width:100%;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;text-align:left;margin-top:8px;padding:11px!important}
@@ -231,9 +291,9 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__primary{background:var(--purple,#8c72ff)!important;color:#fff!important;border-color:var(--purple,#8c72ff)!important}
  .org-roles__error{color:#d65b5b!important;opacity:1!important}.org-roles__success{color:#269b70!important;opacity:1!important}
  .org-roles__notice,.org-roles__empty{padding:12px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface,rgba(130,145,170,.04));font-size:11px}
- @media(max-width:760px){.org-roles__header,.org-roles__section-heading,.org-roles__editor-heading{align-items:flex-start;flex-direction:column}.org-roles__permission-groups,.org-roles__groups,.org-roles__form-grid,.org-roles__detail-badges{grid-template-columns:1fr}.org-roles__details-summary{grid-template-columns:1fr}}
+ @media(max-width:760px){.org-roles__header,.org-roles__section-heading,.org-roles__editor-heading{align-items:flex-start;flex-direction:column}.org-roles__permission-groups,.org-roles__groups,.org-roles__form-grid,.org-roles__detail-badges{grid-template-columns:1fr}.org-roles__permission-group{min-height:230px}.org-roles__details-summary{grid-template-columns:1fr}}
  @media(max-width:600px){.org-roles__toolbar{align-items:stretch}.org-roles__search{width:auto;flex:1;min-width:0}.org-roles__collection-header{justify-content:space-between}.org-roles__table-wrap table{min-width:620px}}
- @media(max-width:520px){.org-roles__tab-panel{padding:13px}.org-roles__tabs{padding:0 4px}.org-roles__tabs button{padding:12px 8px}.org-roles__modal-backdrop{padding:12px}.org-roles__modal{max-height:min(90vh,820px)}}
+ @media(max-width:520px){.org-roles__tab-panel{padding:13px}.org-roles__tabs{padding:0 4px}.org-roles__tabs button{padding:12px 8px}.org-roles__modal-backdrop{padding:12px}.org-roles__modal{max-height:min(90vh,820px)}.org-roles__permission-group{padding:10px}.org-roles__permission-tile{padding:8px}}
  :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles{--bg:#f4f6fb;--panel:#fff;--surface:#fff;--surface-raised:#fff;--muted:#68758b;--border:#dfe5ef;--purple:#5542bd;--cyan:#0891b2;--bee-status-success:#167447;--bee-status-warning:#946200;--bee-status-danger:#b42318;--warning:#946200;--bee-shadow:0 12px 32px #25385818;color:#263248}
  :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles .teams-workspace__view-toggle button.is-active{color:#fff}
  :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles .documents__button{color:#263248}
@@ -245,12 +305,17 @@ export class OrganizationRolesComponent implements OnChanges{
  @Input() tenantId="";@Input() role="member";@Input() accessToken="";
  activeTab:"system"|"permissions"|"custom"="system";
  roles:CustomRole[]=[];systemRoles:SystemRole[]=[];systemSearch="";roleSourceFilter:"all"|"native"|"created"="all";systemView:"cards"|"table"="cards";selectedSystemRole:SystemRole|null=null;name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";modalOpen=false;
- permissions:PermissionOption[]=[];
+ permissions:PermissionOption[]=[];permissionView:"cards"|"table"="cards";permissionPages:Record<string,number>={};permissionDirections:Record<string,"next"|"previous">={};
  private tenantAssignablePermissions:string[]=[];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
  get groups():string[]{return [...new Set(this.permissions.map(p=>p.group))];}
  get filteredSystemRoles():SystemRole[]{const native=this.roleSourceFilter==="created"?[]:this.systemRoles;const created=this.roleSourceFilter==="native"?[]:this.roles.map(item=>({key:item.id,label:item.name,description:item.description||"Organization-created role",protected:false,permissions:item.permissions,active:true,custom:true,customId:item.id}));const query=this.systemSearch.trim().toLowerCase();return [...native,...created].filter(item=>!query||item.label.toLowerCase().includes(query)||item.description.toLowerCase().includes(query)||item.permissions.some(key=>key.toLowerCase().includes(query)||this.permissionLabel(key).toLowerCase().includes(query)));}
  inGroup(group:string):PermissionOption[]{return this.permissions.filter(p=>p.group===group);}
+ permissionPage(group:string):number{return this.permissionPages[group]||0;}
+ permissionPageCount(group:string):number{return Math.ceil(this.inGroup(group).length/4);}
+ permissionPageItems(group:string):PermissionOption[]{const start=this.permissionPage(group)*4;return this.inGroup(group).slice(start,start+4);}
+ changePermissionPage(group:string,direction:-1|1):void{const next=Math.max(0,Math.min(this.permissionPageCount(group)-1,this.permissionPage(group)+direction));if(next===this.permissionPage(group))return;this.permissionDirections={...this.permissionDirections,[group]:direction>0?"next":"previous"};this.permissionPages={...this.permissionPages,[group]:next};}
+ trackPermission(_index:number,item:PermissionOption):string{return item.key;}
  canGrant(item:PermissionOption):boolean{return item.customRoleAssignable&&this.tenantAssignablePermissions.includes(item.key);}
  updateMode(mode:"grant"|"restriction"):void{const previous=this.mode;this.mode=mode;const allowed=new Set<string>(this.tenantAssignablePermissions);for(const p of this.permissions)p.assignable=mode==="restriction"||(p.customRoleAssignable&&allowed.has(p.key));if(!this.editingId&&previous!==mode){for(const p of this.permissions)p.selected=mode==="grant"&&["members.read","plugins.read"].includes(p.key)&&p.assignable;}}
  ngOnChanges(changes:SimpleChanges):void{if(changes["tenantId"]||changes["role"]||changes["accessToken"]){this.reset();void this.load();}}
