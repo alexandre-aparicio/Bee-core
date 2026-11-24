@@ -8,7 +8,7 @@
 
 /* Dashboard page structure and section cards use this package's own surface. */
 .bee-template-package-host--glass .bee-dash-content .panel,.bee-template-package-host--glass .bee-dash-content .dash-stat{background:#ffffff90;border:1px solid #ffffffb5;color:#28344d;box-shadow:0 14px 36px #5a77a215}
-.bee-template-package-host--glass .bee-dash-content .quick-action{background:#ffffff75;border:1px solid #ffffffb5;color:#28344d;border-radius:14px}
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .bee-dash-content .quick-action{background:#ffffff75;border:1px solid #ffffffb5;color:#28344d;border-radius:14px}
 
 .bee-template-package-host--glass .bee-dash-content .bee-dashboard-card{background:#ffffff90;border:1px solid #ffffffb5;color:#28344d;box-shadow:0 14px 36px #5a77a215}
 
