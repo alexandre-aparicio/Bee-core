@@ -22,6 +22,8 @@ export interface BeeBusinessPluginManifest {
   publisher: string;
   description: string;
   category: string;
+  /** Default tenant activation behavior when a subscription grants this package. */
+  activationPolicy?: "automatic" | "manual";
   compatibility: {
     minRuntimeVersion: string;
     maxRuntimeVersion?: string;
@@ -60,6 +62,7 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   if (typeof item.publisher !== "string" || !item.publisher.trim()) throw new Error("Plugin publisher is required");
   if (typeof item.description !== "string" || !item.description.trim()) throw new Error("Plugin description is required");
   if (typeof item.category !== "string" || !item.category.trim()) throw new Error("Plugin category is required");
+  if (item.activationPolicy !== undefined && !["automatic", "manual"].includes(item.activationPolicy)) throw new Error("Invalid plugin activation policy");
   if (!record(item.compatibility) || typeof item.compatibility.minRuntimeVersion !== "string" || !semver.test(item.compatibility.minRuntimeVersion)) throw new Error("Invalid runtime compatibility");
   if (item.compatibility.maxRuntimeVersion !== undefined && (typeof item.compatibility.maxRuntimeVersion !== "string" || !semver.test(item.compatibility.maxRuntimeVersion))) throw new Error("Invalid maximum runtime version");
   const versionRange = /^(?:\*|(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s+\|\|\s+(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)*$/;

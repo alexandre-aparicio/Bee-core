@@ -31,11 +31,19 @@ export interface BeePlugin {
   stop?(ctx: BeeContext): Promise<void> | void;
 }
 
+export type BeePluginActivationPolicy = "automatic" | "manual";
+
 export interface BeePluginManifest {
+  /** Stable package identifier; case-insensitive and globally unique. */
   name: string;
   version: string;
   description?: string;
+  /** Runtime dependencies, resolved before this plugin is initialized. */
   dependencies?: string[];
+  /** Tenant-facing plugins default to manual activation unless explicitly configured. */
+  activationPolicy?: BeePluginActivationPolicy;
+  /** All three business modules are tenant-scoped; platform services use platform. */
+  scope?: "platform" | "tenant";
   frontend?: { routes: Array<{ path: string; component: string }> };
 }
 
