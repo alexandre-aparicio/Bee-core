@@ -1,3 +1,11 @@
+## Organization → Users Cards/Table collection layout (2026-11-24)
+
+- Reworked the Members directory toolbar to match the Documents collection pattern: the left 50% contains search and status filter; the right 50% contains the Cards/Table selector aligned to the right with an inset. The selector follows Documents dimensions, spacing, glyph size, border, selected and focus behavior.
+- Added a Cards view with three equal columns on desktop, two on tablet and one on mobile. The existing Table view remains available; both views use the same filtered member collection.
+- Preserved member role assignment, custom-role restrictions, status actions and permission checks in the Cards view; no membership API or authorization behavior was changed.
+- Updated the global Base design-system guide and Midnight Style Guide with the shared Users collection contract, including Light/Dark semantic-token requirements.
+- **Validation:** source-level template/style invariants only. No Angular build, automated tests, browser interaction, responsive screenshot review or Midnight Light/Dark visual QA has been run.
+
 ## Shared modal consistency contract documented (2026-11-24)
 
 - Added a normative cross-feature modal layout contract to the global Bee-Core Design System: full-viewport blurred overlay above the dashboard header, shared panel geometry, header/eyebrow/title/close-control alignment, body scrolling, right-aligned footer action row, button variants, accessibility and responsive behavior.

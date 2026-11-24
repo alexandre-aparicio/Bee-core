@@ -39,20 +39,62 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
               <div><h3>{{t('users.directory')}}</h3><p>{{t('users.directoryDescription')}}</p></div>
               <div class="bee-users__section-actions"><span class="bee-users__count">{{filteredMembers.length}} / {{members.length}}</span><button class="bee-users__button bee-users__button--secondary" type="button" (click)="load()" [disabled]="loading"><bee-icon name="refresh" size="14px" aria-hidden="true"></bee-icon>{{loading ? t('users.refreshing') : t('users.refresh')}}</button></div>
             </div>
-            <div class="bee-users__toolbar">
-              <label class="bee-users__search">
-                <bee-icon name="search" size="15px" aria-hidden="true"></bee-icon>
-                <input type="search" [(ngModel)]="memberSearch" [placeholder]="t('users.search')" [attr.aria-label]="t('users.search')">
-              </label>
-              <select class="bee-users__filter" [(ngModel)]="memberStatusFilter" [attr.aria-label]="t('users.filterStatus')">
-                <option value="all">{{t('users.allStatuses')}}</option>
-                <option value="active">{{t('users.active')}}</option>
-                <option value="suspended">{{t('users.suspended')}}</option>
-              </select>
+            <div class="bee-users__toolbar" aria-label="Member collection controls">
+              <div class="bee-users__toolbar-filters">
+                <label class="bee-users__search">
+                  <bee-icon name="search" size="15px" aria-hidden="true"></bee-icon>
+                  <input type="search" [(ngModel)]="memberSearch" [placeholder]="t('users.search')" [attr.aria-label]="t('users.search')">
+                </label>
+                <select class="bee-users__filter" [(ngModel)]="memberStatusFilter" [attr.aria-label]="t('users.filterStatus')">
+                  <option value="all">{{t('users.allStatuses')}}</option>
+                  <option value="active">{{t('users.active')}}</option>
+                  <option value="suspended">{{t('users.suspended')}}</option>
+                </select>
+              </div>
+              <div class="bee-users__toolbar-view">
+                <div class="bee-users__view-toggle" role="group" aria-label="Member view">
+                  <button type="button" [class.is-active]="viewMode==='cards'" [attr.aria-pressed]="viewMode==='cards'" aria-label="Card view" title="Card view" (click)="viewMode='cards'"><span aria-hidden="true">▦</span></button>
+                  <button type="button" [class.is-active]="viewMode==='table'" [attr.aria-pressed]="viewMode==='table'" aria-label="Table view" title="Table view" (click)="viewMode='table'"><span aria-hidden="true">☷</span></button>
+                </div>
+              </div>
             </div>
 
             <div *ngIf="loading" class="bee-users__state" role="status"><span class="bee-users__spinner"></span>{{t('users.loadingMembers')}}</div>
-            <div *ngIf="!loading && filteredMembers.length" class="bee-users__table-wrap">
+            <div *ngIf="!loading && filteredMembers.length && viewMode==='cards'" class="bee-users__cards">
+              <article class="bee-users__card" *ngFor="let member of filteredMembers; trackBy: trackMember">
+                <div class="bee-users__card-top">
+                  <div class="bee-users__identity">
+                    <span class="bee-users__avatar" aria-hidden="true">{{memberInitials(member.email)}}</span>
+                    <span class="bee-users__identity-copy"><strong>{{member.email || t('users.unnamedMember')}}</strong><small>{{member.role === 'owner' ? t('users.organizationOwner') : t('users.organizationMember')}}</small></span>
+                  </div>
+                  <div class="bee-users__menu-wrap" *ngIf="canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')">
+                    <button type="button" class="bee-users__icon-button" [attr.aria-label]="t('users.memberOptions') + ' ' + (member.email || t('users.unnamedMember'))" [attr.aria-expanded]="openMemberMenuId === member.userId" (click)="toggleMemberMenu(member.userId)">⋮</button>
+                    <div *ngIf="openMemberMenuId === member.userId" class="bee-users__menu">
+                      <button type="button" *ngIf="member.status === 'active'" (click)="requestMemberStatus(member,'suspended')" [disabled]="busyId === member.userId">{{t('users.suspendAccess')}}</button>
+                      <button type="button" *ngIf="member.status === 'suspended'" (click)="requestMemberStatus(member,'active')" [disabled]="busyId === member.userId">{{t('users.restoreAccess')}}</button>
+                      <div *ngIf="pendingMemberStatus?.userId === member.userId" class="bee-users__confirm"><p>{{pendingMemberStatus?.status === 'suspended' ? t('users.confirmSuspend') : t('users.confirmRestore')}}</p><div><button type="button" (click)="pendingMemberStatus=null">{{t('users.cancel')}}</button><button type="button" (click)="confirmMemberStatus(member)" [disabled]="busyId === member.userId">{{t('users.confirm')}}</button></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="bee-users__card-field">
+                  <span>{{t('users.role')}}</span>
+                  <select *ngIf="canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member,$any($event.target).value)" [disabled]="busyId === member.userId" [attr.aria-label]="t('users.changeRoleFor') + ' ' + (member.email || t('users.unnamedMember'))">
+                    <option value="guest">{{t('users.guest')}}</option><option value="member">{{t('users.memberRole')}}</option><option value="manager">{{t('users.manager')}}</option><option *ngIf="canAssignOwner" value="owner">{{t('users.owner')}}</option><option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">{{t('users.admin')}}</option><option *ngFor="let customRole of grantRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
+                  </select>
+                  <strong *ngIf="!canManage || member.role === 'owner' || member.role === 'super_admin' || (member.role === 'admin' && role !== 'owner' && role !== 'super_admin')" class="bee-users__role-label">{{displayRole(member.role,member.customRoleId)}}</strong>
+                </div>
+                <div class="bee-users__card-meta">
+                  <span class="bee-users__status" [class.is-active]="member.status === 'active'" [class.is-suspended]="member.status !== 'active'"><span></span>{{member.status === 'active' ? t('users.active') : t('users.suspended')}}</span>
+                  <small>{{t('users.joined')}} · {{member.createdAt | date:'mediumDate'}}</small>
+                </div>
+                <div *ngIf="canManageCustomRoles && member.role !== 'owner' && member.role !== 'super_admin' && restrictionRoles.length" class="bee-users__restrictions">
+                  <span>{{t('users.restrictions')}}</span>
+                  <label *ngFor="let restriction of restrictionRoles"><input type="checkbox" [checked]="(member.restrictionRoleIds || []).includes(restriction.id)" (change)="toggleRestriction(member,restriction.id,$any($event.target).checked)" [disabled]="busyId === member.userId"><span>{{restriction.name}}</span></label>
+                </div>
+              </article>
+            </div>
+
+            <div *ngIf="!loading && filteredMembers.length && viewMode==='table'" class="bee-users__table-wrap">
               <table class="bee-users__table">
                 <thead><tr><th scope="col">{{t('users.member')}}</th><th scope="col">{{t('users.role')}}</th><th scope="col">{{t('users.status')}}</th><th scope="col">{{t('users.joined')}}</th><th scope="col" *ngIf="canManage"><span class="bee-users__sr-only">{{t('users.actions')}}</span></th></tr></thead>
                 <tbody>
@@ -163,7 +205,28 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__section-actions{display:flex;align-items:center;gap:8px}
     .bee-users__section-head p{margin-top:4px}
     .bee-users__count{flex:none;padding:5px 9px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
-    .bee-users__toolbar{display:flex;gap:9px;margin-bottom:12px}
+    .bee-users__toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:16px;width:100%;min-width:0;margin-bottom:12px}
+    .bee-users__toolbar-filters,.bee-users__toolbar-view{display:flex;align-items:center;min-width:0}
+    .bee-users__toolbar-filters{gap:9px}
+    .bee-users__toolbar-view{justify-content:flex-end;padding-right:8px}
+    .bee-users__view-toggle{display:flex;align-items:center;gap:5px;padding:5px;border:0;border-radius:10px;background:transparent}
+    .bee-users__view-toggle button{display:grid;place-items:center;width:34px;height:32px;padding:0;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--muted);font:inherit;font-size:17px;line-height:1;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,color .16s ease}
+    .bee-users__view-toggle button span{display:block;margin:0;padding:0;line-height:1}
+    .bee-users__view-toggle button:hover{border-color:var(--purple);color:inherit}
+    .bee-users__view-toggle button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+    .bee-users__view-toggle button.is-active{border-color:var(--purple);background:var(--purple);color:var(--bg)}
+    .bee-users__cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;min-width:0}
+    .bee-users__card{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:190px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--panel);transition:border-color .16s ease,background-color .16s ease}
+    .bee-users__card:hover{border-color:color-mix(in srgb,var(--purple) 48%,var(--border));background:color-mix(in srgb,var(--panel) 92%,var(--purple))}
+    .bee-users__card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}
+    .bee-users__card .bee-users__identity{min-width:0;flex:1}
+    .bee-users__card .bee-users__restrictions{margin:0}
+    .bee-users__card .bee-users__identity-copy strong{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+    .bee-users__card-field{display:grid;gap:6px;min-width:0}
+    .bee-users__card-field>span{color:var(--muted);font-size:10px;font-weight:650}
+    .bee-users__card-field select{width:100%;min-width:0;min-height:36px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:inherit;font:inherit;font-size:11px}
+    .bee-users__card-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:11px;border-top:1px solid var(--border)}
+    .bee-users__card-meta>small{color:var(--muted);font-size:10px}
     .bee-users__search{display:flex;align-items:center;gap:8px;flex:1;min-width:120px;padding:0 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg);color:var(--muted)}
     .bee-users__search>span{font-size:19px;line-height:1}
     .bee-users__search input{width:100%;min-width:0;height:38px;border:0;outline:0;background:transparent;color:inherit;font:inherit;font-size:12px}
@@ -175,7 +238,7 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__table th{padding:10px 11px;border-bottom:1px solid var(--border);color:var(--muted);font-size:10px;font-weight:650;white-space:nowrap}
     .bee-users__table td{padding:12px 11px;border-bottom:1px solid var(--border);vertical-align:middle}
     .bee-users__table tbody tr:last-child td{border-bottom:0}
-    .bee-users__table tbody tr:hover{background:color-mix(in srgb,var(--muted) 6%,transparent)}
+    .bee-users__table tbody tr:hover{background:color-mix(in srgb,var(--purple) 5%,transparent)}
     .bee-users__identity{display:flex;align-items:center;gap:10px;min-width:190px}
     .bee-users__avatar{display:grid;place-items:center;flex:none;width:34px;height:34px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--purple);font-size:11px;font-weight:750}
     .bee-users__identity-copy{display:grid;gap:3px;min-width:0}
@@ -237,10 +300,10 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
     .bee-users__spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--purple);border-radius:50%;animation:bee-users-spin .7s linear infinite}
     .bee-users__sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     @keyframes bee-users-spin{to{transform:rotate(360deg)}}
-    @media(max-width:1100px){.bee-users__workspace{grid-template-columns:minmax(0,1fr) 270px}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:1100px){.bee-users__workspace{grid-template-columns:minmax(0,1fr) 270px}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.bee-users__cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:820px){.bee-users__workspace{grid-template-columns:1fr}.bee-users__invite-panel{order:-1}.bee-users__invite-form{grid-template-columns:repeat(2,minmax(0,1fr))}.bee-users__invite-form>label{min-width:0}.bee-users__invite-form .bee-users__button{align-self:end}}
-    @media(max-width:620px){.bee-users{gap:14px}.bee-users__section-head{align-items:flex-start}.bee-users__section-actions{flex-wrap:wrap;justify-content:flex-end}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.bee-users__metric{padding:12px}.bee-users__metric strong{font-size:22px}.bee-users__directory,.bee-users__invitations,.bee-users__invite-panel{padding:13px}.bee-users__toolbar{flex-direction:column}.bee-users__filter{width:100%}.bee-users__invite-form{grid-template-columns:1fr}.bee-users__invite-form .bee-users__button{align-self:stretch}.bee-users__invitation{gap:8px;flex-wrap:wrap}.bee-users__invitation-copy{flex-basis:calc(100% - 58px)}.bee-users__invitation .bee-users__status{margin-left:46px}.bee-users__table{min-width:650px}}
-    @media(prefers-reduced-motion:reduce){.bee-users__button,.bee-users__spinner{transition:none;animation:none}}
+    @media(max-width:620px){.bee-users{gap:14px}.bee-users__toolbar{grid-template-columns:minmax(0,1fr);gap:10px}.bee-users__toolbar-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(128px,auto);width:100%}.bee-users__toolbar-view{width:100%}.bee-users__toolbar-view{justify-content:flex-end;padding-right:0}.bee-users__cards{grid-template-columns:minmax(0,1fr)}.bee-users__section-head{align-items:flex-start}.bee-users__section-actions{flex-wrap:wrap;justify-content:flex-end}.bee-users__metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.bee-users__metric{padding:12px}.bee-users__metric strong{font-size:22px}.bee-users__directory,.bee-users__invitations,.bee-users__invite-panel{padding:13px}.bee-users__filter{width:auto}.bee-users__invite-form{grid-template-columns:1fr}.bee-users__invite-form .bee-users__button{align-self:stretch}.bee-users__invitation{gap:8px;flex-wrap:wrap}.bee-users__invitation-copy{flex-basis:calc(100% - 58px)}.bee-users__invitation .bee-users__status{margin-left:46px}.bee-users__table{min-width:650px}}
+    @media(prefers-reduced-motion:reduce){.bee-users__button,.bee-users__card,.bee-users__view-toggle button,.bee-users__spinner{transition:none;animation:none}}
   `]
 
 })
@@ -248,6 +311,7 @@ export class CompanyMembersComponent implements OnInit, OnChanges {
   constructor(private readonly i18n: BeeI18nService) {}
   t(key: string): string { return this.i18n.t("organization:" + key); }
   memberSearch = "";
+  viewMode: "cards" | "table" = "cards";
   memberStatusFilter: "all" | "active" | "suspended" = "all";
   get filteredMembers(): CompanyMember[] {
     const query = this.memberSearch.trim().toLowerCase();

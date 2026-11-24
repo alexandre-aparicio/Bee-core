@@ -568,3 +568,12 @@ For the System Roles collection, reuse the Organization → Teams composition an
 - Organization → Roles & Permissions MUST follow the same explicit Light-mode host-context strategy as Organization → Teams. Scope the override to `.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]` so it cannot leak into Midnight Dark, Glass or Paper.
 - Map the component's local semantic tokens to the Midnight Light palette: canvas `#f4f6fb`, panel/surface/raised surface `#fff`, foreground `#263248`, muted `#68758b`, border `#dfe5ef`, violet accent `#5542bd`, success `#167447`, warning `#946200`, danger `#b42318`, and the shared Light shadow. Cards, tabs, search, tables, menus, permission circles, tooltips and dialogs must resolve through these tokens rather than retaining dark-mode values.
 - Selected Cards/Table controls and primary actions MUST retain a white foreground over the violet action surface in Light mode, matching Teams. Verify both System Roles and Custom Roles in Light and Dark.
+
+
+## Organization → Users collection layout
+
+- The Members directory MUST reuse the Documents collection toolbar composition. The toolbar is split into two equal 50% zones: search and status filter occupy the left half; Cards/Table controls occupy the right half and align to the far edge with a small right inset. Keep a consistent gap between zones and prevent controls from overflowing their half.
+- The Cards/Table selector MUST use the exact Documents geometry and states: unboxed group, 5px gap, 34×32px individual buttons, 7px radius, 1px semantic border, 17px glyph, centered with grid placement and zero padding. Use aria-pressed, accessible names and visible keyboard focus.
+- Users MUST offer equivalent Cards and Table representations of the same filtered members. Switching views MUST preserve search, status filtering, role changes, restriction controls and permitted member actions.
+- Cards MUST render three equal columns at desktop widths, two at tablet widths and one on narrow mobile screens. Use equal card sizing within each row, 12px grid gap, semantic panel/border tokens and the same restrained Documents hover treatment. Table rows use the same 5% accent hover tint.
+- The toolbar and cards MUST use active template semantic tokens and remain legible in Midnight Light and Dark. Do not introduce hard-coded theme colors or alter invitation, permission or membership behavior.
