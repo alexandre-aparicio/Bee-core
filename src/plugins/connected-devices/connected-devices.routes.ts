@@ -139,6 +139,21 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const result=await repository.devices.updateOne(filter,{$set:{name,updatedAt:new Date()}});
   if(!result.modifiedCount)return reply.code(404).send({error:"Device not found."});return {success:true};
  });
+ ctx.server.post("/connected-devices/device/unlink",async(request:any,reply:any)=>{
+  const secret=clean(request.headers["x-device-pairing-secret"],256),id=clean(request.body?.deviceId,64);
+  if(secret.length<40||!id)return reply.code(401).send({error:"Device pairing credential and device ID required."});
+  const credentialHash=hashDeviceSecret(secret);
+  const device=await repository.devices.findOne({id,credentialHash,status:{$in:["pending","active"]}});
+  if(!device)return reply.code(404).send({error:"Device not found or already unlinked."});
+  const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential);
+  const result=await repository.devices.updateOne(
+   {tenantId:device.tenantId,id:device.id,credentialHash,status:{$in:["pending","active"]}},
+   {$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:"device",updatedAt:now}}
+  );
+  if(!result.modifiedCount)return reply.code(409).send({error:"The device state changed. Refresh and try again."});
+  await repository.challenges.updateMany({tenantId:device.tenantId,deviceId:device.id,status:"claimed"},{$set:{status:"cancelled"}});
+  return {success:true};
+ });
  ctx.server.post("/connected-devices/device/heartbeat",async(request:any,reply:any)=>{
   const device=await authenticateDevice(request,reply);if(!device)return;
   const now=new Date();await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{lastSeenAt:now,updatedAt:now}});
