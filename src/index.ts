@@ -2,10 +2,16 @@ import Fastify from "fastify";
 import websocket from "@fastify/websocket";
 import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
+import { pathToFileURL } from "node:url";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { BeeEventBus } from "./core/event-bus.js";
 import { BeePluginManager } from "./core/plugin-manager.js";
 import { validateEnvironment } from "./core/environment.js";
-import type { BeeContext, BeeLogger } from "./core/types.js";
+import type { BeeContext, BeeLogger, BeePlugin } from "./core/types.js";
+import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
+import { registerRuntimePlugin } from "./core/runtime-plugin-registry.js";
+import { syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
+import { satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
@@ -115,6 +121,8 @@ const ctx: BeeContext = {
     authAdminPassword: process.env.AUTH_ADMIN_PASSWORD ?? "",
     authMfaEncryptionKey: environment.authMfaEncryptionKey,
     fileStoragePath: process.env.BEE_FILES_DIR ?? "/data/bee-files",
+    pluginPackagePath: process.env.BEE_PLUGIN_PACKAGES_DIR ?? "/data/bee-plugins",
+    pluginPublisherPublicKey: process.env.BEE_PLUGIN_PUBLISHER_PUBLIC_KEY ?? "",
     billingWebhookSecret: process.env.BEE_BILLING_WEBHOOK_SECRET ?? "",
     publicBaseDomain: process.env.PUBLIC_BASE_DOMAIN ?? "beecore.beeprojects.net"
   })
@@ -151,9 +159,95 @@ app.get("/", async () => ({
   endpoints: ["/health", "/plugins", "/auth/login", "/auth/refresh", "/auth/me", "/auth/logout"]
 }));
 
+async function loadSignedZipPlugins(): Promise<Map<string,string>> {
+  const failures = new Map<string,string>();
+  const db = mongoClient.db(environment.mongoDbName);
+  const registry = db.collection("platform_plugin_packages");
+  const packages = await registry.find({ source: "zip", status: "installed" }).sort({ pluginId: 1 }).toArray();
+  const storageRoot = resolve(String(ctx.config.pluginPackagePath ?? "/data/bee-plugins"));
+  const publicKey = String(ctx.config.pluginPublisherPublicKey ?? "");
+  for (const item of packages) {
+    try {
+      if (typeof item.pluginId !== "string" || typeof item.version !== "string" || typeof item.packageDirectory !== "string") {
+        throw new Error("Platform package registry record is incomplete");
+      }
+      const expectedDirectory = resolve(storageRoot, item.pluginId, item.version);
+      if (resolve(item.packageDirectory) !== expectedDirectory) throw new Error("Stored package path does not match its registered identity");
+      const manifest = await verifyStoredPluginDirectory({
+        packageDirectory: expectedDirectory,
+        publisherPublicKey: publicKey,
+        runtimeVersion: ctx.version
+      });
+      if (manifest.id !== item.pluginId || manifest.version !== item.version) throw new Error("Stored package manifest does not match its registry record");
+      for (const dependency of manifest.dependencies.filter(item => !item.optional)) {
+        const installedDependency = await registry.findOne({ pluginId: dependency.pluginId, status: "installed" });
+        if (!installedDependency || !satisfiesPluginVersion(String(installedDependency.version ?? "0.0.0"), dependency.versionRange)) {
+          throw new Error("Required runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
+        }
+      }
+      const entrypoint = resolve(expectedDirectory, manifest.backend.entrypoint);
+      const relativeEntrypoint = relative(expectedDirectory, entrypoint);
+      if (!relativeEntrypoint || relativeEntrypoint.startsWith(".." + sep) || isAbsolute(relativeEntrypoint)) {
+        throw new Error("Backend entrypoint escaped the package directory");
+      }
+      const moduleUrl = pathToFileURL(entrypoint).href + "?bee-package-version=" + encodeURIComponent(manifest.version);
+      const loadedModule = await import(moduleUrl) as { default?: BeePlugin; plugin?: BeePlugin };
+      const plugin = loadedModule.default ?? loadedModule.plugin;
+      if (!plugin || !plugin.manifest || plugin.manifest.name !== manifest.id || plugin.manifest.version !== manifest.version) {
+        throw new Error("Backend module must export a default BeePlugin whose manifest ID and version match bee-plugin.json");
+      }
+      const requiredDependencies = manifest.dependencies.filter(dependency => !dependency.optional).map(dependency => dependency.pluginId).sort();
+      const runtimeDependencies = [...(plugin.manifest.dependencies ?? [])].sort();
+      if (JSON.stringify(requiredDependencies) !== JSON.stringify(runtimeDependencies)) {
+        throw new Error("Backend runtime dependencies do not match the signed package manifest");
+      }
+      const expectedMigrations = manifest.migrations.filter(migration => migration.phase !== "uninstall").map(migration => ({ id: migration.id, checksum: migration.checksum, phase: migration.phase })).sort((a,b) => a.id.localeCompare(b.id));
+      const runtimeMigrations = [...(plugin.tenantMigrations ?? [])].map(migration => ({ id: migration.id, checksum: migration.checksum, phase: migration.phase ?? "install" })).sort((a,b) => a.id.localeCompare(b.id));
+      if (JSON.stringify(expectedMigrations) !== JSON.stringify(runtimeMigrations)) {
+        throw new Error("Backend tenant migrations do not match the signed package manifest");
+      }
+      plugins.register(plugin);
+      registerRuntimePlugin(plugin);
+      ctx.logger.info("Signed external plugin registered for startup", { pluginId: manifest.id, version: manifest.version });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.set(String(item.pluginId), message);
+      await registry.updateOne({ pluginId: item.pluginId }, { $set: { runtimeState: "failed", runtimeError: message.slice(0, 500), updatedAt: new Date() } });
+      ctx.logger.error("External plugin failed signature validation or registration", { pluginId: item.pluginId, error: message });
+    }
+  }
+  return failures;
+}
+
+async function persistZipPluginRuntimeState(failures: Map<string,string>): Promise<void> {
+  const db = mongoClient.db(environment.mongoDbName);
+  const registry = db.collection("platform_plugin_packages");
+  const versions = db.collection("platform_plugin_package_versions");
+  const packageRows = await registry.find({ source: "zip", status: "installed" }).toArray();
+  const runtimePlugins = new Map(plugins.list().map(plugin => [plugin.name, plugin]));
+  for (const item of packageRows) {
+    const pluginId = String(item.pluginId);
+    const runtimePlugin = runtimePlugins.get(pluginId);
+    const failure = failures.get(pluginId) ?? (runtimePlugin?.status === "started" ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
+    const runtimeState = !failure && runtimePlugin?.status === "started" ? "loaded" : "failed";
+    await registry.updateOne({ pluginId }, { $set: { runtimeState, runtimeError: failure || null, updatedAt: new Date() } });
+    await versions.updateOne({ pluginId, version: item.version }, { $set: { runtimeState, runtimeError: failure || null, runtimeCheckedAt: new Date() } });
+    await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: runtimeState === "loaded", updatedAt: new Date() } });
+    if (runtimeState === "loaded") {
+      await syncAutomaticPluginProvisioning(db, pluginId);
+      await syncPluginPackageVersionUpdates(db, pluginId);
+    }
+  }
+}
+
 async function bootstrap(): Promise<void> {
   await mongoClient.connect();
+  const zipPluginFailures = await loadSignedZipPlugins();
   await plugins.mountAll(ctx);
+  await persistZipPluginRuntimeState(zipPluginFailures);
+  const db = mongoClient.db(environment.mongoDbName);
+  const automaticPackages = await db.collection("plugin_catalog").find({ activationPolicy: "automatic", codeAvailable: true, status: "published" }).project<{id:string}>({ id: 1, _id: 0 }).toArray();
+  for (const item of automaticPackages) await syncAutomaticPluginProvisioning(db, item.id);
   await events.emit("bee.started", { at: new Date().toISOString() });
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? "0.0.0.0";

@@ -955,3 +955,18 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added the Superadmin-only `GET /platform/plugin-packages` endpoint and MongoDB-backed tests for legacy migration, lifecycle state and ZIP-record preservation.
 - **Not implemented yet:** ZIP upload/extraction, archive security validation, publisher signature verification, persistent package files, external backend discovery/loading, frontend remote loading, plan-based grants or automatic tenant activation. The existing bundled marketplace remains the code execution source.
 - **Validation pending:** no TypeScript build or MongoDB integration tests were run in this environment; tests require `MONGODB_TEST_URI`. No browser or deployment validation.
+
+
+## Signed external plugin ZIP pipeline (2026-11-24)
+
+- Added a bounded ZIP parser/extractor using Node built-ins. It validates central/local headers, UTF-8 paths, duplicate paths, symlinks/special files, compression methods, CRCs, per-file/total expansion, compression ratio and archive limits; rejects traversal, encryption, multi-disk and ZIP64 archives.
+- Added manifest validation for .mjs backend entrypoints, runtime compatibility, SHA-256 digest, publisher signature, dependency IDs/version ranges, permissions, tenant collections, frontend routes and migration checksums.
+- Added Ed25519 publisher signature verification using BEE_PLUGIN_PUBLISHER_PUBLIC_KEY. Upload is disabled until a public key is configured. The private signing key stays offline.
+- Added Superadmin POST /platform/plugin-packages with a 50 MiB base64 ZIP payload, staged extraction, per-version lock and atomic version-directory promotion. Docker Compose now persists /data/bee-plugins in bee_core_plugins.
+- Added Platform Admin UI for ZIP upload and global package status. Uploaded package state starts as stored_pending_runtime.
+- Bee Core startup re-verifies stored package files, digest and signature, imports trusted backend .mjs modules before Fastify is ready, validates plugin identity/dependencies/migration declarations, and records loaded or failed.
+- Added tenant lifecycle hooks and phase-aware tenant migrations for signed packages. Marketplace install/update/uninstall workers resolve external packages and execute their declared tenant hooks.
+- Added plan package assignments stored separately from seeded plan defaults, manual tenant grants/revocation, and automatic provisioning queue reconciliation. Automatic packages are queued after package load, plan assignment and subscription changes; manual packages require tenant activation.
+- Frontend limitation: uploaded packages must currently declare an empty frontend.routes; Angular remote frontend loading is not implemented. Existing Documents, Connected Devices and Time Tracking frontend modules remain built-in static Angular features.
+- Security boundary: a signed backend package executes in the Bee Core Node process with its privileges. Only trusted publisher keys should be configured; this is not an OS/container sandbox.
+- Validation pending: no TypeScript build, Angular build, ZIP security fuzzing, MongoDB integration tests, restart test, tenant isolation test or deployment has been run. Previous package versions are retained, but automatic runtime fallback/rollback on failed startup is not implemented.

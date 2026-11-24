@@ -16,6 +16,13 @@ export type PlatformPluginPackage = Document & {
   installedBy: string | null;
   createdAt: Date;
   updatedAt: Date;
+  activationPolicy?: "automatic" | "manual";
+  runtimeState?: "stored_pending_runtime" | "loaded" | "failed";
+  publisher?: string;
+  digest?: string;
+  packageDirectory?: string;
+  backendEntrypoint?: string;
+  frontendRoutes?: Array<{ path: string; component: string }>;
 };
 
 /**
@@ -26,6 +33,7 @@ export type PlatformPluginPackage = Document & {
 export async function ensurePlatformPluginRegistry(db: Db): Promise<void> {
   const packages = db.collection<PlatformPluginPackage>("platform_plugin_packages");
   await Promise.all([
+    db.collection("platform_plugin_package_versions").createIndex({ pluginId: 1, version: 1 }, { unique: true, name: "platform_plugin_package_version_unique" }),
     packages.createIndex({ pluginId: 1 }, { unique: true, name: "platform_plugin_package_id_unique" }),
     packages.createIndex({ status: 1, updatedAt: -1 }, { name: "platform_plugin_package_status_updated" }),
     packages.createIndex({ source: 1, pluginId: 1 }, { name: "platform_plugin_package_source_id" })

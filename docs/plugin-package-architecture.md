@@ -2,13 +2,13 @@
 
 ## Status
 
-This document defines the target contract and implemented foundation slices. A database-backed global package registry now separates platform package state from tenant installation rows for the built-in packages. ZIP upload/extraction, dynamic backend loading and Angular remote-module loading are still not implemented.
+This document describes the implemented signed backend package pipeline and remaining frontend/runtime limitations. Superadmin can upload a signed ZIP, the server validates and extracts it into persistent storage, registers it globally, and loads its backend plugin on the next Bee Core restart. Angular remote frontend loading remains intentionally unsupported.
 
 ## Three independent state dimensions
 
 Bee Core must not overload the word "installed". The platform package and each tenant have separate state:
 
-1. **Platform package** — a package version has been uploaded, validated, stored and registered by Super Organization. This makes its code available to the Bee Core runtime.
+1. **Platform package** — a package version has been uploaded, signature-verified, stored and registered by Super Organization. Its backend becomes available after the next Bee Core restart and startup verification.
 2. **Tenant entitlement** — a tenant receives access through its subscription plan, an explicit Super Organization grant, or a purchase.
 3. **Tenant activation** — the tenant may use the plugin only after its tenant installation/migrations have completed and it is enabled.
 
@@ -40,24 +40,24 @@ Canonical internal layers:
 
 The exact number of files can vary when a module is small, but authorization and tenant scoping belong in the service/repository boundary, not duplicated ad hoc across route handlers.
 
-## ZIP installation target
+## Signed ZIP installation — implemented backend pipeline
 
-A future Super Organization package installer must:
+The Superadmin Platform Admin page now provides Upload plugin ZIP. The endpoint is POST /platform/plugin-packages and accepts a JSON body with archiveBase64. The upload limit is 50 MiB. The server:
 
-1. Accept a bounded ZIP upload and validate the archive before extraction.
-2. Reject path traversal, symlinks, duplicate paths, ZIP bombs, unsupported files and invalid manifests.
-3. Verify the package digest and publisher signature against a trusted key.
-4. Validate runtime compatibility, dependency versions, declared permissions, collections, frontend routes and migration checksums.
-5. Stage extraction in a temporary directory, atomically move the validated version into the configured plugin directory and register the platform package/version in MongoDB.
-6. Run platform migrations and mark the package installed only after success.
-7. Schedule a controlled runtime restart/reload. Fastify route registration is completed during startup; installing executable backend code cannot safely pretend to hot-mount new routes into an already-ready server.
-8. Keep the previous version available for rollback until the new version passes startup health checks.
+1. Parses ZIP central-directory records and accepts only stored/deflate entries; rejects ZIP64, multi-disk and encrypted archives.
+2. Rejects traversal, absolute paths, backslashes, NULs, duplicate/case-colliding paths, symlinks, special files, CRC/size mismatches, excessive entry counts, oversized files, total expansion and compression ratios.
+3. Requires a configured publisher public key, validates the SHA-256 package digest and verifies the publisher signature.
+4. Validates manifest schema, runtime compatibility, dependency presence/version ranges, backend entrypoint and declared tenant migration metadata.
+5. Extracts into a private staging directory and atomically promotes the package into a versioned directory under the persistent plugin volume. A per-version lock prevents concurrent duplicate installs.
+6. Writes platform package and package-version records, with runtime state stored_pending_runtime.
+7. On the next startup, re-reads every stored file, rejects symlinks/special files, recomputes the digest and signature, imports the .mjs backend entrypoint, validates its BeePlugin manifest/dependencies/migration hooks and registers it before Fastify becomes ready.
+8. Records runtime state as loaded or failed. Previous package versions are retained on disk; automatic fallback to a previous version is not yet implemented.
 
 Uninstalling a platform package must be blocked while tenant installations or dependent packages still reference it, unless an explicit, audited migration/decommission flow has been completed.
 
-## Frontend loading
+## Current package format and frontend limitation
 
-The current Angular application is statically compiled. Extracting frontend files from a ZIP does not make Angular components available at runtime. The package format therefore needs a versioned frontend contract (initially a constrained web-component/custom-element bundle or a separately compiled remote entry), an explicit route registry, CSP-compatible asset loading and a trusted-origin policy. Do not dynamically execute arbitrary uploaded JavaScript in the dashboard.
+The current installer deliberately accepts backend-only ZIP packages: frontend.routes must be an empty array. The Angular dashboard is statically compiled; extracting a frontend bundle does not make its components available. Do not execute uploaded frontend JavaScript in the dashboard. A future isolated web-component/iframe bridge with a narrow capability API, CSP policy and trusted origin is required before frontend routes can be accepted.
 
 ## Migration of the three built-in modules
 
@@ -69,23 +69,29 @@ The current Angular application is statically compiled. Extracting frontend file
 ## Implementation sequence
 
 1. Establish and validate the common manifest metadata and activation policy. (Implemented in the foundation PR.)
-2. Introduce separate platform package registry/install state and tenant entitlement grants. (Global registry and legacy-state bridge implemented; plan/manual entitlement grants remain pending.)
-3. Implement secure ZIP upload, verification, staged extraction, migrations and controlled runtime restart. (Pending.)
-4. Add Super Organization package-management UI and audit trail.
-5. Implement plan-driven automatic grants/activation and explicit manual grants, with dependency resolution.
+2. Introduce separate platform package registry/install state and tenant entitlement grants. (Implemented.)
+3. Implement secure signed ZIP upload, staged extraction, persistent package versions and startup backend loading. (Backend-only pipeline implemented; automatic rollback pending.)
+4. Add Super Organization package-management UI and audit trail. (Upload, package list, plan assignment and manual tenant grants implemented.)
+5. Implement plan-driven automatic provisioning and explicit manual grants, with dependency resolution. (Backend provisioning queue implemented.)
 6. Migrate the three built-in plugins to the same lifecycle and persistence conventions without changing their APIs or deleting tenant data.
-7. Implement the trusted frontend bundle/route contract.
+7. Implement the trusted frontend bundle/route contract. (Pending; installer rejects non-empty frontend.routes.)
 8. Add integration tests for install, upgrade, rollback, plan changes, tenant isolation, disable/re-enable and dependency removal.
 
 No stage is complete until the relevant backend tests, Angular build, browser checks and migration/rollback tests have run.
 
 
-## Global package registry — implementation slice
+## Global package registry
 
-The backend now maintains `platform_plugin_packages` as the platform-level source of truth, separate from `tenant_plugin_installations`:
+The backend maintains `platform_plugin_packages` as the platform-level source of truth, separate from `tenant_plugin_installations`. Built-in package metadata is seeded idempotently, legacy Super Organization installations are migrated, and Marketplace global install operations synchronize the registry.
 
-- Built-in package metadata is seeded idempotently as `available` without pretending that every package is installed.
-- Existing Super Organization installation rows are migrated into the registry at platform-admin startup, preserving compatibility with the current Settings → Plugins installation flow.
-- Super Organization marketplace install/uninstall jobs synchronize the global package state. ZIP-sourced records are protected from bundled-package synchronization.
-- Superadmin endpoints expose the global package registry at `GET /platform/plugin-packages`; company plugin state reads global installation from this registry and tenant enabled state from tenant installation rows.
-- This is a database/state normalization step. It does not yet accept ZIP uploads or dynamically load external backend/frontend code.
+ZIP package versions are recorded in `platform_plugin_package_versions`. The extracted package files are stored under the persistent plugin volume, while runtime readiness is tracked independently as `stored_pending_runtime`, `loaded` or `failed`. Tenant plan assignments live in `plugin_plan_package_assignments`; manual tenant grants live in `tenant_plugin_entitlements`. Neither grants nor plan changes copy package files into tenants.
+
+
+## Current limitations
+
+- Uploaded packages are backend-only. No uploaded frontend bundle is executed or mounted into Angular.
+- The package backend is trusted executable code inside the Bee Core process. Signature verification establishes publisher trust; it is not a sandbox.
+- Manifest permission declarations are currently validated and stored as package metadata; they are not automatically added to the tenant role catalog. External route handlers must enforce tenant context, entitlement, installation/enabled state and permissions using the existing Core guards.
+- The public key setting currently supports one configured publisher key, not a multi-publisher trust store or key rotation UI.
+- Package upgrades retain prior version directories, but startup does not automatically fall back if the new version fails to load.
+- Global ZIP install is separate from tenant grants/activation. Tenant migration hooks run through the existing Marketplace lifecycle worker.

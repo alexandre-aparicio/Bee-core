@@ -11,7 +11,8 @@ type MarketplacePlugin = {
   purchasable: boolean;
   system: boolean;
   entitled: boolean;
-  accessSource: "plan" | "purchase" | null;
+  accessSource: "plan" | "purchase" | "manual" | null;
+  activationPolicy?: "automatic" | "manual";
   installed: boolean;
   enabled: boolean;
   installedVersion: string | null;
@@ -40,6 +41,7 @@ type MarketplacePlugin = {
               <span>{{plugin.category}}</span>
               <span *ngIf="plugin.accessSource === 'plan'">Included in plan</span>
               <span *ngIf="plugin.accessSource === 'purchase'">Purchased add-on</span>
+              <span *ngIf="plugin.accessSource === 'manual'">Granted by Superadmin</span>
               <span *ngIf="!plugin.entitled">Not included</span>
               <span *ngIf="plugin.installed" class="bee-marketplace__installed">{{plugin.enabled ? (isHelloWorld(plugin) ? "Active" : "Installed") : "Disabled"}}</span>
             </div>

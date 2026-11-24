@@ -5,6 +5,7 @@ import { TenantCollection } from "./tenant-collection.js";
 export type TenantPluginMigration = {
   id: string;
   checksum: string;
+  phase?: "install" | "upgrade";
   up: (db: Db, tenantId: string) => Promise<void>;
   down?: (db: Db, tenantId: string) => Promise<void>;
 };

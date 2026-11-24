@@ -9,12 +9,15 @@ import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, setPlatformPackageAvailable, setPlatformPackageInstalled } from "../../core/platform-plugin-registry.js";
+import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
   getTenantSubscription,
   getTrustedPluginPackage,
+  syncAutomaticPluginProvisioning,
   resolvePluginDependencyOrder,
+  type PluginPackageDefinition,
   hasPluginEntitlement,
   isPluginEnabled,
   isPluginInstalled,
@@ -33,6 +36,20 @@ export const marketplacePlugin: BeePlugin = {
   },
   async initialize(ctx) {
     const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    const getMarketplacePackage = async (pluginId:string):Promise<PluginPackageDefinition|undefined> => {
+      const builtIn=getTrustedPluginPackage(pluginId);
+      if(builtIn)return builtIn;
+      const runtime=getRuntimePlugin(pluginId);
+      if(!runtime)return undefined;
+      const metadata=await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({id:pluginId,status:"published",codeAvailable:true});
+      if(!metadata)return undefined;
+      return {...metadata,migrations:runtime.tenantMigrations??[],installTenant:runtime.installTenant,updateTenant:runtime.updateTenant,uninstallTenant:runtime.uninstallTenant};
+    };
+    const selectTenantMigrations=(definition:PluginPackageDefinition,phase:"install"|"upgrade")=>(definition.migrations??[]).filter(migration=>!migration.phase||migration.phase===phase);
+    const getDependencyOrder = async (pluginId:string):Promise<string[]> => {
+      const definitions=await db.collection<PluginPackageDefinition>("plugin_catalog").find({status:"published",codeAvailable:true}).project<{id:string;dependencies:string[]}>({id:1,dependencies:1,_id:0}).toArray();
+      return resolvePluginDependencyOrder(pluginId,definitions);
+    };
     await ensurePlatformPluginRegistry(db);
     const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
     if(sessionIdSecret.length<32)throw new Error("Marketplace: JWT_SECRET must contain at least 32 characters.");
@@ -111,6 +128,10 @@ export const marketplacePlugin: BeePlugin = {
             metadata: { planId: plan.id, status, currentPeriodEnd: periodEnd?.toISOString() ?? null }
           });
           await ctx.events.emit("subscription.updated", { tenantId, planId: plan.id, status });
+          const automaticPackages=await db.collection("plugin_catalog").find({includedInPlans:plan.id,activationPolicy:"automatic",codeAvailable:true}).project<{id:string}>({id:1,_id:0}).toArray();
+          for(const item of automaticPackages)await syncAutomaticPluginProvisioning(db,item.id);
+          const assignedPackages=await db.collection("plugin_plan_package_assignments").find({planId:plan.id}).project<{pluginId:string}>({pluginId:1,_id:0}).toArray();
+          for(const item of assignedPackages)await syncAutomaticPluginProvisioning(db,item.pluginId);
         }
         return { success: true, event: body.event, changed };
       }
@@ -338,9 +359,9 @@ export const marketplacePlugin: BeePlugin = {
       const plugin = catalog.find(item => item.id === pluginId);
       if (!plugin) return reply.code(404).send({ error: "Plugin not visible to this company" });
       if (!plugin.entitled) return reply.code(402).send({ error: "An active plan entitlement or plugin purchase is required" });
-      const trusted = getTrustedPluginPackage(pluginId);
+      const trusted = await getMarketplacePackage(pluginId);
       if (!trusted) return reply.code(404).send({ error: "Trusted plugin package is unavailable" });
-      for (const dependency of resolvePluginDependencyOrder(pluginId)) {
+      for (const dependency of await getDependencyOrder(pluginId)) {
         if (!await hasPluginEntitlement(db, tenant.tenantId, dependency) || !await isPluginInstalled(db, tenant.tenantId, dependency) || !await isPluginEnabled(db, tenant.tenantId, dependency)) {
           return reply.code(409).send({ error: "Required plugin dependency is not installed: " + dependency });
         }
@@ -375,7 +396,7 @@ export const marketplacePlugin: BeePlugin = {
         return reply.code(403).send({ error: "Plugin management permission required" });
       }
       if (!await hasPluginEntitlement(db, tenant.tenantId, pluginId)) return reply.code(402).send({ error: "An active plan entitlement or plugin purchase is required" });
-      const trusted = getTrustedPluginPackage(pluginId);
+      const trusted = await getMarketplacePackage(pluginId);
       if (!trusted) return reply.code(404).send({ error: "Trusted plugin package is unavailable" });
       const installation = await db.collection("tenant_plugin_installations").findOne({ tenantId: tenant.tenantId, pluginId });
       if (!installation || installation.status !== "installed") return reply.code(409).send({ error: "Only an installed plugin can be updated" });
@@ -424,7 +445,7 @@ export const marketplacePlugin: BeePlugin = {
         .find({ tenantId: tenant.tenantId, status: "installed", pluginId: { $ne: pluginId } })
         .toArray();
       for (const installed of otherInstalled) {
-        const dependent = getTrustedPluginPackage(String(installed.pluginId));
+        const dependent = await getMarketplacePackage(String(installed.pluginId));
         if (dependent?.dependencies.includes(pluginId)) return reply.code(409).send({ error: "Plugin is required by installed plugin: " + installed.pluginId });
       }
       const queued = await enqueuePluginUninstallJob(installJobs, { tenantId: tenant.tenantId, pluginId, actorId: tenant.userId });
@@ -452,7 +473,7 @@ export const marketplacePlugin: BeePlugin = {
         try {
           const tenantRecord = await db.collection("tenants").findOne({ id: job.tenantId, status: "active" });
           if (!tenantRecord) throw new Error("Company is not active");
-          const trusted = getTrustedPluginPackage(job.pluginId);
+          const trusted = await getMarketplacePackage(job.pluginId);
           if (!trusted) throw new Error("Trusted plugin package is unavailable");
 
           if (job.action === "uninstall") {
@@ -463,7 +484,7 @@ export const marketplacePlugin: BeePlugin = {
               .find({ tenantId: job.tenantId, status: "installed", pluginId: { $ne: job.pluginId } })
               .toArray();
             for (const installed of otherInstalled) {
-              const dependent = getTrustedPluginPackage(String(installed.pluginId));
+              const dependent = await getMarketplacePackage(String(installed.pluginId));
               if (dependent?.dependencies.includes(job.pluginId)) throw new Error("Plugin is required by installed plugin: " + installed.pluginId);
             }
             await db.collection("tenant_plugin_installations").updateOne(
@@ -480,7 +501,7 @@ export const marketplacePlugin: BeePlugin = {
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else if (job.action === "install") {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
-            for (const dependency of resolvePluginDependencyOrder(job.pluginId)) {
+            for (const dependency of await getDependencyOrder(job.pluginId)) {
               if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency) || !await isPluginEnabled(db, job.tenantId, dependency)) {
                 throw new Error("Required plugin dependency is not installed: " + dependency);
               }
@@ -491,16 +512,20 @@ export const marketplacePlugin: BeePlugin = {
               { $set: { status: "installing", version: trusted.version, updatedAt: new Date(), error: null }, $setOnInsert: { id: randomUUID(), tenantId: job.tenantId, pluginId: job.pluginId, installedAt: null } },
               { upsert: true }
             );
-            const migrationRun = await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
+            const tenantMigrations = selectTenantMigrations(trusted,"install");
+            const migrationRun = await runTenantPluginMigrations(db, job.tenantId, job.pluginId, tenantMigrations);
             try {
               await trusted.installTenant?.(db, job.tenantId);
               await installations.updateOne(
                 { tenantId: job.tenantId, pluginId: job.pluginId },
                 { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } }
               );
-              if (tenantRecord.kind === "super") await setPlatformPackageInstalled(db, job.pluginId, trusted.version, job.actorId);
+              if (tenantRecord.kind === "super") {
+                await setPlatformPackageInstalled(db, job.pluginId, trusted.version, job.actorId);
+                await syncAutomaticPluginProvisioning(db, job.pluginId);
+              }
             } catch (error) {
-              const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? [], migrationRun.applied);
+              const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, tenantMigrations, migrationRun.applied);
               if (rollback.failed.length) {
                 ctx.logger.error("Plugin installation migration compensation was incomplete", { tenantId: job.tenantId, pluginId: job.pluginId, failedMigrations: rollback.failed });
               }
@@ -510,7 +535,7 @@ export const marketplacePlugin: BeePlugin = {
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.installed", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
-            for (const dependency of resolvePluginDependencyOrder(job.pluginId)) {
+            for (const dependency of await getDependencyOrder(job.pluginId)) {
               if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency) || !await isPluginEnabled(db, job.tenantId, dependency)) {
                 throw new Error("Required plugin dependency is not installed: " + dependency);
               }
@@ -529,7 +554,8 @@ export const marketplacePlugin: BeePlugin = {
                 { tenantId: job.tenantId, pluginId: job.pluginId, status: { $in: ["installed", "updating"] } },
                 { $set: { status: "updating", updatedAt: new Date(), error: null } }
               );
-              const migrationRun = await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
+              const tenantMigrations = selectTenantMigrations(trusted,"upgrade");
+              const migrationRun = await runTenantPluginMigrations(db, job.tenantId, job.pluginId, tenantMigrations);
               try {
                 await trusted.updateTenant?.(db, job.tenantId, previousVersion);
                 await installations.updateOne(
@@ -537,7 +563,7 @@ export const marketplacePlugin: BeePlugin = {
                   { $set: { status: "installed", version: trusted.version, updatedAt: new Date() }, $unset: { error: "" } }
                 );
               } catch (error) {
-                const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? [], migrationRun.applied);
+                const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, tenantMigrations, migrationRun.applied);
                 if (rollback.failed.length) {
                   ctx.logger.error("Plugin update migration compensation was incomplete", { tenantId: job.tenantId, pluginId: job.pluginId, failedMigrations: rollback.failed });
                 }
