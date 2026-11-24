@@ -351,8 +351,11 @@ test("company plans and purchases control plugin visibility, installation and ac
     });
     assert.equal(cleanupConcurrentPurchase.statusCode, 200);
     assert.equal(cleanupConcurrentPurchase.json().changed, true);
+    const originalAlphaPurchase=await db.collection("plugin_purchases").findOne({tenantId:"market-alpha",providerReference:"alpha-notes-001"});
+    assert.equal(originalAlphaPurchase?.status,"active","revoking a distinct provider reference must not revoke the original purchase");
+    assert.equal(await db.collection("plugin_purchases").countDocuments({tenantId:"market-alpha",pluginId:"notes",status:"active"}),1);
     const alphaPurchasedCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
-    assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; name: string; entitled: boolean; accessSource: string }) => plugin.name.toLowerCase() === "notes" && plugin.entitled && plugin.accessSource === "purchase"));
+    assert.ok(alphaPurchasedCatalog.json().plugins.some((plugin: { id: string; name: string; entitled: boolean; accessSource: string }) => plugin.name.toLowerCase() === "notes" && plugin.entitled && plugin.accessSource === "purchase"),"the remaining active purchase must still grant Notes; catalog="+JSON.stringify(alphaPurchasedCatalog.json()));
     const alphaNotesInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(alphaNotesPluginRef) + "/install", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaNotesInstall.statusCode, 202);
     const alphaInstallJob = await waitForInstallJob(await resolveJobId(alphaToken,alphaNotesInstall.json().jobId as string));
