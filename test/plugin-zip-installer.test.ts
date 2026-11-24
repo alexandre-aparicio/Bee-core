@@ -51,7 +51,7 @@ function zip(files: Array<{name:string;data:Buffer;mode?:number}>): Buffer {
 function signedArchive() {
   const {publicKey,privateKey}=generateKeyPairSync("ed25519");
   const files=new Map<string,Buffer>([
-    ["dist/backend/index.js",Buffer.from("export const plugin = true;")],
+    ["dist/backend/index.mjs",Buffer.from("export const plugin = true;")],
     ["README.md",Buffer.from("# Signed plugin package")]
   ]);
   const digest=packageDigest(files);
@@ -59,7 +59,7 @@ function signedArchive() {
     id:"demo.crm",name:"Demo CRM",version:"1.0.0",publisher:"Bee Projects",description:"Test package",category:"crm",
     activationPolicy:"manual",compatibility:{minRuntimeVersion:"0.3.0"},
     dependencies:[],permissions:[{key:"demo.crm.read",description:"Read CRM records"}],
-    backend:{entrypoint:"dist/backend/index.js"},frontend:{routes:[]},collections:["demo_crm_records"],migrations:[],settingsSchema:{type:"object"},
+    backend:{entrypoint:"dist/backend/index.mjs"},frontend:{routes:[]},collections:["demo_crm_records"],migrations:[],settingsSchema:{type:"object"},
     package:{sha256:digest,signature:"",storageKey:"packages/demo.crm/1.0.0"}
   };
   const payload=Buffer.from(["bee-plugin-package-v1",manifest.id,manifest.version,manifest.publisher,digest].join("\n"));
@@ -76,7 +76,7 @@ test("signed plugin ZIP is verified and atomically extracted into its versioned 
     assert.equal(result.manifest.id,"demo.crm");
     assert.equal(result.runtimeState,undefined);
     assert.equal(result.extractedFiles,3);
-    assert.equal(await readFile(join(result.packageDirectory,"dist/backend/index.js"),"utf8"),"export const plugin = true;");
+    assert.equal(await readFile(join(result.packageDirectory,"dist/backend/index.mjs"),"utf8"),"export const plugin = true;");
     assert.equal(result.storageKey,"packages/demo.crm/1.0.0");
   }finally{await rm(root,{recursive:true,force:true});}
 });
