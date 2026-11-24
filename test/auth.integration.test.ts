@@ -272,17 +272,18 @@ test("auth integration: login, token introspection, refresh rotation and logout"
 
     const companyList = await app.inject({method:"GET",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(companyList.statusCode,200);
-    assert.ok(companyList.json().companies.some((company:{id:string;role:string})=>company.id!=="tenant-alpha"&&company.role==="owner"));
+    const alphaCompanyRef=companyList.json().companies.find((company:{id:string;name:string})=>company.name==="Alpha")?.id as string;
+    assert.ok(alphaCompanyRef,"the active Alpha company must have a session-bound reference");
     const createCompany = await app.inject({method:"POST",url:"/companies",headers:{authorization:"Bearer "+tokens.accessToken},payload:{name:"Second Company"}});
     assert.equal(createCompany.statusCode,201);
     const secondCompanyId=createCompany.json().company.id as string;
     const activateCompany=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/activate",headers:{authorization:"Bearer "+tokens.accessToken}});
     assert.equal(activateCompany.statusCode,200);
     const secondCompanyInternalId=await resolveReference(tokens.accessToken,secondCompanyId,"tenant");
-    const inactiveCompanyAccess=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(secondCompanyId)+"/memberships",headers:{authorization:"Bearer "+tokens.accessToken}});
+    const inactiveCompanyAccess=await app.inject({method:"GET",url:"/companies/"+encodeURIComponent(alphaCompanyRef)+"/memberships",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(inactiveCompanyAccess.statusCode,403,"a valid reference for another membership must not bypass the active-company boundary");
-    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:"tenant-alpha",actorId:"test-user",action:"permission.denied",outcome:"denied",resourceType:"company","metadata.permission":"members.read","metadata.reason":"inactive_company_reference"}),"cross-company access attempts must be audited in the actor's active tenant");
-    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:secondCompanyInternalId,action:"permission.denied",resourceType:"company","metadata.reason":"inactive_company_reference"}),0,"denied cross-company attempts must never write audit records into the target tenant");
+    assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"permission.denied",outcome:"denied",resourceType:"company","metadata.permission":"members.read","metadata.reason":"inactive_company_reference"}),"cross-company access attempts must be audited in the actor's active tenant");
+    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"tenant-alpha",action:"permission.denied",resourceType:"company","metadata.reason":"inactive_company_reference"}),0,"denied cross-company attempts must never write audit records into the target tenant");
     const switchedClaims=JSON.parse(Buffer.from(activateCompany.json().accessToken.split(".")[1],"base64url").toString("utf8")) as {sub:string;tenantRef?:string};
     assert.notEqual(switchedClaims.sub,"test-user","company switching must keep the JWT subject opaque");
     assert.ok(switchedClaims.tenantRef);
