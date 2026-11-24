@@ -18,28 +18,10 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
            <button type="button" [class.is-active]="viewMode==='list'" [attr.aria-pressed]="viewMode==='list'" (click)="viewMode='list'" title="List view">☷</button>
          </div>
          <button type="button" class="platform-admin__create-trigger" (click)="openCreate()">＋ New tenant</button>
-         <button type="button" class="platform-admin__create-trigger" (click)="pluginZipInput.click()" [disabled]="pluginUploadBusy">{{pluginUploadBusy ? "Uploading…" : "Upload plugin ZIP"}}</button>
-         <input #pluginZipInput type="file" accept=".zip,application/zip" hidden (change)="uploadPluginZip($event)">
        </div>
      </div>
      @if(error){<p class="platform-admin__error">{{error}}</p>}
      @if(success){<p class="platform-admin__success">{{success}}</p>}
-     <section class="platform-admin__tenant-tab-content" aria-label="Global plugin packages">
-       <div class="platform-admin__manage-section"><div><h3>Global plugin packages</h3><p>Signed ZIP packages are stored separately from tenant activation.</p></div><button type="button" (click)="loadPlatformPackages()" [disabled]="pluginPackagesLoading">Refresh packages</button></div>
-       <div *ngIf="pluginPackagesLoading" class="platform-admin__empty">Loading platform packages…</div>
-       <div *ngIf="!pluginPackagesLoading && !platformPackages.length" class="platform-admin__empty">No platform packages registered.</div>
-       <div class="platform-admin__tenant-list" *ngIf="platformPackages.length">
-         <article class="platform-admin__tenant-plugin" *ngFor="let plugin of platformPackages">
-           <div class="platform-admin__tenant-plugin-main"><span class="platform-admin__tenant-plugin-mark">⌘</span><div><strong>{{plugin.name}}</strong><small>{{plugin.pluginKey}} · v{{plugin.version}} · {{plugin.source}}</small></div></div>
-           <div class="platform-admin__tenant-plugin-status"><span class="platform-company-status">{{plugin.status}}</span><small>{{plugin.runtimeState || "Runtime not loaded"}}</small></div>
-           <div class="platform-admin__tenant-plugin-status">
-             <small>Included in plans</small>
-             <label *ngFor="let plan of platformPlans"><input type="checkbox" [checked]="packagePlanSelections[plugin.pluginKey]?.includes(plan.id)" (change)="togglePackagePlan(plugin,plan.id,$any($event.target).checked)"> {{plan.name}}</label>
-             <button type="button" (click)="savePackagePlans(plugin)" [disabled]="plugin.runtimeState !== 'loaded'">Save plan access</button>
-           </div>
-         </article>
-       </div>
-     </section>
      @if(loading){<div class="platform-admin__empty">Loading companies…</div>}
      @else if(!companies.length){<div class="platform-admin__empty">No tenants have been created yet.</div>}
      @else if(viewMode==='cards'){
@@ -164,10 +146,6 @@ export class PlatformAdminComponent implements OnInit {
  @Output() manageCompany=new EventEmitter<string>();
  @Output() backToList=new EventEmitter<void>();
  companies:PlatformCompany[]=[];
- platformPackages:Array<{id:string;pluginKey:string;name:string;version:string;description:string;status:string;source:string;runtimeState:string|null;activationPolicy:string}> = [];
- platformPlans:Array<{id:string;name:string;packageIds:string[]}> = [];
- packagePlanSelections:Record<string,string[]> = {};
- pluginPackagesLoading=false;pluginUploadBusy=false;
  pluginStates:Record<string,{id:string;installed:boolean;enabled:boolean;status:string;name:string}>={};
  pluginBusyId='';name='';slug='';ownerEmail='';ownerPassword='';busy=false;loading=false;error='';success='';tenantTab:'general'|'users'|'plugins'='general';tenantUsers:Array<{userId:string;email:string;role:string;status:string;createdAt?:string}>=[];tenantPlugins:Array<{id:string;name:string;description:string;version:string;installed:boolean;enabled:boolean;status:string;system:boolean;dependencies?:string[];entitled?:boolean;accessSource?:string|null;activationPolicy?:string}>=[];usersLoading=false;tenantPluginsLoading=false;
  viewMode:'cards'|'list'='cards';showCreateModal=false;openMenuId='';
@@ -177,42 +155,7 @@ export class PlatformAdminComponent implements OnInit {
  openCreate(){this.error='';this.success='';this.showCreateModal=true;}
  closeCreate(){if(this.busy)return;this.showCreateModal=false;this.error='';}
  toggleMenu(id:string){this.openMenuId=this.openMenuId===id?'':id;}
- async loadPlatformPlans(){
-  try{const r=await fetch("/api/platform/plugin-plans",{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to load plans");this.platformPlans=d.plans??[];for(const plugin of this.platformPackages){this.packagePlanSelections[plugin.pluginKey]=this.platformPlans.filter(plan=>plan.packageIds?.includes(plugin.pluginKey)).map(plan=>plan.id);}}
-  catch(e){this.error=e instanceof Error?e.message:"Unable to load plans";}
- }
- togglePackagePlan(plugin:any,planId:string,checked:boolean){
-  const current=this.packagePlanSelections[plugin.pluginKey]??[];
-  this.packagePlanSelections[plugin.pluginKey]=checked?[...new Set([...current,planId])]:current.filter(id=>id!==planId);
- }
- async savePackagePlans(plugin:any){
-  try{const r=await fetch("/api/platform/plugin-packages/"+encodeURIComponent(plugin.id)+"/plans",{method:"PUT",headers:{...this.headers(),"content-type":"application/json"},body:JSON.stringify({planIds:this.packagePlanSelections[plugin.pluginKey]??[]})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to save plan access");this.success="Plan access updated for "+plugin.name+".";}
-  catch(e){this.error=e instanceof Error?e.message:"Unable to save plan access";}
- }
- async setTenantPluginGrant(company:PlatformCompany,plugin:any,granted:boolean){
-  if(this.pluginBusyId)return;this.pluginBusyId=company.id;
-  try{const r=await fetch("/api/platform/companies/"+encodeURIComponent(company.id)+"/plugin-entitlements/"+encodeURIComponent(plugin.id),{method:"PUT",headers:{...this.headers(),"content-type":"application/json"},body:JSON.stringify({granted})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to update tenant access");await this.loadTenantPlugins();}
-  catch(e){this.error=e instanceof Error?e.message:"Unable to update tenant access";}
-  finally{this.pluginBusyId="";}
- }
- async loadPlatformPackages(){
-  if(this.pluginPackagesLoading)return;
-  this.pluginPackagesLoading=true;
-  try{const r=await fetch("/api/platform/plugin-packages",{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to load platform packages");this.platformPackages=d.packages??[];for(const plugin of this.platformPackages){if(!this.packagePlanSelections[plugin.pluginKey])this.packagePlanSelections[plugin.pluginKey]=[];}await this.loadPlatformPlans();}
-  catch(e){this.error=e instanceof Error?e.message:"Unable to load platform packages";}
-  finally{this.pluginPackagesLoading=false;}
- }
- async uploadPluginZip(event:Event){
-  const input=event.target as HTMLInputElement;const file=input.files?.[0];input.value="";if(!file)return;
-  if(!file.name.toLowerCase().endsWith(".zip")){this.error="Select a .zip package.";return;}
-  if(file.size>50*1024*1024){this.error="Plugin ZIP files cannot exceed 50 MB.";return;}
-  this.pluginUploadBusy=true;this.error="";this.success="";
-  try{const bytes=new Uint8Array(await file.arrayBuffer());let binary="";for(let offset=0;offset<bytes.length;offset+=0x8000){binary+=String.fromCharCode(...bytes.subarray(offset,Math.min(offset+0x8000,bytes.length)));}const archiveBase64=btoa(binary);
-   const r=await fetch("/api/platform/plugin-packages",{method:"POST",headers:{...this.headers(),"content-type":"application/json"},body:JSON.stringify({archiveBase64})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Plugin upload failed");
-   this.success="Package "+d.package.name+" v"+d.package.version+" stored. Runtime activation is pending.";await this.loadPlatformPackages();
-  }catch(e){this.error=e instanceof Error?e.message:"Plugin upload failed";}finally{this.pluginUploadBusy=false;}
- }
- async load(){this.loading=true;this.error='';try{const r=await fetch('/api/platform/companies',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to list tenants');this.companies=d.companies??[];await this.loadPlatformPackages();await Promise.all(this.companies.map(async company=>{try{const pr=await fetch('/api/platform/companies/'+encodeURIComponent(company.id)+'/plugins',{headers:this.headers()});const pd=await pr.json();if(pr.ok){const plugin=pd.plugins?.find((item:any)=>item.name==='Hola Mundo');if(plugin)this.pluginStates[company.id]={id:plugin.id,installed:!!plugin.installed,enabled:!!plugin.enabled,status:plugin.status,name:plugin.name};}}catch{}}));}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.loading=false;}}
+ async load(){this.loading=true;this.error='';try{const r=await fetch('/api/platform/companies',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to list tenants');this.companies=d.companies??[];await Promise.all(this.companies.map(async company=>{try{const pr=await fetch('/api/platform/companies/'+encodeURIComponent(company.id)+'/plugins',{headers:this.headers()});const pd=await pr.json();if(pr.ok){const plugin=pd.plugins?.find((item:any)=>item.name==='Hola Mundo');if(plugin)this.pluginStates[company.id]={id:plugin.id,installed:!!plugin.installed,enabled:!!plugin.enabled,status:plugin.status,name:plugin.name};}}catch{}}));}catch(e){this.error=e instanceof Error?e.message:'Request failed';}finally{this.loading=false;}}
  async loadTenantUsers(){if(!this.managedTenantId||this.usersLoading)return;this.usersLoading=true;try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(this.managedTenantId)+'/users',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load users');this.tenantUsers=d.users??[];}catch(e){this.error=e instanceof Error?e.message:'Could not load tenant users';}finally{this.usersLoading=false;}}
  async loadTenantPlugins(){if(!this.managedTenantId||this.tenantPluginsLoading)return;this.tenantPluginsLoading=true;try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(this.managedTenantId)+'/plugins',{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load plugins');this.tenantPlugins=d.plugins??[];}catch(e){this.error=e instanceof Error?e.message:'Could not load tenant plugins';}finally{this.tenantPluginsLoading=false;}}
  async toggleTenantPlugin(c:PlatformCompany,plugin:any){if(this.pluginBusyId)return;this.pluginBusyId=c.id;try{const r=await fetch('/api/platform/companies/'+encodeURIComponent(c.id)+'/plugins/'+encodeURIComponent(plugin.id),{method:'PUT',headers:{...this.headers(),'content-type':'application/json'},body:JSON.stringify({enabled:!plugin.enabled})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Plugin change failed');await this.loadTenantPlugins();}catch(e){this.error=e instanceof Error?e.message:'Plugin operation failed';}finally{this.pluginBusyId='';}}
