@@ -447,13 +447,14 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:reusedSession!.tenantId,actorId:"test-user",action:"auth.refresh.reuse",outcome:"denied","metadata.reason":"rotated_token_reuse"}),"refresh-token reuse must be recorded in tenant audit history");
     const accessAfterReuse=await app.inject({method:"GET",url:"/auth/me",headers:{authorization:"Bearer "+refreshed.accessToken}});
     assert.equal(accessAfterReuse.statusCode,401,"access tokens from a compromised refresh-token family must stop working immediately");
-    const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
+    const freshLogoutLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
+    assert.equal(freshLogoutLogin.statusCode,200,"subsequent organization and logout checks need a new session after refresh-token reuse revokes the old family");
+    const freshLogoutAccessToken=freshLogoutLogin.json().accessToken as string;
+    const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+freshLogoutAccessToken}});
     assert.equal(removeBetaMember.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
-    const freshLogoutLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
-    assert.equal(freshLogoutLogin.statusCode,200,"logout must be tested with a valid session after the compromised session family is revoked");
     const freshLogoutCookie=String(freshLogoutLogin.headers["set-cookie"]??"").split(";")[0];
-    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + freshLogoutLogin.json().accessToken, cookie:freshLogoutCookie }, payload: {} });
+    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + freshLogoutAccessToken, cookie:freshLogoutCookie }, payload: {} });
     assert.equal(logout.statusCode, 200);
     assert.match(String(logout.headers["set-cookie"]??""),/Max-Age=0/,"logout must clear the refresh cookie");
     const revokedSessionReference=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+refreshed.accessToken}});
