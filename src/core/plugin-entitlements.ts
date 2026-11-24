@@ -318,6 +318,8 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const installed = await installations.find({ status: { $in: ["installed", "updating", "uninstalling"] } }).toArray();
   const installedIds = new Set(installed.map(item => item.pluginId));
   const installedVersions = new Map(installed.map(item => [item.pluginId, item.version]));
+  const platformPackages = await db.collection("platform_plugin_packages").find({ pluginId: { $in: visibleIds } }).project<{pluginId:string;globallyEnabled?:boolean}>({pluginId:1,globallyEnabled:1,_id:0}).toArray();
+  const globallyEnabledByPlugin = new Map(platformPackages.map(item => [item.pluginId, item.globallyEnabled !== false]));
   const enabledByPlugin = new Map(installed.map(item => [item.pluginId, item.enabled !== false]));
   const planAssignments = await db.collection("plugin_plan_package_assignments").find({ planId: effectivePlan.id }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
   const planAssignedIds = new Set(planAssignments.map(item => item.pluginId));
@@ -344,7 +346,8 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
         entitled: planEntitled || purchased || manual,
         accessSource: planEntitled ? "plan" : purchased ? "purchase" : manual ? "manual" : null,
         installed: installedIds.has(plugin.id),
-        enabled: installedIds.has(plugin.id) && (enabledByPlugin.get(plugin.id) ?? true),
+        enabled: installedIds.has(plugin.id) && (enabledByPlugin.get(plugin.id) ?? true) && (globallyEnabledByPlugin.get(plugin.id) ?? true),
+        globallyEnabled: globallyEnabledByPlugin.get(plugin.id) ?? true,
         installedVersion: installedVersions.get(plugin.id) ?? null
       };
     });
@@ -364,6 +367,11 @@ export async function isPluginInstalled(db: Db, tenantId: string, pluginId: stri
   return Boolean(installation);
 }
 
+export async function isPlatformPluginEnabled(db: Db, pluginId: string): Promise<boolean> {
+  const platformPackage = await db.collection("platform_plugin_packages").findOne({ pluginId }, { projection: { globallyEnabled: 1, _id: 0 } });
+  return platformPackage?.globallyEnabled !== false;
+}
+
 export async function isPluginEnabled(db: Db, tenantId: string, pluginId: string): Promise<boolean> {
   const installations = new TenantCollection<TenantPluginInstallation>(db.collection<TenantPluginInstallation>("tenant_plugin_installations"), tenantId);
   const installation = await installations.findOne({ pluginId, status: "installed" });
@@ -376,7 +384,7 @@ export function requireInstalledPlugin(db: Db, pluginId: string) {
     if (!context || !hasTenantPermission(context, pluginId + ".read")) {
       return reply.code(403).send({ error: "Plugin permission required" });
     }
-    if (!await hasPluginEntitlement(db, context.tenantId, pluginId) || !await isPluginInstalled(db, context.tenantId, pluginId) || !await isPluginEnabled(db, context.tenantId, pluginId)) {
+    if (!await isPlatformPluginEnabled(db, pluginId) || !await hasPluginEntitlement(db, context.tenantId, pluginId) || !await isPluginInstalled(db, context.tenantId, pluginId) || !await isPluginEnabled(db, context.tenantId, pluginId)) {
       return reply.code(403).send({ error: "Plugin is not entitled, installed or enabled for this company" });
     }
   };
