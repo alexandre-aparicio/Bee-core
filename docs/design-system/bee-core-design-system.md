@@ -555,3 +555,10 @@ System-role catalog cards MUST reuse the Organization → Teams collection-card 
 ### Roles collection view and permission marker contract
 
 For the System Roles collection, reuse the Organization → Teams composition and control behavior: Cards/Table toggle at the collection header, Create role action, and search row. Search filters role names, descriptions and permission labels/keys. Cards and table views must represent the same filtered records and preserve the same overflow actions. Permission previews are circular initials rather than overlapping text badges; derive up to two initials from the permission label (e.g. VM, VP, VF), and show the full label in a tooltip on hover and keyboard focus. Use semantic theme tokens and preserve Light/Dark contrast. Create role routes to the existing Custom Roles editor because Core-managed system roles are not directly creatable or mutable.
+
+
+### System Roles permission-circle overlap and view-toggle alignment
+
+- Permission initials in System Roles cards and table rows are a compact overlapping stack, not separated chips. Keep a consistent negative inline-start overlap, a surface-colored 2px separator border, and stable stacking order so every circle remains identifiable.
+- Keep the calculated `+N` remainder outside the stack with a clear gap; it must not overlap the final circle.
+- The Cards/Table controls must be geometrically identical to Organization → Teams: 34×32px hit areas, zero button padding, a 1px border, 7px radius, and the same 17px glyphs. Center the glyph both horizontally and vertically with grid placement and a line-height of 1; explicitly reset inherited feature button padding.
