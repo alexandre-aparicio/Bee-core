@@ -8,7 +8,7 @@
 ## Package contents
 
 - `manifest.ts`: template identity and supported slots.
-- `theme-tokens.ts`: fixed semantic palette.
+- `tokens.css`: fixed semantic palette for Light and Dark modes.
 - `components/layout.component.ts`: Angular layout projection component.
 - `styles.css`: package-owned layout styles.
 - `assets/`: package-owned assets and preview.
