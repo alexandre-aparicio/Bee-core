@@ -45,6 +45,7 @@ export const marketplacePlugin: BeePlugin = {
       if(!metadata)return undefined;
       return {...metadata,migrations:runtime.tenantMigrations??[],installTenant:runtime.installTenant,updateTenant:runtime.updateTenant,uninstallTenant:runtime.uninstallTenant};
     };
+    const selectTenantMigrations=(definition:PluginPackageDefinition,phase:"install"|"upgrade")=>(definition.migrations??[]).filter(migration=>!migration.phase||migration.phase===phase);
     const getDependencyOrder = async (pluginId:string):Promise<string[]> => {
       const definitions=await db.collection<PluginPackageDefinition>("plugin_catalog").find({status:"published",codeAvailable:true}).project<{id:string;dependencies:string[]}>({id:1,dependencies:1,_id:0}).toArray();
       return resolvePluginDependencyOrder(pluginId,definitions);
@@ -511,7 +512,8 @@ export const marketplacePlugin: BeePlugin = {
               { $set: { status: "installing", version: trusted.version, updatedAt: new Date(), error: null }, $setOnInsert: { id: randomUUID(), tenantId: job.tenantId, pluginId: job.pluginId, installedAt: null } },
               { upsert: true }
             );
-            const migrationRun = await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
+            const tenantMigrations = selectTenantMigrations(trusted,"install");
+            const migrationRun = await runTenantPluginMigrations(db, job.tenantId, job.pluginId, tenantMigrations);
             try {
               await trusted.installTenant?.(db, job.tenantId);
               await installations.updateOne(
@@ -523,7 +525,7 @@ export const marketplacePlugin: BeePlugin = {
                 await syncAutomaticPluginProvisioning(db, job.pluginId);
               }
             } catch (error) {
-              const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? [], migrationRun.applied);
+              const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, tenantMigrations, migrationRun.applied);
               if (rollback.failed.length) {
                 ctx.logger.error("Plugin installation migration compensation was incomplete", { tenantId: job.tenantId, pluginId: job.pluginId, failedMigrations: rollback.failed });
               }
@@ -533,7 +535,7 @@ export const marketplacePlugin: BeePlugin = {
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.installed", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
-            for (const dependency of resolvePluginDependencyOrder(job.pluginId)) {
+            for (const dependency of await getDependencyOrder(job.pluginId)) {
               if (!await hasPluginEntitlement(db, job.tenantId, dependency) || !await isPluginInstalled(db, job.tenantId, dependency) || !await isPluginEnabled(db, job.tenantId, dependency)) {
                 throw new Error("Required plugin dependency is not installed: " + dependency);
               }
@@ -552,7 +554,8 @@ export const marketplacePlugin: BeePlugin = {
                 { tenantId: job.tenantId, pluginId: job.pluginId, status: { $in: ["installed", "updating"] } },
                 { $set: { status: "updating", updatedAt: new Date(), error: null } }
               );
-              const migrationRun = await runTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? []);
+              const tenantMigrations = selectTenantMigrations(trusted,"upgrade");
+              const migrationRun = await runTenantPluginMigrations(db, job.tenantId, job.pluginId, tenantMigrations);
               try {
                 await trusted.updateTenant?.(db, job.tenantId, previousVersion);
                 await installations.updateOne(
@@ -560,7 +563,7 @@ export const marketplacePlugin: BeePlugin = {
                   { $set: { status: "installed", version: trusted.version, updatedAt: new Date() }, $unset: { error: "" } }
                 );
               } catch (error) {
-                const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? [], migrationRun.applied);
+                const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, tenantMigrations, migrationRun.applied);
                 if (rollback.failed.length) {
                   ctx.logger.error("Plugin update migration compensation was incomplete", { tenantId: job.tenantId, pluginId: job.pluginId, failedMigrations: rollback.failed });
                 }
