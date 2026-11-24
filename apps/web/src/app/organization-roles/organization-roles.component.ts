@@ -95,16 +95,29 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
      </nav>
     </section>
    </div>
-   <div class="org-roles__permission-table-wrap" *ngIf="!loading && permissionView==='table'">
-    <table>
-     <thead><tr><th>Permission</th><th>Module</th><th>Action</th><th>Access policy</th><th>Code</th></tr></thead>
-     <tbody><tr *ngFor="let item of permissions;trackBy:trackPermission">
-      <td><strong>{{item.label}}</strong><small>{{item.description}}</small></td>
-      <td>{{item.group}}</td><td><span class="org-roles__permission-action">{{item.action}}</span></td>
-      <td><span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable by custom roles':'Restriction only / protected'}}</span></td>
-      <td><code>{{item.key}}</code></td>
-     </tr></tbody>
-    </table>
+   <div class="org-roles__permission-accordions" *ngIf="!loading && permissionView==='table'">
+    <section class="org-roles__permission-accordion" *ngFor="let group of groups">
+     <h4 class="org-roles__permission-accordion-heading">
+      <button type="button" class="org-roles__permission-accordion-trigger" (click)="togglePermissionGroup(group)" [attr.aria-expanded]="expandedPermissionGroup===group" [attr.aria-controls]="'permission-group-'+group">
+       <span class="org-roles__permission-accordion-symbol" aria-hidden="true">{{expandedPermissionGroup===group?'−':'+'}}</span>
+       <span class="org-roles__permission-accordion-name">{{group}}</span>
+       <span class="org-roles__permission-accordion-count">({{inGroup(group).length}})</span>
+      </button>
+     </h4>
+     <div class="org-roles__permission-accordion-content" *ngIf="expandedPermissionGroup===group" [id]="'permission-group-'+group">
+      <div class="org-roles__permission-table-wrap">
+       <table>
+        <thead><tr><th>Permission</th><th>Action</th><th>Access policy</th><th>Code</th></tr></thead>
+        <tbody><tr *ngFor="let item of inGroup(group);trackBy:trackPermission">
+         <td><strong>{{item.label}}</strong><small>{{item.description}}</small></td>
+         <td><span class="org-roles__permission-action">{{item.action}}</span></td>
+         <td><span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable by custom roles':'Restriction only / protected'}}</span></td>
+         <td><code>{{item.key}}</code></td>
+        </tr></tbody>
+       </table>
+      </div>
+     </div>
+    </section>
    </div>
    <p class="org-roles__footnote">The global delegation policy controls which capabilities may be granted to tenant custom roles. Protected capabilities remain unavailable for grants. Backend authorization remains authoritative.</p>
   </section>
@@ -231,11 +244,15 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__permissions-toolbar .org-roles__result-count{font-size:10px;color:var(--muted,inherit)}
  .org-roles__permission-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:14px}
  .org-roles__permission-group{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;min-width:0;min-height:250px;padding:13px;border:1px solid var(--border,#8885);border-radius:12px;background:var(--surface,rgba(130,145,170,.035));overflow:hidden}
+ .org-roles__permission-group{transition:border-color .16s ease,background-color .16s ease}
+ .org-roles__permission-group:hover{border-color:color-mix(in srgb,var(--purple,#8c72ff) 48%,var(--border,#8885));background:color-mix(in srgb,var(--surface,rgba(130,145,170,.035)) 92%,var(--purple,#8c72ff))}
  .org-roles__permission-group-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:9px;border-bottom:1px solid var(--border,#8885)}
  .org-roles__permission-group-heading h4{text-transform:capitalize;font-size:13px;margin:0}
  .org-roles__permission-group-heading span{font-size:9px;color:var(--muted,inherit);white-space:nowrap}
  .org-roles__permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(94px,1fr));gap:8px;min-width:0}
  .org-roles__permission-tile{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;min-height:94px;padding:9px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface-raised,var(--panel));animation:orgPermissionEnter .28s cubic-bezier(.2,.75,.25,1) both}
+ .org-roles__permission-tile{transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
+ .org-roles__permission-tile:hover{border-color:color-mix(in srgb,var(--cyan,#00f5d4) 48%,var(--border,#8885));background:color-mix(in srgb,var(--surface-raised,var(--panel)) 91%,var(--cyan,#00f5d4));transform:translateY(-1px)}
  .org-roles__permission-grid.is-previous .org-roles__permission-tile{animation-name:orgPermissionReturn}
  .org-roles__permission-tile-top{display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;min-width:0}
  .org-roles__permission-action{display:inline-flex;align-items:center;max-width:100%;padding:3px 6px;border:1px solid color-mix(in srgb,var(--purple,#8c72ff) 30%,var(--border,#8885));border-radius:5px;background:color-mix(in srgb,var(--purple,#8c72ff) 9%,transparent);color:var(--purple,#8c72ff);font-size:8px;font-weight:750;letter-spacing:.045em;text-transform:uppercase;overflow-wrap:anywhere}
@@ -250,6 +267,18 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles__permission-pagination button:active{transform:translateX(1px)}
  .org-roles__permission-pagination button:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:2px}
  .org-roles__permission-page-count{font-size:9px;color:var(--muted,inherit);font-variant-numeric:tabular-nums}
+ .org-roles__permission-accordions{display:grid;gap:9px}
+ .org-roles__permission-accordion{min-width:0;border:1px solid var(--border,#8885);border-radius:10px;background:var(--surface,rgba(130,145,170,.035));overflow:hidden;transition:border-color .16s ease,background-color .16s ease}
+ .org-roles__permission-accordion:hover{border-color:color-mix(in srgb,var(--purple,#8c72ff) 38%,var(--border,#8885))}
+ .org-roles__permission-accordion-heading{margin:0}
+ .org-roles__permission-accordion-trigger{display:flex;align-items:center;gap:9px;width:100%;min-height:48px;padding:10px 13px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:background-color .16s ease}
+ .org-roles__permission-accordion-trigger:hover{background:color-mix(in srgb,var(--surface,transparent) 88%,var(--purple,#8c72ff))}
+ .org-roles__permission-accordion-trigger:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:-2px}
+ .org-roles__permission-accordion-symbol{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px;border:1px solid color-mix(in srgb,var(--purple,#8c72ff) 35%,var(--border,#8885));border-radius:6px;color:var(--purple,#8c72ff);font-size:16px;line-height:1}
+ .org-roles__permission-accordion-name{text-transform:capitalize;font-size:12px;font-weight:700}
+ .org-roles__permission-accordion-count{font-size:10px;color:var(--muted,inherit);font-variant-numeric:tabular-nums}
+ .org-roles__permission-accordion-content{padding:0 10px 10px;animation:orgPermissionEnter .2s ease-out}
+ .org-roles__permission-accordion-content .org-roles__permission-table-wrap{border-radius:8px}
  .org-roles__permission-table-wrap{width:100%;overflow-x:auto;border:1px solid var(--border,#8885);border-radius:10px}
  .org-roles__permission-table-wrap table{width:100%;min-width:720px;border-collapse:collapse}
  .org-roles__permission-table-wrap th{padding:10px 12px;background:color-mix(in srgb,var(--muted,#888) 6%,var(--surface,transparent));color:var(--muted,inherit);font-size:10px;font-weight:650;text-align:start}
@@ -305,12 +334,13 @@ export class OrganizationRolesComponent implements OnChanges{
  @Input() tenantId="";@Input() role="member";@Input() accessToken="";
  activeTab:"system"|"permissions"|"custom"="system";
  roles:CustomRole[]=[];systemRoles:SystemRole[]=[];systemSearch="";roleSourceFilter:"all"|"native"|"created"="all";systemView:"cards"|"table"="cards";selectedSystemRole:SystemRole|null=null;name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";modalOpen=false;
- permissions:PermissionOption[]=[];permissionView:"cards"|"table"="cards";permissionPages:Record<string,number>={};permissionDirections:Record<string,"next"|"previous">={};
+ permissions:PermissionOption[]=[];permissionView:"cards"|"table"="cards";permissionPages:Record<string,number>={};permissionDirections:Record<string,"next"|"previous">={};expandedPermissionGroup:string|null=null;
  private tenantAssignablePermissions:string[]=[];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
  get groups():string[]{return [...new Set(this.permissions.map(p=>p.group))];}
  get filteredSystemRoles():SystemRole[]{const native=this.roleSourceFilter==="created"?[]:this.systemRoles;const created=this.roleSourceFilter==="native"?[]:this.roles.map(item=>({key:item.id,label:item.name,description:item.description||"Organization-created role",protected:false,permissions:item.permissions,active:true,custom:true,customId:item.id}));const query=this.systemSearch.trim().toLowerCase();return [...native,...created].filter(item=>!query||item.label.toLowerCase().includes(query)||item.description.toLowerCase().includes(query)||item.permissions.some(key=>key.toLowerCase().includes(query)||this.permissionLabel(key).toLowerCase().includes(query)));}
  inGroup(group:string):PermissionOption[]{return this.permissions.filter(p=>p.group===group);}
+ togglePermissionGroup(group:string):void{this.expandedPermissionGroup=this.expandedPermissionGroup===group?null:group;}
  permissionPage(group:string):number{return this.permissionPages[group]||0;}
  permissionPageCount(group:string):number{return Math.ceil(this.inGroup(group).length/4);}
  permissionPageItems(group:string):PermissionOption[]{const start=this.permissionPage(group)*4;return this.inGroup(group).slice(start,start+4);}
