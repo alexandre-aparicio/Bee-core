@@ -169,10 +169,28 @@ export class PlatformAdminComponent implements OnInit {
  openCreate(){this.error='';this.success='';this.showCreateModal=true;}
  closeCreate(){if(this.busy)return;this.showCreateModal=false;this.error='';}
  toggleMenu(id:string){this.openMenuId=this.openMenuId===id?'':id;}
+ async loadPlatformPlans(){
+  try{const r=await fetch("/api/platform/plugin-plans",{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to load plans");this.platformPlans=d.plans??[];}
+  catch(e){this.error=e instanceof Error?e.message:"Unable to load plans";}
+ }
+ togglePackagePlan(plugin:any,planId:string,checked:boolean){
+  const current=this.packagePlanSelections[plugin.pluginKey]??[];
+  this.packagePlanSelections[plugin.pluginKey]=checked?[...new Set([...current,planId])]:current.filter(id=>id!==planId);
+ }
+ async savePackagePlans(plugin:any){
+  try{const r=await fetch("/api/platform/plugin-packages/"+encodeURIComponent(plugin.id)+"/plans",{method:"PUT",headers:{...this.headers(),"content-type":"application/json"},body:JSON.stringify({planIds:this.packagePlanSelections[plugin.pluginKey]??[]})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to save plan access");this.success="Plan access updated for "+plugin.name+".";}
+  catch(e){this.error=e instanceof Error?e.message:"Unable to save plan access";}
+ }
+ async setTenantPluginGrant(company:PlatformCompany,plugin:any,granted:boolean){
+  if(this.pluginBusyId)return;this.pluginBusyId=company.id;
+  try{const r=await fetch("/api/platform/companies/"+encodeURIComponent(company.id)+"/plugin-entitlements/"+encodeURIComponent(plugin.id),{method:"PUT",headers:{...this.headers(),"content-type":"application/json"},body:JSON.stringify({granted})});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to update tenant access");await this.loadTenantPlugins();}
+  catch(e){this.error=e instanceof Error?e.message:"Unable to update tenant access";}
+  finally{this.pluginBusyId="";}
+ }
  async loadPlatformPackages(){
   if(this.pluginPackagesLoading)return;
   this.pluginPackagesLoading=true;
-  try{const r=await fetch("/api/platform/plugin-packages",{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to load platform packages");this.platformPackages=d.packages??[];}
+  try{const r=await fetch("/api/platform/plugin-packages",{headers:this.headers()});const d=await r.json();if(!r.ok)throw new Error(d.error||"Unable to load platform packages");this.platformPackages=d.packages??[];for(const plugin of this.platformPackages){if(!this.packagePlanSelections[plugin.pluginKey])this.packagePlanSelections[plugin.pluginKey]=[];}await this.loadPlatformPlans();}
   catch(e){this.error=e instanceof Error?e.message:"Unable to load platform packages";}
   finally{this.pluginPackagesLoading=false;}
  }
