@@ -41,6 +41,7 @@ export async function seedBundledPlatformPackages(
     description: string;
     category: string;
     dependencies: string[];
+    activationPolicy?: "automatic" | "manual";
   }>
 ): Promise<void> {
   const packages = db.collection<PlatformPluginPackage>("platform_plugin_packages");
