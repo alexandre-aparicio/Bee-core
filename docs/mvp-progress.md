@@ -920,3 +920,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Permission initials now form an overlapping horizontal stack in both cards and table rows, with a 2px surface-colored separator and stable stacking order. The calculated `+N` count remains separated from the stack.
 - Removed obsolete text-badge CSS selectors that were left behind after the circle markup was introduced.
 - Source-level checks only; Angular build, automated tests, browser visual verification, Light/Dark screenshots and deployment have not been run.
+
+
+## Organization Roles — Midnight Light theme parity (2026-11-24)
+- Compared the current Organization → Roles implementation against Organization → Teams. Teams already remaps its local surface, foreground, muted, border, accent, status and shadow tokens under the Midnight Light host selector; Roles had no equivalent override, so its fallback surfaces and foreground could inherit dark-mode values.
+- Added the same narrowly scoped Midnight Light host-context treatment to Roles. Cards, tab panel, search, table headers, menus, permission circles/tooltips and dialogs now resolve through explicit Light palette tokens; selected Cards/Table and primary actions retain white text over violet for contrast.
+- Updated the global design system and Midnight style guide to require this parity and to prevent the Light override leaking into Midnight Dark, Glass or Paper.
+- **Validation:** source-level comparison and CSS contract inspection only. No Angular build, automated tests, browser visual QA, Light/Dark screenshots or deployment were run. Verify System Roles and Custom Roles in both Midnight appearance modes after build/deploy.
