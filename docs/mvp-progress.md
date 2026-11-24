@@ -985,3 +985,9 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Removed global package upload/registry/plan controls from **Settings → Tenants**. Tenant management retains only tenant-scoped entitlement grants/revocations and install/activate/deactivate controls for the selected company.
 - The Settings → Plugins screen continues to show the existing plugin catalogue and now also presents the global package registry. The API endpoints and backend lifecycle/security behavior are unchanged.
 - Validation pending: TypeScript/Angular build, platform-admin authorization check, browser navigation and upload/plan-assignment smoke tests have not been run.
+
+## Settings → Plugins Angular package type declarations — correction (2026-11-24)
+
+- Fixed the frontend build regression introduced when global package management moved into Settings → Plugins: restored explicit `PlatformPackage` and `PlatformPlan` TypeScript interfaces in `plugin-settings.component.ts`.
+- The interfaces match the backend response contracts: packages expose the masked `id`, `pluginKey`, name/version/status/source and optional runtime metadata; plans expose `id`, `name` and optional assigned `packageIds`.
+- The reported missing-name errors (`TS2304`) are addressed at source level. **Validation pending:** no Angular build, Docker build, browser smoke test or live ZIP/plan-assignment test has been run after this correction. Re-run `npm run build` in the web workspace and the full Docker build before treating the deployment as verified.
