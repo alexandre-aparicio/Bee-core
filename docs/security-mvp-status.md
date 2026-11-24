@@ -76,3 +76,10 @@ The following evidence must come from successful CI runs on the exact PR head:
 - Gitleaks scan of the full Git history and working tree.
 
 A CI pass proves only the scripted cases. It does not prove real TLS, secret-management practices, off-site backups, successful disaster recovery or resistance to an independent penetration test.
+
+
+## Cross-company IDOR denial audit fix — 2026-11-23
+
+- The current-main regression already verifies that a request for a non-active company returns 403, writes a `permission.denied` event only to the actor's active tenant, and writes zero denial events to the target tenant. It now also asserts the audit resource and metadata do not disclose the target company/tenant identifiers.
+- The organizations permission guard now appends that denial event in the actor's active tenant before returning 403. No target tenant ID is added to the audit event.
+- Proposed branch: `security/audit-denials-current-main-2026-11-23`. This code/test change is not CI-verified because `main` currently has no Actions workflows; PR #92 proposes restoring them.
