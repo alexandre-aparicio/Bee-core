@@ -1,4 +1,4 @@
-import type { ClockEvent, TimeSession, ScheduleDay } from "./time-tracking.repository.js";
+import type { TimeSession, ScheduleDay } from "./time-tracking.repository.js";
 
 export function normalizeOperationId(value:unknown):string{return String(value??"").trim().slice(0,100);}
 export function normalizeSource(value:unknown):"web"|"android"{return value==="android"?"android":"web";}
