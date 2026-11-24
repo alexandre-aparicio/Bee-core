@@ -2,7 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, HostListener, Input, OnChanges, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 type CustomRole={id:string;name:string;description:string;permissions:string[];mode?:"grant"|"restriction"};
-type SystemRole={key:string;label:string;description:string;protected:boolean;permissions:string[];active?:boolean};
+type SystemRole={key:string;label:string;description:string;protected:boolean;permissions:string[];active?:boolean;custom?:boolean;customId?:string};
 type PermissionOption={key:string;label:string;group:string;action:string;description:string;sensitive?:boolean;customRoleAssignable:boolean;assignable:boolean;selected:boolean};
 
 @Component({
@@ -18,21 +18,25 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
    <button type="button" [class.is-active]="activeTab==='custom'" [attr.aria-selected]="activeTab==='custom'" (click)="activeTab='custom'"><span>03</span>Custom Roles <small>{{roles.length}}</small></button>
   </nav>
   <section class="org-roles__tab-panel" *ngIf="activeTab==='system'">
-   <div class="org-roles__section-heading"><div><h3>System roles</h3><p>Built-in roles maintained by Core. Their baseline permissions and protected boundaries cannot be replaced by custom roles.</p></div><span class="org-roles__section-tag">Core managed</span></div>
-   <div class="org-roles__collection-header">
-    <div class="teams-workspace__view-toggle" role="group" aria-label="Role view">
-     <button type="button" [class.is-active]="systemView==='cards'" [attr.aria-pressed]="systemView==='cards'" (click)="systemView='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
-     <button type="button" [class.is-active]="systemView==='table'" [attr.aria-pressed]="systemView==='table'" (click)="systemView='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
-    </div>
-    <button type="button" class="documents__button documents__button--secondary" *ngIf="canManage" (click)="createCustomRole()">Create role</button>
-   </div>
+   <div class="org-roles__section-heading"><div><h3>Roles</h3><p>Browse Core-managed native roles and organization-created roles in one collection. Native role permissions are maintained by Core; custom roles follow the organization delegation policy.</p></div><span class="org-roles__section-tag">{{systemRoles.length}} native · {{roles.length}} created</span></div>
    <div class="org-roles__toolbar">
-    <div class="org-roles__search"><span aria-hidden="true">⌕</span><input [(ngModel)]="systemSearch" name="systemRoleSearch" placeholder="Search roles…" aria-label="Search system roles"><button *ngIf="systemSearch" type="button" (click)="systemSearch=''" aria-label="Clear search">×</button></div>
-    <span class="org-roles__result-count">{{filteredSystemRoles.length}} {{filteredSystemRoles.length===1?'role':'roles'}}</span>
+    <div class="org-roles__toolbar-filters">
+     <div class="org-roles__search"><span aria-hidden="true">⌕</span><input [(ngModel)]="systemSearch" name="systemRoleSearch" placeholder="Search roles…" aria-label="Search roles"><button *ngIf="systemSearch" type="button" (click)="systemSearch=''" aria-label="Clear search">×</button></div>
+     <select class="org-roles__source-filter" [(ngModel)]="roleSourceFilter" name="roleSourceFilter" aria-label="Filter roles by source"><option value="all">All roles</option><option value="native">Native roles</option><option value="created">Created roles</option></select>
+     <span class="org-roles__filter-spacer" aria-hidden="true"></span>
+    </div>
+    <div class="org-roles__toolbar-actions">
+     <span class="org-roles__result-count">{{filteredSystemRoles.length}} {{filteredSystemRoles.length===1?'role':'roles'}}</span>
+     <div class="teams-workspace__view-toggle" role="group" aria-label="Role display mode">
+      <button type="button" [class.is-active]="systemView==='cards'" [attr.aria-pressed]="systemView==='cards'" (click)="systemView='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
+      <button type="button" [class.is-active]="systemView==='table'" [attr.aria-pressed]="systemView==='table'" (click)="systemView='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
+     </div>
+     <button type="button" class="documents__button documents__button--secondary" *ngIf="canManage" (click)="createCustomRole()">＋ Create role</button>
+    </div>
    </div>
    <div class="org-roles__system-grid" *ngIf="filteredSystemRoles.length && systemView==='cards'">
     <article class="org-roles__system-card" *ngFor="let item of filteredSystemRoles">
-     <div class="org-roles__card-top"><span class="org-roles__role-mark">{{item.label.slice(0,1).toUpperCase()}}</span><div class="org-roles__card-menu"><details><summary [attr.aria-label]="'Options for '+item.label" [attr.title]="'Options for '+item.label"><span>⋮</span></summary><div class="org-roles__menu" role="menu"><button type="button" role="menuitem" (click)="openSystemRole(item)">View details</button><button type="button" role="menuitem" disabled>Edit role <small>Coming soon</small></button><button type="button" role="menuitem" disabled>Deactivate role <small>Coming soon</small></button><button type="button" role="menuitem" disabled>Delete role <small>Coming soon</small></button></div></details></div></div>
+     <div class="org-roles__card-top"><span class="org-roles__role-mark">{{item.label.slice(0,1).toUpperCase()}}</span><div class="org-roles__card-menu"><details><summary [attr.aria-label]="'Options for '+item.label" [attr.title]="'Options for '+item.label"><span>⋮</span></summary><div class="org-roles__menu" role="menu"><button type="button" role="menuitem" (click)="openSystemRole(item)">View details</button><ng-container *ngIf="item.custom"><button type="button" role="menuitem" (click)="editCatalogRole(item)" [disabled]="!canManage">Edit role</button></ng-container><ng-container *ngIf="!item.custom"><button type="button" role="menuitem" disabled>Edit role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Deactivate role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Delete role <small>Core managed</small></button></ng-container></div></details></div></div>
      <div class="org-roles__card-copy"><strong>{{item.label}}</strong><p>{{item.description}}</p></div>
      <div class="org-roles__card-meta"><span class="org-roles__permission-count">{{item.permissions.length}} {{item.permissions.length===1?'permission':'permissions'}}</span><span class="org-roles__status" [class.is-inactive]="item.active===false">{{item.active===false?'Inactive':'Active'}}</span></div>
      <div class="org-roles__permission-preview" [attr.aria-label]="item.permissions.length+' permissions'"><span class="org-roles__permission-circle" tabindex="0" role="img" *ngFor="let permission of item.permissions.slice(0,3)" [attr.data-tooltip]="permissionLabel(permission)" [attr.aria-label]="permissionLabel(permission)" [attr.title]="permissionLabel(permission)">{{permissionInitials(permissionLabel(permission))}}</span><span class="org-roles__permission-more" *ngIf="item.permissions.length>3">+{{item.permissions.length-3}}</span></div>
@@ -52,8 +56,8 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
    <div *ngIf="!loading && !filteredSystemRoles.length" class="org-roles__empty"><strong>{{systemRoles.length?'No matching roles':'No system roles available'}}</strong><span>{{systemRoles.length?'Try another search term.':'The system role catalogue is currently empty.'}}</span><button *ngIf="systemSearch" type="button" class="teams-workspace__text-button" (click)="systemSearch=''">Clear search</button></div>
    <div class="org-roles__modal-backdrop" *ngIf="selectedSystemRole" (click)="closeSystemRole()">
     <section class="org-roles__modal org-roles__details-modal" role="dialog" aria-modal="true" aria-labelledby="org-system-role-title" (click)="$event.stopPropagation()" (keydown.escape)="closeSystemRole()" tabindex="-1">
-     <header class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">SYSTEM ROLE · CORE MANAGED</span><h2 id="org-system-role-title">{{selectedSystemRole.label}}</h2><p>{{selectedSystemRole.description}}</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeSystemRole()">×</button></header>
-     <div class="org-roles__details-summary"><div><span class="org-roles__detail-label">Role status</span><span class="org-roles__status" [class.is-inactive]="selectedSystemRole.active===false">{{selectedSystemRole.active===false?'Inactive':'Active'}}</span></div><div><span class="org-roles__detail-label">Permissions</span><strong>{{selectedSystemRole.permissions.length}}</strong></div><div><span class="org-roles__detail-label">Protection</span><strong>{{selectedSystemRole.protected?'Protected by Core':'Standard system role'}}</strong></div></div>
+     <header class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">{{selectedSystemRole.custom?'ORGANIZATION ROLE · CUSTOM':'SYSTEM ROLE · CORE MANAGED'}}</span><h2 id="org-system-role-title">{{selectedSystemRole.label}}</h2><p>{{selectedSystemRole.description}}</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeSystemRole()">×</button></header>
+     <div class="org-roles__details-summary"><div><span class="org-roles__detail-label">Role status</span><span class="org-roles__status" [class.is-inactive]="selectedSystemRole.active===false">{{selectedSystemRole.active===false?'Inactive':'Active'}}</span></div><div><span class="org-roles__detail-label">Permissions</span><strong>{{selectedSystemRole.permissions.length}}</strong></div><div><span class="org-roles__detail-label">Protection</span><strong>{{selectedSystemRole.custom?'Created by organization':selectedSystemRole.protected?'Protected by Core':'Standard system role'}}</strong></div></div>
      <section class="org-roles__details-permissions"><div class="org-roles__details-heading"><h3>Assigned permissions</h3><span>{{selectedSystemRole.permissions.length}} total</span></div><div class="org-roles__detail-badges"><span *ngFor="let permission of selectedSystemRole.permissions"><strong>{{permissionLabel(permission)}}</strong><code>{{permission}}</code></span><p *ngIf="!selectedSystemRole.permissions.length">No explicit permission keys are listed for this role.</p></div></section>
     </section>
    </div>
@@ -135,13 +139,18 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles .documents__button:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:2px}
  .org-roles .documents__button:active:not(:disabled){transform:translateY(1px)}
  .org-roles .documents__button:disabled{cursor:not-allowed;opacity:.48}
- .org-roles__collection-header{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-bottom:14px}
- .org-roles__toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
- .org-roles__search{display:flex;align-items:center;gap:8px;width:min(100%,340px);height:36px;padding:0 10px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.035));color:var(--muted,inherit)}
+ .org-roles__toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:14px;margin:0 0 18px;min-width:0}
+ .org-roles__toolbar-filters{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,3fr) minmax(0,3fr);align-items:center;gap:8px;min-width:0}
+ .org-roles__toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+ .org-roles__source-filter{width:100%;min-width:0;height:36px;padding:0 10px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.035));color:inherit;font-size:11px}
+ .org-roles__filter-spacer{min-width:0}
+ .org-roles__search{display:flex;align-items:center;gap:8px;width:100%;min-width:0;height:36px;padding:0 10px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.035));color:var(--muted,inherit)}
  .org-roles__search>span{font-size:20px}.org-roles__search input{border:0;outline:0;min-width:0;flex:1;background:transparent;color:inherit;font-size:12px}
  .org-roles__search input::placeholder{color:var(--muted,inherit)}.org-roles__search:focus-within{border-color:var(--purple,#8c72ff);box-shadow:0 0 0 2px color-mix(in srgb,var(--purple,#8c72ff) 20%,transparent)}
  .org-roles__search button{border:0;background:transparent;color:inherit;font-size:16px;padding:0 4px}
  .org-roles__result-count{font-size:10px;color:var(--muted,inherit);white-space:nowrap}
+ .org-roles .teams-workspace__view-toggle{flex:0 0 auto}
+ @media(max-width:760px){.org-roles__toolbar{grid-template-columns:1fr;gap:10px}.org-roles__toolbar-actions{justify-content:flex-end}.org-roles__toolbar-filters{grid-template-columns:minmax(0,4fr) minmax(0,3fr) minmax(0,3fr)}}
  .org-roles__permission-preview{display:flex;align-items:center;gap:7px;min-width:0;min-height:26px}
  .org-roles__permission-circle{position:relative;width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border:1px solid var(--border,#8885);border-radius:50%;background:var(--surface-raised,var(--panel));color:var(--purple,#8c72ff);font-size:9px;font-weight:750;letter-spacing:.02em;cursor:help;transition:border-color .16s ease,background-color .16s ease}
  .org-roles__permission-circle:hover,.org-roles__permission-circle:focus-visible{border-color:var(--purple,#8c72ff);background:color-mix(in srgb,var(--purple,#8c72ff) 12%,var(--surface-raised,var(--panel)))}
@@ -235,12 +244,12 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
 export class OrganizationRolesComponent implements OnChanges{
  @Input() tenantId="";@Input() role="member";@Input() accessToken="";
  activeTab:"system"|"permissions"|"custom"="system";
- roles:CustomRole[]=[];systemRoles:SystemRole[]=[];systemSearch="";systemView:"cards"|"table"="cards";selectedSystemRole:SystemRole|null=null;name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";modalOpen=false;
+ roles:CustomRole[]=[];systemRoles:SystemRole[]=[];systemSearch="";roleSourceFilter:"all"|"native"|"created"="all";systemView:"cards"|"table"="cards";selectedSystemRole:SystemRole|null=null;name="";description="";mode:"grant"|"restriction"="grant";editingId="";loading=false;busy=false;error="";message="";modalOpen=false;
  permissions:PermissionOption[]=[];
  private tenantAssignablePermissions:string[]=[];
  get canManage():boolean{return this.role==="owner"||this.role==="super_admin";}
  get groups():string[]{return [...new Set(this.permissions.map(p=>p.group))];}
- get filteredSystemRoles():SystemRole[]{const query=this.systemSearch.trim().toLowerCase();return this.systemRoles.filter(item=>!query||item.label.toLowerCase().includes(query)||item.description.toLowerCase().includes(query)||item.permissions.some(key=>key.toLowerCase().includes(query)||this.permissionLabel(key).toLowerCase().includes(query)));}
+ get filteredSystemRoles():SystemRole[]{const native=this.roleSourceFilter==="created"?[]:this.systemRoles;const created=this.roleSourceFilter==="native"?[]:this.roles.map(item=>({key:item.id,label:item.name,description:item.description||"Organization-created role",protected:false,permissions:item.permissions,active:true,custom:true,customId:item.id}));const query=this.systemSearch.trim().toLowerCase();return [...native,...created].filter(item=>!query||item.label.toLowerCase().includes(query)||item.description.toLowerCase().includes(query)||item.permissions.some(key=>key.toLowerCase().includes(query)||this.permissionLabel(key).toLowerCase().includes(query)));}
  inGroup(group:string):PermissionOption[]{return this.permissions.filter(p=>p.group===group);}
  canGrant(item:PermissionOption):boolean{return item.customRoleAssignable&&this.tenantAssignablePermissions.includes(item.key);}
  updateMode(mode:"grant"|"restriction"):void{const previous=this.mode;this.mode=mode;const allowed=new Set<string>(this.tenantAssignablePermissions);for(const p of this.permissions)p.assignable=mode==="restriction"||(p.customRoleAssignable&&allowed.has(p.key));if(!this.editingId&&previous!==mode){for(const p of this.permissions)p.selected=mode==="grant"&&["members.read","plugins.read"].includes(p.key)&&p.assignable;}}
@@ -251,6 +260,7 @@ export class OrganizationRolesComponent implements OnChanges{
  permissionLabel(key:string):string{return this.permissions.find(item=>item.key===key)?.label||key;}
  permissionInitials(label:string):string{return label.trim().split(/\s+/).filter(Boolean).slice(0,2).map(word=>word.charAt(0).toUpperCase()).join("");}
  createCustomRole():void{this.activeTab="custom";this.openCreate();}
+ editCatalogRole(item:SystemRole):void{const role=this.roles.find(candidate=>candidate.id===item.customId);if(!role)return;this.activeTab="custom";this.edit(role);}
  openSystemRole(item:SystemRole):void{this.selectedSystemRole=item;}
  closeSystemRole():void{this.selectedSystemRole=null;}
  openCreate():void{this.reset();this.modalOpen=true;}
