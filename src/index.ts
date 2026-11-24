@@ -2,10 +2,13 @@ import Fastify from "fastify";
 import websocket from "@fastify/websocket";
 import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
+import { pathToFileURL } from "node:url";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { BeeEventBus } from "./core/event-bus.js";
 import { BeePluginManager } from "./core/plugin-manager.js";
 import { validateEnvironment } from "./core/environment.js";
-import type { BeeContext, BeeLogger } from "./core/types.js";
+import type { BeeContext, BeeLogger, BeePlugin } from "./core/types.js";
+import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
@@ -153,9 +156,75 @@ app.get("/", async () => ({
   endpoints: ["/health", "/plugins", "/auth/login", "/auth/refresh", "/auth/me", "/auth/logout"]
 }));
 
+async function loadSignedZipPlugins(): Promise<Map<string,string>> {
+  const failures = new Map<string,string>();
+  const db = mongoClient.db(environment.mongoDbName);
+  const registry = db.collection("platform_plugin_packages");
+  const packages = await registry.find({ source: "zip", status: "installed" }).sort({ pluginId: 1 }).toArray();
+  const storageRoot = resolve(String(ctx.config.pluginPackagePath ?? "/data/bee-plugins"));
+  const publicKey = String(ctx.config.pluginPublisherPublicKey ?? "");
+  for (const item of packages) {
+    try {
+      if (typeof item.pluginId !== "string" || typeof item.version !== "string" || typeof item.packageDirectory !== "string") {
+        throw new Error("Platform package registry record is incomplete");
+      }
+      const expectedDirectory = resolve(storageRoot, item.pluginId, item.version);
+      if (resolve(item.packageDirectory) !== expectedDirectory) throw new Error("Stored package path does not match its registered identity");
+      const manifest = await verifyStoredPluginDirectory({
+        packageDirectory: expectedDirectory,
+        publisherPublicKey: publicKey,
+        runtimeVersion: ctx.version
+      });
+      if (manifest.id !== item.pluginId || manifest.version !== item.version) throw new Error("Stored package manifest does not match its registry record");
+      const entrypoint = resolve(expectedDirectory, manifest.backend.entrypoint);
+      const relativeEntrypoint = relative(expectedDirectory, entrypoint);
+      if (!relativeEntrypoint || relativeEntrypoint.startsWith(".." + sep) || isAbsolute(relativeEntrypoint)) {
+        throw new Error("Backend entrypoint escaped the package directory");
+      }
+      const moduleUrl = pathToFileURL(entrypoint).href + "?bee-package-version=" + encodeURIComponent(manifest.version);
+      const loadedModule = await import(moduleUrl) as { default?: BeePlugin; plugin?: BeePlugin };
+      const plugin = loadedModule.default ?? loadedModule.plugin;
+      if (!plugin || !plugin.manifest || plugin.manifest.name !== manifest.id || plugin.manifest.version !== manifest.version) {
+        throw new Error("Backend module must export a default BeePlugin whose manifest ID and version match bee-plugin.json");
+      }
+      const requiredDependencies = manifest.dependencies.filter(dependency => !dependency.optional).map(dependency => dependency.pluginId).sort();
+      const runtimeDependencies = [...(plugin.manifest.dependencies ?? [])].sort();
+      if (requiredDependencies.join("\\n") !== runtimeDependencies.join("\\n")) {
+        throw new Error("Backend runtime dependencies do not match the signed package manifest");
+      }
+      plugins.register(plugin);
+      ctx.logger.info("Signed external plugin registered for startup", { pluginId: manifest.id, version: manifest.version });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.set(String(item.pluginId), message);
+      await registry.updateOne({ pluginId: item.pluginId }, { $set: { runtimeState: "failed", runtimeError: message.slice(0, 500), updatedAt: new Date() } });
+      ctx.logger.error("External plugin failed signature validation or registration", { pluginId: item.pluginId, error: message });
+    }
+  }
+  return failures;
+}
+
+async function persistZipPluginRuntimeState(failures: Map<string,string>): Promise<void> {
+  const db = mongoClient.db(environment.mongoDbName);
+  const registry = db.collection("platform_plugin_packages");
+  const versions = db.collection("platform_plugin_package_versions");
+  const packageRows = await registry.find({ source: "zip", status: "installed" }).toArray();
+  const runtimePlugins = new Map(plugins.list().map(plugin => [plugin.name, plugin]));
+  for (const item of packageRows) {
+    const pluginId = String(item.pluginId);
+    const runtimePlugin = runtimePlugins.get(pluginId);
+    const failure = failures.get(pluginId) ?? (runtimePlugin?.status === "started" ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
+    const runtimeState = !failure && runtimePlugin?.status === "started" ? "loaded" : "failed";
+    await registry.updateOne({ pluginId }, { $set: { runtimeState, runtimeError: failure || null, updatedAt: new Date() } });
+    await versions.updateOne({ pluginId, version: item.version }, { $set: { runtimeState, runtimeError: failure || null, runtimeCheckedAt: new Date() } });
+  }
+}
+
 async function bootstrap(): Promise<void> {
   await mongoClient.connect();
+  const zipPluginFailures = await loadSignedZipPlugins();
   await plugins.mountAll(ctx);
+  await persistZipPluginRuntimeState(zipPluginFailures);
   await events.emit("bee.started", { at: new Date().toISOString() });
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? "0.0.0.0";
