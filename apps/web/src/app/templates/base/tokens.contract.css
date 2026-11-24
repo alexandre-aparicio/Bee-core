@@ -8,6 +8,7 @@
   --bee-bg: #f4f5f7;
   --bee-surface: #ffffff;
   --bee-surface-raised: #ffffff;
+  --bee-surface-deep: #e8ebf2;
   --bee-surface-subtle: #eceef1;
   --bee-surface-hover: #e5e8ed;
   --bee-surface-active: #dce1e8;
@@ -20,6 +21,7 @@
   --bee-border-strong: #aeb7c4;
   --bee-focus-ring: #526bd6;
   --bee-accent: #526bd6;
+  --bee-accent-strong: #5142ae;
   --bee-accent-hover: #4058bd;
   --bee-accent-soft: #e7eafd;
   --bee-accent-text: #ffffff;

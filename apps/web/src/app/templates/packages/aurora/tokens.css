@@ -3,6 +3,7 @@
   --bee-bg: #f2f4fb;
   --bee-surface: #ffffff;
   --bee-surface-raised: #ffffff;
+  --bee-surface-deep: #e9ecf7;
   --bee-surface-subtle: #eef0f5;
   --bee-surface-hover: #e8ebf2;
   --bee-surface-active: #dfe4ed;
@@ -15,6 +16,7 @@
   --bee-border-strong: #b9c3d2;
   --bee-focus-ring: #6654c8;
   --bee-accent: #6654c8;
+  --bee-accent-strong: #5142ae;
   --bee-accent-hover: #5142ae;
   --bee-accent-soft: #6654c81a;
   --bee-accent-text: #ffffff;
@@ -47,6 +49,7 @@
   --bee-bg: #080a12;
   --bee-surface: #10131e;
   --bee-surface-raised: #10131e;
+  --bee-surface-deep: #0b0d16;
   --bee-surface-subtle: #17202f;
   --bee-surface-hover: #263247;
   --bee-surface-active: #34415a;
@@ -59,6 +62,7 @@
   --bee-border-strong: #59677d;
   --bee-focus-ring: #8c72ff;
   --bee-accent: #8c72ff;
+  --bee-accent-strong: #4f44c9;
   --bee-accent-hover: #b2a5ff;
   --bee-accent-soft: #8c72ff24;
   --bee-accent-text: #ffffff;
