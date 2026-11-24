@@ -111,7 +111,7 @@ export class RoleAuditComponent implements OnChanges {
    if(requestId!==this.sequence||tenant!==this.tenantId)return;
    const customs:RoleRecord[]=(roleData.roles||[]).map((r:any)=>({...r,id:String(r.id),name:r.name,mode:r.mode??"grant",permissions:Array.isArray(r.permissions)?r.permissions:[]}));
    const native:RoleRecord[]=(roleData.systemRoles||[]).map((r:any)=>({...r,key:r.key,label:r.label,mode:"grant",permissions:Array.isArray(r.permissions)?r.permissions:[]}));
-   const allRoles=[...native,...customs],roleById=new Map(customs.map(r=>[String(r.id),r])),nativeByKey=new Map(native.map(r=>[String(r.key),r]));
+   const roleById=new Map<string,RoleRecord>(customs.map(r=>[String(r.id),r] as const)),nativeByKey=new Map<string,RoleRecord>(native.map(r=>[String(r.key),r] as const));
    const permissionCatalog:PermissionRecord[]=Array.isArray(roleData.permissionCatalog)?roleData.permissionCatalog:[];
    const sensitiveCatalog=permissionCatalog.filter(p=>p.sensitive);
    const memberships:MemberRecord[]=(memberData.memberships||[]).filter((m:any)=>m.status==="active");
