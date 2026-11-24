@@ -262,6 +262,21 @@ Use text labels, not color alone. Keep badge shapes and dimensions consistent. A
 - Focus management and keyboard behavior follow the global guide.
 - Do not introduce blur-heavy glass treatment; that belongs to another visual identity.
 
+### Canonical modal skin (required for every feature)
+
+The global Bee-Core Design System defines the modal structure and interaction contract. Midnight supplies only the visual skin; it MUST NOT create a different modal layout for individual features.
+
+- **Backdrop:** use `--bee-overlay` in both Dark and Light appearance, fixed to the full viewport with `inset: 0`, above the dashboard header/topbar, and apply the shared 8px blur to the complete background. Keep backdrop and panel as separate layers.
+- **Panel:** use the semantic Midnight surface, text, border and shadow tokens. Match the shared reference geometry (760px max width, 84vh/820px max height, 20px padding, 16px radius, 16px internal gap, 24px desktop backdrop inset and 12px narrow-screen inset). Do not hard-code a dark surface in Light mode.
+- **Header:** keep the same centered alignment, eyebrow/title/description hierarchy and close icon-button placement in every feature. The canonical title is compact (15px); close control is 34px. Do not change typography or spacing between Teams, Documents or future dialogs.
+- **Footer:** keep one right-aligned action row, vertically centered, with a 9px gap, top divider and consistent top padding. Cancel/secondary comes before the primary action; destructive confirmation uses the danger variant in the primary position. Reuse the global button variants and dimensions.
+- **Scroll and responsive behavior:** backdrop stays fixed; long dialog content scrolls inside the panel. The panel must fit narrow viewports without clipping controls or footer actions.
+- **States:** hover, focus-visible, active, disabled, loading, destructive and validation states use the same semantic tokens and shared control behavior. Do not invent feature-specific colors, shadows, glow or animation.
+- **Light and Dark:** verify the overlay, panel, title, muted description, borders, close control, body controls, footer buttons and focus ring in both modes. Light uses a light semantic panel and dark readable foreground; Dark uses the deep Midnight surface.
+- **Accessibility:** preserve dialog/alertdialog semantics, `aria-modal`, labelled title/description, focus containment/restoration, safe Escape behavior and reduced-motion preferences.
+
+Organization → Teams and Documents are the canonical cross-feature comparison pair. When changing either dialog, compare both implementations side by side; changes to the shared contract must be applied to both and documented here and in the global guide.
+
 ## 14. Icons, imagery and charts
 
 - Use the established icon library and consistent stroke/size.
