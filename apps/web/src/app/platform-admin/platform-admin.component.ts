@@ -156,10 +156,12 @@ export class PlatformAdminComponent implements OnInit {
  @Output() manageCompany=new EventEmitter<string>();
  @Output() backToList=new EventEmitter<void>();
  companies:PlatformCompany[]=[];
- platformPackages:Array<{pluginKey:string;name:string;version:string;description:string;status:string;source:string;runtimeState:string|null}> = [];
+ platformPackages:Array<{id:string;pluginKey:string;name:string;version:string;description:string;status:string;source:string;runtimeState:string|null;activationPolicy:string}> = [];
+ platformPlans:Array<{id:string;name:string}> = [];
+ packagePlanSelections:Record<string,string[]> = {};
  pluginPackagesLoading=false;pluginUploadBusy=false;
  pluginStates:Record<string,{id:string;installed:boolean;enabled:boolean;status:string;name:string}>={};
- pluginBusyId='';name='';slug='';ownerEmail='';ownerPassword='';busy=false;loading=false;error='';success='';tenantTab:'general'|'users'|'plugins'='general';tenantUsers:Array<{userId:string;email:string;role:string;status:string;createdAt?:string}>=[];tenantPlugins:Array<{id:string;name:string;description:string;version:string;installed:boolean;enabled:boolean;status:string;system:boolean;dependencies?:string[]}>=[];usersLoading=false;tenantPluginsLoading=false;
+ pluginBusyId='';name='';slug='';ownerEmail='';ownerPassword='';busy=false;loading=false;error='';success='';tenantTab:'general'|'users'|'plugins'='general';tenantUsers:Array<{userId:string;email:string;role:string;status:string;createdAt?:string}>=[];tenantPlugins:Array<{id:string;name:string;description:string;version:string;installed:boolean;enabled:boolean;status:string;system:boolean;dependencies?:string[];entitled?:boolean;accessSource?:string|null;activationPolicy?:string}>=[];usersLoading=false;tenantPluginsLoading=false;
  viewMode:'cards'|'list'='cards';showCreateModal=false;openMenuId='';
  get managedCompany():PlatformCompany|undefined{return this.companies.find(company=>company.id===this.managedTenantId);}
  ngOnInit(){void this.load();}
