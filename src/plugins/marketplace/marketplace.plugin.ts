@@ -21,6 +21,7 @@ import {
   hasPluginEntitlement,
   isPluginEnabled,
   isPluginInstalled,
+  isPlatformPluginEnabled,
   seedPluginCommerce
 } from "../../core/plugin-entitlements.js";
 
@@ -376,7 +377,7 @@ export const marketplacePlugin: BeePlugin = {
     ctx.server.get<{Params:{pluginId:string}}>("/marketplace/plugins/:pluginId/runtime",async(request:any,reply:any)=>{
       const tenant=await authenticate(request,reply);if(!tenant)return;
       const plugin=(await getTenantPluginCatalog(db,tenant.tenantId)).find(item=>item.id===request.params.pluginId);
-      if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled)return reply.code(403).send({error:"Plugin is not available for this company"});
+      if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled||!await isPlatformPluginEnabled(db,String(request.params.pluginId)))return reply.code(403).send({error:"Plugin is not available for this company"});
       const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId:plugin.id,status:"installed",source:"zip",runtimeState:"loaded"});
       if(!globalPackage)return reply.code(404).send({error:"Plugin frontend package is not loaded"});
       const version=String(globalPackage.version??"");
