@@ -257,7 +257,8 @@ type PluginRecord = {
     @media(max-width:1050px){.plugin-settings__toolbar{align-items:flex-start;flex-direction:column}.plugin-settings__toolbar-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.plugin-settings__search{flex:1 1 240px}}
     @media(max-width:900px){.plugin-settings__cards{grid-template-columns:repeat(2,minmax(0,1fr))}.plugin-settings__detail dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:600px){.plugin-settings__toolbar-actions{display:grid;grid-template-columns:minmax(0,1fr) auto}.plugin-settings__search{grid-column:1/-1;width:100%}.plugin-settings__type-filter{width:100%}.plugin-settings__upload{width:100%}.plugin-settings__cards{grid-template-columns:1fr}.plugin-settings__detail{flex-direction:column}.plugin-settings__overlay{padding:12px}.plugin-settings__plan-dialog{padding:16px}}
-  `],
+  `]
+})
 export class PluginSettingsComponent implements OnInit {
   plugins: PluginRecord[] = [];
   detail: PluginRecord | null = null;
