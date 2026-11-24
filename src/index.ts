@@ -194,8 +194,8 @@ async function loadSignedZipPlugins(): Promise<Map<string,string>> {
       if (JSON.stringify(requiredDependencies) !== JSON.stringify(runtimeDependencies)) {
         throw new Error("Backend runtime dependencies do not match the signed package manifest");
       }
-      const expectedMigrations = manifest.migrations.filter(migration => migration.phase !== "uninstall").map(migration => ({ id: migration.id, checksum: migration.checksum })).sort((a,b) => a.id.localeCompare(b.id));
-      const runtimeMigrations = [...(plugin.tenantMigrations ?? [])].map(migration => ({ id: migration.id, checksum: migration.checksum })).sort((a,b) => a.id.localeCompare(b.id));
+      const expectedMigrations = manifest.migrations.filter(migration => migration.phase !== "uninstall").map(migration => ({ id: migration.id, checksum: migration.checksum, phase: migration.phase })).sort((a,b) => a.id.localeCompare(b.id));
+      const runtimeMigrations = [...(plugin.tenantMigrations ?? [])].map(migration => ({ id: migration.id, checksum: migration.checksum, phase: migration.phase ?? "install" })).sort((a,b) => a.id.localeCompare(b.id));
       if (JSON.stringify(expectedMigrations) !== JSON.stringify(runtimeMigrations)) {
         throw new Error("Backend tenant migrations do not match the signed package manifest");
       }
