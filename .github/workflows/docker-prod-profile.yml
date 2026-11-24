@@ -109,7 +109,7 @@ jobs:
           docker run --rm --volumes-from bee-core -v "$PWD/.ci-backups:/backup" alpine:3.20 tar czf /backup/bee-core-files.tar.gz -C /data/bee-files .
           test -s .ci-backups/bee-core.archive
           test -s .ci-backups/bee-core-files.tar.gz
-          docker run --rm --network "$network" -v "$PWD/.ci-backups:/backup" mongodb/mongodb-database-tools:100.12.2 mongorestore --uri="mongodb://$MONGO_ROOT_USERNAME:$MONGO_ROOT_PASSWORD@mongodb:27017/bee_core_restore?authSource=admin" --archive=/backup/bee-core.archive --gzip --nsInclude='bee_core.*' --nsFrom='bee_core.*' --nsTo='bee_core_restore.*'
+          docker run --rm --network "$network" -v "$PWD/.ci-backups:/backup" bee-core-mongodb-tools:ci mongorestore --uri="mongodb://$MONGO_ROOT_USERNAME:$MONGO_ROOT_PASSWORD@mongodb:27017/bee_core_restore?authSource=admin" --archive=/backup/bee-core.archive --gzip --nsInclude='bee_core.*' --nsFrom='bee_core.*' --nsTo='bee_core_restore.*'
           docker compose -p bee-core-ci -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval "if (!db.getSiblingDB('bee_core_restore').ci_sentinel.findOne({_id:'compose-persistence'})) quit(2)"
       - name: Capture container diagnostics on failure
         if: failure()
