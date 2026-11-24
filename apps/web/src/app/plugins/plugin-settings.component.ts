@@ -1,6 +1,27 @@
 import { CommonModule } from "@angular/common";
 import { Component, Input, OnInit } from "@angular/core";
 
+type PlatformPackage = {
+  id: string;
+  pluginKey: string;
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  version: string;
+  dependencies?: string[];
+  activationPolicy?: "automatic" | "manual";
+  runtimeState?: string | null;
+  publisher?: string | null;
+  status: string;
+  source: string;
+};
+
+type PlatformPlan = {
+  id: string;
+  name: string;
+  packageIds?: string[];
+};
+
 type PluginRecord = {
   id: string; name: string; version: string; description: string; category: string;
   system: boolean; entitled: boolean; installed: boolean; installedVersion?: string | null;
