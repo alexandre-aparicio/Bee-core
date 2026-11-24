@@ -100,7 +100,13 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
     const wrapperPath = "dist/backend/index.mjs";
     files.set(wrapperPath, Buffer.from("export { " + exportName(definition.id) + " as default } from \"../" + definition.entry.replaceAll("\\", "/") + "\";\n"));
     files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "\n"));
-    if (definition.frontendSource && definition.frontend) {\n      for (const asset of definition.frontend.assets ?? []) {\n        const sourcePath = join(ROOT, definition.frontendSource, asset.slice("frontend/".length));\n        files.set(asset, await readFile(sourcePath));\n      }\n    }\n    if (definition.id === "hello-world") {
+    if (definition.frontendSource && definition.frontend) {
+      for (const asset of definition.frontend.assets ?? []) {
+        const sourcePath = join(ROOT, definition.frontendSource, asset.slice("frontend/".length));
+        files.set(asset, await readFile(sourcePath));
+      }
+    }
+    if (definition.id === "hello-world") {
       files.set("frontend/index.html", Buffer.from('<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hola Mundo</title><style>body{font:16px system-ui;margin:0;padding:28px;color:#172033;background:#fff}.card{max-width:680px;margin:auto;padding:28px;border:1px solid #e6eaf0;border-radius:16px;background:#fbfcfe}h1{margin:0 0 8px;color:#ea7a22}.muted{color:#667085}</style></head><body><main class="card"><p class="muted">BEE PROJECTS · TENANT PACKAGE</p><h1>¡Hola Mundo!</h1><p>Este módulo se ha cargado desde un paquete ZIP firmado, sin un componente Angular registrado en el núcleo.</p><p id="context" class="muted">Conectando con Bee Core…</p></main><script type="module" src="main.js"></script></body></html>'));
       files.set("frontend/main.js", Buffer.from('const context = document.getElementById("context");\nwindow.addEventListener("message", event => { if (event.data?.type !== "bee-plugin:init") return; context.textContent = "Paquete cargado · rol: " + String(event.data.role ?? "member"); });\nwindow.parent.postMessage({ type: "bee-plugin:ready" }, "*");\n'));
     }
