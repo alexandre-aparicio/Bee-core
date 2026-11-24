@@ -3,6 +3,7 @@ import type { Db, Document } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { requireAuth, requireTenantPermissions, type AuthenticatedRequest } from "../auth/auth.guard.js";
+import { hasTenantPermission } from "../../core/tenant-context.js";
 import { requireInstalledPlugin } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 
@@ -21,6 +22,9 @@ const TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
   picked_up: ["in_transit","failed","cancelled"], in_transit: ["delivered","failed"],
   delivered: [], failed: ["assigned","cancelled"], cancelled: []
 };
+export function canAccessDelivery(assignedTo: string | null, userId: string, canManage: boolean): boolean {
+  return canManage || assignedTo === userId;
+}
 export function canTransitionDelivery(from: DeliveryStatus, to: DeliveryStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
 }
@@ -51,6 +55,7 @@ export const deliveriesPlugin: BeePlugin = {
     const manage = [requireAuth(db, "dashboard", secret), requireTenantPermissions("deliveries.manage"), requireInstalledPlugin(db, "deliveries")];
     const publicRecord = (item: DeliveryRecord, tenant: AuthenticatedRequest["tenantContext"]) => ({
       id: maskResourceId(item.id, "delivery", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, secret),
+      assignedToId: item.assignedTo ? maskResourceId(item.assignedTo, "user", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, secret) : null,
       reference: item.reference, kind: item.kind, status: item.status, recipient: item.recipient,
       phone: item.phone, address: item.address, notes: item.notes, assignedToMe: item.assignedTo === tenant.userId, assigned: Boolean(item.assignedTo),
       plannedAt: item.plannedAt, createdAt: item.createdAt, updatedAt: item.updatedAt,
@@ -67,7 +72,9 @@ export const deliveriesPlugin: BeePlugin = {
       const query = request.query as { status?: string; assignedToMe?: string };
       const filter: any = {};
       if (query.status && STATUSES.includes(query.status as DeliveryStatus)) filter.status = query.status;
-      if (query.assignedToMe === "true") filter.assignedTo = tenant.userId;
+      const canManageDeliveries = hasTenantPermission(tenant, "deliveries.manage");
+      if (!canManageDeliveries) filter.assignedTo = tenant.userId;
+      else if (query.assignedToMe === "true") filter.assignedTo = tenant.userId;
       const items = await rows(tenant.tenantId).find(filter).sort({ updatedAt: -1 }).limit(300).toArray();
       return { deliveries: items.map(item => publicRecord(item, tenant)) };
     });
@@ -91,7 +98,7 @@ export const deliveriesPlugin: BeePlugin = {
       return reply.code(201).send({ delivery: publicRecord(item as DeliveryRecord, tenant) });
     });
 
-    ctx.server.patch<{ Params: { deliveryId: string }; Body: { status?: string; assignedToMe?: boolean } }>("/deliveries/:deliveryId", { preHandler: execute }, async (request, reply) => {
+    ctx.server.patch<{ Params: { deliveryId: string }; Body: { status?: string; assignedToMe?: boolean; assignedToUserId?: string | null } }>("/deliveries/:deliveryId", { preHandler: execute }, async (request, reply) => {
       const tenant = (request as AuthenticatedRequest).tenantContext;
       const id = resolveId(request.params.deliveryId, tenant);
       if (!id) return reply.code(404).send({ error: "Delivery not found." });
@@ -100,15 +107,29 @@ export const deliveriesPlugin: BeePlugin = {
       const body = request.body ?? {};
       const now = new Date();
       const update: Partial<DeliveryRecord> = { updatedAt: now };
-      if (body.assignedToMe === true) {
-        if (!["owner","admin","manager","super_admin"].includes(tenant.role)) return reply.code(403).send({ error: "Only delivery managers can assign work." });
-        update.assignedTo = tenant.userId;
-        if (item.status === "draft" || item.status === "failed") update.status = "assigned";
+      if (body.assignedToMe === true || Object.prototype.hasOwnProperty.call(body, "assignedToUserId")) {
+        if (!hasTenantPermission(tenant, "deliveries.manage")) return reply.code(403).send({ error: "Delivery management permission required." });
+        let assigneeId: string | null = tenant.userId;
+        if (Object.prototype.hasOwnProperty.call(body, "assignedToUserId")) {
+          if (body.assignedToUserId === null || body.assignedToUserId === "") assigneeId = null;
+          else {
+            try { assigneeId = unmaskResourceId(String(body.assignedToUserId), "user", { sessionId: tenant.sessionId, expiresAt: tenant.sessionExpiresAt }, secret); }
+            catch { return reply.code(404).send({ error: "Company member not found." }); }
+            const [membership, user] = await Promise.all([
+              db.collection("memberships").findOne({ tenantId: tenant.tenantId, userId: assigneeId, status: "active" }, { projection: { _id: 1 } }),
+              db.collection("users").findOne({ id: assigneeId, enabled: true }, { projection: { _id: 1 } })
+            ]);
+            if (!membership || !user) return reply.code(404).send({ error: "Company member not found or inactive." });
+          }
+        }
+        update.assignedTo = assigneeId;
+        if (assigneeId && (item.status === "draft" || item.status === "failed")) update.status = "assigned";
+        if (!assigneeId && item.status === "assigned") update.status = "draft";
       }
       if (body.status !== undefined) {
         const next = String(body.status) as DeliveryStatus;
         if (!STATUSES.includes(next) || !canTransitionDelivery(item.status, next)) return reply.code(409).send({ error: "This delivery status transition is not allowed." });
-        if (!["owner","admin","manager","super_admin"].includes(tenant.role) && item.assignedTo !== tenant.userId) return reply.code(403).send({ error: "Only the assigned member or a delivery manager can update this delivery." });
+        if (!hasTenantPermission(tenant, "deliveries.manage") && item.assignedTo !== tenant.userId) return reply.code(403).send({ error: "Only the assigned member or a delivery manager can update this delivery." });
         update.status = next;
         if (next === "picked_up") update.pickedUpAt = now;
         if (next === "delivered" || next === "failed" || next === "cancelled") update.completedAt = now;
