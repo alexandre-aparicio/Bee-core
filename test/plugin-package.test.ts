@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validatePluginManifest, type BeeBusinessPluginManifest } from "../src/core/plugin-package.js";
+import { validatePluginManifest, satisfiesPluginVersion, type BeeBusinessPluginManifest } from "../src/core/plugin-package.js";
 import { resolvePluginDependencyOrder } from "../src/core/plugin-entitlements.js";
 
 const validManifest: BeeBusinessPluginManifest = {
@@ -203,4 +203,17 @@ test("plugin package activation policy accepts automatic and manual modes", () =
   const invalid = structuredClone(validManifest) as any;
   invalid.activationPolicy = "sometimes";
   assert.throws(() => validatePluginManifest(invalid), /activation policy/i);
+});
+
+test("plugin dependency version ranges correctly handle exact, caret, tilde and comparison operators", () => {
+  assert.equal(satisfiesPluginVersion("1.4.2", "^1.2.0"), true);
+  assert.equal(satisfiesPluginVersion("2.0.0", "^1.2.0"), false);
+  assert.equal(satisfiesPluginVersion("0.2.9", "^0.2.3"), true);
+  assert.equal(satisfiesPluginVersion("0.3.0", "^0.2.3"), false);
+  assert.equal(satisfiesPluginVersion("1.2.9", "~1.2.3"), true);
+  assert.equal(satisfiesPluginVersion("1.3.0", "~1.2.3"), false);
+  assert.equal(satisfiesPluginVersion("1.2.3", ">=1.2.0"), true);
+  assert.equal(satisfiesPluginVersion("1.2.3", "<1.2.0"), false);
+  assert.equal(satisfiesPluginVersion("2.1.0", "^1.0.0 || ^2.0.0"), true);
+  assert.equal(satisfiesPluginVersion("1.2.3", "latest"), false);
 });
