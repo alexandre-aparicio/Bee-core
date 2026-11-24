@@ -235,6 +235,9 @@ async function bootstrap(): Promise<void> {
   const zipPluginFailures = await loadSignedZipPlugins();
   await plugins.mountAll(ctx);
   await persistZipPluginRuntimeState(zipPluginFailures);
+  const db = mongoClient.db(environment.mongoDbName);
+  const automaticPackages = await db.collection("plugin_catalog").find({ activationPolicy: "automatic", codeAvailable: true, status: "published" }).project<{id:string}>({ id: 1, _id: 0 }).toArray();
+  for (const item of automaticPackages) await syncAutomaticPluginProvisioning(db, item.id);
   await events.emit("bee.started", { at: new Date().toISOString() });
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? "0.0.0.0";
