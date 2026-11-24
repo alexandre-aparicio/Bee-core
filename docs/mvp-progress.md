@@ -970,3 +970,10 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Frontend limitation: uploaded packages must currently declare an empty frontend.routes; Angular remote frontend loading is not implemented. Existing Documents, Connected Devices and Time Tracking frontend modules remain built-in static Angular features.
 - Security boundary: a signed backend package executes in the Bee Core Node process with its privileges. Only trusted publisher keys should be configured; this is not an OS/container sandbox.
 - Validation pending: no TypeScript build, Angular build, ZIP security fuzzing, MongoDB integration tests, restart test, tenant isolation test or deployment has been run. Previous package versions are retained, but automatic runtime fallback/rollback on failed startup is not implemented.
+
+
+## Plugin ZIP upload build correction (2026-11-24)
+
+- Fixed the platform ZIP upload handler's package-registry collection scope: the registry collection is now created in the request handler and shared with manifest validation and package persistence, rather than being declared only inside the validation callback.
+- Fixed plan assignment reconciliation to call `syncPluginPackageVersionUpdates` and define the `upgraded` count before including it in the audit event and API response. This keeps plan changes consistent with the manual entitlement path.
+- **Validation pending:** this correction addresses the three TypeScript compiler errors reported by the VPS, but no TypeScript build, automated tests, Docker build or live tenant provisioning test has been run here. Rebuild and run the test suite before deployment.
