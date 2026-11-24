@@ -34,13 +34,15 @@ type PluginRecord = {
   imports: [CommonModule],
   template: `
     <section class="plugin-settings">
-      <header class="plugin-settings__toolbar">
+      <header class="plugin-settings__page-header">
         <div class="plugin-settings__heading">
           <span class="plugin-settings__eyebrow">PLATFORM CONFIGURATION</span>
           <h2>{{detail ? detail.name : 'Plugins'}}</h2>
           <p>{{detail ? 'Plugin information and availability.' : 'Browse modules, manage installation and configure plan access.'}}</p>
         </div>
-        <div class="plugin-settings__toolbar-actions" *ngIf="!detail">
+      </header>
+      <div class="plugin-settings__toolbar" *ngIf="!detail">
+        <div class="plugin-settings__toolbar-filters">
           <div class="plugin-settings__search">
             <span aria-hidden="true">⌕</span>
             <input type="search" [value]="search" (input)="search=$any($event.target).value" placeholder="Search modules…" aria-label="Search modules">
@@ -51,14 +53,16 @@ type PluginRecord = {
             <option value="system">System modules</option>
             <option value="extension">Extensions</option>
           </select>
+        </div>
+        <div class="plugin-settings__toolbar-actions">
           <div class="plugin-settings__views" role="group" aria-label="Module display mode">
             <button type="button" [class.is-active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
             <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
           </div>
           <button *ngIf="isPlatformAdmin" type="button" class="plugin-settings__upload" (click)="pluginZipInput.click()" [disabled]="pluginUploadBusy">{{pluginUploadBusy ? 'Uploading…' : '＋ Upload plugin'}}</button>
-          <input #pluginZipInput type="file" accept=".zip,application/zip" [hidden]="!isPlatformAdmin || !!detail" (change)="uploadPluginZip($event)">
+          <input #pluginZipInput type="file" accept=".zip,application/zip" hidden (change)="uploadPluginZip($event)">
         </div>
-      </header>
+      </div>
 
       <p *ngIf="loading" class="plugin-settings__state">Loading modules…</p>
       <p *ngIf="error" class="plugin-settings__error" role="alert">{{error}}</p>
@@ -169,16 +173,19 @@ type PluginRecord = {
   styles: [`
     :host{display:block;min-width:0}
     .plugin-settings{color:inherit;min-width:0}
-    .plugin-settings__toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin:8px 0 22px}
-    .plugin-settings__heading{min-width:180px}
+    .plugin-settings *{box-sizing:border-box}
+    .plugin-settings__page-header{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin:8px 0 18px}
+    .plugin-settings__heading{min-width:0}
     .plugin-settings__eyebrow{font-size:10px;letter-spacing:.15em;opacity:.62}
-    .plugin-settings__toolbar h2{font-size:26px;margin:5px 0}
-    .plugin-settings__toolbar p,.plugin-settings__card p,.plugin-settings__detail p{opacity:.7;margin:5px 0 0;line-height:1.55}
-    .plugin-settings__toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;flex:1}
+    .plugin-settings__heading h2{font-size:26px;margin:5px 0}
+    .plugin-settings__heading p,.plugin-settings__card p,.plugin-settings__detail p{opacity:.7;margin:5px 0 0;line-height:1.55}
+    .plugin-settings__toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 22px;min-width:0}
+    .plugin-settings__toolbar-filters{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+    .plugin-settings__toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;min-width:0}
     .plugin-settings button,.plugin-settings input,.plugin-settings select{font:inherit}
     .plugin-settings button{cursor:pointer}
     .plugin-settings button:disabled{opacity:.45;cursor:not-allowed}
-    .plugin-settings__search{display:flex;align-items:center;gap:8px;width:min(100%,340px);height:36px;padding:0 10px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--panel,#8881);color:inherit}
+    .plugin-settings__search{display:flex;align-items:center;gap:8px;width:min(100%,340px);flex:1 1 240px;min-width:0;height:36px;padding:0 10px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--panel,#8881);color:inherit}
     .plugin-settings__search>span{font-size:20px;opacity:.65}
     .plugin-settings__search input{border:0;outline:0;min-width:0;flex:1;background:transparent;color:inherit;font-size:12px}
     .plugin-settings__search input::placeholder{color:inherit;opacity:.48}
@@ -254,9 +261,9 @@ type PluginRecord = {
     .plugin-settings__plan-footer{display:flex;justify-content:flex-end;gap:9px;margin-top:20px;padding-top:14px;border-top:1px solid var(--border,#8885)}
     .plugin-settings__cancel,.plugin-settings__save{height:36px;padding:0 13px;border:1px solid var(--border,#8885);border-radius:8px;background:transparent;color:inherit;font-size:12px}
     .plugin-settings__save{border-color:var(--purple,#777);background:var(--purple,#777);color:white;font-weight:650}
-    @media(max-width:1050px){.plugin-settings__toolbar{align-items:flex-start;flex-direction:column}.plugin-settings__toolbar-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.plugin-settings__search{flex:1 1 240px}}
+    @media(max-width:850px){.plugin-settings__toolbar{align-items:stretch}.plugin-settings__toolbar-filters{flex:1 1 100%}.plugin-settings__toolbar-actions{justify-content:flex-end}}
     @media(max-width:900px){.plugin-settings__cards{grid-template-columns:repeat(2,minmax(0,1fr))}.plugin-settings__detail dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(max-width:600px){.plugin-settings__toolbar-actions{display:grid;grid-template-columns:minmax(0,1fr) auto}.plugin-settings__search{grid-column:1/-1;width:100%}.plugin-settings__type-filter{width:100%}.plugin-settings__upload{width:100%}.plugin-settings__cards{grid-template-columns:1fr}.plugin-settings__detail{flex-direction:column}.plugin-settings__overlay{padding:12px}.plugin-settings__plan-dialog{padding:16px}}
+    @media(max-width:600px){.plugin-settings__toolbar{align-items:stretch}.plugin-settings__toolbar-filters{width:100%;flex:1 1 100%}.plugin-settings__search{width:auto;flex:1;min-width:0}.plugin-settings__type-filter{flex:0 0 auto;max-width:132px}.plugin-settings__toolbar-actions{width:100%;justify-content:space-between}.plugin-settings__upload{width:auto}.plugin-settings__cards{grid-template-columns:1fr}.plugin-settings__detail{flex-direction:column}.plugin-settings__overlay{padding:12px}.plugin-settings__plan-dialog{padding:16px}}
   `]
 })
 export class PluginSettingsComponent implements OnInit {

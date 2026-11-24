@@ -1008,3 +1008,15 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Kept the existing package upload, installation lifecycle and tenant activation behavior; this change is limited to the Angular settings UI and progress documentation.
 - CI infrastructure is now available on `main` through PR #188. Its own Angular production build and Playwright test-discovery job completed successfully. This does **not** validate this catalogue branch; the branch must receive its own CI run before merge.
 - Browser interaction, responsive layout and Light/Dark visual QA remain pending.
+
+
+## Settings → Plugins toolbar alignment correction (2026-11-24)
+
+- Separated the page title/description from the catalogue controls. The search and module-type filter now occupy the left side of a dedicated toolbar row; Cards/Table and Upload plugin are grouped on the right, matching the Organization → Teams directory toolbar structure.
+- Removed the previous bottom-aligned title/actions flex row that caused the controls to sit at a different vertical baseline and compress the available filter space.
+- Added explicit border-box sizing and responsive wrapping: filters take the full row on narrower layouts, with the view switch and upload action remaining grouped on the following row.
+- Search, type filtering, view state, ZIP upload behavior and permissions are unchanged.
+- **Validation pending:** source-level layout correction only; Angular CI and browser responsive/Light/Dark visual QA have not yet run.
+
+
+- Follow-up: keep the single native ZIP file input permanently hidden; the visible Upload plugin button remains its only user-facing trigger, avoiding a second native file-picker control in the toolbar.
