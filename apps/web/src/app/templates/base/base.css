@@ -29,7 +29,6 @@
   background: var(--bee-surface);
   border-block-end: 1px solid var(--bee-border);
 }
-.bee-dash-workspace { min-width: 0; flex: 1; }
 .bee-dash-content {
   width: min(100%, var(--bee-content-width, 1440px));
   min-width: 0;
