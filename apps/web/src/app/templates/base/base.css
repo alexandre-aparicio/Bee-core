@@ -1,0 +1,104 @@
+/*
+ * Neutral Bee-Core application structure.
+ * Package palettes belong exclusively in templates/packages/<id>/tokens.css.
+ */
+.bee-dash-shell {
+  display: grid;
+  grid-template-columns: var(--bee-sidebar-width, 256px) minmax(0, 1fr);
+  min-height: 100vh;
+  color: var(--bee-text);
+  background: var(--bee-bg);
+}
+.bee-dash-sidebar {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--bee-text);
+  background: var(--bee-surface);
+  border-inline-end: 1px solid var(--bee-border);
+}
+.bee-dash-main { min-width: 0; display: flex; flex-direction: column; }
+.bee-dash-header {
+  min-height: var(--bee-header-height, 64px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-inline: var(--bee-content-gutter, 1.5rem);
+  color: var(--bee-text);
+  background: var(--bee-surface);
+  border-block-end: 1px solid var(--bee-border);
+}
+.bee-dash-workspace { min-width: 0; flex: 1; }
+.bee-dash-content {
+  width: min(100%, var(--bee-content-width, 1440px));
+  min-width: 0;
+  margin-inline: auto;
+  padding: var(--bee-content-padding, 2rem);
+}
+.bee-dash-card {
+  color: var(--bee-text);
+  background: var(--bee-surface);
+  border: 1px solid var(--bee-border);
+  border-radius: var(--bee-radius-md);
+  box-shadow: var(--bee-shadow);
+}
+.bee-dash-button,
+.bee-public-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  min-height: 2.5rem;
+  padding: .5rem .875rem;
+  border: 1px solid var(--bee-border);
+  border-radius: var(--bee-radius-sm);
+  color: var(--bee-text);
+  background: var(--bee-surface);
+  font: inherit;
+  cursor: pointer;
+}
+.bee-dash-button:focus-visible,
+.bee-public-button:focus-visible,
+.bee-dash-input:focus-visible,
+.bee-public-input:focus-visible {
+  outline: 2px solid var(--bee-focus-ring);
+  outline-offset: 2px;
+}
+.bee-dash-button--primary,
+.bee-public-button--primary {
+  color: var(--bee-accent-text);
+  background: var(--bee-accent);
+  border-color: var(--bee-accent);
+}
+.bee-dash-input,
+.bee-public-input {
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: .5rem .75rem;
+  border: 1px solid var(--bee-input-border);
+  border-radius: var(--bee-radius-sm);
+  color: var(--bee-text);
+  background: var(--bee-input-bg);
+  font: inherit;
+}
+.bee-dash-input::placeholder,
+.bee-public-input::placeholder { color: var(--bee-input-placeholder); }
+.bee-public-shell {
+  min-height: 100vh;
+  color: var(--bee-text);
+  background: var(--bee-bg);
+}
+.bee-public-content {
+  width: min(100% - 2rem, var(--bee-public-content-width, 1200px));
+  margin-inline: auto;
+}
+@media (max-width: 759px) {
+  .bee-dash-shell { grid-template-columns: minmax(0, 1fr); }
+  .bee-dash-header { padding-inline: 1rem; }
+  .bee-dash-content { padding: 1.25rem 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bee-dash-shell *,
+  .bee-public-shell * { scroll-behavior: auto; }
+}
