@@ -378,3 +378,13 @@ Do not mark these gaps complete merely because this guide documents them. Update
 - Keep the backdrop separate from the dialog scroll container so blur/dimming remain fixed while long dialog content scrolls.
 
 The shared `--bee-overlay` token is defined in the Midnight theme-token contract and remains neutral-dark in both appearance modes.
+
+## Collection hover behavior
+
+Use the Documents collection hover as the canonical Midnight reference for cards and tables:
+
+- Cards receive a subtle violet surface shift by blending 92% of the current panel surface with 8% `--purple` and a border blended 48% toward `--purple`.
+- Table rows receive a restrained 5% `--purple` tint over transparency.
+- Keep the transition to background and border colors only (approximately 160ms). Do not add glow, scale, elevation, opacity changes or movement to ordinary collection hover.
+- Apply semantic tokens rather than fixed colors. The same rules must remain legible in Midnight Light and Dark; the active surface and accent tokens supply the mode-specific values.
+- Keep hover separate from selected, focus-visible, drag-over and disabled states. Keyboard focus continues to use the documented focus outline.

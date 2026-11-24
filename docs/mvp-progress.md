@@ -1,3 +1,10 @@
+## Organization → Teams exact Documents styling correction (2026-11-24)
+
+- Corrected the header **New team** control to use the exact same class names as Documents' **Upload text file** button: `documents__button documents__button--secondary`. Removed the Teams-specific primary-button classes and the extra leading glyph so its visual treatment follows the reference control.
+- Reproduced the Documents button contract in the Teams component scope: 38px minimum height, 8px 13px padding, 1px border, 9px radius, 13px/600 typography, 160ms background/border transition, 10% accent hover fill, 55% accent border hover, 2px cyan focus outline, 1px active press and 0.48 disabled opacity.
+- Implemented the missing Documents collection hover: team cards now receive the same 8% accent surface blend and 48% accent border blend; table rows receive the same 5% accent tint as Documents table rows. Selected state remains distinct.
+- Updated the global Bee-Core Design System and Midnight Style Guide with the collection hover contract, including Light/Dark semantic-token behavior and separation from focus/selection/drag states.
+- **Validation pending:** source-level comparison only. No Angular build, automated tests, browser hover verification or Light/Dark screenshot comparison has been run.
 ## Organization → Teams header actions aligned with Documents (2026-11-24)
 
 - Moved the Cards/Table switcher from the directory toolbar into the right-aligned Teams header, immediately before the New Team action. The rightmost action is New Team; the two compact view buttons sit directly to its left.
