@@ -77,7 +77,7 @@ export const timeTrackingPlugin:BeePlugin={
 
   // Phase 2: tenant-scoped weekly schedules. One interval per weekday in this
   // milestone; split shifts can be added later without changing the API owner.
-  const validTime=(value:unknown)=>typeof value==="string"&&/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value);
+  const validTime=(value:unknown)=>typeof value==="string"&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
   const validateDays=(value:unknown):ScheduleDay[]|null=>{
    if(!Array.isArray(value)||value.length>7)return null;
    const seen=new Set<number>(),result:ScheduleDay[]=[];
@@ -188,7 +188,7 @@ export const timeTrackingPlugin:BeePlugin={
     if(!event||event.occurredAt.getTime()!==correction.originalAt.getTime())return reply.code(409).send({error:"The original event changed after the request; refresh the review queue"});
     const set:any={"events.$[event].occurredAt":correction.requestedAt,updatedAt:now};
     if(correction.eventType==="clock_in")set.startedAt=correction.requestedAt;else set.endedAt=correction.requestedAt;
-    const changed=await collection(tenant.tenantId).updateOne({id:session.id,userId:correction.userId},{$set:set},{arrayFilters:[{"event.type":correction.eventType}]});
+    const changed=await sessions.updateOne({tenantId:tenant.tenantId,id:session.id,userId:correction.userId},{$set:set},{arrayFilters:[{"event.type":correction.eventType}]});
     if(!changed.modifiedCount)return reply.code(409).send({error:"The work session could not be updated"});
    }
    const changed=await corrections.updateOne({id:correction.id,tenantId:tenant.tenantId,status:"pending"},{$set:{status:decision,reviewedAt:now,reviewedBy:tenant.userId,reviewNote}});
