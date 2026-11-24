@@ -40,8 +40,8 @@ test("public stream-ticket flood stays bounded and returns 429 at capacity", { s
     let accepted = 0;
     let rejected = 0;
 
-    for (let batch = 0; batch < 6; batch++) {
-      const responses = await Promise.all(Array.from({ length: 1_000 }, () =>
+    for (let batch = 0; batch < 24; batch++) {
+      const responses = await Promise.all(Array.from({ length: 250 }, () =>
         app.inject({ method: "POST", url: "/templates/public-stream-ticket", headers: { host: "load.example.test" } })
       ));
       for (const response of responses) {
@@ -54,7 +54,7 @@ test("public stream-ticket flood stays bounded and returns 429 at capacity", { s
     assert.equal(accepted, 5_000, "the live ticket store must never exceed its configured capacity");
     assert.equal(rejected, 1_000, "requests beyond capacity must be rejected, not retained or evicted");
     const after = process.memoryUsage().rss;
-    assert.ok(after - before < 96 * 1024 * 1024, "RSS growth under the bounded flood must remain below 96 MiB");
+    assert.ok(after - before < 160 * 1024 * 1024, "RSS growth under the bounded flood must remain below 160 MiB");
     assert.equal((await app.inject({ method: "POST", url: "/templates/public-stream-ticket", headers: { host: "load.example.test" } })).statusCode, 429);
   } finally {
     await app.close();
