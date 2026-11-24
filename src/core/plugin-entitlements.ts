@@ -24,6 +24,7 @@ export type PluginPackageDefinition = Document & {
   purchasable: boolean;
   system: boolean;
   dependencies: string[];
+  activationPolicy?: "automatic" | "manual";
   migrations?: TenantPluginMigration[];
   codeAvailable: true;
   status: "published" | "draft" | "deprecated";
@@ -91,14 +92,14 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     id: "documents", name: "Documents", version: "0.1.0",
     description: "Shared document library with folder-level team access and controlled public delivery",
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"], includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false, system: true, dependencies: ["files"], codeAvailable: true, status: "published"
+    purchasable: false, system: true, dependencies: ["files"], activationPolicy: "automatic", codeAvailable: true, status: "published"
   },
   {
     id: "connected-devices", name: "Connected Devices", version: "0.1.0",
     description: "Secure tenant-scoped device pairing, capability grants and revocation",
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"],
     includedInPlans: ["starter", "pro", "enterprise"], purchasable: false, system: false,
-    dependencies: [], codeAvailable: true, status: "published"
+    dependencies: [], activationPolicy: "manual", codeAvailable: true, status: "published"
   },
   {
     id: "notes",
@@ -139,6 +140,7 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     purchasable: false,
     system: false,
     dependencies: [],
+    activationPolicy: "automatic",
     codeAvailable: true,
     status: "published",
     migrations: [{
