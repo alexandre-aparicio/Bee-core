@@ -166,8 +166,13 @@ export async function setPlatformPackageAvailable(db: Db, pluginId: string): Pro
  * A later signed ZIP upload can replace this platform registry entry.
  */
 export async function retireBundledPlatformPackage(db: Db, pluginId: string): Promise<void> {
+  const packages = db.collection<PlatformPluginPackage>("platform_plugin_packages");
+  const existing = await packages.findOne({ pluginId });
+  // Never hide a package that has already been replaced by its signed ZIP.
+  if (existing?.source === "zip") return;
+
   const now = new Date();
-  await db.collection<PlatformPluginPackage>("platform_plugin_packages").updateOne(
+  await packages.updateOne(
     { pluginId, source: "bundled" },
     { $set: { status: "deprecated", installedAt: null, installedBy: null, updatedAt: now } }
   );
