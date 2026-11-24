@@ -84,6 +84,8 @@ The API health endpoint is available internally at `http://bee-core:3000/health`
 - MongoDB data: Docker volume `bee_core_mongodb_data`
 - Private file data: Docker volume `bee_core_files`
 
+Compose runs the one-shot `bee-core-files-init` service before starting the API. It assigns the mounted private-file volume to UID 1000 (the unprivileged `node` user in the backend image) and restricts the directory to owner access. The API remains non-root; do not solve volume permission errors by running the application container as root.
+
 List volumes:
 
 ```bash
