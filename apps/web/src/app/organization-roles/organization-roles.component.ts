@@ -225,6 +225,10 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  @media(max-width:760px){.org-roles__header,.org-roles__section-heading,.org-roles__editor-heading{align-items:flex-start;flex-direction:column}.org-roles__permission-groups,.org-roles__groups,.org-roles__form-grid,.org-roles__detail-badges{grid-template-columns:1fr}.org-roles__details-summary{grid-template-columns:1fr}}
  @media(max-width:600px){.org-roles__toolbar{align-items:stretch}.org-roles__search{width:auto;flex:1;min-width:0}.org-roles__collection-header{justify-content:space-between}.org-roles__table-wrap table{min-width:620px}}
  @media(max-width:520px){.org-roles__tab-panel{padding:13px}.org-roles__tabs{padding:0 4px}.org-roles__tabs button{padding:12px 8px}.org-roles__modal-backdrop{padding:12px}.org-roles__modal{max-height:min(90vh,820px)}}
+ :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles{--bg:#f4f6fb;--panel:#fff;--surface:#fff;--surface-raised:#fff;--muted:#68758b;--border:#dfe5ef;--purple:#5542bd;--cyan:#0891b2;--bee-status-success:#167447;--bee-status-warning:#946200;--bee-status-danger:#b42318;--warning:#946200;--bee-shadow:0 12px 32px #25385818;color:#263248}
+ :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles .teams-workspace__view-toggle button.is-active{color:#fff}
+ :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles .documents__button{color:#263248}
+ :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles .org-roles__primary{color:#fff!important}
  `]
 
 })
