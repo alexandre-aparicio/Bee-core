@@ -6,17 +6,17 @@ The public third-party SDK is explicitly deferred. This work is limited to four 
 
 1. **Connected Devices** — real module.
 2. **Control Horario** — real module.
-3. **Documents** — real module, retaining its declared platform/system scope where required by its manifest.
+3. **Documents** — tenant-facing module.
 4. **Hola Mundo** — deliberately simple example package used to prove that the runtime can install and load a module without a hard-coded integration.
 
 **Private Files is platform infrastructure and is not part of this four-package migration. Team Notes is also outside the current scope.** The remaining Core capabilities (authentication, organizations, teams, files infrastructure, marketplace, platform administration, notifications, mail, localization and shared runtime services) are not to be converted into tenant-installable modules as part of this task.
 
-The acceptance model is that these four package artifacts are delivered through the same upload, verification, persistence, registration and runtime-loading pipeline. Tenant-scoped packages additionally require tenant entitlement/grant, installation and enabled state before their routes, navigation entries, frontend assets or API can be used. Platform/system scope must be respected rather than disguised as a tenant feature.
+The acceptance model is that these four package artifacts are delivered through the same upload, verification, persistence, registration and runtime-loading pipeline. All four packages are tenant-facing and require tenant entitlement/grant, installation and enabled state before their routes, navigation entries, frontend assets or APIs can be used. Their actual manifest scopes must be preserved.
 
 ## Required runtime model
 
 1. **Package upload is the delivery path for the four packages.** Build each package as a versioned ZIP and submit it through the same upload/verification/storage/registration pipeline used by an uploaded package. No special static seed may silently make the module code available.
-2. **Platform installation and tenant authorization are separate.** A package may be present in the platform catalog/runtime without being available to every tenant. Tenant-scoped packages require explicit entitlement/grant and tenant installation. A system-scoped package retains its declared platform lifecycle and only exposes tenant capabilities under the applicable tenant authorization checks.
+2. **Platform installation and tenant authorization are separate.** A package may be present in the platform catalog/runtime without being available to every tenant. Each of the four packages requires explicit entitlement/grant and tenant installation.
 3. **All four packages load through the package runtime.** The application bootstrap must not import or register their entrypoints directly. Dependencies and load order come from verified manifests.
 4. **Frontend is package-owned.** Package frontend artifacts and route/navigation metadata are resolved by the runtime. Angular must not statically import these package components. Uploaded frontend code must run behind a controlled boundary and must not gain unrestricted access to dashboard-origin/session state.
 5. **Core remains the host.** Authentication/session primitives, tenant context, permission evaluation, event bus, shared database/storage access, package verification and lifecycle orchestration remain in Core. Module-specific routes, services, repositories, migrations, permissions, translations, navigation and UI belong to the package.
@@ -35,7 +35,7 @@ The automated tests must simulate the existing modules as uploaded packages rath
 5. Start a fresh runtime from persisted package artifacts and assert that all four are loaded without static entrypoint imports.
 6. For tenant-scoped packages, grant access to a test tenant, install/run migrations and verify tenant navigation, frontend and API access.
 7. Verify that a second tenant without a grant cannot discover, load or invoke tenant-scoped packages.
-8. Verify Documents follows its declared system/platform scope and does not gain a special static loading path.
+8. Verify Documents is tenant-isolated and does not gain a special static loading path.
 9. Verify Hola Mundo can be uploaded, installed, enabled, rendered and called using the same generic lifecycle, with no module-specific Core code.
 10. Verify restart/reload preserves package registration, tenant grants and tenant data.
 11. Exercise package frontend loading and backend authorization together; verify user permissions remain enforced after loading.
@@ -49,7 +49,7 @@ The automated tests must simulate the existing modules as uploaded packages rath
 - Runtime startup loads packages in dependency order and isolates package failures.
 - Tenant entitlement, installation, enablement, disablement and revocation are independent and tenant-scoped.
 - A tenant cannot discover or invoke a tenant package it is not entitled to use.
-- Platform/system package lifecycle and tenant authorization are both enforced.
+- Tenant authorization and isolation are enforced for all four packages.
 - Existing APIs, data and cross-tenant isolation remain compatible.
 - Backend tests, Angular production build and package lifecycle integration tests pass.
 
