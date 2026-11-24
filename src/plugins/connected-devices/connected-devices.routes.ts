@@ -15,6 +15,9 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
    ctx.logger?.error("Connected Devices audit event write failed",{action:event.action,tenantId:event.tenantId,error});
   }
  };
+ const auditDeviceResourceDenial=async(tenant:any,resourceId:string,operation:string)=>{
+  await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",resourceId,metadata:{permission:"connected-devices.resource_access",operation,reason:"not_found_in_active_tenant"}});
+ };
  ctx.server.post("/connected-devices/pairing-challenges",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
   let requestedCapabilities:string[];try{requestedCapabilities=normalizeRequestedCapabilities(request.body?.requestedCapabilities??[]);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
@@ -32,7 +35,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const id=clean(request.params.challengeId,64),filter:any={tenantId:tenant.tenantId,id,status:{$in:["issued","claimed"]}};
   if(!isDeviceAdministrator(tenant))filter.userId=tenant.userId;
   const challenge=await repository.challenges.findOne(filter);
-  if(!challenge)return reply.code(404).send({error:"Active pairing challenge not found."});
+  if(!challenge){await auditDeviceResourceDenial(tenant,id,"pairing.cancel");return reply.code(404).send({error:"Active pairing challenge not found."});}
   const cancelled=await repository.challenges.updateOne({tenantId:tenant.tenantId,id,status:challenge.status},{$set:{status:"cancelled"}});
   if(!cancelled.modifiedCount)return reply.code(409).send({error:"The pairing request changed. Refresh and try again."});
   if(challenge.status==="claimed"&&challenge.deviceId){
@@ -94,7 +97,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const id=clean(request.params.deviceId,64);
   if(!isDeviceAdministrator(tenant)){await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",resourceId:id,metadata:{permission:"connected-devices.manage",operation:"approve"}});return reply.code(403).send({error:"Organization administrator approval required."});}
   const device=await repository.devices.findOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:new Date()}});
-  if(!device)return reply.code(404).send({error:"Pending device not found or pairing request expired."});
+  if(!device){await auditDeviceResourceDenial(tenant,id,"device.approve");return reply.code(404).send({error:"Pending device not found or pairing request expired."});}
   if(!await isConnectedDeviceOwnerActive(db,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
   let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[]);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
   if(granted.some(capability=>!device.requestedCapabilities.includes(capability)))return reply.code(400).send({error:"Granted capabilities must be a subset of the device request."});
@@ -110,7 +113,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!isDeviceAdministrator(tenant)){await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",resourceId:id,metadata:{permission:"connected-devices.manage",operation:"suspend"}});return reply.code(403).send({error:"Organization administrator permission required."});}
   const now=new Date();
   const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"active"},{$set:{status:"suspended",updatedAt:now}});
-  if(!result.modifiedCount)return reply.code(404).send({error:"Active device not found."});
+  if(!result.modifiedCount){await auditDeviceResourceDenial(tenant,id,"device.suspend");return reply.code(404).send({error:"Active device not found."});}
   await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"device.suspended",resourceId:id});
   return {success:true};
  });
@@ -119,7 +122,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const id=clean(request.params.deviceId,64);
   if(!isDeviceAdministrator(tenant)){await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",resourceId:id,metadata:{permission:"connected-devices.manage",operation:"activate"}});return reply.code(403).send({error:"Organization administrator permission required."});}
   const device=await repository.devices.findOne({tenantId:tenant.tenantId,id,status:"suspended"});
-  if(!device)return reply.code(404).send({error:"Suspended device not found."});
+  if(!device){await auditDeviceResourceDenial(tenant,id,"device.activate");return reply.code(404).send({error:"Suspended device not found."});}
   if(!await isConnectedDeviceOwnerActive(db,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
   const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"suspended"},{$set:{status:"active",updatedAt:new Date()}});
   if(!result.modifiedCount)return reply.code(409).send({error:"The device state changed. Refresh and try again."});
@@ -133,7 +136,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!isDeviceAdministrator(tenant))filter.ownerUserId=tenant.userId;
   const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential);
   const result=await repository.devices.updateOne(filter,{$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:tenant.userId,updatedAt:now}});
-  if(!result.modifiedCount)return reply.code(404).send({error:"Device not found or already unlinked."});
+  if(!result.modifiedCount){await auditDeviceResourceDenial(tenant,id,"device.unlink");return reply.code(404).send({error:"Device not found or already unlinked."});}
   await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"device.unlinked",resourceId:id,metadata:{source:"dashboard"}});
   return {success:true};
  });
@@ -142,7 +145,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const id=clean(request.params.deviceId,64);
   if(!isDeviceAdministrator(tenant)){await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",resourceId:id,metadata:{permission:"connected-devices.manage",operation:"delete"}});return reply.code(403).send({error:"Organization administrator permission required to delete device records."});}
   const device=await repository.devices.findOne({tenantId:tenant.tenantId,id});
-  if(!device)return reply.code(404).send({error:"Device not found."});
+  if(!device){await auditDeviceResourceDenial(tenant,id,"device.delete");return reply.code(404).send({error:"Device not found."});}
   await repository.devices.deleteOne({tenantId:tenant.tenantId,id});
   await repository.challenges.updateMany({tenantId:tenant.tenantId,deviceId:id,status:"claimed"},{$set:{status:"cancelled"}});
   await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"device.deleted",resourceId:id,metadata:{previousStatus:device.status}});
@@ -153,7 +156,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const id=clean(request.params.deviceId,64),filter:any={tenantId:tenant.tenantId,id,status:{$ne:"revoked"}};
   if(!isDeviceAdministrator(tenant))filter.ownerUserId=tenant.userId;
   const now=new Date(),result=await repository.devices.updateOne(filter,{$set:{status:"revoked",revokedAt:now,revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:now}});
-  if(!result.modifiedCount)return reply.code(404).send({error:"Device not found or access already revoked."});
+  if(!result.modifiedCount){await auditDeviceResourceDenial(tenant,id,"device.revoke");return reply.code(404).send({error:"Device not found or access already revoked."});}
   await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"device.revoked",resourceId:id,metadata:{source:"dashboard"}});
   return {success:true};
  });
@@ -162,7 +165,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const id=clean(request.params.deviceId,64),name=clean(request.body?.name,80);if(!name)return reply.code(400).send({error:"A device name is required."});
   const filter:any={tenantId:tenant.tenantId,id,status:{$ne:"revoked"}};if(!isDeviceAdministrator(tenant))filter.ownerUserId=tenant.userId;
   const result=await repository.devices.updateOne(filter,{$set:{name,updatedAt:new Date()}});
-  if(!result.modifiedCount)return reply.code(404).send({error:"Device not found."});
+  if(!result.modifiedCount){await auditDeviceResourceDenial(tenant,id,"device.rename");return reply.code(404).send({error:"Device not found."});}
   await auditDeviceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"device.renamed",resourceId:id,metadata:{name}});
   return {success:true};
  });
