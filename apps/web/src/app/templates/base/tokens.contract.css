@@ -36,6 +36,7 @@
   --bee-shadow: 0 1px 2px rgb(20 28 40 / 8%);
   --bee-shadow-raised: 0 12px 32px rgb(20 28 40 / 14%);
   --bee-overlay: rgb(12 18 28 / 58%);
+  --bee-overlay-strong: rgb(5 8 16 / 72%);
   --bee-blur: 0px;
   --bee-radius-sm: 6px;
   --bee-radius-md: 10px;
@@ -43,12 +44,4 @@
   --bee-input-bg: #ffffff;
   --bee-input-border: #cbd2dc;
   --bee-input-placeholder: #788291;
-
-  /* Temporary migration aliases. Remove after all consumers use --bee-* tokens. */
-  --bg: var(--bee-bg);
-  --panel: var(--bee-surface);
-  --muted: var(--bee-text-muted);
-  --border: var(--bee-border);
-  --purple: var(--bee-accent);
-  --cyan: var(--bee-secondary);
 }

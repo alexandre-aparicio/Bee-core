@@ -1126,3 +1126,15 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Follow-up to the selector cleanup: removed the unused `.bee-dash-workspace` structural rule from `templates/base/base.css` after confirming the shared dashboard component renders `.bee-dash-content` directly and does not render a workspace wrapper. Both edited CSS files were re-read. A repository-wide search for other references remains outstanding.
 
 - Step 1 follow-up: re-read `apps/web/e2e/smoke.spec.ts` (582 lines); no legacy `md-`, `pd-`, or `gd-` class-prefix references were found, so no selector edits were needed in that file. Re-read `appearance-modes.css`: 17 remaining `:is()` groups, zero groups made entirely of repeated identical selectors, and zero repeated-selector triplets. It still contains 59 `!important` declarations and palette colors by design until Step 3. This check covers the named files only; the required whole-repository search across every file under `apps/web/src`, `apps/web/e2e`, and docs examples has not been completed.
+
+
+## Template refactor — Step 2 global stylesheet migration (2026-11-25)
+
+- Replaced all hexadecimal color literals in `apps/web/src/styles.css` with semantic tokens or token-based `color-mix()`; replaced all three RGBA declarations with token-based mixes. The global stylesheet has no remaining literal hex/RGB/HSL colors.
+- Reduced global `:root` to font/rendering concerns; `body` consumes `--bee-bg` and `--bee-text`. No template palette remains in global root.
+- Removed duplicated `data-bee-public-mode="light"` rules from global styles; public Light palettes remain in package tokens.
+- Kept temporary legacy aliases only in `base.css` on `.bee-template-package-host`, so they resolve against each package's selected palette. Removed alias declarations from the contract root and all six package token files. Step 8 must remove these aliases after all legacy consumers migrate.
+- Added `--bee-overlay-strong` to the contract and all six packages in both modes for stronger dark shadows/backdrops. Corrected Midnight Light's malformed `--bee-blur: #0px` to `0px`.
+- Read `angular.json`: global order is contract, base, six package token files, then `styles.css`. Package layout components load their package stylesheet before `core/appearance-modes.css`.
+- Source-level validation during editing found zero remaining hex/RGB/HSL literals, public-Light selectors or `--surface` fallbacks in `styles.css`. The stylesheet's consumed `--bee-*` tokens were checked against the contract and both mode blocks in all six packages.
+- **Not verified:** no commands, scripts, build, tests, Playwright, screenshots, browser or runtime were executed. CSS parsing, actual rendering and visual equivalence require local validation.

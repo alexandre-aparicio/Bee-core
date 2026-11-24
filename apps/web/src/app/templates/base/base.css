@@ -2,6 +2,15 @@
  * Neutral Bee-Core application structure.
  * Package palettes belong exclusively in templates/packages/<id>/tokens.css.
  */
+.bee-template-package-host {
+  /* TEMPORARY legacy alias – remove in Step 8 */
+  --bg: var(--bee-bg);
+  --panel: var(--bee-surface);
+  --muted: var(--bee-text-muted);
+  --border: var(--bee-border);
+  --purple: var(--bee-accent);
+  --cyan: var(--bee-secondary);
+}
 .bee-dash-shell {
   display: grid;
   grid-template-columns: var(--bee-sidebar-width, 256px) minmax(0, 1fr);
