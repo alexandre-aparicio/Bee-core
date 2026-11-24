@@ -12,7 +12,7 @@ import bcrypt from "bcryptjs";
 import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
-import { getTenantSubscription, getTenantPluginCatalog, getTrustedPluginPackage, hasPluginEntitlement, syncAutomaticPluginProvisioning, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
+import { getTenantSubscription, getTenantPluginCatalog, getTrustedPluginPackage, hasPluginEntitlement, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
@@ -340,8 +340,8 @@ export const platformAdminPlugin:BeePlugin={
    await assignments.deleteMany({pluginId,planId:{$nin:planIds}});
    for(const planId of planIds)await assignments.updateOne({planId,pluginId},{$setOnInsert:{planId,pluginId,createdAt:new Date(),createdBy:actor.id}},{upsert:true});
    const queued=await syncAutomaticPluginProvisioning(db,pluginId);
-   await recordPlatformAudit({actorId:actor.id,action:"plugin.plan_entitlements_updated",resourceType:"plugin_package",resourceId:pluginId,metadata:{planIds,automaticInstallJobsQueued:queued}});
-   return {success:true,pluginId:mask(req.platformSession!,pluginId,"plugin"),planIds,automaticInstallJobsQueued:queued};
+   await recordPlatformAudit({actorId:actor.id,action:"plugin.plan_entitlements_updated",resourceType:"plugin_package",resourceId:pluginId,metadata:{planIds,automaticInstallJobsQueued:queued,tenantUpgradeJobsQueued:upgraded}});
+   return {success:true,pluginId:mask(req.platformSession!,pluginId,"plugin"),planIds,automaticInstallJobsQueued:queued,tenantUpgradeJobsQueued:upgraded};
   });
   ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{granted?:boolean}}>("/platform/companies/:companyId/plugin-entitlements/:pluginId",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
@@ -359,8 +359,9 @@ export const platformAdminPlugin:BeePlugin={
     await grants.deleteOne({tenantId:company.id,pluginId:req.params.pluginId,source:"manual"});
    }
    const queued=req.body.granted?await syncAutomaticPluginProvisioning(db,req.params.pluginId):0;
-   await recordPlatformAudit({actorId:actor.id,action:req.body.granted?"plugin.tenant_entitlement_granted":"plugin.tenant_entitlement_revoked",tenantId:company.id,resourceType:"plugin_package",resourceId:req.params.pluginId,metadata:{source:"manual",granted:req.body.granted,automaticInstallJobsQueued:queued}});
-   return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,req.params.pluginId,"plugin"),granted:req.body.granted,automaticInstallJobsQueued:queued};
+    const upgraded=req.body.granted?await syncPluginPackageVersionUpdates(db,req.params.pluginId):0;
+   await recordPlatformAudit({actorId:actor.id,action:req.body.granted?"plugin.tenant_entitlement_granted":"plugin.tenant_entitlement_revoked",tenantId:company.id,resourceType:"plugin_package",resourceId:req.params.pluginId,metadata:{source:"manual",granted:req.body.granted,automaticInstallJobsQueued:queued,tenantUpgradeJobsQueued:upgraded}});
+   return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,req.params.pluginId,"plugin"),granted:req.body.granted,automaticInstallJobsQueued:queued,tenantUpgradeJobsQueued:upgraded};
   });
   ctx.server.get("/platform/plugin-packages",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
