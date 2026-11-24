@@ -115,8 +115,10 @@ test("private files and images are isolated by active company", { skip: !uri }, 
 
     const alphaList = await app.inject({ method: "GET", url: "/files", headers: { authorization: "Bearer " + alphaToken } });
     const betaList = await app.inject({ method: "GET", url: "/files", headers: { authorization: "Bearer " + betaMemberToken } });
-    assert.deepEqual(alphaList.json().files.map((file: { id: string }) => [file.id]), [[alphaFileId]]);
-    assert.deepEqual(betaList.json().files.map((file: { id: string }) => [file.id]), [[betaFileId]]);
+    assert.equal(alphaList.json().files.length, 1);
+    assert.equal(alphaList.json().files[0].name, "private-alpha.png", "Alpha must list only its own uploaded file");
+    assert.equal(betaList.json().files.length, 1);
+    assert.equal(betaList.json().files[0].name, "beta.png", "Beta must list only its own uploaded file");
 
     const crossSessionRead = await app.inject({ method: "GET", url: "/files/" + alphaFileId, headers: { authorization: "Bearer " + alphaSecondSessionToken } });
     assert.equal(crossSessionRead.statusCode, 404, "a file reference must not resolve in another session of the same user");
