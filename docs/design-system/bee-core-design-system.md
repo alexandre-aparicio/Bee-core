@@ -547,3 +547,7 @@ Cards and equivalent table rows in collection views MUST use the same restrained
 - Keep transitions brief and limited to background/border colors. Selected, focused, drag-target and keyboard-focus states remain distinct and MUST NOT be replaced by hover styling.
 - Apply the same treatment to equivalent card and table representations within a feature. Light and Dark modes MUST both use semantic surface/accent tokens so the tint remains subtle and readable.
 - Documents is the visual reference implementation (`.documents__item:hover` and `.documents__table tbody tr:hover`).
+
+### System-role catalog cards
+
+System-role catalog cards MUST reuse the Organization → Teams collection-card geometry and interaction contract: responsive auto-fill grid with a 245px minimum card width, 12px gap, 13px padding, 11px radius, equal-height cards per grid row, and the same restrained accent hover treatment. A role card presents its name, description, permission count, explicit Active/Inactive status and a compact overlapping preview of the first three permission badges followed by a calculated `+N` remainder. Overflow actions use the same vertical-ellipsis menu geometry and hover behavior as Teams. Read-only system-role details open in the canonical modal; unsupported mutations remain visibly disabled rather than appearing functional.
