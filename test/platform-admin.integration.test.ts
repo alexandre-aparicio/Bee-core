@@ -8,6 +8,7 @@ import {createHmac} from "node:crypto";
 import {base32Decode} from "../src/core/totp.js";
 import {authPlugin} from "../src/plugins/auth/auth.plugin.js";
 import {organizationsPlugin} from "../src/plugins/organizations/organizations.plugin.js";
+import {marketplacePlugin} from "../src/plugins/marketplace/marketplace.plugin.js";
 import {platformAdminPlugin} from "../src/plugins/platform-admin/platform-admin.plugin.js";
 import {BeeEventBus} from "../src/core/event-bus.js";
 import type {BeeContext,BeeLogger} from "../src/core/types.js";
@@ -27,7 +28,7 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
  app.register(jwt,{secret:jwtSecret});
  const ctx:BeeContext={appName:"Platform test",version:"test",events:new BeeEventBus(),logger,server:app,mongoClient:client,config:{jwtSecret,mongoUri:uri!,mongoDbName:dbName,authAdminEmail:"platform@example.test",authAdminPassword:"Platform-test-12345",authMfaEncryptionKey:Buffer.alloc(32).toString("base64")}};
  try{
-  await authPlugin.initialize?.(ctx);await organizationsPlugin.initialize?.(ctx);await platformAdminPlugin.initialize?.(ctx);await app.ready();
+  await authPlugin.initialize?.(ctx);await organizationsPlugin.initialize?.(ctx);await marketplacePlugin.initialize?.(ctx);await platformAdminPlugin.initialize?.(ctx);await app.ready();
   const rootLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"platform@example.test",password:"Platform-test-12345",client:"dashboard"}});
   assert.equal(rootLogin.statusCode,200);const rootTokens=rootLogin.json();assert.equal(rootTokens.platformRole,"superadmin");assert.equal(rootTokens.mfaSetupRequired,true);
   const rootHeaders={authorization:"Bearer "+rootTokens.accessToken};
@@ -50,7 +51,7 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.equal(staleMfa.statusCode,403,"sensitive platform actions must require MFA verification within 15 minutes");
   assert.ok(await db.collection("platform_audit_events").findOne({actorId:"bootstrap-admin",action:"security.mfa_recent_required"}),"stale MFA denial must be audited");
   await db.collection("refresh_sessions").updateOne({id:rootSession.id},{$set:{mfaVerifiedAt:new Date()}});
-  const platformMe=await app.inject({method:"GET",url:"/platform/me",headers:rootHeaders});assert.equal(platformMe.statusCode,200);assert.equal(platformMe.json().role,"superadmin");
+  const platformMe=await app.inject({method:"GET",url:"/platform/me",headers:rootHeaders});assert.equal(platformMe.statusCode,200);assert.equal(platformMe.json().role,"super_admin");
 
   const created=await app.inject({method:"POST",url:"/platform/companies",headers:rootHeaders,payload:{name:"Acme Test",ownerEmail:"acme-owner@example.test",ownerPassword:"Acme-owner-Password-123"}});
   assert.equal(created.statusCode,201);const companyId=created.json().company.id as string;
@@ -64,32 +65,10 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.ok(rawCompany);
   const superOrganization=await db.collection("tenants").findOne({kind:"super"});
   assert.ok(superOrganization,"platform installation must be owned by the Super Organization");
-  const helloWorldBeforeInstall=platformPlugins.json().plugins.find((plugin:any)=>plugin.name==="Hola Mundo");
-  assert.equal(helloWorldBeforeInstall?.installed,false,"a package must not appear installed before its platform installation");
-  const activationBeforeGlobalInstall=await app.inject({method:"PUT",url:"/platform/companies/"+encodeURIComponent(companyId)+"/plugins/"+encodeURIComponent(helloWorldBeforeInstall.id),headers:rootHeaders,payload:{enabled:true}});
-  assert.equal(activationBeforeGlobalInstall.statusCode,409,"a tenant cannot activate a package that is not installed globally");
-  await db.collection("tenant_plugin_installations").updateOne(
-    {tenantId:superOrganization.id,pluginId:"hello-world"},
-    {$set:{status:"installed",version:"0.1.0",installedAt:new Date(),updatedAt:new Date()},$setOnInsert:{id:"platform-hello-world-install",tenantId:superOrganization.id,pluginId:"hello-world"}},
-    {upsert:true}
-  );
-  const pluginsAfterPlatformInstall=await app.inject({method:"GET",url:"/platform/companies/"+encodeURIComponent(companyId)+"/plugins",headers:rootHeaders});
-  assert.equal(pluginsAfterPlatformInstall.statusCode,200);
-  const helloWorld=pluginsAfterPlatformInstall.json().plugins.find((plugin:any)=>plugin.name==="Hola Mundo");
-  assert.ok(helloWorld?.installed,"a package installed in Super Organization must appear as installed for every company");
-  assert.equal(helloWorld.enabled,false,"global installation must not implicitly enable the plugin for a tenant");
-  const activateHelloWorld=await app.inject({method:"PUT",url:"/platform/companies/"+encodeURIComponent(companyId)+"/plugins/"+encodeURIComponent(helloWorld.id),headers:rootHeaders,payload:{enabled:true}});
-  assert.equal(activateHelloWorld.statusCode,200);
-  assert.equal(activateHelloWorld.json().enabled,true);
-  const tenantHelloWorld=await db.collection("tenant_plugin_installations").findOne({tenantId:rawCompany.id,pluginId:"hello-world"});
-  assert.equal(tenantHelloWorld?.status,"installed","tenant activation must persist its own runtime registration");
-  assert.equal(tenantHelloWorld?.enabled,true);
-  const deactivateHelloWorld=await app.inject({method:"PUT",url:"/platform/companies/"+encodeURIComponent(companyId)+"/plugins/"+encodeURIComponent(helloWorld.id),headers:rootHeaders,payload:{enabled:false}});
-  assert.equal(deactivateHelloWorld.statusCode,200);
-  assert.equal(deactivateHelloWorld.json().enabled,false);
-  const disabledHelloWorld=await db.collection("tenant_plugin_installations").findOne({tenantId:rawCompany.id,pluginId:"hello-world"});
-  assert.equal(disabledHelloWorld?.status,"installed","deactivation must preserve tenant plugin data and installation state");
-  assert.equal(disabledHelloWorld?.enabled,false);
+  const helloWorld=platformPlugins.json().plugins.find((plugin:any)=>plugin.name==="Hola Mundo");
+  assert.equal(helloWorld,undefined,"Hello Mundo must not be exposed as a bundled platform plugin; it is available only after a signed ZIP upload");
+  const helloWorldPackage=await db.collection("platform_plugin_packages").findOne({pluginId:"hello-world",status:{$ne:"deprecated"}});
+  assert.equal(helloWorldPackage,null,"the legacy bundled Hello Mundo package must not remain active in the platform registry");
   const pluginRows=platformPlugins.json().plugins as Array<{id:string;name:string;installed:boolean;enabled:boolean;system:boolean}>;
   const documentsPlugin=pluginRows.find(plugin=>plugin.name==="Documents")!;
   const filesPlugin=pluginRows.find(plugin=>plugin.name==="Private Files")!;
@@ -117,5 +96,5 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   const tenantLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"acme-owner@example.test",password:"Acme-owner-Password-123",client:"dashboard"}});assert.equal(tenantLogin.statusCode,200);
   const tenantHeaders={authorization:"Bearer "+tenantLogin.json().accessToken};
   const forbidden=await app.inject({method:"GET",url:"/platform/companies",headers:tenantHeaders});assert.equal(forbidden.statusCode,403,"company owners must not access global platform endpoints");
- }finally{await app.close().catch(()=>{});await client.db(dbName).dropDatabase();await client.close();}
+ }finally{await marketplacePlugin.stop?.();await app.close().catch(()=>{});await client.db(dbName).dropDatabase();await client.close();}
 });

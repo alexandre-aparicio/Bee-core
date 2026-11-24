@@ -3,7 +3,8 @@ import websocket from "@fastify/websocket";
 import jwt from "@fastify/jwt";
 import { MongoClient } from "mongodb";
 import { pathToFileURL } from "node:url";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { readFile } from "node:fs/promises";
+import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { BeeEventBus } from "./core/event-bus.js";
 import { BeePluginManager } from "./core/plugin-manager.js";
 import { validateEnvironment } from "./core/environment.js";
@@ -11,7 +12,7 @@ import type { BeeContext, BeeLogger, BeePlugin } from "./core/types.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { registerRuntimePlugin } from "./core/runtime-plugin-registry.js";
 import { syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
-import { satisfiesPluginVersion } from "./core/plugin-package.js";
+import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
@@ -128,14 +129,13 @@ const ctx: BeeContext = {
   })
 };
 
+// Host services stay in Core. The four installable modules use a temporary
+// compatibility fallback only until their signed ZIP has been uploaded.
 plugins.register(helloPlugin);
 plugins.register(authPlugin);
 plugins.register(organizationsPlugin);
 plugins.register(teamsPlugin);
 plugins.register(filesPlugin);
-plugins.register(documentsPlugin);
-plugins.register(connectedDevicesPlugin);
-plugins.register(timeTrackingPlugin);
 plugins.register(marketplacePlugin);
 plugins.register(notesPlugin);
 plugins.register(platformAdminPlugin);
@@ -151,6 +151,32 @@ app.get("/health", async () => ({
   database: "connected"
 }));
 app.get("/plugins", async () => ({ plugins: plugins.list() }));
+app.get<{Params:{pluginId:string;version:string;"*":string}}>("/plugin-packages/:pluginId/:version/assets/*",async(request,reply)=>{
+  const {pluginId,version}=request.params;
+  const assetPath=String(request.params["*"]??"");
+  if(!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId)||!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\\\")||assetPath.includes("\\0")){
+    return reply.code(404).send({error:"Plugin asset not found"});
+  }
+  const db=mongoClient.db(environment.mongoDbName);
+  const packageRecord=await db.collection("platform_plugin_packages").findOne({pluginId,version,status:"installed",source:"zip",runtimeState:"loaded"});
+  if(!packageRecord||typeof packageRecord.packageDirectory!=="string")return reply.code(404).send({error:"Plugin asset not found"});
+  const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId,version});
+  const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;assets?:string[]}}|undefined;
+  const allowed=new Set([...(manifest?.frontend?.assets??[]),...(manifest?.frontend?.entrypoint?[manifest.frontend.entrypoint]:[])]);
+  if(!allowed.has(assetPath))return reply.code(404).send({error:"Plugin asset not found"});
+  const packageDirectory=resolve(packageRecord.packageDirectory);
+  const assetFile=resolve(packageDirectory,assetPath);
+  const relativeAsset=relative(packageDirectory,assetFile);
+  if(!relativeAsset||relativeAsset.startsWith(".."+sep)||isAbsolute(relativeAsset))return reply.code(404).send({error:"Plugin asset not found"});
+  let data:Buffer;
+  try{data=await readFile(assetFile);}catch{return reply.code(404).send({error:"Plugin asset not found"});}
+  const contentTypes:Record<string,string>={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".woff2":"font/woff2"};
+  reply.header("Content-Type",contentTypes[extname(assetPath).toLowerCase()]??"application/octet-stream");
+  reply.header("X-Content-Type-Options","nosniff");
+  reply.header("Cache-Control","public, max-age=300");
+  reply.header("Content-Security-Policy","default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'");
+  return reply.send(data);
+});
 app.get("/", async () => ({
   name: "Bee-Core",
   slogan: "All Is a Plugin",
@@ -180,6 +206,13 @@ async function loadSignedZipPlugins(): Promise<Map<string,string>> {
       });
       if (manifest.id !== item.pluginId || manifest.version !== item.version) throw new Error("Stored package manifest does not match its registry record");
       for (const dependency of manifest.dependencies.filter(item => !item.optional)) {
+        if (CORE_RUNTIME_PLUGIN_IDS.has(dependency.pluginId)) {
+          const hostDependency = plugins.list().find(plugin => plugin.name === dependency.pluginId);
+          if (!hostDependency || hostDependency.status === "failed" || !satisfiesPluginVersion(hostDependency.version, dependency.versionRange)) {
+            throw new Error("Required Core runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
+          }
+          continue;
+        }
         const installedDependency = await registry.findOne({ pluginId: dependency.pluginId, status: "installed" });
         if (!installedDependency || !satisfiesPluginVersion(String(installedDependency.version ?? "0.0.0"), dependency.versionRange)) {
           throw new Error("Required runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
@@ -242,6 +275,13 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>): Promi
 
 async function bootstrap(): Promise<void> {
   await mongoClient.connect();
+  const platformPackages = mongoClient.db(environment.mongoDbName).collection("platform_plugin_packages");
+  const uploadedPackages = await platformPackages.find({ source: "zip", status: "installed" }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
+  const uploadedIds = new Set(uploadedPackages.map(item => item.pluginId));
+  if (!uploadedIds.has("documents")) plugins.register(documentsPlugin);
+  if (!uploadedIds.has("connected-devices")) plugins.register(connectedDevicesPlugin);
+  if (!uploadedIds.has("time-tracking")) plugins.register(timeTrackingPlugin);
+
   const zipPluginFailures = await loadSignedZipPlugins();
   await plugins.mountAll(ctx);
   await persistZipPluginRuntimeState(zipPluginFailures);

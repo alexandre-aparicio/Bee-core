@@ -204,7 +204,8 @@ export async function installSignedPluginZip(options: {
     fail("Plugin package is not compatible with this Bee Core runtime");
   }
   if (!files.has(manifest.backend.entrypoint)) fail("Declared backend entrypoint is missing from the ZIP");
-  if (manifest.frontend.routes.length) fail("External frontend routes are not supported yet; publish a backend-only package with an empty frontend.routes array");
+  if (manifest.frontend.entrypoint && !files.has(manifest.frontend.entrypoint)) fail("Declared frontend entrypoint is missing from the ZIP");
+  for (const asset of manifest.frontend.assets ?? []) if (!files.has(asset)) fail("Declared frontend asset is missing from the ZIP: " + asset);
   if (!files.has("README.md")) fail("Package must include README.md");
   if (validateBeforeStorage) await validateBeforeStorage(manifest);
 
@@ -287,5 +288,7 @@ export async function verifyStoredPluginDirectory(options: {
     fail("Stored plugin package is not compatible with this Bee Core runtime");
   }
   if (!files.has(manifest.backend.entrypoint)) fail("Stored plugin backend entrypoint is missing");
+  if (manifest.frontend.entrypoint && !files.has(manifest.frontend.entrypoint)) fail("Stored plugin frontend entrypoint is missing");
+  for (const asset of manifest.frontend.assets ?? []) if (!files.has(asset)) fail("Stored plugin frontend asset is missing: " + asset);
   return manifest;
 }

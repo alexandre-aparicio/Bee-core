@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validatePluginManifest, satisfiesPluginVersion, type BeeBusinessPluginManifest } from "../src/core/plugin-package.js";
+import { CORE_RUNTIME_PLUGIN_IDS, validatePluginManifest, satisfiesPluginVersion, type BeeBusinessPluginManifest } from "../src/core/plugin-package.js";
 import { resolvePluginDependencyOrder } from "../src/core/plugin-entitlements.js";
 
 const validManifest: BeeBusinessPluginManifest = {
@@ -37,6 +37,9 @@ test("plugin manifest rejects unsafe paths, invalid IDs, duplicate permissions a
   assert.throws(() => validatePluginManifest({ ...validManifest, collections: ["crm_contacts", "crm_contacts"] }), /collection names must be unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, migrations: [...validManifest.migrations, ...validManifest.migrations] }), /migration IDs must be unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [{ path: "/../../admin", component: "crm.contacts.list" }] } }), /Invalid frontend route registrations/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [], entrypoint: "../index.html", assets: ["../index.html"] } }), /frontend entrypoint|frontend asset/i);
+  assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/index.html"] } }), /frontend asset/i);
+  assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [], apiPrefixes: ["/api/../admin"] } }), /frontend API prefix/i);
 });
 
 test("plugin dependency resolver orders transitive dependencies before dependents", () => {
@@ -216,4 +219,15 @@ test("plugin dependency version ranges correctly handle exact, caret, tilde and 
   assert.equal(satisfiesPluginVersion("1.2.3", "<1.2.0"), false);
   assert.equal(satisfiesPluginVersion("2.1.0", "^1.0.0 || ^2.0.0"), true);
   assert.equal(satisfiesPluginVersion("1.2.3", "latest"), false);
+});
+
+
+test("Core host services are not treated as tenant-installable package dependencies", () => {
+  for (const id of ["auth", "organizations", "files", "marketplace"]) {
+    assert.equal(CORE_RUNTIME_PLUGIN_IDS.has(id), true);
+  }
+  assert.equal(CORE_RUNTIME_PLUGIN_IDS.has("documents"), false);
+  assert.equal(CORE_RUNTIME_PLUGIN_IDS.has("connected-devices"), false);
+  assert.equal(CORE_RUNTIME_PLUGIN_IDS.has("time-tracking"), false);
+  assert.equal(CORE_RUNTIME_PLUGIN_IDS.has("hello-world"), false);
 });

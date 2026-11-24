@@ -26,6 +26,7 @@ type PluginRecord = {
   id: string; name: string; version: string; description: string; category: string;
   system: boolean; entitled: boolean; installed: boolean; installedVersion?: string | null;
   accessSource?: string | null; dependencies?: string[]; purchasable?: boolean;
+  packageSource?: string | null; runtimeState?: string | null; pluginKey?: string;
 };
 
 @Component({
@@ -59,6 +60,7 @@ type PluginRecord = {
             <button type="button" [class.is-active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
             <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
           </div>
+          <button *ngIf="isPlatformAdmin" type="button" class="plugin-settings__upload" (click)="loadPlatformPackages()" [disabled]="pluginPackagesLoading">{{pluginPackagesLoading ? 'Refreshing…' : '↻ Refresh packages'}}</button>
           <button *ngIf="isPlatformAdmin" type="button" class="plugin-settings__upload" (click)="pluginZipInput.click()" [disabled]="pluginUploadBusy">{{pluginUploadBusy ? 'Uploading…' : '＋ Upload plugin'}}</button>
           <input #pluginZipInput type="file" accept=".zip,application/zip" hidden (change)="uploadPluginZip($event)">
         </div>
@@ -120,6 +122,7 @@ type PluginRecord = {
               <span>{{plugin.category || 'Uncategorized'}}</span>
               <span>{{plugin.system ? 'System' : 'Extension'}}</span>
               <span class="plugin-settings__status" [class.is-installed]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span>
+              <span *ngIf="plugin.packageSource" class="plugin-settings__status">{{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</span>
             </div>
           </article>
         </div>
@@ -132,7 +135,7 @@ type PluginRecord = {
                 <td><button type="button" class="plugin-settings__table-module" (click)="openDetails(plugin)"><span class="plugin-settings__table-icon">{{plugin.system ? '◈' : '▣'}}</span><span><strong>{{plugin.name}}</strong><small>v{{plugin.version}} · {{plugin.description || 'No description'}}</small></span></button></td>
                 <td>{{plugin.system ? 'System' : 'Extension'}}</td>
                 <td>{{plugin.category || 'Uncategorized'}}</td>
-                <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span></td>
+                <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span><small *ngIf="plugin.packageSource"> {{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</small></td>
                 <td>
                   <div class="plugin-settings__menu-wrap">
                     <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
@@ -292,8 +295,25 @@ export class PluginSettingsComponent implements OnInit {
   ngOnInit(): void { void this.load(); if (this.isPlatformAdmin) void this.loadPlatformPackages(); }
   private get token(): string { return this.accessToken; }
   get filteredPlugins(): PluginRecord[] {
+    const merged = this.plugins.map(plugin => {
+      const pkg = this.platformPackages.find(item => item.pluginKey === plugin.id || item.id === plugin.id);
+      return pkg ? { ...plugin, packageSource: pkg.source, runtimeState: pkg.runtimeState || pkg.status, pluginKey: pkg.pluginKey } : plugin;
+    });
+    for (const pkg of this.platformPackages) {
+      if (merged.some(plugin => plugin.id === pkg.pluginKey || plugin.id === pkg.id)) continue;
+      merged.push({
+        id: pkg.pluginKey, name: pkg.name, version: pkg.version,
+        description: pkg.description || "Platform package",
+        category: pkg.category || "Platform",
+        system: false, entitled: true,
+        installed: pkg.runtimeState === "loaded" || pkg.status === "installed",
+        installedVersion: pkg.version, accessSource: "platform",
+        packageSource: pkg.source, runtimeState: pkg.runtimeState || pkg.status,
+        pluginKey: pkg.pluginKey
+      });
+    }
     const query = this.search.trim().toLocaleLowerCase();
-    return this.plugins.filter(plugin => {
+    return merged.filter(plugin => {
       const matchesType = this.moduleTypeFilter === "all" || (this.moduleTypeFilter === "system" ? plugin.system : !plugin.system);
       const haystack = [plugin.name, plugin.description, plugin.category, plugin.id].join(" ").toLocaleLowerCase();
       return matchesType && (!query || haystack.includes(query));

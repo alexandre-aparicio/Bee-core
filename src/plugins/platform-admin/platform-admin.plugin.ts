@@ -15,9 +15,9 @@ import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain
 import { getTenantSubscription, getTenantPluginCatalog, getTrustedPluginPackage, hasPluginEntitlement, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
-import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
+import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, retireBundledPlatformPackage, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
 import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
-import { satisfiesPluginVersion } from "../../core/plugin-package.js";
+import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "../../core/plugin-package.js";
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
 
@@ -60,6 +60,8 @@ export const platformAdminPlugin:BeePlugin={
   await seedBundledPlatformPackages(db,TRUSTED_PLUGIN_PACKAGES);
   const migratedPlatformPackages=await migrateLegacyPlatformPackageInstalls(db,superOrganization.id);
   if(migratedPlatformPackages)ctx.logger.info("Legacy platform package installations migrated",{count:migratedPlatformPackages});
+  // Hello World must only be available as a separately uploaded, signed ZIP.
+  await retireBundledPlatformPackage(db,"hello-world");
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
@@ -108,7 +110,7 @@ export const platformAdminPlugin:BeePlugin={
      await recordPlatformAudit({actorId:user.id,action:"security.mfa_required",resourceType:"security",metadata:{reason:"mfa_not_enrolled"}});
      return reply.code(403).send({error:"Active MFA enrollment required"}),null;
     }
-    if(!session.mfaVerifiedAt||Date.now()-session.mfaVerifiedAt.getTime()>15*60*1000){
+    if(!session.mfaVerifiedAt||session.mfaVerifiedAt.getTime()>Date.now()||Date.now()-session.mfaVerifiedAt.getTime()>15*60*1000){
      await recordPlatformAudit({actorId:user.id,action:"security.mfa_recent_required",resourceType:"security",metadata:{reason:"mfa_verification_stale"}});
      return reply.code(403).send({error:"Recent MFA verification required"}),null;
     }
@@ -273,7 +275,8 @@ export const platformAdminPlugin:BeePlugin={
      runtimeVersion:ctx.version,
      validateManifest:async manifest=>{
       const existing=await packages.findOne({pluginId:manifest.id});
-      if(existing&&existing.source!=="zip")throw new Error("Plugin ID is reserved by a built-in package");
+      const migratableBuiltIns=new Set(["connected-devices","time-tracking","documents","hello-world"]);
+      if(existing&&existing.source!=="zip"&&!migratableBuiltIns.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
       if(existing?.version&&existing.version!==manifest.version){
        const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
@@ -281,6 +284,10 @@ export const platformAdminPlugin:BeePlugin={
        if(!isUpgrade)throw new Error("Package version must be newer than the currently installed version");
       }
       for(const dependency of manifest.dependencies.filter(item=>!item.optional)){
+       if(CORE_RUNTIME_PLUGIN_IDS.has(dependency.pluginId)){
+        if(dependency.versionRange!=="*")throw new Error("Core runtime dependencies currently require the wildcard version range: "+dependency.pluginId);
+        continue;
+       }
        const dependencyPackage=await packages.findOne({pluginId:dependency.pluginId,status:"installed"});
        if(!dependencyPackage)throw new Error("Required platform dependency is not installed: "+dependency.pluginId);
        if(dependencyPackage.runtimeState==="failed")throw new Error("Required platform dependency is not healthy: "+dependency.pluginId);
@@ -298,11 +305,10 @@ export const platformAdminPlugin:BeePlugin={
     await db.collection("plugin_catalog").updateOne(
      {id:manifest.id},
      {$set:{
-      id:manifest.id,name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,
-      visibleInPlans:[],includedInPlans:[],purchasable:false,system:false,
-      dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),
+      name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,
+      dependencies:manifest.tenantDependencies??[],
       activationPolicy:manifest.activationPolicy??"manual",codeAvailable:false,status:"published"
-     },$setOnInsert:{createdAt:now}},
+     },$setOnInsert:{createdAt:now,visibleInPlans:[],includedInPlans:[],purchasable:false,system:false}},
      {upsert:true}
     );
     await packages.updateOne(
