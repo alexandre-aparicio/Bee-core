@@ -18,7 +18,7 @@ type PluginRecord = {
           <p>{{detail ? 'Plugin information and availability.' : 'Browse the plugin catalogue and review installed packages.'}}</p></div>
         <div class="plugin-settings__tools">
           <button *ngIf="isPlatformAdmin && !detail" type="button" class="plugin-settings__upload" (click)="pluginZipInput.click()" [disabled]="pluginUploadBusy">{{pluginUploadBusy ? 'Uploading…' : '＋ Upload plugin ZIP'}}</button>
-          <input #pluginZipInput *ngIf="isPlatformAdmin && !detail" type="file" accept=".zip,application/zip" hidden (change)="uploadPluginZip($event)">
+          <input #pluginZipInput type="file" accept=".zip,application/zip" [hidden]="!isPlatformAdmin || !!detail" (change)="uploadPluginZip($event)">
           <ng-container *ngIf="!detail">
             <div class="plugin-settings__views" aria-label="Plugin display mode">
               <button type="button" [class.active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'">▦ Cards</button>
