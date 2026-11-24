@@ -7,17 +7,16 @@
 .bee-template-mode button{border:0;border-radius:6px;padding:7px 9px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer}
 .bee-template-mode button.active{background:var(--bg);color:inherit;box-shadow:0 1px 4px #0002}
 
-/* Dashboard light mode: selectors match the actual package markup (md/gd/pd), not legacy dashboard classes. */
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-dashboard,.bee-dash-dashboard,.bee-dash-dashboard){color:#20283a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar),
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-main>header,.bee-dash-main>header,.bee-dash-main>header){background:#fff;border-color:#dfe5ef;color:#59657a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-workspace,.bee-dash-workspace,.bee-dash-workspace){background:#f7f8fc;border-color:#dfe5ef;color:#20283a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(.panel,.dash-stat,.bee-template-manager){background:#fff;border-color:#dfe5ef;color:#20283a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) button{color:#59657a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) button.active{background:#eeeaff;color:#5542bd;border-color:#e1dcff}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) .quick-action{color:#657187}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) .quick-action b,
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) .panel-heading h2{color:#20283a}
+/* Dashboard light mode targets the shared bee-dash shell markup. */
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-dashboard{color:#20283a}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar,
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-main>header{background:#fff;border-color:#dfe5ef;color:#59657a}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.panel,.dash-stat,.bee-template-manager){background:#fff;border-color:#dfe5ef;color:#20283a}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar button{color:#59657a}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar button.active{background:#eeeaff;color:#5542bd;border-color:#e1dcff}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content .quick-action{color:#657187}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content .quick-action b,
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content .panel-heading h2{color:#20283a}
 
 /* Public light mode is deliberately scoped to the public template host only. */
 .bee-template-package-host[data-bee-public-mode="light"]{background:#f7f8fc;color:#20283a}
@@ -44,43 +43,43 @@
 
 
 /* Complete dashboard light mode: normalize feature-owned dark surfaces as well. */
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-dashboard,.bee-dash-dashboard,.bee-dash-dashboard){color-scheme:light;background:#f4f6fb!important;color:#20283a!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-dashboard{color-scheme:light;background:#f4f6fb!important;color:#20283a!important}
 .bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-main,.bee-dash-main,.bee-dash-main,.bee-dash-content,.bee-dash-content,.bee-dash-content){background:transparent!important;color:#20283a!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar){background:#fff!important;color:#354158!important;border-color:#dfe5ef!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-main>header,.bee-dash-main>header,.bee-dash-main>header){background:#fff!important;color:#59657a!important;border-color:#dfe5ef!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(.panel,.dash-stat,.bee-dashboard-card,.bee-template-manager,[class*="platform-admin"],[class*="platform-company"],[class*="company-members"],[class*="settings-page"],[class*="settings-workspace"],[class*="plugin-settings"],[class*="marketplace"],[class*="audit-log"],[class*="section-card"],[class*="settings-card"],[class*="workspace-card"],[class*="toolbar"],[class*="table-wrap"],[class*="role-item"],[class*="invitation"],[class*="detail"],[class*="empty"],[class*="state"],[class*="modal"]:not(.platform-admin__modal-backdrop),[class*="form"],[class*="list-item"],[class*="package"]){background-color:#fff!important;color:#263248!important;border-color:#dfe5ef!important;box-shadow:0 5px 20px #2538580b}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(h1,h2,h3,h4,strong,b,label,th,td,p,span,small,li,a){color:inherit}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(p,small,.muted,[class*="description"],[class*="subtitle"],[class*="eyebrow"],[class*="hint"]){color:#68758b!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(input,select,textarea){color:#263248!important;background:#fff!important;border-color:#cfd8e6!important;color-scheme:light}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(input,select,textarea)::placeholder{color:#8994a7!important;opacity:1}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) table{background:#fff!important;color:#263248!important;border-color:#dfe5ef!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(th,td,tr){background-color:transparent!important;color:#354158!important;border-color:#e5eaf2!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) button{color:#59657a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) button.active,.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.settings-nav.active,.settings-nav__children button.active){background:#eeeaff!important;color:#5542bd!important;border-color:#e1dcff!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) button{color:#354158}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(.quick-action,.platform-admin__create-trigger,.platform-company-card__footer button,.bee-company-members__invite button,.bee-company-members__role-actions button){background:#f3f5fb!important;color:#354158!important;border-color:#d8e0ed!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(.platform-admin__modal-backdrop,[role="dialog"]){color:#263248!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(.platform-admin__error,.bee-company-members__error,[class*="error"]){color:#b42318!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-content,.bee-dash-content,.bee-dash-content) :is(.platform-admin__success,.bee-company-members__message,[class*="success"]){color:#167447!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar{background:#fff!important;color:#354158!important;border-color:#dfe5ef!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-main>header{background:#fff!important;color:#59657a!important;border-color:#dfe5ef!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.panel,.dash-stat,.bee-dashboard-card,.bee-template-manager,[class*="platform-admin"],[class*="platform-company"],[class*="company-members"],[class*="settings-page"],[class*="settings-workspace"],[class*="plugin-settings"],[class*="marketplace"],[class*="audit-log"],[class*="section-card"],[class*="settings-card"],[class*="workspace-card"],[class*="toolbar"],[class*="table-wrap"],[class*="role-item"],[class*="invitation"],[class*="detail"],[class*="empty"],[class*="state"],[class*="modal"]:not(.platform-admin__modal-backdrop),[class*="form"],[class*="list-item"],[class*="package"]){background-color:#fff!important;color:#263248!important;border-color:#dfe5ef!important;box-shadow:0 5px 20px #2538580b}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(h1,h2,h3,h4,strong,b,label,th,td,p,span,small,li,a){color:inherit}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(p,small,.muted,[class*="description"],[class*="subtitle"],[class*="eyebrow"],[class*="hint"]){color:#68758b!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(input,select,textarea){color:#263248!important;background:#fff!important;border-color:#cfd8e6!important;color-scheme:light}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(input,select,textarea)::placeholder{color:#8994a7!important;opacity:1}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content table{background:#fff!important;color:#263248!important;border-color:#dfe5ef!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(th,td,tr){background-color:transparent!important;color:#354158!important;border-color:#e5eaf2!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar button{color:#59657a}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar button.active,.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.settings-nav.active,.settings-nav__children button.active){background:#eeeaff!important;color:#5542bd!important;border-color:#e1dcff!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content button{color:#354158}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.quick-action,.platform-admin__create-trigger,.platform-company-card__footer button,.bee-company-members__invite button,.bee-company-members__role-actions button){background:#f3f5fb!important;color:#354158!important;border-color:#d8e0ed!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.platform-admin__modal-backdrop,[role="dialog"]){color:#263248!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.platform-admin__error,.bee-company-members__error,[class*="error"]){color:#b42318!important}
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.platform-admin__success,.bee-company-members__message,[class*="success"]){color:#167447!important}
 
 
 /* Final light-mode pass: Midnight navigation items and template appearance controls. */
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar)>button,
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) .settings-nav,
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) .settings-nav__children button{
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar>button,
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav,
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav__children button{
   background:#f4f6fb!important;
   color:#46536a!important;
   border-color:#dfe5ef!important;
 }
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar)>button:hover,
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) .settings-nav:hover,
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) .settings-nav__children button:hover{
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar>button:hover,
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav:hover,
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav__children button:hover{
   background:#e9edf6!important;
   color:#263248!important;
 }
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar)>button.active,
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) .settings-nav.active,
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-sidebar,.bee-dash-sidebar,.bee-dash-sidebar) .settings-nav__children button.active{
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar>button.active,
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav.active,
+.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav__children button.active{
   background:#eeeaff!important;
   color:#5542bd!important;
   border-color:#ded7ff!important;
