@@ -13,7 +13,7 @@ const validManifest: BeeBusinessPluginManifest = {
   compatibility: { minRuntimeVersion: "0.3.0" },
   dependencies: [{ pluginId: "core.audit", versionRange: "^1.0.0", optional: true }],
   permissions: [{ key: "crm.contacts.read", description: "Read company contacts" }],
-  backend: { entrypoint: "dist/backend/index.js" },
+  backend: { entrypoint: "dist/backend/index.mjs" },
   frontend: { routes: [{ path: "/crm/contacts", component: "crm.contacts.list" }] },
   collections: ["crm_contacts", "crm_contact_notes"],
   migrations: [{ id: "001-create-contacts", checksum: "a".repeat(64), phase: "install" }],
