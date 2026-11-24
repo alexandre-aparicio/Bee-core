@@ -516,7 +516,10 @@ export const marketplacePlugin: BeePlugin = {
                 { tenantId: job.tenantId, pluginId: job.pluginId },
                 { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } }
               );
-              if (tenantRecord.kind === "super") await setPlatformPackageInstalled(db, job.pluginId, trusted.version, job.actorId);
+              if (tenantRecord.kind === "super") {
+                await setPlatformPackageInstalled(db, job.pluginId, trusted.version, job.actorId);
+                await syncAutomaticPluginProvisioning(db, job.pluginId);
+              }
             } catch (error) {
               const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? [], migrationRun.applied);
               if (rollback.failed.length) {
