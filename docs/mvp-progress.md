@@ -1,3 +1,11 @@
+## Organization → Teams header actions aligned with Documents (2026-11-24)
+
+- Moved the Cards/Table switcher from the directory toolbar into the right-aligned Teams header, immediately before the New Team action. The rightmost action is New Team; the two compact view buttons sit directly to its left.
+- Matched the Documents view switcher geometry and visual states: unboxed group, 34×32 icon buttons, individual subtle borders, violet selected state, hover/focus feedback and accessible labels with `aria-pressed`.
+- Matched the Documents primary action button sizing, typography, radius, spacing, hover and active treatment for New Team.
+- Removed the duplicate total-team count and header refresh icon; the filtered count and existing refresh-list action remain in the directory section.
+- **Validation pending:** source-level changes only. No Angular build, automated tests, browser responsive check or Light/Dark visual verification has been run.
+
 ## Organization → Teams visual harmonization (2026-11-24)
 
 - Started on a dedicated branch, `fix/organization-teams-ui-polish`, from current `main`; no changes were made directly to `main`.
