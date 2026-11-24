@@ -273,7 +273,8 @@ export const platformAdminPlugin:BeePlugin={
      runtimeVersion:ctx.version,
      validateManifest:async manifest=>{
       const existing=await packages.findOne({pluginId:manifest.id});
-      if(existing&&existing.source!=="zip")throw new Error("Plugin ID is reserved by a built-in package");
+      const migratableBuiltIns=new Set(["connected-devices","time-tracking","documents","hello-world"]);
+      if(existing&&existing.source!=="zip"&&!migratableBuiltIns.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
       if(existing?.version&&existing.version!==manifest.version){
        const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
@@ -281,6 +282,10 @@ export const platformAdminPlugin:BeePlugin={
        if(!isUpgrade)throw new Error("Package version must be newer than the currently installed version");
       }
       for(const dependency of manifest.dependencies.filter(item=>!item.optional)){
+       if(CORE_RUNTIME_PLUGIN_IDS.has(dependency.pluginId)){
+        if(dependency.versionRange!=="*")throw new Error("Core runtime dependencies currently require the wildcard version range: "+dependency.pluginId);
+        continue;
+       }
        const dependencyPackage=await packages.findOne({pluginId:dependency.pluginId,status:"installed"});
        if(!dependencyPackage)throw new Error("Required platform dependency is not installed: "+dependency.pluginId);
        if(dependencyPackage.runtimeState==="failed")throw new Error("Required platform dependency is not healthy: "+dependency.pluginId);
@@ -298,11 +303,10 @@ export const platformAdminPlugin:BeePlugin={
     await db.collection("plugin_catalog").updateOne(
      {id:manifest.id},
      {$set:{
-      id:manifest.id,name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,
-      visibleInPlans:[],includedInPlans:[],purchasable:false,system:false,
-      dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),
+      name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,
+      dependencies:manifest.tenantDependencies??[],
       activationPolicy:manifest.activationPolicy??"manual",codeAvailable:false,status:"published"
-     },$setOnInsert:{createdAt:now}},
+     },$setOnInsert:{createdAt:now,visibleInPlans:[],includedInPlans:[],purchasable:false,system:false}},
      {upsert:true}
     );
     await packages.updateOne(
