@@ -15,6 +15,7 @@ import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain
 import { getTenantSubscription, getTrustedPluginPackage, hasPluginEntitlement, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
+import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
@@ -51,6 +52,10 @@ export const platformAdminPlugin:BeePlugin={
    superOrganization=existingOrganization;
   }
   if(!superOrganization)throw new Error("Platform admin: failed to initialize the Super Organization.");
+  await ensurePlatformPluginRegistry(db);
+  await seedBundledPlatformPackages(db,TRUSTED_PLUGIN_PACKAGES);
+  const migratedPlatformPackages=await migrateLegacyPlatformPackageInstalls(db,superOrganization.id);
+  if(migratedPlatformPackages)ctx.logger.info("Legacy platform package installations migrated",{count:migratedPlatformPackages});
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
@@ -239,6 +244,24 @@ export const platformAdminPlugin:BeePlugin={
    const usersById=new Map((await users.find({id:{$in:rows.map(row=>row.userId)}},{projection:{id:1,email:1,enabled:1,createdAt:1}}).toArray()).map(user=>[user.id,user]));
    return {tenantId:mask(req.platformSession!,company.id,"tenant"),users:rows.map(row=>{const user=usersById.get(row.userId);return {userId:mask(req.platformSession!,row.userId,"user"),email:user?.email??"Unknown user",role:row.role,status:!user?.enabled?"disabled":row.status,createdAt:row.createdAt};})};
   });
+  ctx.server.get("/platform/plugin-packages",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const packages=await listPlatformPluginPackages(db);
+   return {packages:packages.map(item=>({
+    id:mask(req.platformSession!,item.pluginId,"plugin"),
+    pluginKey:item.pluginId,
+    name:item.name,
+    description:item.description,
+    category:item.category,
+    version:item.version,
+    dependencies:item.dependencies,
+    activationPolicy:item.activationPolicy??"manual",
+    status:item.status,
+    source:item.source,
+    installedAt:item.installedAt,
+    updatedAt:item.updatedAt
+   }))};
+  });
   ctx.server.get<{Params:{companyId:string}}>("/platform/companies/:companyId/plugins",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const company=await companies.findOne({id:req.params.companyId});
@@ -248,18 +271,19 @@ export const platformAdminPlugin:BeePlugin={
    // The Super Organization owns the one platform package installation.
    // Tenant rows below represent activation/configuration, not package copies.
    await getTenantSubscription(db,superOrganization.id);
-   const [globalInstallations,tenantInstallations]=await Promise.all([
-    db.collection("tenant_plugin_installations").find({tenantId:superOrganization.id,status:"installed"}).toArray(),
+   await migrateLegacyPlatformPackageInstalls(db,superOrganization.id);
+   const [platformPackages,tenantInstallations]=await Promise.all([
+    listPlatformPluginPackages(db),
     db.collection("tenant_plugin_installations").find({tenantId:company.id}).toArray()
    ]);
-   const globalByPlugin=new Map(globalInstallations.map(item=>[String(item.pluginId),item]));
+   const globalByPlugin=new Map(platformPackages.map(item=>[item.pluginId,item]));
    const tenantByPlugin=new Map(tenantInstallations.map(item=>[String(item.pluginId),item]));
    return {tenantId:mask(req.platformSession!,company.id,"tenant"),plugins:TRUSTED_PLUGIN_PACKAGES.map(plugin=>{
-    const globalInstallation=globalByPlugin.get(plugin.id);
+    const globalPackage=globalByPlugin.get(plugin.id);
     const tenantInstallation=tenantByPlugin.get(plugin.id);
-    const installed=globalInstallation?.status==="installed";
+    const installed=globalPackage?.status==="installed";
     const enabled=!!installed&&tenantInstallation?.status==="installed"&&tenantInstallation?.enabled!==false;
-    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:globalInstallation?.version??plugin.version,system:plugin.system,installed,enabled,status:!installed?"uninstalled":enabled?"installed":"disabled",dependencies:plugin.dependencies};
+    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:globalPackage?.version??plugin.version,system:plugin.system,installed,enabled,status:!installed?"uninstalled":enabled?"installed":"disabled",dependencies:plugin.dependencies};
    })};
   });
   ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{enabled?:boolean}}>("/platform/companies/:companyId/plugins/:pluginId",async(req,reply)=>{
@@ -272,8 +296,8 @@ export const platformAdminPlugin:BeePlugin={
    const superOrganization=await companies.findOne({kind:"super",status:"active"});
    if(!superOrganization)return reply.code(503).send({error:"Super Organization is unavailable"});
    const installations=db.collection("tenant_plugin_installations");
-   const globalInstallation=await installations.findOne({tenantId:superOrganization.id,pluginId:plugin.id,status:"installed"});
-   if(!globalInstallation)return reply.code(409).send({error:"Plugin is not installed on the platform. Install it first in Settings → Plugins."});
+   const globalInstallation=await db.collection("platform_plugin_packages").findOne({pluginId:plugin.id,status:"installed"});
+   if(!globalInstallation)return reply.code(409).send({error:"Plugin is not installed on the platform. Install it first in Super Organization → Plugins."});
    const installation=await installations.findOne({tenantId:company.id,pluginId:plugin.id});
    const currentEnabled=!!installation&&installation.status==="installed"&&installation.enabled!==false;
    if(req.body.enabled===currentEnabled)return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),installed:true,enabled:currentEnabled,unchanged:true};
@@ -290,7 +314,7 @@ export const platformAdminPlugin:BeePlugin={
    }else{
     if(!await hasPluginEntitlement(db,company.id,plugin.id))return reply.code(402).send({error:"This company plan or an active plugin purchase does not include this package"});
     for(const dependencyId of plugin.dependencies){
-     const dependencyGlobal=await installations.findOne({tenantId:superOrganization.id,pluginId:dependencyId,status:"installed"});
+     const dependencyGlobal=await db.collection("platform_plugin_packages").findOne({pluginId:dependencyId,status:"installed"});
      const dependencyTenant=await installations.findOne({tenantId:company.id,pluginId:dependencyId,status:"installed",enabled:{$ne:false}});
      if(!dependencyGlobal||!dependencyTenant)return reply.code(409).send({error:"Activate the required plugin first: "+dependencyId});
     }
