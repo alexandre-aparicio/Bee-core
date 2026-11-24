@@ -143,7 +143,7 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     status: "published",
     migrations: [{
       id: "001_create_time_tracking_indexes",
-      checksum: "bee-time-tracking-phase-1-001",
+      checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37",
       up: async db => {
         await db.collection("tenant_time_tracking_sessions").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "time_tracking_tenant_session_unique" });
         await db.collection("tenant_time_tracking_sessions").createIndex({ tenantId: 1, userId: 1, startedAt: -1 }, { name: "time_tracking_user_history" });
