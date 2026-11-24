@@ -407,3 +407,7 @@ Use the Documents collection hover as the canonical Midnight reference for cards
 ### System-role catalog card pattern
 
 In Midnight, the System Roles catalog uses the same card geometry and subtle hover treatment as Organization → Teams. Keep the role cards equal-height within each grid row, use the established semantic border/surface/accent tokens, and keep permission previews compact: three overlapping neutral badges plus a calculated remainder count. Active/Inactive must always include text, not color alone. The vertical-ellipsis menu and role-details modal must match the shared Teams/Documents interaction and modal contracts in both Light and Dark themes.
+
+### System Roles collection controls and permission markers
+
+The System Roles tab MUST use the same collection composition as Organization → Teams: a Cards/Table segmented view control in the collection header, the primary Create role action at the far edge, and a search field below the header. Cards and table rows MUST share the same content, filtering and restrained hover behavior. Permission previews use compact circular initials (for example, View members → VM, View plugins → VP, View files → VF); each circle exposes the complete permission label through a hover/focus tooltip and accessible name. Keep the marker surface, border, accent and tooltip theme-token based in Light and Dark. The Create role action opens the existing Custom Roles creation flow; built-in Core roles remain immutable.
