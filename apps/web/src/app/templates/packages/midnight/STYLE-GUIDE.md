@@ -121,6 +121,15 @@ Do not create a new surface shade for every page. The hierarchy must remain reco
 
 ### 5.2 Cards and panels
 
+#### Unified card and table hover
+
+- Use the same restrained Midnight hover tint for interactive record cards and their equivalent table rows. Documents is the visual reference for this behavior.
+- The hover effect is a slight surface-color shift toward the existing violet accent, blended with the current surface; it must remain subtle and preserve readable foreground and border contrast.
+- Cards and table rows MUST resolve to the same semantic hover-surface token/treatment. Do not create separate per-component accent colors, stronger row highlights, gradients, glows or scale effects.
+- Keep the transition short and limited to surface/background and, where needed, a subtle border-color adjustment. Do not move content or alter dimensions.
+- In Light appearance, blend the same accent gently into the light surface; do not reuse a dark-mode literal or reduce text contrast. In Dark appearance, blend it into the active Midnight panel surface.
+- Hover is supplementary pointer feedback. Preserve an equally clear `:focus-visible` state, and never hide essential actions behind hover (especially on touch devices).
+
 - Use a subtle cool border to define cards against the dark canvas.
 - Keep the same border thickness and corner-radius family across equivalent components.
 - Use a restrained surface difference; cards should not look like bright floating tiles.
@@ -220,6 +229,8 @@ All variants must support hover, focus-visible, active, disabled and loading sta
 - Do not create custom one-off input designs inside feature components.
 
 ## 10. Tables, lists and data presentation
+
+- Table rows that represent the same records as cards MUST reuse the card hover tint defined above. The hover difference should be perceptible but understated in both Light and Dark modes; selected, focused, dragged and drop-target states remain distinct and take precedence.
 
 - Table header text is subdued but readable; never low-contrast to the point of disappearing.
 - Row surfaces remain consistent with the containing panel.
