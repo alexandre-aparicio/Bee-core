@@ -12,7 +12,7 @@ import bcrypt from "bcryptjs";
 import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
-import { getTenantSubscription, getTrustedPluginPackage, hasPluginEntitlement, syncAutomaticPluginProvisioning, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
+import { getTenantSubscription, getTenantPluginCatalog, getTrustedPluginPackage, hasPluginEntitlement, syncAutomaticPluginProvisioning, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
@@ -317,6 +317,11 @@ export const platformAdminPlugin:BeePlugin={
     return reply.code(status).send({error:message});
    }
   });
+  ctx.server.get("/platform/plugin-plans",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const plans=await db.collection("plugin_plans").find({},{projection:{_id:0,id:1,name:1,includedPluginIds:1,visiblePluginIds:1}}).sort({name:1}).toArray();
+   return {plans};
+  });
   ctx.server.put<{Params:{pluginId:string};Body:{planIds?:unknown}}>("/platform/plugin-packages/:pluginId/plans",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const pluginId=req.params.pluginId;
@@ -393,12 +398,15 @@ export const platformAdminPlugin:BeePlugin={
    const externalCatalog=await db.collection<PluginPackageDefinition>("plugin_catalog").find({status:"published",codeAvailable:true}).toArray();
    const externalDefinitions=externalCatalog.filter(plugin=>!TRUSTED_PLUGIN_PACKAGES.some(builtIn=>builtIn.id===plugin.id));
    const definitions=[...TRUSTED_PLUGIN_PACKAGES,...externalDefinitions];
+   const tenantCatalog=await getTenantPluginCatalog(db,company.id);
+   const entitlementByPlugin=new Map(tenantCatalog.map(item=>[item.id,item]));
    return {tenantId:mask(req.platformSession!,company.id,"tenant"),plugins:definitions.map(plugin=>{
     const globalPackage=globalByPlugin.get(plugin.id);
     const tenantInstallation=tenantByPlugin.get(plugin.id);
     const installed=globalPackage?.status==="installed"&&(globalPackage.source!=="zip"||globalPackage.runtimeState==="loaded");
     const enabled=!!installed&&tenantInstallation?.status==="installed"&&tenantInstallation?.enabled!==false;
-    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:globalPackage?.version??plugin.version,system:plugin.system,installed,enabled,status:!installed?"uninstalled":enabled?"installed":"disabled",dependencies:plugin.dependencies,activationPolicy:plugin.activationPolicy??"manual"};
+    const entitlement=entitlementByPlugin.get(plugin.id);
+    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:globalPackage?.version??plugin.version,system:plugin.system,installed,enabled,status:!installed?"uninstalled":enabled?"installed":"disabled",dependencies:plugin.dependencies,activationPolicy:plugin.activationPolicy??"manual",entitled:!!entitlement?.entitled,accessSource:entitlement?.accessSource??null};
    })};
   });
   ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{enabled?:boolean}}>("/platform/companies/:companyId/plugins/:pluginId",async(req,reply)=>{
