@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { TenantCollection } from "./tenant-collection.js";
 import type { TenantPluginMigration } from "./plugin-migrations.js";
 import { hasTenantPermission, type TenantContext } from "./tenant-context.js";
-import { enqueuePluginInstallJob, ensurePluginInstallJobIndexes } from "./plugin-install-jobs.js";
+import { enqueuePluginInstallJob, enqueuePluginUpdateJob, ensurePluginInstallJobIndexes } from "./plugin-install-jobs.js";
 
 export type PluginPlan = Document & {
   id: string;
@@ -402,6 +402,29 @@ export function getTrustedPluginPackage(pluginId: string): PluginPackageDefiniti
 
 export function getBuiltInPlan(planId: string): PluginPlan | undefined {
   return plansById.get(planId);
+}
+
+/** Queue upgrades for already-installed tenants when the globally installed signed package version changes. */
+export async function syncPluginPackageVersionUpdates(db: Db, pluginId: string): Promise<number> {
+  const definition = await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({ id: pluginId, status: "published", codeAvailable: true });
+  const globalPackage = await db.collection("platform_plugin_packages").findOne({ pluginId, status: "installed", source: "zip", runtimeState: "loaded" });
+  if (!definition || !globalPackage || String(globalPackage.version) !== definition.version) return 0;
+  const jobs = db.collection("plugin_install_jobs");
+  await ensurePluginInstallJobIndexes(jobs as any);
+  const tenants = await db.collection("tenants").find({ kind: { $ne: "super" }, status: "active" }, { projection: { id: 1 } }).toArray();
+  let queued = 0;
+  for (const row of tenants) {
+    const tenantId = String(row.id);
+    const installation = await db.collection("tenant_plugin_installations").findOne({ tenantId, pluginId, status: "installed" });
+    if (!installation || !installation.version || String(installation.version) === definition.version) continue;
+    if (!await hasPluginEntitlement(db, tenantId, pluginId)) continue;
+    const result = await enqueuePluginUpdateJob(jobs as any, {
+      tenantId, pluginId, actorId: "system:platform-package-upgrade",
+      previousVersion: String(installation.version)
+    });
+    if (result.created) queued += 1;
+  }
+  return queued;
 }
 
 /** Queue tenant provisioning for every active tenant entitled through its plan or a manual grant. */
