@@ -106,3 +106,11 @@ test("four first-party modules build as independently signed ZIP packages", { sk
     await rm(root, { recursive: true, force: true });
   }
 });
+
+
+test("Hello Mundo is not registered as a bundled fallback", async () => {
+  const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
+  assert.doesNotMatch(runtimeSource, /import\\s*\\{\\s*helloWorldPlugin\\s*\\}/);
+  assert.doesNotMatch(runtimeSource, /plugins\\.register\\(helloWorldPlugin\\)/);
+  assert.match(runtimeSource, /loadSignedZipPlugins\\(\\)/, "Hello Mundo remains loadable through the signed ZIP runtime");
+});
