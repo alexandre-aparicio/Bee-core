@@ -431,3 +431,17 @@ The System Roles tab MUST use the same collection composition as Organization â†
 - Reuse Documents' view selector exactly: 34Ã—32px buttons, 5px gap, 7px radius, 17px centered glyph, zero padding, semantic border and violet selected state. Keep keyboard focus and aria-pressed behavior.
 - Users cards use three columns on desktop, two on tablet and one on mobile; equal-height cards per row, 12px gap, 12px radius, 16px padding and the Documents restrained violet hover tint. Table rows use the matching 5% violet hover tint.
 - Cards and Table show the same filtered members and preserve all existing role assignment, restriction, status and overflow actions. Use Midnight semantic tokens so panels, controls, borders, text and selected states remain correct in Light and Dark.
+
+
+## Semantic token ownership (refactor in progress)
+
+The package palette source is `tokens.css`, scoped to the package host and its active mode:
+
+- Dashboard selectors use `data-bee-template="<id>"` and `data-bee-dashboard-mode="light|dark"`.
+- Public selectors use `data-bee-template="<id>"` and `data-bee-public-mode="light|dark"`.
+- Every package must define the full `--bee-*` contract in both modes, including surfaces, text, borders, accent, statuses, effects, shape and inputs.
+- Midnight is a normal package, not the global base. Its dark token values are the source for the established Midnight dark palette; its light palette is independently defined.
+- Package `styles.css` is reserved for decoration/layout that cannot be expressed through tokens. Do not add palette declarations there or add `!important` overrides.
+- The base contract owns neutral fallback values only. Core appearance code owns mode controls and lifecycle, never a package palette.
+
+During migration, legacy aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) remain available as mappings to semantic tokens. They are temporary and must be removed only after all feature consumers and the legacy theme-token persistence adapter have been migrated.

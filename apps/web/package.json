@@ -6,7 +6,8 @@
     "start": "ng serve --host 0.0.0.0",
     "build": "ng build",
     "test:e2e": "playwright test",
-    "audit:production": "npm audit --omit=dev"
+    "audit:production": "npm audit --omit=dev",
+    "audit:styles": "node scripts/audit-styles.mjs src"
   },
   "dependencies": {
     "@angular/common": "19.2.15",
