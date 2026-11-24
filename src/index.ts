@@ -19,7 +19,6 @@ import { organizationsPlugin } from "./plugins/organizations/organizations.plugi
 import { teamsPlugin } from "./plugins/teams/teams.plugin.js";
 import { filesPlugin } from "./plugins/files/files.plugin.js";
 import { documentsPlugin } from "./plugins/documents/documents.plugin.js";
-import { helloWorldPlugin } from "./plugins/hello-world/hello-world.plugin.js";
 import { connectedDevicesPlugin } from "./plugins/connected-devices/connected-devices.plugin.js";
 import { timeTrackingPlugin } from "./plugins/time-tracking/time-tracking.plugin.js";
 import { marketplacePlugin } from "./plugins/marketplace/marketplace.plugin.js";
@@ -282,7 +281,6 @@ async function bootstrap(): Promise<void> {
   if (!uploadedIds.has("documents")) plugins.register(documentsPlugin);
   if (!uploadedIds.has("connected-devices")) plugins.register(connectedDevicesPlugin);
   if (!uploadedIds.has("time-tracking")) plugins.register(timeTrackingPlugin);
-  if (!uploadedIds.has("hello-world")) plugins.register(helloWorldPlugin);
 
   const zipPluginFailures = await loadSignedZipPlugins();
   await plugins.mountAll(ctx);
