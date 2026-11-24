@@ -410,7 +410,9 @@ export class PluginSettingsComponent implements OnInit {
     const enabled = plugin.globallyEnabled === false;
     this.globalActivationBusyId = plugin.pluginKey; this.packageError = ""; this.message = "";
     try {
-      const response = await fetch("/api/platform/plugin-packages/" + encodeURIComponent(plugin.pluginKey) + "/activation", {
+      // Platform admin routes require the session-masked resource ID returned as `id`.
+      // `pluginKey` is the internal raw ID and will be rejected by the route guard.
+      const response = await fetch("/api/platform/plugin-packages/" + encodeURIComponent(plugin.id) + "/activation", {
         method: "PUT", headers: { authorization: "Bearer " + this.token, "content-type": "application/json" },
         body: JSON.stringify({ enabled })
       });
