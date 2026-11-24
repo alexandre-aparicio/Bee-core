@@ -163,7 +163,7 @@ export const organizationsPlugin:BeePlugin={
    const description=String(req.body?.description??"").trim().slice(0,240);
    const now=new Date(),role:CustomRolePolicy={id:randomUUID(),tenantId:req.params.companyId,name,description,permissions,mode,createdBy:auth.user!.id,updatedBy:auth.user!.id,createdAt:now,updatedAt:now};
    try{await customRoles.insertOne(role);}catch{return reply.code(409).send({error:"A custom role with this name already exists"});}
-   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.created",outcome:"success",resourceType:"role",resourceId:role.id,metadata:{name,mode,permissionCount:permissions.length,actorEmail:auth.user!.email,changeSummary:"Created "+mode+" role · "+permissions.length+" permissions"}});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.created",outcome:"success",resourceType:"role",resourceId:role.id,metadata:{name,mode,permissionCount:permissions.length,permissionKeys:permissions.slice(0,8).join(", ").slice(0,256),actorEmail:auth.user!.email,changeSummary:("Created "+mode+" role · "+permissions.length+" permissions: "+permissions.slice(0,5).join(", ")).slice(0,256)}});
    return reply.code(201).send({role:{id:mask(auth,role.id,"role"),name,description,permissions,mode}});
   });
   ctx.server.put<{Params:{companyId:string;roleId:string};Body:{name?:string;description?:string;permissions?:unknown;mode?:"grant"|"restriction"}}>("/companies/:companyId/roles/:roleId",async(req,reply)=>{
@@ -197,7 +197,7 @@ export const organizationsPlugin:BeePlugin={
    const deletingRole=await customRoles.findOne({id:req.params.roleId,tenantId:req.params.companyId});
    const result=await customRoles.deleteOne({id:req.params.roleId,tenantId:req.params.companyId});
    if(!result.deletedCount)return reply.code(404).send({error:"Custom role not found"});
-   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.deleted",outcome:"success",resourceType:"role",resourceId:req.params.roleId,metadata:{name:deletingRole?.name??"Custom role",mode:deletingRole?.mode??"grant",permissionCount:deletingRole?.permissions.length??0,actorEmail:auth.user!.email,changeSummary:"Deleted role "+(deletingRole?.name??"Custom role")}});
+   await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"role.deleted",outcome:"success",resourceType:"role",resourceId:req.params.roleId,metadata:{name:deletingRole?.name??"Custom role",mode:deletingRole?.mode??"grant",permissionCount:deletingRole?.permissions.length??0,permissionKeys:(deletingRole?.permissions??[]).slice(0,8).join(", ").slice(0,256),actorEmail:auth.user!.email,changeSummary:("Deleted role "+(deletingRole?.name??"Custom role")+" · permissions: "+(deletingRole?.permissions??[]).slice(0,5).join(", ")).slice(0,256)}});
    return {success:true};
   });
   ctx.server.post<{Params:{companyId:string};Body:{email?:string;role?:"admin"|"manager"|"member"|"guest"|"custom";customRoleId?:string;restrictionRoleIds?:string[]}}>("/companies/:companyId/invitations",async(req,reply)=>{
