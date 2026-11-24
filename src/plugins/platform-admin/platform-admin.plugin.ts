@@ -446,7 +446,8 @@ export const platformAdminPlugin:BeePlugin={
     }
     const now=new Date();
     if(!installation||installation.status!=="installed"){
-     const migrationRun=await runTenantPluginMigrations(db,company.id,plugin.id,plugin.migrations??[]);
+     const tenantMigrations=(plugin.migrations??[]).filter(migration=>!migration.phase||migration.phase==="install");
+     const migrationRun=await runTenantPluginMigrations(db,company.id,plugin.id,tenantMigrations);
      try{
       await plugin.installTenant?.(db,company.id);
       await installations.updateOne(
@@ -455,7 +456,7 @@ export const platformAdminPlugin:BeePlugin={
        {upsert:true}
       );
      }catch(error){
-      const rollback=await rollbackTenantPluginMigrations(db,company.id,plugin.id,plugin.migrations??[],migrationRun.applied);
+      const rollback=await rollbackTenantPluginMigrations(db,company.id,plugin.id,tenantMigrations,migrationRun.applied);
       if(rollback.failed.length)ctx.logger.error("Tenant plugin activation rollback was incomplete",{tenantId:company.id,pluginId:plugin.id,failedMigrations:rollback.failed});
       throw error;
      }
