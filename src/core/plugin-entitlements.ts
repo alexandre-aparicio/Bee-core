@@ -69,9 +69,9 @@ type TenantPluginPurchase = Document & {
 };
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: null, storageMb: 10240 }
+  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], maxUsers: null, storageMb: 10240 }
 ];
 
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
@@ -160,20 +160,6 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
       }
     }]
   },
-  {
-    id: "hello-world",
-    name: "Hola Mundo",
-    version: "0.1.0",
-    description: "Añade una página pública Hola Mundo al sitio del tenant",
-    category: "website",
-    visibleInPlans: ["starter", "pro", "enterprise"],
-    includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false,
-    system: false,
-    dependencies: [],
-    codeAvailable: true,
-    status: "published"
-  }
 ];
 
 
