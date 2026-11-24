@@ -11,7 +11,7 @@ const PACKAGES = [
   { id: "connected-devices", name: "Connected Devices", version: "0.1.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants." },
   { id: "time-tracking", name: "Control Horario", version: "0.2.0", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations", "marketplace"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history." },
   { id: "documents", name: "Documents", version: "0.1.0", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], tenantDependencies: ["files"], activationPolicy: "automatic", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery." },
-  { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle." }
+  { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } }
 ];
 
 function crc32(buffer) {
@@ -100,6 +100,10 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
     const wrapperPath = "dist/backend/index.mjs";
     files.set(wrapperPath, Buffer.from("export { " + exportName(definition.id) + " as default } from \"../" + definition.entry.replaceAll("\\", "/") + "\";\n"));
     files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "\n"));
+    if (definition.id === "hello-world") {
+      files.set("frontend/index.html", Buffer.from("<!doctype html><html lang=\\"es\\"><head><meta charset=\\"utf-8\\"><meta name=\\"viewport\\" content=\\"width=device-width,initial-scale=1\\"><title>Hola Mundo</title><style>body{font:16px system-ui;margin:0;padding:28px;color:#172033;background:#fff}.card{max-width:680px;margin:auto;padding:28px;border:1px solid #e6eaf0;border-radius:16px;background:#fbfcfe}h1{margin:0 0 8px;color:#ea7a22}.muted{color:#667085}</style></head><body><main class=\\"card\\"><p class=\\"muted\\">BEE PROJECTS · TENANT PACKAGE</p><h1>¡Hola Mundo!</h1><p>Este módulo se ha cargado desde un paquete ZIP firmado, sin un componente Angular registrado en el núcleo.</p><p id=\\"context\\" class=\\"muted\\">Conectando con Bee Core…</p></main><script type=\\"module\\" src=\\"main.js\\"></script></body></html>"));
+      files.set("frontend/main.js", Buffer.from("const context = document.getElementById('context');\\nwindow.addEventListener('message', event => { if (event.data?.type !== 'bee-plugin:init') return; context.textContent = 'Paquete cargado · rol: ' + String(event.data.role ?? 'member'); });\\nwindow.parent.postMessage({ type: 'bee-plugin:ready' }, '*');\\n"));
+    }
     files.set("README.md", Buffer.from("# " + definition.name + "\n\nBee Core signed installable package.\n\nPackage ID: " + definition.id + "\nVersion: " + definition.version + "\n"));
     const manifest = {
       id: definition.id, name: definition.name, version: definition.version, publisher: "Bee Projects",
