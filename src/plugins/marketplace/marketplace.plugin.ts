@@ -8,6 +8,7 @@ import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-con
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
+import { setPlatformPackageAvailable, setPlatformPackageInstalled } from "../../core/platform-plugin-registry.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
@@ -473,6 +474,7 @@ export const marketplacePlugin: BeePlugin = {
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
               { $set: { status: "uninstalled", updatedAt: new Date() }, $unset: { error: "" } }
             );
+            if (tenantRecord.kind === "super") await setPlatformPackageAvailable(db, job.pluginId);
             const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else if (job.action === "install") {
@@ -495,6 +497,7 @@ export const marketplacePlugin: BeePlugin = {
                 { tenantId: job.tenantId, pluginId: job.pluginId },
                 { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } }
               );
+              if (tenantRecord.kind === "super") await setPlatformPackageInstalled(db, job.pluginId, trusted.version, job.actorId);
             } catch (error) {
               const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? [], migrationRun.applied);
               if (rollback.failed.length) {
