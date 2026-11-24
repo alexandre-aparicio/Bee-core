@@ -450,7 +450,10 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const removeBetaMember=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(removeBetaMember.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"member.suspended",resourceType:"membership",resourceId:"test-user-beta"}),"member suspension should be audited");
-    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + refreshed.accessToken, cookie:rotatedRefreshCookie }, payload: {} });
+    const freshLogoutLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"test@example.com",password:"Test-password-12345",client:"dashboard"}});
+    assert.equal(freshLogoutLogin.statusCode,200,"logout must be tested with a valid session after the compromised session family is revoked");
+    const freshLogoutCookie=String(freshLogoutLogin.headers["set-cookie"]??"").split(";")[0];
+    const logout = await app.inject({ method: "POST", url: "/auth/logout", headers: { authorization: "Bearer " + freshLogoutLogin.json().accessToken, cookie:freshLogoutCookie }, payload: {} });
     assert.equal(logout.statusCode, 200);
     assert.match(String(logout.headers["set-cookie"]??""),/Max-Age=0/,"logout must clear the refresh cookie");
     const revokedSessionReference=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+refreshed.accessToken}});
