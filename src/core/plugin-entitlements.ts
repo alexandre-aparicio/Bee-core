@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { TenantCollection } from "./tenant-collection.js";
 import type { TenantPluginMigration } from "./plugin-migrations.js";
 import { hasTenantPermission, type TenantContext } from "./tenant-context.js";
+import { enqueuePluginInstallJob, ensurePluginInstallJobIndexes } from "./plugin-install-jobs.js";
 
 export type PluginPlan = Document & {
   id: string;
@@ -217,7 +218,8 @@ export async function seedPluginCommerce(db: Db): Promise<void> {
     versions.createIndex({ pluginId: 1, version: 1 }, { unique: true, name: "plugin_versions_id_version_unique" }),
     db.collection("tenant_subscriptions").createIndex({ tenantId: 1 }, { unique: true, name: "tenant_subscription_unique" }),
     db.collection("tenant_plugin_installations").createIndex({ tenantId: 1, pluginId: 1 }, { unique: true, name: "tenant_plugin_installation_unique" }),
-    db.collection("plugin_purchases").createIndex({ tenantId: 1, providerReference: 1 }, { unique: true, name: "tenant_plugin_purchase_reference_unique" })
+    db.collection("plugin_purchases").createIndex({ tenantId: 1, providerReference: 1 }, { unique: true, name: "tenant_plugin_purchase_reference_unique" }),
+    db.collection("tenant_plugin_entitlements").createIndex({ tenantId: 1, pluginId: 1 }, { unique: true, name: "tenant_plugin_entitlement_unique" })
   ]);
   for (const plan of BUILT_IN_PLANS) {
     await plans.updateOne({ id: plan.id }, { $set: plan }, { upsert: true });
@@ -317,6 +319,11 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
     $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }]
   }).toArray();
   const purchasedIds = new Set(activePurchases.map(purchase => purchase.pluginId));
+  const manualGrants = new TenantCollection<Document & { pluginId: string; status: string }>(
+    db.collection("tenant_plugin_entitlements"), tenantId
+  );
+  const activeManualGrants = await manualGrants.find({ status: "granted" }).toArray();
+  const manualGrantIds = new Set(activeManualGrants.map(grant => grant.pluginId));
   const installations = new TenantCollection<TenantPluginInstallation>(
     db.collection<TenantPluginInstallation>("tenant_plugin_installations"),
     tenantId
@@ -325,28 +332,33 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const installedIds = new Set(installed.map(item => item.pluginId));
   const installedVersions = new Map(installed.map(item => [item.pluginId, item.version]));
   const enabledByPlugin = new Map(installed.map(item => [item.pluginId, item.enabled !== false]));
-
-  const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...purchasedIds])];
+  const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...purchasedIds, ...manualGrantIds])];
   const catalog = await db.collection<PluginPackageDefinition>("plugin_catalog")
-    .find({ id: { $in: visibleIds }, status: "published" })
+    .find({ id: { $in: visibleIds }, status: "published", codeAvailable: true })
     .sort({ name: 1 })
     .toArray();
   return catalog
-    .filter(plugin => packagesById.has(plugin.id))
-    .map(plugin => ({
-      id: plugin.id,
-      name: plugin.name,
-      version: plugin.version,
-      description: plugin.description,
-      category: plugin.category,
-      purchasable: plugin.purchasable,
-      system: plugin.system,
-      entitled: effectivePlan.includedPluginIds.includes(plugin.id) || purchasedIds.has(plugin.id),
-      accessSource: effectivePlan.includedPluginIds.includes(plugin.id) ? "plan" : purchasedIds.has(plugin.id) ? "purchase" : null,
-      installed: installedIds.has(plugin.id),
-      enabled: installedIds.has(plugin.id) && (enabledByPlugin.get(plugin.id) ?? true),
-      installedVersion: installedVersions.get(plugin.id) ?? null
-    }));
+    .filter(plugin => packagesById.has(plugin.id) || plugin.codeAvailable === true)
+    .map(plugin => {
+      const planEntitled = effectivePlan.includedPluginIds.includes(plugin.id);
+      const purchased = purchasedIds.has(plugin.id);
+      const manual = manualGrantIds.has(plugin.id);
+      return {
+        id: plugin.id,
+        name: plugin.name,
+        version: plugin.version,
+        description: plugin.description,
+        category: plugin.category,
+        purchasable: plugin.purchasable,
+        system: plugin.system,
+        activationPolicy: plugin.activationPolicy ?? "manual",
+        entitled: planEntitled || purchased || manual,
+        accessSource: planEntitled ? "plan" : purchased ? "purchase" : manual ? "manual" : null,
+        installed: installedIds.has(plugin.id),
+        enabled: installedIds.has(plugin.id) && (enabledByPlugin.get(plugin.id) ?? true),
+        installedVersion: installedVersions.get(plugin.id) ?? null
+      };
+    });
 }
 
 export async function hasPluginEntitlement(db: Db, tenantId: string, pluginId: string): Promise<boolean> {
@@ -387,4 +399,26 @@ export function getTrustedPluginPackage(pluginId: string): PluginPackageDefiniti
 
 export function getBuiltInPlan(planId: string): PluginPlan | undefined {
   return plansById.get(planId);
+}
+
+/** Queue tenant provisioning for every active tenant entitled through its plan or a manual grant. */
+export async function syncAutomaticPluginProvisioning(db: Db, pluginId: string): Promise<number> {
+  const definition = await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({ id: pluginId, status: "published", codeAvailable: true });
+  if (!definition || (definition.activationPolicy ?? "manual") !== "automatic") return 0;
+  const jobs = db.collection("plugin_install_jobs");
+  await ensurePluginInstallJobIndexes(jobs as any);
+  const tenants = await db.collection("tenants").find({ kind: { $ne: "super" }, status: "active" }, { projection: { id: 1 } }).toArray();
+  let queued = 0;
+  for (const row of tenants) {
+    const tenantId = String(row.id);
+    const plan = await getEffectiveTenantPlan(db, tenantId);
+    const manual = await db.collection("tenant_plugin_entitlements").findOne({ tenantId, pluginId, status: "granted" });
+    const purchase = await db.collection("plugin_purchases").findOne({ tenantId, pluginId, status: "active", $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] });
+    if (!plan.includedPluginIds.includes(pluginId) && !manual && !purchase) continue;
+    const installation = await db.collection("tenant_plugin_installations").findOne({ tenantId, pluginId, status: { $in: ["installed", "installing", "updating"] } });
+    if (installation) continue;
+    const result = await enqueuePluginInstallJob(jobs as any, { tenantId, pluginId, actorId: "system:automatic-plan-provisioning" });
+    if (result.created) queued += 1;
+  }
+  return queued;
 }
