@@ -101,8 +101,8 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
     files.set(wrapperPath, Buffer.from("export { " + exportName(definition.id) + " as default } from \"../" + definition.entry.replaceAll("\\", "/") + "\";\n"));
     files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "\n"));
     if (definition.id === "hello-world") {
-      files.set("frontend/index.html", Buffer.from("<!doctype html><html lang=\\"es\\"><head><meta charset=\\"utf-8\\"><meta name=\\"viewport\\" content=\\"width=device-width,initial-scale=1\\"><title>Hola Mundo</title><style>body{font:16px system-ui;margin:0;padding:28px;color:#172033;background:#fff}.card{max-width:680px;margin:auto;padding:28px;border:1px solid #e6eaf0;border-radius:16px;background:#fbfcfe}h1{margin:0 0 8px;color:#ea7a22}.muted{color:#667085}</style></head><body><main class=\\"card\\"><p class=\\"muted\\">BEE PROJECTS · TENANT PACKAGE</p><h1>¡Hola Mundo!</h1><p>Este módulo se ha cargado desde un paquete ZIP firmado, sin un componente Angular registrado en el núcleo.</p><p id=\\"context\\" class=\\"muted\\">Conectando con Bee Core…</p></main><script type=\\"module\\" src=\\"main.js\\"></script></body></html>"));
-      files.set("frontend/main.js", Buffer.from("const context = document.getElementById('context');\\nwindow.addEventListener('message', event => { if (event.data?.type !== 'bee-plugin:init') return; context.textContent = 'Paquete cargado · rol: ' + String(event.data.role ?? 'member'); });\\nwindow.parent.postMessage({ type: 'bee-plugin:ready' }, '*');\\n"));
+      files.set("frontend/index.html", Buffer.from('<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hola Mundo</title><style>body{font:16px system-ui;margin:0;padding:28px;color:#172033;background:#fff}.card{max-width:680px;margin:auto;padding:28px;border:1px solid #e6eaf0;border-radius:16px;background:#fbfcfe}h1{margin:0 0 8px;color:#ea7a22}.muted{color:#667085}</style></head><body><main class="card"><p class="muted">BEE PROJECTS · TENANT PACKAGE</p><h1>¡Hola Mundo!</h1><p>Este módulo se ha cargado desde un paquete ZIP firmado, sin un componente Angular registrado en el núcleo.</p><p id="context" class="muted">Conectando con Bee Core…</p></main><script type="module" src="main.js"></script></body></html>'));
+      files.set("frontend/main.js", Buffer.from('const context = document.getElementById("context");\nwindow.addEventListener("message", event => { if (event.data?.type !== "bee-plugin:init") return; context.textContent = "Paquete cargado · rol: " + String(event.data.role ?? "member"); });\nwindow.parent.postMessage({ type: "bee-plugin:ready" }, "*");\n'));
     }
     files.set("README.md", Buffer.from("# " + definition.name + "\n\nBee Core signed installable package.\n\nPackage ID: " + definition.id + "\nVersion: " + definition.version + "\n"));
     const manifest = {
@@ -111,7 +111,7 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
       compatibility: { minRuntimeVersion: runtimeVersion },
       dependencies: definition.dependencies.map(pluginId => ({ pluginId, versionRange: "*" })),
       tenantDependencies: definition.tenantDependencies,
-      permissions: [], backend: { entrypoint: wrapperPath }, frontend: { routes: [] },
+      permissions: [], backend: { entrypoint: wrapperPath }, frontend: definition.frontend ?? { routes: [] },
       collections: [], migrations: [], settingsSchema: { type: "object", properties: {} },
       package: { sha256: "", signature: "", storageKey: "packages/" + definition.id + "/" + definition.version }
     };
