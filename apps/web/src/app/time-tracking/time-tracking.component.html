@@ -1,26 +1,11 @@
-<section class="tt-page">
- <header class="tt-header">
+<section class="tt-page bee-page">
+ <header class="tt-header bee-page__header">
   <div><p class="tt-eyebrow">WORKSPACE / PERSONAS</p><h1>Control horario</h1><p>Registra tu jornada, consulta horarios y gestiona incidencias.</p></div>
   <button type="button" class="tt-secondary" (click)="load()" [disabled]="loading">Actualizar</button>
  </header>
  <p *ngIf="error" class="tt-error" role="alert">{{error}}</p><p *ngIf="message" class="tt-message" role="status">{{message}}</p>
- <div class="tt-workspace">
-  <aside class="tt-sidebar" aria-label="Navegación de control horario">
-   <span class="tt-sidebar__label">MI ESPACIO</span>
-   <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='my-day'" (click)="activeSection='my-day';activeSubTab='status'"><span class="tt-nav-icon">◷</span><span>Mi jornada</span></button>
-   <ng-container *ngIf="canManage">
-    <span class="tt-sidebar__label tt-sidebar__label--group">GESTIÓN</span>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='schedule'" (click)="activeSection='schedule'"><span class="tt-nav-icon">▦</span><span>Planificación</span></button>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='requests'" (click)="activeSection='requests';activeSubTab='mine'"><span class="tt-nav-icon">◇</span><span>Incidencias</span><span *ngIf="teamCorrections.length" class="tt-nav-count">{{teamCorrections.length}}</span></button>
-   </ng-container>
-   <ng-container *ngIf="!canManage">
-    <span class="tt-sidebar__label tt-sidebar__label--group">MI INFORMACIÓN</span>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='schedule'" (click)="activeSection='schedule'"><span class="tt-nav-icon">▦</span><span>Mi horario</span></button>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='history'" (click)="activeSection='history'"><span class="tt-nav-icon">◴</span><span>Mi historial</span></button>
-    <button type="button" class="tt-nav-item" [class.is-active]="activeSection==='requests'" (click)="activeSection='requests';activeSubTab='mine'"><span class="tt-nav-icon">◇</span><span>Mis solicitudes</span><span *ngIf="corrections.length" class="tt-nav-count">{{corrections.length}}</span></button>
-   </ng-container>
-  </aside>
-  <main class="tt-content">
+ <section class="tt-page bee-page">
+   <main class="tt-content bee-page__content">
    <ng-container *ngIf="activeSection==='my-day'">
     <div class="tt-content-heading"><div><p class="tt-eyebrow">MI ESPACIO</p><h2>Mi jornada</h2><p>Controla tu fichaje y consulta la actividad registrada.</p></div></div>
     <nav class="tt-tabs" aria-label="Pestañas de mi jornada">
@@ -80,6 +65,6 @@
     </ng-container>
    </ng-container>
   </main>
- </div>
+ </section>
  <div *ngIf="correctionTarget" class="tt-modal-backdrop"><section class="tt-modal" role="dialog" aria-modal="true" aria-labelledby="tt-correction-title"><h2 id="tt-correction-title">Solicitar corrección</h2><p>La modificación no se aplicará hasta que un responsable la apruebe.</p><label class="tt-field">Fecha y hora correcta<input type="datetime-local" [(ngModel)]="requestedAt"></label><label class="tt-field">Motivo<textarea rows="3" [(ngModel)]="correctionReason" maxlength="1000" placeholder="Explica por qué debe corregirse este fichaje"></textarea></label><div class="tt-actions"><button type="button" class="tt-secondary" (click)="closeCorrection()">Cancelar</button><button type="button" class="tt-primary" (click)="submitCorrection()" [disabled]="busy || !requestedAt || correctionReason.trim().length<5">Enviar solicitud</button></div></section></div>
 </section>
