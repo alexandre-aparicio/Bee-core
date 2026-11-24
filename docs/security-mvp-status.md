@@ -1,6 +1,6 @@
 # Bee-Core security MVP status
 
-**Snapshot:** 2026-11-22  
+**Snapshot:** 2026-11-24  
 **Scope:** repository controls and evidence visible in this branch. This is an engineering status report, not a penetration-test attestation or a claim that production infrastructure is secure.
 
 ## Implemented in the repository
@@ -31,6 +31,13 @@
 - Compose configures MongoDB root authentication and a database-scoped application user.
 - The core owns one shared MongoClient and closes it through application shutdown.
 - Plugin startup is dependency ordered; missing dependencies/cycles are explicit errors and plugin shutdown continues after an individual stop failure.
+
+
+## Connected Devices audit and CI status (2026-11-24)
+
+- The Connected Devices route layer now appends tenant-scoped audit events for device pairing and lifecycle mutations, plus denied administrator operations. Events are written through the shared append-only service; pairing/device secrets are never included. Audit write failures are logged but do not currently roll back an already-completed device mutation, so strict transactional audit availability is still an open hardening item.
+- The inspected current `main` tree had no tracked `.github/workflows/` files, and GitHub returned zero check runs for current `main`, PR #6's head, and PR #7's head. PR #6 is closed without merge and its role/audit foundation has been superseded by later merged work; PR #7 is merged.
+- This branch restores separate backend/MongoDB, Angular/Playwright, and production Compose workflows. Their first executions are pending; workflow configuration must not be treated as passing evidence.
 
 ## Container changes in this branch — pending execution evidence
 
