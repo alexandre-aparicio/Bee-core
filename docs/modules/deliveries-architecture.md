@@ -14,18 +14,19 @@ Optional integrations must be capability-detected and fail gracefully; they must
 ## Initial workflow
 Kinds: delivery and pickup.
 Statuses: draft → assigned → picked_up → in_transit → delivered; failed and cancelled are controlled terminal/recovery paths. Invalid transitions are rejected by the backend.
-Managers can assign or reassign an operation to any active member of the same company, or leave it unassigned. The API validates the masked member reference against an active membership in the current tenant. Members only receive operations assigned to them; they can advance their own operation. Managers can see and manage all operations.
+Managers can assign or reassign an operation to any active member of the same company, or leave it unassigned. The API validates the masked member reference against an active membership in the current tenant. Members only receive operations assigned to them; they can advance their own operation. Managers can see and manage all operations. A delivery cannot be completed by changing its status directly: the assigned member (or a manager) must submit the recipient name and a bounded vector signature. Optional browser/device geolocation and a delivery note are recorded with the proof. Incident status requires a reason.
 Operations are tenant-scoped and IDs returned to the dashboard are session-bound references.
 
 ## API
 - GET /deliveries
 - POST /deliveries
 - PATCH /deliveries/:deliveryId
+- POST /deliveries/:deliveryId/proof (record signature and complete an in-transit operation)
 - DELETE /deliveries/:deliveryId (draft/cancelled only)
 
 ## Follow-up phases
 1. Dispatch board, scheduling filters and assignment history.
-2. Optional Documents adapter for signed proof-of-delivery and attachments.
+2. Optional Documents adapter to generate and archive a signed PDF receipt from the delivery-owned proof record.
 3. Optional Connected Devices adapter for camera/GPS/scanner capabilities.
 4. Customer signatures, timestamps, geolocation evidence, incident reasons and offline mobile queue.
 5. Notifications, route planning and reporting.
