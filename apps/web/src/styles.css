@@ -415,3 +415,10 @@ html body .settings-page.settings-page{display:block;width:100%;max-width:none;m
 .platform-admin__tenant-plugin-action{border:1px solid var(--border);border-radius:8px;padding:8px 11px;background:transparent;color:inherit;font-size:10px;cursor:pointer}
 .platform-admin__tenant-plugin-action:disabled{opacity:.5;cursor:wait}
 @media(max-width:650px){.platform-admin__tenant-row,.platform-admin__tenant-plugin{align-items:flex-start;flex-wrap:wrap}.platform-admin__tenant-plugin-status{justify-items:start}.platform-admin__tenant-plugin-action{margin-left:auto}}
+
+/* Active organization selector shared by dashboard templates. */
+.bee-company-switcher{display:flex;align-items:center;gap:7px;min-width:0}
+.bee-company-switcher__caption{font-size:10px;opacity:.62;white-space:nowrap}
+.bee-company-switcher select{max-width:220px;min-width:120px;min-height:36px;padding:7px 10px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--panel,#10131e);color:inherit;font:inherit;font-size:11px}
+.bee-company-switcher select:disabled{opacity:.7;cursor:not-allowed}
+@media(max-width:640px){.bee-company-switcher__caption{display:none}.bee-company-switcher select{max-width:150px;min-width:100px}}
