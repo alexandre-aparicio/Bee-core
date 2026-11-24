@@ -78,9 +78,12 @@ export async function resolveTenantContext(
     status: "active"
   });
   if (!membership) return null;
-  if (membership.role === "super_admin") {
-    const superOrganization = await db.collection<{ id:string; kind?:string }>("tenants").findOne({ id: tenantId, kind: "super" });
-    if (!superOrganization || !user.mfaSecretEnc || !session.mfaVerifiedAt || session.mfaVerifiedAt.getTime() > now.getTime() || now.getTime() - session.mfaVerifiedAt.getTime() > 15 * 60 * 1000) return null;
+  if (membership.role === "super_admin" || user.platformRole === "superadmin") {
+    if (membership.role === "super_admin") {
+      const superOrganization = await db.collection<{ id:string; kind?:string }>("tenants").findOne({ id: tenantId, kind: "super" });
+      if (!superOrganization) return null;
+    }
+    if (!user.mfaSecretEnc || !session.mfaVerifiedAt || session.mfaVerifiedAt.getTime() > now.getTime() || now.getTime() - session.mfaVerifiedAt.getTime() > 15 * 60 * 1000) return null;
   }
   let permissions: readonly string[];
   if (membership.role === "custom") {
