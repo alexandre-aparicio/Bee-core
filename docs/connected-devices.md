@@ -179,3 +179,7 @@ The API base defaults to `/api`, matching the dashboard proxy. If the simulator 
 ## Browser simulator heartbeat request
 
 The browser simulator sends an explicit empty JSON object (`{}`) with the authenticated heartbeat POST. The API request helper sets `Content-Type: application/json`; sending no body with that header can be rejected by Fastify's JSON parser before the device authentication handler runs. The heartbeat route itself does not require payload fields. This client-side correction does not change device authentication or authorization.
+
+## Device card lifecycle actions
+
+Each device card exposes a vertical three-dot action menu. **Unlink** invalidates the current credential, clears granted capabilities and retains the device record as `unlinked`; a new one-time QR pairing creates a fresh device identity and credential. **Revoke** permanently invalidates the current device credential and keeps the revoked record for audit/history. **Suspend** temporarily blocks access and can be reversed by reactivation. **Delete** permanently removes the tenant-scoped device record and cancels its claimed pairing challenge; it is restricted to organization administrators. Unlink and delete are distinct: unlink preserves history, delete removes the record.
