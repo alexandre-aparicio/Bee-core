@@ -374,7 +374,7 @@ export class AppComponent implements OnInit {
   activeSection = 'dashboard';
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
-    dashboard: '/dashboard', documents: '/dashboard/documents', 'connected-devices': '/dashboard/connected-devices', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
+    dashboard: '/dashboard', documents: '/dashboard/documents', 'connected-devices': '/dashboard/connected-devices', 'time-tracking': '/dashboard/time-tracking', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-plans': '/dashboard/settings/plans-licensing',
@@ -489,6 +489,7 @@ export class AppComponent implements OnInit {
       {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
       ...(this.isPluginEnabled('documents') ? [{id:'documents',label:'Documents',labelKey:'nav.documents',icon:'documentation',group:'WORKSPACE'}] : []),
       ...(this.isPluginEnabled('connected-devices') ? [{id:'connected-devices',label:this.i18n.t('nav.connectedDevices'),labelKey:'nav.connectedDevices',icon:'infrastructure',group:'WORKSPACE'}] : []),
+      ...(this.isPluginEnabled('time-tracking') ? [{id:'time-tracking',label:'Control Horario',labelKey:'nav.timeTracking',icon:'activity',group:'WORKSPACE'}] : []),
       {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
       {id:'activity',label:this.i18n.t('nav.activity'),labelKey:'nav.activity',icon:'activity',group:'WORKSPACE'},
       {id:'mail',label:this.i18n.t('nav.mail'),labelKey:'nav.mail',icon:'mail',group:'WORKSPACE'},
@@ -504,6 +505,7 @@ export class AppComponent implements OnInit {
     if (targetId.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === targetId)) return;
     if (targetId === 'documents' && !this.isPluginEnabled('documents')) { this.navigateSection('dashboard'); return; }
     if (targetId === 'connected-devices' && !this.isPluginEnabled('connected-devices')) { this.navigateSection('dashboard'); return; }
+    if (targetId === 'time-tracking' && !this.isPluginEnabled('time-tracking')) { this.navigateSection('dashboard'); return; }
     const route = this.sectionRoutes[targetId];
     if (!route) return;
     if (window.location.pathname !== route) window.history.pushState({}, '', route);
