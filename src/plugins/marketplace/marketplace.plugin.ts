@@ -315,6 +315,7 @@ export const marketplacePlugin: BeePlugin = {
         return reply.code(403).send({error:"Plugin management permission required"});
       }
       if(typeof request.body?.enabled!=="boolean")return reply.code(400).send({error:"enabled must be a boolean"});
+      if(request.body.enabled&&!await hasPluginEntitlement(db,tenant.tenantId,pluginId))return reply.code(402).send({error:"This company plan or an active plugin purchase does not include this package"});
       const definition=await getMarketplacePackage(pluginId);
       if(!definition)return reply.code(404).send({error:"Plugin package is not available"});
       const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed"});
@@ -336,7 +337,6 @@ export const marketplacePlugin: BeePlugin = {
           await installations.updateOne({tenantId:tenant.tenantId,pluginId,status:"installed"},{$set:{enabled:false,enabledUpdatedAt:now,enabledUpdatedBy:tenant.userId,updatedAt:now}});
         }
       }else{
-        if(!await hasPluginEntitlement(db,tenant.tenantId,pluginId))return reply.code(402).send({error:"This company plan or an active plugin purchase does not include this package"});
         for(const dependencyId of await getDependencyOrder(pluginId)){
           const dependencyPackage=await db.collection("platform_plugin_packages").findOne({pluginId:dependencyId,status:"installed"});
           if(!dependencyPackage||!await hasPluginEntitlement(db,tenant.tenantId,dependencyId)||!await isPluginInstalled(db,tenant.tenantId,dependencyId)||!await isPluginEnabled(db,tenant.tenantId,dependencyId)){
