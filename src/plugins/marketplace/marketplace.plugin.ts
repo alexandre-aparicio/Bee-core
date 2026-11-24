@@ -8,6 +8,7 @@ import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-con
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
+import { ensurePlatformPluginRegistry, setPlatformPackageAvailable, setPlatformPackageInstalled } from "../../core/platform-plugin-registry.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
@@ -32,6 +33,7 @@ export const marketplacePlugin: BeePlugin = {
   },
   async initialize(ctx) {
     const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    await ensurePlatformPluginRegistry(db);
     const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
     if(sessionIdSecret.length<32)throw new Error("Marketplace: JWT_SECRET must contain at least 32 characters.");
     const sessionOf=(tenant:import("../../core/tenant-context.js").TenantContext)=>({sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt});
@@ -473,6 +475,7 @@ export const marketplacePlugin: BeePlugin = {
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
               { $set: { status: "uninstalled", updatedAt: new Date() }, $unset: { error: "" } }
             );
+            if (tenantRecord.kind === "super") await setPlatformPackageAvailable(db, job.pluginId);
             const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
             if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
           } else if (job.action === "install") {
@@ -495,6 +498,7 @@ export const marketplacePlugin: BeePlugin = {
                 { tenantId: job.tenantId, pluginId: job.pluginId },
                 { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } }
               );
+              if (tenantRecord.kind === "super") await setPlatformPackageInstalled(db, job.pluginId, trusted.version, job.actorId);
             } catch (error) {
               const rollback = await rollbackTenantPluginMigrations(db, job.tenantId, job.pluginId, trusted.migrations ?? [], migrationRun.applied);
               if (rollback.failed.length) {

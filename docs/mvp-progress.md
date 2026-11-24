@@ -945,3 +945,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added `docs/plugin-package-architecture.md` describing the separate platform-package, tenant-entitlement and tenant-activation states; secure ZIP installation requirements; runtime restart behavior; frontend bundle constraints; migration strategy; and implementation sequence.
 - **Scope of this first slice:** this is the common contract and architecture foundation only. Secure ZIP upload/extraction, platform-global package installation records, plan/manual grant synchronization, runtime discovery/loading, Angular remote frontend loading and the full three-plugin internal refactor are not implemented by this change.
 - **Validation pending:** source-level review only. Backend TypeScript build, unit/integration tests, Angular build, package security tests, install/upgrade/rollback tests and browser validation have not been run.
+
+
+## Global plugin package registry (2026-11-24)
+
+- Added `platform_plugin_packages` as a separate platform-level registry with unique package IDs, source, version, lifecycle status and install metadata; it is not tenant-scoped.
+- Built-in package metadata is seeded idempotently, and legacy Super Organization `tenant_plugin_installations` records are migrated into the registry without overriding ZIP-sourced package records.
+- Super Organization marketplace install/uninstall jobs synchronize the registry; tenant company plugin listing and activation checks now use the global registry while retaining tenant-local installation/enabled records.
+- Added the Superadmin-only `GET /platform/plugin-packages` endpoint and MongoDB-backed tests for legacy migration, lifecycle state and ZIP-record preservation.
+- **Not implemented yet:** ZIP upload/extraction, archive security validation, publisher signature verification, persistent package files, external backend discovery/loading, frontend remote loading, plan-based grants or automatic tenant activation. The existing bundled marketplace remains the code execution source.
+- **Validation pending:** no TypeScript build or MongoDB integration tests were run in this environment; tests require `MONGODB_TEST_URI`. No browser or deployment validation.

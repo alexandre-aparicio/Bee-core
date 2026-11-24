@@ -2,7 +2,7 @@
 
 ## Status
 
-This document defines the target contract and the first implementation slice. It does **not** claim that ZIP upload, extraction, dynamic backend loading, or Angular remote-module loading is implemented yet.
+This document defines the target contract and implemented foundation slices. A database-backed global package registry now separates platform package state from tenant installation rows for the built-in packages. ZIP upload/extraction, dynamic backend loading and Angular remote-module loading are still not implemented.
 
 ## Three independent state dimensions
 
@@ -68,9 +68,9 @@ The current Angular application is statically compiled. Extracting frontend file
 
 ## Implementation sequence
 
-1. Establish and validate the common manifest metadata and activation policy. (Started.)
-2. Introduce separate platform package registry/install state and tenant entitlement grants.
-3. Implement secure ZIP upload, verification, staged extraction, migrations and controlled runtime restart.
+1. Establish and validate the common manifest metadata and activation policy. (Implemented in the foundation PR.)
+2. Introduce separate platform package registry/install state and tenant entitlement grants. (Global registry and legacy-state bridge implemented; plan/manual entitlement grants remain pending.)
+3. Implement secure ZIP upload, verification, staged extraction, migrations and controlled runtime restart. (Pending.)
 4. Add Super Organization package-management UI and audit trail.
 5. Implement plan-driven automatic grants/activation and explicit manual grants, with dependency resolution.
 6. Migrate the three built-in plugins to the same lifecycle and persistence conventions without changing their APIs or deleting tenant data.
@@ -78,3 +78,14 @@ The current Angular application is statically compiled. Extracting frontend file
 8. Add integration tests for install, upgrade, rollback, plan changes, tenant isolation, disable/re-enable and dependency removal.
 
 No stage is complete until the relevant backend tests, Angular build, browser checks and migration/rollback tests have run.
+
+
+## Global package registry — implementation slice
+
+The backend now maintains `platform_plugin_packages` as the platform-level source of truth, separate from `tenant_plugin_installations`:
+
+- Built-in package metadata is seeded idempotently as `available` without pretending that every package is installed.
+- Existing Super Organization installation rows are migrated into the registry at platform-admin startup, preserving compatibility with the current Settings → Plugins installation flow.
+- Super Organization marketplace install/uninstall jobs synchronize the global package state. ZIP-sourced records are protected from bundled-package synchronization.
+- Superadmin endpoints expose the global package registry at `GET /platform/plugin-packages`; company plugin state reads global installation from this registry and tenant enabled state from tenant installation rows.
+- This is a database/state normalization step. It does not yet accept ZIP uploads or dynamically load external backend/frontend code.
