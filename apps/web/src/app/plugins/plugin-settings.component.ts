@@ -16,7 +16,7 @@ type PlatformPackage = {
   source: string;
 };
 
-type PackageTenantUsage = { pluginId: string; canRemove: boolean; installedCount: number; pendingJobCount: number; tenants: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; pendingJobs: Array<{tenantName:string;action:string;status:string}>; };
+type PackageTenantUsage = { pluginId: string; canRemove: boolean; installedCount: number; inactiveCount: number; pendingJobCount: number; tenants: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; inactiveTenants?: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; pendingJobs: Array<{tenantName:string;action:string;status:string}>; };
 
 type PlatformPlan = {
   id: string;
@@ -111,8 +111,6 @@ type PluginRecord = {
                 <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
-                  <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">{{busyId === plugin.id ? 'Installing…' : 'Install'}}</button>
-                  <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">{{busyId === plugin.id ? 'Uninstalling…' : 'Uninstall'}}</button>
                   <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
                 </div>
               </div>
@@ -145,8 +143,6 @@ type PluginRecord = {
                     <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
-                      <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">Install</button>
-                      <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">Uninstall</button>
                       <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
                     </div>
                   </div>
@@ -181,12 +177,13 @@ type PluginRecord = {
             <div><span class="plugin-settings__eyebrow">PLATFORM PACKAGE</span><h3 id="plugin-removal-title">Remove {{removalPackage.name}}?</h3><p>v{{removalPackage.version}} · {{removalPackage.pluginKey}}</p></div>
             <button type="button" class="plugin-settings__close" (click)="closePackageRemoval()" aria-label="Close package removal">×</button>
           </header>
-          <p class="plugin-settings__plan-description">Uninstall this plugin separately from every company before removing the global package. Tenant data is not deleted by the global removal.</p>
+          <p class="plugin-settings__plan-description">Deactivate this plugin in every company before removing the global package. Deactivation preserves tenant data and installation history.</p>
           <div class="plugin-settings__removal-summary" *ngIf="packageUsageLoading">Checking tenant installations…</div>
           <p *ngIf="packageUsageError" class="plugin-settings__error" role="alert">{{packageUsageError}}</p>
           <ng-container *ngIf="!packageUsageLoading && packageUsage as usage">
             <div class="plugin-settings__removal-counts">
-              <div><strong>{{usage.installedCount}}</strong><span>Tenant installations</span></div>
+              <div><strong>{{usage.installedCount}}</strong><span>Active tenants</span></div>
+              <div><strong>{{usage.inactiveCount || 0}}</strong><span>Inactive installations</span></div>
               <div><strong>{{usage.pendingJobCount}}</strong><span>Operations in progress</span></div>
             </div>
             <div *ngIf="usage.tenants.length" class="plugin-settings__tenant-list">
@@ -195,7 +192,14 @@ type PluginRecord = {
                 <span><strong>{{tenant.name}}</strong><small>{{tenant.kind === 'super' ? 'Platform organization' : tenant.slug || 'Tenant'}} · {{tenant.companyStatus}}</small></span>
                 <span class="plugin-settings__status">{{tenant.installationStatus}}</span>
               </div>
-              <p class="plugin-settings__removal-hint">Open each company and use Settings → Plugins → Uninstall. When the job finishes, refresh this list.</p>
+              <p class="plugin-settings__removal-hint">Open each company and use Plugins → Deactivate. When no tenant remains active, refresh this list.</p>
+            </div>
+            <div *ngIf="usage.inactiveTenants?.length" class="plugin-settings__tenant-list">
+              <h4>Inactive installations (data preserved)</h4>
+              <div *ngFor="let tenant of usage.inactiveTenants" class="plugin-settings__tenant-row">
+                <span><strong>{{tenant.name}}</strong><small>{{tenant.kind === 'super' ? 'Platform organization' : tenant.slug || 'Tenant'}} · {{tenant.companyStatus}}</small></span>
+                <span class="plugin-settings__status">Inactive</span>
+              </div>
             </div>
             <div *ngIf="usage.pendingJobs.length" class="plugin-settings__tenant-list">
               <h4>Operations still running</h4>
@@ -491,56 +495,6 @@ export class PluginSettingsComponent implements OnInit {
       }
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not load plugins"; }
     finally { this.loading = false; }
-  }
-  async install(plugin: PluginRecord): Promise<void> {
-    await this.runLifecycleAction(plugin, "POST");
-  }
-  async uninstall(plugin: PluginRecord): Promise<void> {
-    await this.runLifecycleAction(plugin, "DELETE");
-  }
-  private async waitForJob(jobId: string, plugin: PluginRecord, action: "install" | "uninstall"): Promise<void> {
-    const deadline = Date.now() + 60_000;
-    while (Date.now() < deadline) {
-      const response = await fetch("/api/marketplace/install-jobs/" + encodeURIComponent(jobId), {
-        headers: { authorization: "Bearer " + this.token }
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Could not check plugin operation");
-      const status = String(result.job?.status ?? "");
-      if (status === "succeeded") return;
-      if (status === "failed") throw new Error(result.job?.error || "Plugin " + action + " failed");
-      this.message = (action === "install" ? "Installing " : "Uninstalling ") + plugin.name + "…";
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    throw new Error("The plugin operation is taking longer than expected. Refresh the catalogue to check its status.");
-  }
-  private async runLifecycleAction(plugin: PluginRecord, method: "POST" | "DELETE"): Promise<void> {
-    if (!this.canManage || this.busyId) return;
-    if (method === "POST" && (!plugin.entitled || plugin.installed)) return;
-    if (method === "DELETE" && (!plugin.installed || plugin.system)) return;
-    this.busyId = plugin.id;
-    this.openMenuId = "";
-    this.error = "";
-    this.message = method === "POST" ? "Queuing installation…" : "Queuing uninstallation…";
-    try {
-      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(plugin.id) + "/install", {
-        method,
-        headers: { authorization: "Bearer " + this.token }
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Plugin operation failed");
-      const action = method === "POST" ? "install" : "uninstall";
-      if (result.jobId) await this.waitForJob(String(result.jobId), plugin, action);
-      await this.load();
-      this.message = method === "POST"
-        ? plugin.name + " installed successfully."
-        : plugin.name + " uninstalled. Company data is preserved.";
-    } catch (error) {
-      this.error = error instanceof Error ? error.message : "Plugin operation failed";
-      this.message = "";
-    } finally {
-      this.busyId = "";
-    }
   }
   openDetails(plugin: PluginRecord): void {
     this.openMenuId = "";

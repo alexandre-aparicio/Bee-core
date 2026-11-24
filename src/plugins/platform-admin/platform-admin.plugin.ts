@@ -333,20 +333,24 @@ export const platformAdminPlugin:BeePlugin={
    const packageRecord=await db.collection("platform_plugin_packages").findOne({pluginId});
    if(!packageRecord)return reply.code(404).send({error:"Platform package not found"});
    if(packageRecord.source!=="zip")return reply.code(409).send({error:"Only externally uploaded ZIP packages can be removed"});
-   const [installations,pendingJobs]=await Promise.all([
-    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"}}).project<{tenantId:string;status:string;version?:string;updatedAt?:Date}>({tenantId:1,status:1,version:1,updatedAt:1,_id:0}).toArray(),
+   const [activeInstallations,inactiveInstallations,pendingJobs]=await Promise.all([
+    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"},enabled:{$ne:false}}).project<{tenantId:string;status:string;version?:string;updatedAt?:Date}>({tenantId:1,status:1,version:1,updatedAt:1,_id:0}).toArray(),
+    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"},enabled:false}).project<{tenantId:string;status:string;version?:string;updatedAt?:Date}>({tenantId:1,status:1,version:1,updatedAt:1,_id:0}).toArray(),
     db.collection("plugin_install_jobs").find({pluginId,status:{$in:["queued","running"]}}).project<{tenantId:string;action:string;status:string}>({tenantId:1,action:1,status:1,_id:0}).toArray()
    ]);
-   const tenantIds=[...new Set([...installations,...pendingJobs].map(item=>item.tenantId))];
+   const tenantIds=[...new Set([...activeInstallations,...inactiveInstallations,...pendingJobs].map(item=>item.tenantId))];
    const tenantRows=tenantIds.length?await companies.find({id:{$in:tenantIds}}).project<{id:string;name:string;slug?:string;kind?:string;status:string}>({id:1,name:1,slug:1,kind:1,status:1,_id:0}).toArray():[];
    const tenantById=new Map(tenantRows.map(item=>[item.id,item]));
+   const publicTenant=(item:{tenantId:string;status:string;version?:string;updatedAt?:Date})=>({name:tenantById.get(item.tenantId)?.name??"Unknown tenant",slug:tenantById.get(item.tenantId)?.slug??null,kind:tenantById.get(item.tenantId)?.kind??"tenant",companyStatus:tenantById.get(item.tenantId)?.status??"unknown",installationStatus:item.status,version:item.version??null,updatedAt:item.updatedAt??null});
    return {
     pluginId,
     package:{name:packageRecord.name,version:packageRecord.version,status:packageRecord.status,runtimeState:packageRecord.runtimeState},
-    canRemove:installations.length===0&&pendingJobs.length===0,
-    installedCount:installations.length,
+    canRemove:activeInstallations.length===0&&pendingJobs.length===0,
+    installedCount:activeInstallations.length,
+    inactiveCount:inactiveInstallations.length,
     pendingJobCount:pendingJobs.length,
-    tenants:installations.map(item=>({name:tenantById.get(item.tenantId)?.name??"Unknown tenant",slug:tenantById.get(item.tenantId)?.slug??null,kind:tenantById.get(item.tenantId)?.kind??"tenant",companyStatus:tenantById.get(item.tenantId)?.status??"unknown",installationStatus:item.status,version:item.version??null,updatedAt:item.updatedAt??null})),
+    tenants:activeInstallations.map(publicTenant),
+    inactiveTenants:inactiveInstallations.map(publicTenant),
     pendingJobs:pendingJobs.map(item=>({tenantName:tenantById.get(item.tenantId)?.name??"Unknown tenant",action:item.action,status:item.status}))
    };
   });
@@ -364,14 +368,15 @@ export const platformAdminPlugin:BeePlugin={
    if(dependent)return reply.code(409).send({error:"Cannot remove this package while another installed package depends on it: "+dependent.pluginId});
    const claimed=await packages.updateOne({pluginId,status:"installed",source:"zip"},{$set:{status:"removing",updatedAt:new Date()}});
    if(claimed.modifiedCount!==1)return reply.code(409).send({error:"Package lifecycle changed; refresh and try again"});
-   const [installations,pendingJobs,versions]=await Promise.all([
-    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"}}).toArray(),
+   const [activeInstallations,inactiveInstallations,pendingJobs,versions]=await Promise.all([
+    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"},enabled:{$ne:false}}).toArray(),
+    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"},enabled:false}).toArray(),
     db.collection("plugin_install_jobs").find({pluginId,status:{$in:["queued","running"]}}).toArray(),
     db.collection("platform_plugin_package_versions").find({pluginId}).project<{version:string;packageDirectory?:string}>({version:1,packageDirectory:1,_id:0}).toArray()
    ]);
-   if(installations.length||pendingJobs.length){
+   if(activeInstallations.length||pendingJobs.length){
     await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
-    return reply.code(409).send({error:"Package still has tenant installations or lifecycle jobs",installedCount:installations.length,pendingJobCount:pendingJobs.length});
+    return reply.code(409).send({error:"Package still has active tenant installations or lifecycle jobs",installedCount:activeInstallations.length,pendingJobCount:pendingJobs.length});
    }
    const storageRoot=resolve(String(ctx.config.pluginPackagePath??"/data/bee-plugins"));
    const pluginRoot=resolve(storageRoot,pluginId);
@@ -396,6 +401,12 @@ export const platformAdminPlugin:BeePlugin={
      return reply.code(500).send({error:"Could not remove stored package files; registry entry was preserved"});
     }
    }
+   if(inactiveInstallations.length){
+    await db.collection("tenant_plugin_installations").updateMany(
+     {pluginId,status:{$ne:"uninstalled"},enabled:false},
+     {$set:{status:"uninstalled",updatedAt:new Date(),packageRemovedAt:new Date(),packageRemovedBy:actor.id}}
+    );
+   }
    await Promise.all([
     packages.deleteOne({pluginId,status:"removing"}),
     db.collection("platform_plugin_package_versions").deleteMany({pluginId}),
@@ -403,7 +414,7 @@ export const platformAdminPlugin:BeePlugin={
     db.collection("tenant_plugin_entitlements").deleteMany({pluginId})
    ]);
    await db.collection("plugin_catalog").updateOne({id:pluginId},{$set:{status:"deprecated",codeAvailable:false,updatedAt:new Date()}});
-   await recordPlatformAudit({actorId:actor.id,action:"plugin.package_removed",resourceType:"plugin_package",resourceId:pluginId,metadata:{version:packageRecord.version,tenantInstallations:0,tenantDataPreserved:true}});
+   await recordPlatformAudit({actorId:actor.id,action:"plugin.package_removed",resourceType:"plugin_package",resourceId:pluginId,metadata:{version:packageRecord.version,activeTenantInstallations:0,inactiveTenantInstallationsRetired:inactiveInstallations.length,tenantDataPreserved:true}});
    return {success:true,pluginId,restartRequired:true,tenantDataPreserved:true,message:"Package removed from the platform registry. Restart Bee Core to unload its runtime from the current process."};
   });
   ctx.server.get("/platform/plugin-plans",async(req,reply)=>{

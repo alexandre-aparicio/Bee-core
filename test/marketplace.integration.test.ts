@@ -179,12 +179,16 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaNotesList = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaNotesList.statusCode, 200);
     assert.deepEqual(betaNotesList.json().notes, []);
-    await db.collection("tenant_plugin_installations").updateOne({ tenantId: "market-beta", pluginId: "notes" }, { $set: { enabled: false } });
+    const betaDeactivate = await app.inject({ method: "PUT", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/activation", headers: { authorization: "Bearer " + betaToken }, payload: { enabled: false } });
+    assert.equal(betaDeactivate.statusCode, 200);
+    assert.equal(betaDeactivate.json().enabled, false);
     const betaDisabledCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaDisabledCatalog.json().plugins.find((plugin: { pluginKey: string }) => plugin.pluginKey === "notes").enabled, false);
     const betaDisabledNotes = await app.inject({ method: "GET", url: "/notes", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaDisabledNotes.statusCode, 403, "installed but disabled plugins must reject API access");
-    await db.collection("tenant_plugin_installations").updateOne({ tenantId: "market-beta", pluginId: "notes" }, { $set: { enabled: true } });
+    const betaReactivate = await app.inject({ method: "PUT", url: "/marketplace/plugins/" + encodeURIComponent(betaNotesPluginRef) + "/activation", headers: { authorization: "Bearer " + betaToken }, payload: { enabled: true } });
+    assert.equal(betaReactivate.statusCode, 200);
+    assert.equal(betaReactivate.json().enabled, true);
     const betaNoteCreate = await app.inject({
       method: "POST",
       url: "/notes",

@@ -307,6 +307,69 @@ export const marketplacePlugin: BeePlugin = {
       if (!tenant) return;
       return { tenantId: mask(tenant,tenant.tenantId,"tenant"), plugins: (await getTenantPluginCatalog(db, tenant.tenantId)).map(plugin=>publicPlugin(tenant,plugin)) };
     });
+    ctx.server.put<{Params:{pluginId:string};Body:{enabled?:boolean}}>("/marketplace/plugins/:pluginId/activation",async(request:any,reply:any)=>{
+      const tenant=await authenticate(request,reply);if(!tenant)return;
+      const pluginId=String(request.params.pluginId??"");
+      if(!hasTenantPermission(tenant,"plugins.manage")){
+        await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",resourceId:pluginId,metadata:{permission:"plugins.manage"}});
+        return reply.code(403).send({error:"Plugin management permission required"});
+      }
+      if(typeof request.body?.enabled!=="boolean")return reply.code(400).send({error:"enabled must be a boolean"});
+      const definition=await getMarketplacePackage(pluginId);
+      if(!definition)return reply.code(404).send({error:"Plugin package is not available"});
+      const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed"});
+      if(!globalPackage||(globalPackage.source==="zip"&&globalPackage.runtimeState!=="loaded"))return reply.code(409).send({error:"Plugin package is not ready on the platform"});
+      const installations=db.collection("tenant_plugin_installations");
+      const installation=await installations.findOne({tenantId:tenant.tenantId,pluginId});
+      const activeJob=await installJobs.findOne({activeKey:tenant.tenantId+":"+pluginId});
+      if(activeJob)return reply.code(409).send({error:"A plugin lifecycle operation is already in progress"});
+      const currentEnabled=installation?.status==="installed"&&installation.enabled!==false;
+      if(request.body.enabled===currentEnabled)return {success:true,pluginId:mask(tenant,pluginId,"plugin"),installed:installation?.status==="installed",enabled:currentEnabled,unchanged:true};
+      if(!request.body.enabled){
+        if(installation?.status==="installed"){
+          const otherInstallations=await installations.find({tenantId:tenant.tenantId,status:"installed",pluginId:{$ne:pluginId},enabled:{$ne:false}}).toArray();
+          for(const other of otherInstallations){
+            const dependent=await getMarketplacePackage(String(other.pluginId));
+            if(dependent?.dependencies.includes(pluginId))return reply.code(409).send({error:"Cannot deactivate this plugin while the dependent plugin is active: "+String(other.pluginId)});
+          }
+          const now=new Date();
+          await installations.updateOne({tenantId:tenant.tenantId,pluginId,status:"installed"},{$set:{enabled:false,enabledUpdatedAt:now,enabledUpdatedBy:tenant.userId,updatedAt:now}});
+        }
+      }else{
+        if(!await hasPluginEntitlement(db,tenant.tenantId,pluginId))return reply.code(402).send({error:"This company plan or an active plugin purchase does not include this package"});
+        for(const dependencyId of await getDependencyOrder(pluginId)){
+          const dependencyPackage=await db.collection("platform_plugin_packages").findOne({pluginId:dependencyId,status:"installed"});
+          if(!dependencyPackage||!await hasPluginEntitlement(db,tenant.tenantId,dependencyId)||!await isPluginInstalled(db,tenant.tenantId,dependencyId)||!await isPluginEnabled(db,tenant.tenantId,dependencyId)){
+            return reply.code(409).send({error:"Activate the required plugin first: "+dependencyId});
+          }
+        }
+        if(installation&&installation.status!=="installed"&&installation.status!=="uninstalled"&&installation.status!=="failed")return reply.code(409).send({error:"Plugin installation state is changing; refresh and try again"});
+        const now=new Date();
+        if(!installation||installation.status!=="installed"){
+          const tenantMigrations=selectTenantMigrations(definition,"install");
+          const migrationRun=await runTenantPluginMigrations(db,tenant.tenantId,pluginId,tenantMigrations);
+          try{
+            await definition.installTenant?.(db,tenant.tenantId);
+            await installations.updateOne(
+              {tenantId:tenant.tenantId,pluginId},
+              {$set:{status:"installed",version:String(globalPackage.version??definition.version),installedAt:now,updatedAt:now,enabled:true,enabledUpdatedAt:now,enabledUpdatedBy:tenant.userId},
+               $setOnInsert:{id:randomUUID(),tenantId:tenant.tenantId,pluginId}},
+              {upsert:true}
+            );
+          }catch(error){
+            const rollback=await rollbackTenantPluginMigrations(db,tenant.tenantId,pluginId,tenantMigrations,migrationRun.applied);
+            if(rollback.failed.length)ctx.logger.error("Tenant plugin activation rollback was incomplete",{tenantId:tenant.tenantId,pluginId,failedMigrations:rollback.failed});
+            throw error;
+          }
+        }else{
+          await installations.updateOne({tenantId:tenant.tenantId,pluginId,status:"installed"},{$set:{enabled:true,enabledUpdatedAt:now,enabledUpdatedBy:tenant.userId,updatedAt:now}});
+        }
+      }
+      const enabled=request.body.enabled;
+      await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:enabled?"plugin.enabled":"plugin.disabled",outcome:"success",resourceType:"plugin",resourceId:pluginId,metadata:{enabled,platformVersion:String(globalPackage.version??definition.version)}});
+      return {success:true,pluginId:mask(tenant,pluginId,"plugin"),installed:enabled||installation?.status==="installed",enabled,status:"installed"};
+    });
+
     ctx.server.get<{Params:{pluginId:string}}>("/marketplace/plugins/:pluginId/runtime",async(request:any,reply:any)=>{
       const tenant=await authenticate(request,reply);if(!tenant)return;
       const plugin=(await getTenantPluginCatalog(db,tenant.tenantId)).find(item=>item.id===request.params.pluginId);
