@@ -48,7 +48,7 @@ const permissionKey = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_]*)+$/;
 const collectionName = /^[a-z][a-z0-9_]*$/;
 const sha256 = /^[a-f0-9]{64}$/i;
 function versionTuple(value: string): [number, number, number] {
-  const match = /^(\\d+)\\.(\\d+)\\.(\\d+)/.exec(value);
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(value);
   if (!match) throw new Error("Invalid semantic version");
   return [Number(match[1]), Number(match[2]), Number(match[3])];
 }
@@ -62,7 +62,7 @@ export function satisfiesPluginVersion(version: string, range: string): boolean 
   return range.split("||").some(alternative => {
     const token = alternative.trim();
     if (token === "*") return true;
-    const match = /^(\\^|~|>=|<=|>|<)?(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(token);
+    const match = /^(\\^|~|>=|<=|>|<)?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(token);
     if (!match) return false;
     const operator = match[1] ?? "=";
     const requested = versionTuple(match[2]!);
