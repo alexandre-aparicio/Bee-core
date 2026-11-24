@@ -80,6 +80,7 @@ function render(){
  $("content").querySelectorAll("[data-clock]").forEach(button=>button.addEventListener("click",()=>void act(button.dataset.clock)));
  $("content").querySelectorAll("[data-correct]").forEach(button=>button.addEventListener("click",()=>openCorrection(button.dataset.session,button.dataset.event,button.dataset.original)));
  $("content").querySelectorAll("[data-select-member]").forEach(select=>select.addEventListener("change",()=>{selectedUserId=select.value;applySelectedSchedule();render();}));
+ $("timezone")?.addEventListener("input",event=>{timezone=event.target.value;});
  $("content").querySelectorAll("[data-save-schedule]").forEach(button=>button.addEventListener("click",()=>void saveSchedule()));
  $("content").querySelectorAll("[data-day-enabled]").forEach(input=>input.addEventListener("change",()=>{const day=Number(input.dataset.dayEnabled);scheduleDraft[day].enabled=input.checked;render();}));
  $("content").querySelectorAll("[data-day-field]").forEach(input=>input.addEventListener("change",()=>{const day=Number(input.dataset.day),field=input.dataset.dayField;scheduleDraft[day][field]=field==="breakMinutes"?Number(input.value):input.value;}));
