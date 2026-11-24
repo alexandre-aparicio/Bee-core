@@ -17,7 +17,7 @@ import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../..
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
 import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
-import { satisfiesPluginVersion } from "../../core/plugin-package.js";
+import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "../../core/plugin-package.js";
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
 
