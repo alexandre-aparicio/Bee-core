@@ -108,17 +108,18 @@ test("four first-party modules build as independently signed ZIP packages", { sk
 });
 
 
+
 test("Hello Mundo is not registered or advertised as a bundled plugin", async () => {
   const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
   const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
   const registrySource = await readFile(join(process.cwd(), "src/core/platform-plugin-registry.ts"), "utf8");
   const platformAdminSource = await readFile(join(process.cwd(), "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
 
-  assert.doesNotMatch(runtimeSource, /import\\s*\\{\\s*helloWorldPlugin\\s*\\}/);
-  assert.doesNotMatch(runtimeSource, /plugins\\.register\\(helloWorldPlugin\\)/);
-  assert.match(runtimeSource, /loadSignedZipPlugins\\(\\)/, "Hello Mundo remains loadable through the signed ZIP runtime");
+  assert.doesNotMatch(runtimeSource, /import\s*\{\s*helloWorldPlugin\s*\}/);
+  assert.doesNotMatch(runtimeSource, /plugins\.register\(helloWorldPlugin\)/);
+  assert.match(runtimeSource, /loadSignedZipPlugins\(\)/, "Hello Mundo remains loadable through the signed ZIP runtime");
   assert.doesNotMatch(entitlementSource, /hello-world/, "Hello Mundo must not be seeded as a built-in catalog item or included in built-in plans");
   assert.match(registrySource, /retireBundledPlatformPackage/, "legacy bundled records must be retired");
-  assert.match(registrySource, /status:\\s*"deprecated"/, "retired package records must be hidden from active listings");
-  assert.match(platformAdminSource, /retireBundledPlatformPackage\\(db,\\s*"hello-world"\\)/, "platform startup must retire the old bundled record");
+  assert.match(registrySource, /status:\s*"deprecated"/, "retired package records must be hidden from active listings");
+  assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"hello-world"\)/, "platform startup must retire the old bundled record");
 });
