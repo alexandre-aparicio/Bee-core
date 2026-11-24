@@ -14,7 +14,7 @@ Optional integrations must be capability-detected and fail gracefully; they must
 ## Initial workflow
 Kinds: delivery and pickup.
 Statuses: draft → assigned → picked_up → in_transit → delivered; failed and cancelled are controlled terminal/recovery paths. Invalid transitions are rejected by the backend.
-Managers can assign an operation to themselves in this first slice. Assigned members can advance their own operation; managers can manage all operations.
+Managers can assign or reassign an operation to any active member of the same company, or leave it unassigned. The API validates the masked member reference against an active membership in the current tenant. Members only receive operations assigned to them; they can advance their own operation. Managers can see and manage all operations.
 Operations are tenant-scoped and IDs returned to the dashboard are session-bound references.
 
 ## API
@@ -24,7 +24,7 @@ Operations are tenant-scoped and IDs returned to the dashboard are session-bound
 - DELETE /deliveries/:deliveryId (draft/cancelled only)
 
 ## Follow-up phases
-1. User/driver assignment picker and dispatch board.
+1. Dispatch board, scheduling filters and assignment history.
 2. Optional Documents adapter for signed proof-of-delivery and attachments.
 3. Optional Connected Devices adapter for camera/GPS/scanner capabilities.
 4. Customer signatures, timestamps, geolocation evidence, incident reasons and offline mobile queue.
