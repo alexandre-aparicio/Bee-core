@@ -9,6 +9,7 @@ import { BeePluginManager } from "./core/plugin-manager.js";
 import { validateEnvironment } from "./core/environment.js";
 import type { BeeContext, BeeLogger, BeePlugin } from "./core/types.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
+import { registerRuntimePlugin } from "./core/runtime-plugin-registry.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
@@ -189,10 +190,16 @@ async function loadSignedZipPlugins(): Promise<Map<string,string>> {
       }
       const requiredDependencies = manifest.dependencies.filter(dependency => !dependency.optional).map(dependency => dependency.pluginId).sort();
       const runtimeDependencies = [...(plugin.manifest.dependencies ?? [])].sort();
-      if (requiredDependencies.join("\\n") !== runtimeDependencies.join("\\n")) {
+      if (JSON.stringify(requiredDependencies) !== JSON.stringify(runtimeDependencies)) {
         throw new Error("Backend runtime dependencies do not match the signed package manifest");
       }
+      const expectedMigrations = manifest.migrations.filter(migration => migration.phase !== "uninstall").map(migration => ({ id: migration.id, checksum: migration.checksum })).sort((a,b) => a.id.localeCompare(b.id));
+      const runtimeMigrations = [...(plugin.tenantMigrations ?? [])].map(migration => ({ id: migration.id, checksum: migration.checksum })).sort((a,b) => a.id.localeCompare(b.id));
+      if (JSON.stringify(expectedMigrations) !== JSON.stringify(runtimeMigrations)) {
+        throw new Error("Backend tenant migrations do not match the signed package manifest");
+      }
       plugins.register(plugin);
+      registerRuntimePlugin(plugin);
       ctx.logger.info("Signed external plugin registered for startup", { pluginId: manifest.id, version: manifest.version });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
