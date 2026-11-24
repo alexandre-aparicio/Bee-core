@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { buildPluginPackages } from "../scripts/build-plugin-packages.mjs";
 import { installSignedPluginZip } from "../src/core/plugin-zip-installer.js";
 
@@ -31,6 +32,10 @@ test("four first-party modules build as independently signed ZIP packages", { sk
       assert.equal(installed.manifest.id, item.id);
       assert.equal(installed.manifest.frontend.routes.length, 0);
       assert.ok(installed.extractedFiles >= 4);
+      const entrypoint = join(installed.packageDirectory, installed.manifest.backend.entrypoint);
+      const loaded = await import(pathToFileURL(entrypoint).href) as { default?: { manifest?: { name?: string; version?: string } } };
+      assert.equal(loaded.default?.manifest?.name, item.id);
+      assert.equal(loaded.default?.manifest?.version, item.version);
     }
   } finally {
     await rm(root, { recursive: true, force: true });
