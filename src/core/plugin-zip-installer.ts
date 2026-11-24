@@ -1,5 +1,5 @@
 import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
-import { lstat, mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { validatePluginManifest, type BeeBusinessPluginManifest } from "./plugin-package.js";
@@ -244,4 +244,48 @@ export async function installSignedPluginZip(options: {
     await rm(lockPath, { recursive: true, force: true });
   }
   return { manifest, digest, storageKey: expectedStorageKey, packageDirectory, extractedFiles: files.size, extractedBytes };
+}
+
+/** Re-verify the immutable extracted package before importing its backend at startup. */
+export async function verifyStoredPluginDirectory(options: {
+  packageDirectory: string;
+  publisherPublicKey: string;
+  runtimeVersion: string;
+}): Promise<BeeBusinessPluginManifest> {
+  const rootInfo = await lstat(options.packageDirectory);
+  if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) fail("Stored plugin package directory is not a regular directory");
+  const files = new Map<string, Buffer>();
+  let totalBytes = 0;
+  const visit = async (directory: string): Promise<void> => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const absolute = join(directory, entry.name);
+      const name = relative(options.packageDirectory, absolute).split(sep).join("/");
+      safeArchivePath(name);
+      if (entry.isSymbolicLink()) fail("Stored plugin package contains a symbolic link");
+      if (entry.isDirectory()) { await visit(absolute); continue; }
+      if (!entry.isFile()) fail("Stored plugin package contains a special file");
+      const info = await lstat(absolute);
+      if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_ENTRY_UNCOMPRESSED) fail("Stored plugin package file is invalid or too large");
+      totalBytes += info.size;
+      if (totalBytes > MAX_TOTAL_UNCOMPRESSED || files.size >= MAX_ENTRIES) fail("Stored plugin package exceeds safety limits");
+      files.set(name, await readFile(absolute));
+    }
+  };
+  await visit(options.packageDirectory);
+  const manifestBytes = files.get("bee-plugin.json");
+  if (!manifestBytes) fail("Stored plugin manifest is missing");
+  let value: unknown;
+  try { value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes)); }
+  catch { fail("Stored plugin manifest is invalid"); }
+  validatePluginManifest(value);
+  const manifest = value as BeeBusinessPluginManifest;
+  const digest = packageDigest(files);
+  if (manifest.package.sha256.toLowerCase() !== digest) fail("Stored plugin package digest verification failed");
+  verifyPublisherSignature(manifest, options.publisherPublicKey);
+  if (compareVersions(manifest.compatibility.minRuntimeVersion, options.runtimeVersion) > 0 ||
+      (manifest.compatibility.maxRuntimeVersion && compareVersions(manifest.compatibility.maxRuntimeVersion, options.runtimeVersion) < 0)) {
+    fail("Stored plugin package is not compatible with this Bee Core runtime");
+  }
+  if (!files.has(manifest.backend.entrypoint)) fail("Stored plugin backend entrypoint is missing");
+  return manifest;
 }
