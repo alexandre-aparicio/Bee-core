@@ -31,9 +31,9 @@
      <section class="tt-history"><div class="tt-section-heading"><div><h3>Horario semanal</h3><p>Los días desactivados son días libres.</p></div></div>
       <label class="tt-field">Trabajador<select [ngModel]="selectedUserId" (ngModelChange)="selectMember($event)"><option *ngFor="let member of members" [value]="member.userId">{{member.email}} · {{member.role}}</option></select></label>
       <label class="tt-field">Zona horaria<input [(ngModel)]="timezone" placeholder="Europe/Madrid"></label>
-      <div class="tt-schedule-grid"><div class="tt-schedule-row tt-schedule-head"><span>Día</span><span>Activo</span><span>Entrada</span><span>Salida</span><span>Pausa (min)</span></div>
-       <div class="tt-schedule-row" *ngFor="let day of scheduleDraft;let i=index"><strong>{{['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][i]}}</strong><input type="checkbox" [(ngModel)]="day.enabled" [attr.aria-label]="'Activar '+['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][i]"><input type="time" [(ngModel)]="day.start" [disabled]="!day.enabled"><input type="time" [(ngModel)]="day.end" [disabled]="!day.enabled"><input type="number" min="0" max="240" step="5" [(ngModel)]="day.breakMinutes" [disabled]="!day.enabled"></div>
-      </div><div class="tt-actions"><button type="button" class="tt-primary" (click)="saveSchedule()" [disabled]="busy || !selectedUserId">Guardar horario</button></div>
+      <div class="tt-table-wrap"><table class="tt-table"><thead><tr><th scope="col">Día</th><th scope="col">Activo</th><th scope="col">Entrada</th><th scope="col">Salida</th><th scope="col">Pausa (min)</th></tr></thead><tbody>
+       <tr *ngFor="let day of scheduleDraft;let i=index"><th scope="row">{{['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][i]}}</th><td><input type="checkbox" [(ngModel)]="day.enabled" [attr.aria-label]="'Activar '+['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][i]"></td><td><input type="time" [(ngModel)]="day.start" [disabled]="!day.enabled"></td><td><input type="time" [(ngModel)]="day.end" [disabled]="!day.enabled"></td><td><input type="number" min="0" max="240" step="5" [(ngModel)]="day.breakMinutes" [disabled]="!day.enabled"></td></tr>
+      </tbody></table></div><div class="tt-actions"><button type="button" class="tt-primary" (click)="saveSchedule()" [disabled]="busy || !selectedUserId">Guardar horario</button></div>
      </section>
     </ng-container>
     <ng-container *ngIf="!canManage">
