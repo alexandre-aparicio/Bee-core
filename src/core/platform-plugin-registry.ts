@@ -57,6 +57,7 @@ export async function seedBundledPlatformPackages(
           description: definition.description,
           category: definition.category,
           dependencies: definition.dependencies,
+          ...(definition.activationPolicy ? { activationPolicy: definition.activationPolicy } : {}),
           updatedAt: now
         },
         $setOnInsert: {
