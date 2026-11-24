@@ -43,7 +43,7 @@ type MarketplacePlugin = {
               <span *ngIf="plugin.accessSource === 'purchase'">Purchased add-on</span>
               <span *ngIf="plugin.accessSource === 'manual'">Granted by Superadmin</span>
               <span *ngIf="!plugin.entitled">Not included</span>
-              <span *ngIf="plugin.installed" class="bee-marketplace__installed">{{plugin.enabled ? "Active" : "Inactive"}}</span>
+              <span *ngIf="plugin.installed" class="bee-marketplace__installed">{{plugin.enabled ? (plugin.entitled ? "Active" : "Blocked") : "Inactive"}}</span>
             </div>
           </div>
           <div class="bee-marketplace__actions">
