@@ -200,7 +200,7 @@ test("plugin package activation policy accepts automatic and manual modes", () =
   manual.activationPolicy = "manual";
   assert.doesNotThrow(() => validatePluginManifest(manual));
 
-  const invalid = structuredClone(validManifest) as BeeBusinessPluginManifest & { activationPolicy: string };
+  const invalid = structuredClone(validManifest) as any;
   invalid.activationPolicy = "sometimes";
   assert.throws(() => validatePluginManifest(invalid), /activation policy/i);
 });
