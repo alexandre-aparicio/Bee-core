@@ -234,7 +234,13 @@ export const organizationsPlugin:BeePlugin={
    }
    const token=randomBytes(32).toString("base64url"),now=new Date(),invitation:Invitation={id:randomUUID(),tenantId:req.params.companyId,email,role,...(customRoleId?{customRoleId}:{}),...(restrictionRoleIds.length?{restrictionRoleIds}:{}),tokenHash:createHash("sha256").update(token).digest("hex"),createdBy:auth.user!.id,createdAt:now,expiresAt:new Date(now.getTime()+7*24*60*60*1000),acceptedAt:null,cancelledAt:null};
    await invitations.insertOne(invitation);
-   await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"invitation",resourceId:invitation.id,metadata:{role:invitation.role,phase:"created"}});
+   const [assignedRole,assignedRestrictions]=await Promise.all([
+    invitation.customRoleId?customRoles.findOne({id:invitation.customRoleId,tenantId:invitation.tenantId}):Promise.resolve(null),
+    invitation.restrictionRoleIds?.length?customRoles.find({id:{$in:invitation.restrictionRoleIds},tenantId:invitation.tenantId}).toArray():Promise.resolve([])
+   ]);
+   const assignedRoleName=assignedRole?.name??invitation.role;
+   const assignedRestrictionNames=assignedRestrictions.map(item=>item.name);
+   await auditOrganizationEvent({tenantId:invitation.tenantId,actorId:auth.user!.id,action:"member.invited",outcome:"success",resourceType:"invitation",resourceId:invitation.id,metadata:{role:invitation.role,roleName:assignedRoleName,restrictionRoleNames:assignedRestrictionNames.join(", ").slice(0,256),actorEmail:auth.user!.email,targetEmail:email,phase:"created",changeSummary:"Invited "+email+" with "+assignedRoleName+(assignedRestrictionNames.length?"; restrictions: "+assignedRestrictionNames.join(", "):"")}});
    return reply.code(201).send({invitation:{id:mask(auth,invitation.id,"invitation"),email,role,expiresAt:invitation.expiresAt},acceptanceToken:token});
   });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/invitations",async(req,reply)=>{
