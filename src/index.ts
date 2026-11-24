@@ -35,6 +35,56 @@ const trustProxy = trustProxyRaw.toLowerCase() === "true"
 const events = new BeeEventBus(undefined, new Set(["bee.started", "auth.login", "notification.request"]));
 const plugins = new BeePluginManager();
 const app = Fastify({ logger: false, trustProxy });
+
+// Capacitor serves the bundled app from https://localhost on Android.
+// Keep the allowlist explicit; deployments can add their own trusted web origins
+// through BEE_CORS_ORIGINS (comma-separated, exact origins, no paths).
+const corsAllowedOrigins = new Set(
+  String(process.env.BEE_CORS_ORIGINS ?? "https://localhost,capacitor://localhost")
+    .split(",")
+    .map(origin => origin.trim())
+    .filter(Boolean)
+);
+const corsAllowedMethods = new Set(["GET", "POST", "PATCH", "DELETE", "OPTIONS"]);
+const corsAllowedHeaders = new Set([
+  "authorization",
+  "content-type",
+  "x-device-pairing-secret"
+]);
+
+app.addHook("onSend", async (request, reply, payload) => {
+  const origin = request.headers.origin;
+  if (origin && corsAllowedOrigins.has(origin)) {
+    reply.header("Access-Control-Allow-Origin", origin);
+    reply.header("Vary", "Origin");
+    reply.header("Access-Control-Allow-Methods", [...corsAllowedMethods].join(", "));
+    reply.header("Access-Control-Allow-Headers", [...corsAllowedHeaders].join(", "));
+    reply.header("Access-Control-Max-Age", "600");
+  }
+  return payload;
+});
+
+// Fastify's CORS preflight must be answered before the actual API route is called.
+app.options("/*", async (request, reply) => {
+  const origin = request.headers.origin;
+  const requestedMethod = String(request.headers["access-control-request-method"] ?? "").toUpperCase();
+  const requestedHeaders = String(request.headers["access-control-request-headers"] ?? "")
+    .split(",")
+    .map(header => header.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!origin || !corsAllowedOrigins.has(origin)) {
+    return reply.code(403).send({ error: "Origin is not allowed." });
+  }
+  if (!corsAllowedMethods.has(requestedMethod)) {
+    return reply.code(403).send({ error: "Requested CORS method is not allowed." });
+  }
+  if (requestedHeaders.some(header => !corsAllowedHeaders.has(header))) {
+    return reply.code(403).send({ error: "Requested CORS header is not allowed." });
+  }
+
+  return reply.code(204).send();
+});
 const mongoClient = new MongoClient(environment.mongoUri, {
   maxPoolSize: 20,
   minPoolSize: 1,
