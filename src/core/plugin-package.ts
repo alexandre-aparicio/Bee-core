@@ -29,6 +29,8 @@ export interface BeeBusinessPluginManifest {
     maxRuntimeVersion?: string;
   };
   dependencies: BeePluginDependency[];
+  /** Dependencies that must be installed for each tenant; separate from host runtime dependencies. */
+  tenantDependencies?: string[];
   permissions: BeePluginPermission[];
   backend: { entrypoint: string };
   frontend: { routes: Array<{ path: string; component: string }> };
@@ -103,6 +105,7 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   if (item.compatibility.maxRuntimeVersion !== undefined && (typeof item.compatibility.maxRuntimeVersion !== "string" || !semver.test(item.compatibility.maxRuntimeVersion))) throw new Error("Invalid maximum runtime version");
   const versionRange = /^(?:\*|(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s+\|\|\s+(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)*$/;
   if (!Array.isArray(item.dependencies) || item.dependencies.some((dependency: any) => !record(dependency) || typeof dependency.pluginId !== "string" || !pluginId.test(dependency.pluginId) || typeof dependency.versionRange !== "string" || !versionRange.test(dependency.versionRange.trim()))) throw new Error("Invalid plugin dependencies");
+  if (item.tenantDependencies !== undefined && (!Array.isArray(item.tenantDependencies) || item.tenantDependencies.some((id: unknown) => typeof id !== "string" || !pluginId.test(id)) || new Set(item.tenantDependencies).size !== item.tenantDependencies.length)) throw new Error("Invalid tenant plugin dependencies");
   if (new Set(item.dependencies.map((dependency: any) => dependency.pluginId)).size !== item.dependencies.length) throw new Error("Plugin dependencies must be unique");
   if (!Array.isArray(item.permissions) || item.permissions.some((permission: any) => !record(permission) || typeof permission.key !== "string" || !permissionKey.test(permission.key) || typeof permission.description !== "string" || !permission.description.trim())) throw new Error("Invalid plugin permissions");
   if (new Set(item.permissions.map((permission: any) => permission.key)).size !== item.permissions.length) throw new Error("Plugin permissions must be unique");
