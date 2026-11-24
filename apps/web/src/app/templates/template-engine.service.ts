@@ -401,7 +401,10 @@ export class BeeTemplateEngine {
     document.body.dataset['beeDashboardTemplate'] = this.selection.dashboard;
     document.body.dataset['beePublicMode'] = this.getMode('public');
     document.body.dataset['beeDashboardMode'] = this.getMode('dashboard');
-    const activeTarget: BeeTemplateTarget = window.location.pathname === '/dashboard' || window.location.pathname.startsWith('/dashboard/') ? 'dashboard' : 'public';
+    const pathname = window.location.pathname;
+    const isDashboardSurface = pathname === '/dashboard' || pathname.startsWith('/dashboard/')
+      || ['/login', '/register', '/forgot', '/invite/accept'].includes(pathname);
+    const activeTarget: BeeTemplateTarget = isDashboardSurface ? 'dashboard' : 'public';
     document.documentElement.dataset['beeActiveTemplate'] = this.selection[activeTarget];
     document.documentElement.dataset['beeActiveMode'] = this.getMode(activeTarget);
     const publicHost = this.themeHost('public');
