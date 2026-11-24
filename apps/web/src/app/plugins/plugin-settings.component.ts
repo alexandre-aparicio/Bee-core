@@ -14,6 +14,7 @@ type PlatformPackage = {
   publisher?: string | null;
   status: string;
   source: string;
+  globallyEnabled?: boolean;
 };
 
 type PackageTenantUsage = { pluginId: string; canRemove: boolean; installedCount: number; inactiveCount: number; pendingJobCount: number; tenants: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; inactiveTenants?: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; pendingJobs: Array<{tenantName:string;action:string;status:string}>; };
@@ -28,7 +29,7 @@ type PluginRecord = {
   id: string; name: string; version: string; description: string; category: string;
   system: boolean; entitled: boolean; installed: boolean; installedVersion?: string | null;
   accessSource?: string | null; dependencies?: string[]; purchasable?: boolean;
-  packageSource?: string | null; runtimeState?: string | null; pluginKey?: string;
+  packageSource?: string | null; runtimeState?: string | null; pluginKey?: string; globallyEnabled?: boolean;
 };
 
 @Component({
@@ -90,6 +91,10 @@ type PluginRecord = {
                 <div><dt>Access</dt><dd>{{plugin.accessSource || '—'}}</dd></div>
               </dl>
               <div *ngIf="plugin.dependencies?.length"><strong>Dependencies</strong><p>{{plugin.dependencies?.length}} required module(s)</p></div>
+              <div *ngIf="isPlatformAdmin && platformPackageFor(plugin) as platformPackage" class="plugin-settings__global-control">
+                <div><strong>Global availability</strong><p>{{platformPackage.globallyEnabled === false ? "Suspended for every tenant. Tenant installations and data are preserved." : "Available to tenants according to their own activation and plan."}}</p></div>
+                <button type="button" class="plugin-settings__save" (click)="toggleGlobalActivation(platformPackage)" [disabled]="globalActivationBusyId===platformPackage.pluginKey">{{globalActivationBusyId===platformPackage.pluginKey ? "Saving…" : (platformPackage.globallyEnabled === false ? "Enable globally" : "Disable globally")}}</button>
+              </div>
             </div>
           </article>
         </ng-container>
@@ -289,6 +294,9 @@ type PluginRecord = {
     .plugin-settings__detail{display:flex;gap:18px;padding:22px;border:1px solid var(--border,#8885);border-radius:16px;background:var(--panel,#8881)}
     .plugin-settings__detail-icon{width:56px;height:56px;flex-basis:56px;font-size:25px}
     .plugin-settings__detail-main{flex:1;min-width:0}
+    .plugin-settings__global-control{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;padding:14px;border:1px solid var(--border,#8885);border-radius:10px}
+    .plugin-settings__global-control p{font-size:11px;max-width:520px}
+    @media(max-width:600px){.plugin-settings__global-control{align-items:flex-start;flex-direction:column}}
     .plugin-settings__detail-main>p{margin:10px 0 20px}
     .plugin-settings__detail dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0}
     .plugin-settings__detail dl div{padding:12px;border:1px solid var(--border,#8885);border-radius:10px}
@@ -353,6 +361,7 @@ export class PluginSettingsComponent implements OnInit {
   pluginPackagesLoading = false;
   pluginUploadBusy = false;
   packageSavingId = "";
+  globalActivationBusyId = "";
   packageError = "";
   busyId = "";
   message = "";
@@ -373,7 +382,7 @@ export class PluginSettingsComponent implements OnInit {
         installed: pkg.runtimeState === "loaded" || pkg.status === "installed",
         installedVersion: pkg.version, accessSource: "platform",
         packageSource: pkg.source, runtimeState: pkg.runtimeState || pkg.status,
-        pluginKey: pkg.pluginKey
+        globallyEnabled: pkg.globallyEnabled !== false, pluginKey: pkg.pluginKey
       });
     }
     const query = this.search.trim().toLocaleLowerCase();
@@ -394,6 +403,23 @@ export class PluginSettingsComponent implements OnInit {
   }
   closePlanConfig(): void { this.planConfigPlugin = null; this.packageError = ""; }
   toggleMenu(id: string): void { this.openMenuId = this.openMenuId === id ? "" : id; }
+  async toggleGlobalActivation(plugin: PlatformPackage): Promise<void> {
+    if (!this.isPlatformAdmin || this.globalActivationBusyId) return;
+    const enabled = plugin.globallyEnabled === false;
+    this.globalActivationBusyId = plugin.pluginKey; this.packageError = ""; this.message = "";
+    try {
+      const response = await fetch("/api/platform/plugin-packages/" + encodeURIComponent(plugin.pluginKey) + "/activation", {
+        method: "PUT", headers: { authorization: "Bearer " + this.token, "content-type": "application/json" },
+        body: JSON.stringify({ enabled })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not change global plugin availability");
+      plugin.globallyEnabled = enabled;
+      this.message = plugin.name + (enabled ? " is available globally again." : " has been suspended globally. Tenant data and activation settings were preserved.");
+      if (this.detail) this.detail = { ...this.detail, globallyEnabled: enabled };
+    } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not change global plugin availability"; }
+    finally { this.globalActivationBusyId = ""; }
+  }
   async loadPlatformPackages(): Promise<void> {
     if (!this.isPlatformAdmin || this.pluginPackagesLoading) return;
     this.pluginPackagesLoading = true; this.packageError = "";
@@ -482,10 +508,12 @@ export class PluginSettingsComponent implements OnInit {
       const match = window.location.pathname.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/);
       if (match) {
         const id = decodeURIComponent(match[1]);
-        const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(id), { headers: { authorization: "Bearer " + this.token } });
+        const response = await fetch("/api/marketplace/plugins", { headers: { authorization: "Bearer " + this.token } });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not load plugin details");
-        this.detail = result.plugin;
+        if (!response.ok) throw new Error(result.error || "Could not load plugins");
+        this.plugins = result.plugins || [];
+        this.detail = this.plugins.find(plugin => plugin.id === id) || null;
+        if (!this.detail) throw new Error("This plugin is not available in the current catalogue.");
       } else {
         const response = await fetch("/api/marketplace/plugins", { headers: { authorization: "Bearer " + this.token } });
         const result = await response.json();
