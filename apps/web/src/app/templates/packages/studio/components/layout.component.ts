@@ -6,6 +6,6 @@ import { Component, ViewEncapsulation } from '@angular/core';
   template: '<ng-content></ng-content>',
   styleUrls: ['../styles.css', '../../../core/appearance-modes.css'],
   encapsulation: ViewEncapsulation.None,
-  host: { class: 'bee-template-package-host bee-template-package-host--studio', 'attr.data-bee-template': 'studio' },
+  host: { class: 'bee-template-package-host bee-template-package-host--studio', 'data-bee-template': 'studio' },
 })
 export class BeeStudioLayoutComponent {}

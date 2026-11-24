@@ -6,6 +6,6 @@ import { Component, ViewEncapsulation } from '@angular/core';
   template: '<ng-content></ng-content>',
   styleUrls: ['../styles.css', '../../../core/appearance-modes.css'],
   encapsulation: ViewEncapsulation.None,
-  host: { class: 'bee-template-package-host bee-template-package-host--midnight', 'attr.data-bee-template': 'midnight' },
+  host: { class: 'bee-template-package-host bee-template-package-host--midnight', 'data-bee-template': 'midnight' },
 })
 export class BeeMidnightLayoutComponent {}
