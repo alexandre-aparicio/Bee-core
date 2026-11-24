@@ -30,8 +30,17 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         runtimeVersion: "0.3.1"
       });
       assert.equal(installed.manifest.id, item.id);
-      assert.equal(installed.manifest.frontend.routes.length, 0);
       assert.ok(installed.extractedFiles >= 4);
+      if (item.id === "hello-world") {
+        assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
+        assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
+        const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
+        const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
+        assert.match(html, /Hola Mundo/);
+        assert.match(script, /bee-plugin:ready/);
+      } else {
+        assert.equal(installed.manifest.frontend.routes.length, 0);
+      }
       const entrypoint = join(installed.packageDirectory, installed.manifest.backend.entrypoint);
       const loaded = await import(pathToFileURL(entrypoint).href) as { default?: { manifest?: { name?: string; version?: string } } };
       assert.equal(loaded.default?.manifest?.name, item.id);
