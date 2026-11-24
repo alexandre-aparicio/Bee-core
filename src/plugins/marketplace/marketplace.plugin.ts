@@ -507,7 +507,10 @@ export const marketplacePlugin: BeePlugin = {
               { tenantId: job.tenantId, pluginId: job.pluginId, status: { $in: ["installed", "uninstalling"] } },
               { $set: { status: "uninstalling", updatedAt: new Date() } }
             );
-            await trusted.uninstallTenant?.(db, job.tenantId);
+            // External package uninstall must retain tenant-owned collections.
+            // Data cleanup is a separate, explicit operation and is never implicit in uninstall.
+            const externalRuntimePackage = !getTrustedPluginPackage(job.pluginId) && Boolean(getRuntimePlugin(job.pluginId));
+            if (!externalRuntimePackage) await trusted.uninstallTenant?.(db, job.tenantId);
             await db.collection("tenant_plugin_installations").updateOne(
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
               { $set: { status: "uninstalled", updatedAt: new Date() }, $unset: { error: "" } }
