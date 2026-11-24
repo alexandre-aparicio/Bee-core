@@ -67,7 +67,7 @@ type TenantPluginPurchase = Document & {
 };
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "hello-world", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices"], maxUsers: 5, storageMb: 100 },
+  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: 5, storageMb: 100 },
   { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: 25, storageMb: 1024 },
   { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "hello-world", "connected-devices", "time-tracking"], maxUsers: null, storageMb: 10240 }
 ];
@@ -134,9 +134,9 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     version: "0.1.0",
     description: "Tenant-scoped employee time clock, breaks and work-session history",
     category: "productivity",
-    visibleInPlans: ["pro", "enterprise"],
-    includedInPlans: ["pro", "enterprise"],
-    purchasable: true,
+    visibleInPlans: ["starter", "pro", "enterprise"],
+    includedInPlans: ["starter", "pro", "enterprise"],
+    purchasable: false,
     system: false,
     dependencies: [],
     codeAvailable: true,
