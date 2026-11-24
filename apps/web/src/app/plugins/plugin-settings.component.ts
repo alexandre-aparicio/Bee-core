@@ -367,7 +367,7 @@ export class PluginSettingsComponent implements OnInit {
   packageError = "";
   busyId = "";
   message = "";
-  ngOnInit(): void { void this.load(); if (this.isPlatformAdmin) void this.loadPlatformPackages(); }
+  ngOnInit(): void { void this.load(); }
   private get token(): string { return this.accessToken; }
   get filteredPlugins(): PluginRecord[] {
     const merged = this.plugins.map(plugin => {
@@ -507,21 +507,60 @@ export class PluginSettingsComponent implements OnInit {
     if (!this.token) { this.error = "Your session is not available. Sign in again."; return; }
     this.loading = true; this.error = "";
     try {
+      const headers = { authorization: "Bearer " + this.token };
       const match = window.location.pathname.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/);
-      if (match) {
-        const id = decodeURIComponent(match[1]);
-        const response = await fetch("/api/marketplace/plugins", { headers: { authorization: "Bearer " + this.token } });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not load plugins");
-        this.plugins = result.plugins || [];
-        this.detail = this.plugins.find(plugin => plugin.id === id) || null;
-        if (!this.detail) throw new Error("This plugin is not available in the current catalogue.");
-      } else {
-        const response = await fetch("/api/marketplace/plugins", { headers: { authorization: "Bearer " + this.token } });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not load plugins");
-        this.plugins = result.plugins || [];
+      const [catalogResponse, packagesResponse] = await Promise.all([
+        fetch("/api/marketplace/plugins", { headers }),
+        this.isPlatformAdmin ? fetch("/api/platform/plugin-packages", { headers }) : Promise.resolve(null)
+      ]);
+      const catalogResult = await catalogResponse.json();
+      if (!catalogResponse.ok) throw new Error(catalogResult.error || "Could not load plugins");
+      this.plugins = catalogResult.plugins || [];
+
+      if (packagesResponse) {
+        const packagesResult = await packagesResponse.json();
+        if (!packagesResponse.ok) throw new Error(packagesResult.error || "Could not load global packages");
+        this.platformPackages = packagesResult.packages || [];
+        await this.loadPlatformPlans();
+      }
+
+      if (!match) {
         this.detail = null;
+        return;
+      }
+
+      const id = decodeURIComponent(match[1]);
+      const catalogPlugin = this.plugins.find(plugin => plugin.id === id) || null;
+      const platformPackage = this.platformPackages.find(pkg => pkg.pluginKey === id || pkg.id === id) || null;
+      if (catalogPlugin) {
+        this.detail = platformPackage ? {
+          ...catalogPlugin,
+          packageSource: platformPackage.source,
+          runtimeState: platformPackage.runtimeState || platformPackage.status,
+          pluginKey: platformPackage.pluginKey,
+          globallyEnabled: platformPackage.globallyEnabled !== false
+        } : catalogPlugin;
+      } else if (platformPackage) {
+        this.detail = {
+          id: platformPackage.pluginKey,
+          name: platformPackage.name,
+          version: platformPackage.version,
+          description: platformPackage.description || "Platform package",
+          category: platformPackage.category || "Platform",
+          system: false,
+          entitled: true,
+          installed: platformPackage.status === "installed",
+          installedVersion: platformPackage.version,
+          accessSource: "platform",
+          dependencies: platformPackage.dependencies || [],
+          packageSource: platformPackage.source,
+          runtimeState: platformPackage.runtimeState || platformPackage.status,
+          pluginKey: platformPackage.pluginKey,
+          globallyEnabled: platformPackage.globallyEnabled !== false
+        };
+      } else {
+        this.detail = null;
+        throw new Error("This plugin is not available in the marketplace catalogue or platform package registry.");
       }
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not load plugins"; }
     finally { this.loading = false; }
