@@ -1016,7 +1016,7 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Removed the previous bottom-aligned title/actions flex row that caused the controls to sit at a different vertical baseline and compress the available filter space.
 - Added explicit border-box sizing and responsive wrapping: filters take the full row on narrower layouts, with the view switch and upload action remaining grouped on the following row.
 - Search, type filtering, view state, ZIP upload behavior and permissions are unchanged.
-- **Validation pending:** source-level layout correction only; Angular CI and browser responsive/Light/Dark visual QA have not yet run.
+- **Validation:** PR #189 CI run `45448094173` completed successfully. The Angular production build and Playwright test-discovery step both passed. Test discovery does not execute browser E2E tests; browser interaction and responsive/Light/Dark visual QA remain pending.
 
 
 - Follow-up: keep the single native ZIP file input permanently hidden; the visible Upload plugin button remains its only user-facing trigger, avoiding a second native file-picker control in the toolbar.
