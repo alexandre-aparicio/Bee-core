@@ -179,7 +179,7 @@ export const organizationsPlugin:BeePlugin={
    if(!existing)return reply.code(404).send({error:"Custom role not found"});
    const mode=req.body?.mode==="restriction"?"restriction":req.body?.mode==="grant"?"grant":existing.mode??"grant";
    let name:string,permissions:string[];
-   try{name=normalizeCustomRoleName(req.body?.name);permissions=mode==="restriction"?normalizeRestrictionPermissions(req.body?.permissions):normalizeTenantCustomRolePermissions(req.body?.permissions,await getTenantAssignablePermissions(req.params.companyId));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
+   try{name=normalizeCustomRoleName(req.body?.name);permissions=mode==="restriction"?normalizeRestrictionPermissions(req.body?.permissions):normalizeTenantCustomRolePermissions(req.body?.permissions,await getTenantAssignablePermissions(auth.tenantContext.tenantId));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
    const description=String(req.body?.description??"").trim().slice(0,240);
    if(mode!== (existing.mode??"grant")){
     const assigned=await memberships.countDocuments({tenantId:req.params.companyId,$or:[{customRoleId:req.params.roleId},{restrictionRoleIds:req.params.roleId}]});
