@@ -91,11 +91,14 @@ type PluginRecord = {
                 <div><dt>Access</dt><dd>{{plugin.accessSource || '—'}}</dd></div>
               </dl>
               <div *ngIf="plugin.dependencies?.length"><strong>Dependencies</strong><p>{{plugin.dependencies?.length}} required module(s)</p></div>
-              <div *ngIf="canManage && plugin.installed" class="plugin-settings__global-control">
-                <div><strong>Company availability</strong><p>{{plugin.enabled === false ? 'This module is deactivated for this company. Its installation and data are preserved.' : 'This module is active for this company.'}} Uninstalling removes the company installation but preserves Documents files and metadata.</p></div>
+              <div *ngIf="canManage && (plugin.installed || plugin.entitled)" class="plugin-settings__global-control">
+                <div><strong>Company installation</strong><p *ngIf="plugin.installed">{{plugin.enabled === false ? 'This module is deactivated for this company. Its installation and data are preserved.' : 'This module is active for this company.'}} Uninstalling removes the company installation but preserves Documents files and metadata.</p><p *ngIf="!plugin.installed">This module is available under the company plan and can be installed independently.</p></div>
                 <div class="plugin-settings__control-actions">
-                  <button type="button" class="plugin-settings__save" (click)="toggleTenantActivation(plugin)" [disabled]="tenantActivationBusyId===plugin.id">{{tenantActivationBusyId===plugin.id ? 'Saving…' : (plugin.enabled === false ? 'Activate for this company' : 'Deactivate for this company')}}</button>
-                  <button type="button" class="plugin-settings__cancel" (click)="uninstallTenantPlugin(plugin)" [disabled]="tenantActivationBusyId===plugin.id">{{tenantActivationBusyId===plugin.id ? 'Uninstalling…' : 'Uninstall from this company'}}</button>
+                  <button *ngIf="!plugin.installed" type="button" class="plugin-settings__save" (click)="installTenantPlugin(plugin)" [disabled]="tenantActivationBusyId===plugin.id">{{tenantActivationBusyId===plugin.id ? 'Installing…' : 'Install for this company'}}</button>
+                  <ng-container *ngIf="plugin.installed">
+                    <button type="button" class="plugin-settings__save" (click)="toggleTenantActivation(plugin)" [disabled]="tenantActivationBusyId===plugin.id">{{tenantActivationBusyId===plugin.id ? 'Saving…' : (plugin.enabled === false ? 'Activate for this company' : 'Deactivate for this company')}}</button>
+                    <button type="button" class="plugin-settings__cancel" (click)="uninstallTenantPlugin(plugin)" [disabled]="tenantActivationBusyId===plugin.id">{{tenantActivationBusyId===plugin.id ? 'Uninstalling…' : 'Uninstall from this company'}}</button>
+                  </ng-container>
                 </div>
               </div>
               <div *ngIf="isPlatformAdmin && platformPackageFor(plugin) as platformPackage" class="plugin-settings__global-control">
@@ -414,6 +417,33 @@ export class PluginSettingsComponent implements OnInit {
   }
   closePlanConfig(): void { this.planConfigPlugin = null; this.packageError = ""; }
   toggleMenu(id: string): void { this.openMenuId = this.openMenuId === id ? "" : id; }
+  async installTenantPlugin(plugin: PluginRecord): Promise<void> {
+    if (!this.canManage || plugin.installed || !plugin.entitled || this.tenantActivationBusyId) return;
+    this.tenantActivationBusyId = plugin.id; this.packageError = ""; this.message = "";
+    try {
+      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(plugin.id) + "/install", {
+        method: "POST", headers: { authorization: "Bearer " + this.token }
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not install this module");
+      if (result.statusUrl) {
+        let completed = false;
+        for (let attempt = 0; attempt < 60; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const statusResponse = await fetch("/api" + result.statusUrl, { headers: { authorization: "Bearer " + this.token } });
+          const statusResult = await statusResponse.json();
+          if (!statusResponse.ok) throw new Error(statusResult.error || "Could not check installation status");
+          const status = statusResult.job?.status;
+          if (status === "succeeded") { completed = true; break; }
+          if (status === "failed") throw new Error(statusResult.job?.error || "Module installation failed");
+        }
+        if (!completed) throw new Error("Installation is still processing. Refresh the module list shortly.");
+      }
+      this.message = plugin.name + " was installed for this company.";
+      await this.load();
+    } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not install this module"; }
+    finally { this.tenantActivationBusyId = ""; }
+  }
   async uninstallTenantPlugin(plugin: PluginRecord): Promise<void> {
     if (!this.canManage || !plugin.installed || this.tenantActivationBusyId) return;
     const confirmed = window.confirm("Uninstall " + plugin.name + " from this company? Documents and stored files will be preserved.");
@@ -445,7 +475,7 @@ export class PluginSettingsComponent implements OnInit {
     finally { this.tenantActivationBusyId = ""; }
   }
   async toggleTenantActivation(plugin: PluginRecord): Promise<void> {
-    if (!this.canManage || this.isPlatformAdmin || !plugin.installed || this.tenantActivationBusyId) return;
+    if (!this.canManage || !plugin.installed || this.tenantActivationBusyId) return;
     const enabled = plugin.enabled === false;
     this.tenantActivationBusyId = plugin.id; this.packageError = ""; this.message = "";
     try {
