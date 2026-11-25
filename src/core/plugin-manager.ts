@@ -1,5 +1,6 @@
 import type { BeeContext, BeePlugin, BeePluginInfo, BeePluginStatus } from "./types.js";
 import { createHmac } from "node:crypto";
+import { CORE_PLUGIN_SERVICE_CONFIG } from "./plugin-services.js";
 
 interface ManagedPlugin {
   plugin: BeePlugin;
@@ -21,31 +22,20 @@ export class BeePluginManager {
     this.plugins.set(name, { plugin, status: "registered" });
   }
 
-  private readonly configAccess: Record<string, readonly string[]> = {
-    auth: ["mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "authMfaEncryptionKey", "publicBaseDomain", "sessionIdSecret"],
-    organizations: ["mongoDbName", "publicBaseDomain", "sessionIdSecret"],
-    teams: ["mongoDbName", "sessionIdSecret"],
-    files: ["mongoDbName", "fileStoragePath", "sessionIdSecret"],
-    documents: ["mongoDbName", "fileStoragePath", "sessionIdSecret"],
-    "connected-devices": ["mongoDbName", "sessionIdSecret"],
-    "time-tracking": ["mongoDbName", "sessionIdSecret"],
-    marketplace: ["mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
-    mail: ["mongoDbName", "sessionIdSecret"],
-    notifications: ["mongoDbName", "sessionIdSecret"],
-    // Platform package upload and verification need the configured storage root
-    // and publisher public key. Never expose the publisher private key to plugins.
-    "platform-admin": ["mongoDbName", "sessionIdSecret", "pluginPackagePath", "pluginPublisherPublicKey"],
-    localization: ["mongoDbName", "sessionIdSecret"],
-    hello: []
-  };
 
-  private createPluginContext(pluginName: string, ctx: BeeContext): BeeContext {
+  private createPluginContext(plugin: BeePlugin, ctx: BeeContext): BeeContext {
+    const pluginName = plugin.manifest.name;
     const prefix = `[${pluginName}]`;
-    const allowedConfig = this.configAccess[pluginName.toLowerCase()] ?? [];
+    const requiredServices = plugin.manifest.requiredServices ?? ["mongo"];
+    const unknownService = requiredServices.find(service => !Object.prototype.hasOwnProperty.call(CORE_PLUGIN_SERVICE_CONFIG, service));
+    if (unknownService) throw new Error(`Plugin '${pluginName}' requires unsupported host service '${unknownService}'.`);
+    const allowedConfig = [...new Set(requiredServices.flatMap(service => CORE_PLUGIN_SERVICE_CONFIG[service] ?? []))];
+    const missingConfig = allowedConfig.filter(key => !Object.prototype.hasOwnProperty.call(ctx.config, key) && key !== "sessionIdSecret");
+    if (missingConfig.length) throw new Error(`Plugin '${pluginName}' requires host service configuration that is unavailable: ${missingConfig.join(", ")}.`);
     const scopedConfig = Object.fromEntries(allowedConfig.filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
     // Resource references use a dedicated key derived from JWT_SECRET. Plugins
     // that serialize IDs never receive the JWT signing secret itself.
-    if (allowedConfig.includes("sessionIdSecret")) {
+    if (requiredServices.includes("session-resource-ids")) {
       const jwtSecret = String(ctx.config.jwtSecret ?? "");
       if (jwtSecret.length >= 32) scopedConfig.sessionIdSecret = createHmac("sha256", jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
     }
@@ -223,7 +213,7 @@ export class BeePluginManager {
   async stopAll(ctx: BeeContext): Promise<void> {
     for (const managed of [...this.startupOrder].reverse()) {
       if (managed.status !== "started") continue;
-      const pluginContext = managed.context ?? this.createPluginContext(managed.plugin.manifest.name, ctx);
+      const pluginContext = managed.context ?? this.createPluginContext(managed.plugin, ctx);
       try {
         await managed.plugin.stop?.(pluginContext);
         managed.status = "stopped";
