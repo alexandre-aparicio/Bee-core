@@ -37,3 +37,56 @@ test("Core and host dashboard stay independent from feature package identifiers"
     assert.doesNotMatch(source, /\b(?:documents|connected-devices|time-tracking)\b/i, file + " must consume generic frontend registrations");
   }
 });
+
+
+test("Connected Devices is ZIP-only and has no Core or Angular static registration", async () => {
+  const backendBootstrap = await readFile(resolve(root, "src/index.ts"), "utf8");
+  assert.doesNotMatch(backendBootstrap, /connectedDevicesPlugin|connected-devices/, "backend bootstrap must not import or register Connected Devices");
+
+  const coreSources = [
+    "src/core/plugin-manager.ts",
+    "src/core/plugin-entitlements.ts",
+    "src/core/plugin-package.ts",
+    "src/plugins/platform-admin/platform-admin.plugin.ts"
+  ];
+  for (const file of coreSources) {
+    const source = await readFile(resolve(root, file), "utf8");
+    assert.doesNotMatch(source, /connected-devices|connectedDevicesPlugin/i, file + " must not contain Connected Devices package-specific logic");
+  }
+
+  const manifestRegistry = await readFile(resolve(root, "src/plugins/plugin-manifest-registry.ts"), "utf8");
+  const builtInPlans = manifestRegistry.split("export const TRUSTED_PLUGIN_PACKAGES")[0] ?? "";
+  const trustedPackages = manifestRegistry.split("export const MIGRATABLE_BUILT_IN_PACKAGE_IDS")[0] ?? "";
+  assert.doesNotMatch(builtInPlans, /connected-devices/, "Connected Devices must not be a built-in plan entitlement");
+  assert.doesNotMatch(trustedPackages, /id:\\s*"connected-devices"/, "Connected Devices must not be seeded as a trusted bundled package");
+
+  const frontendRegistrations = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
+  assert.doesNotMatch(frontendRegistrations, /connected-devices|connectedDevicesFrontend/i);
+  const remoteRegistry = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
+  assert.match(remoteRegistry, /setRemoteNavigation/);
+  const dashboard = await readFile(resolve(root, "apps/web/src/app/app.component.ts"), "utf8");
+  assert.match(dashboard, /setRemoteNavigation/);
+  assert.match(dashboard, /frontendRoutes/);
+
+  for (const file of [
+    "apps/web/src/app/connected-devices/connected-devices-api.service.ts",
+    "apps/web/src/app/connected-devices/connected-devices.component.ts",
+    "apps/web/src/app/connected-devices/connected-devices.frontend.ts"
+  ]) {
+    await assert.rejects(readFile(resolve(root, file), "utf8"), { code: "ENOENT" }, file + " must be removed from the Angular host");
+  }
+});
+
+test("Connected Devices simulator remains a separate developer asset with its security allowances", async () => {
+  const angular = await readFile(resolve(root, "apps/web/angular.json"), "utf8");
+  const styleGuard = JSON.parse(await readFile(resolve(root, "apps/web/scripts/style-guard.config.json"), "utf8"));
+  const simulator = await readFile(resolve(root, "apps/web/src/assets/device-simulator/device-simulator.js"), "utf8");
+  const server = await readFile(resolve(root, "src/index.ts"), "utf8");
+  assert.match(angular, /src\\/assets\\/device-simulator/);
+  assert.ok(styleGuard.allowlist?.some((item: { pattern?: string }) => item.pattern === "src/assets/device-simulator/**"));
+  assert.match(simulator, /fetch\\(api\\(\\)\\+path/);
+  assert.match(simulator, /method:"POST",body:"\\{\\}"/, "heartbeat must keep an explicit JSON body");
+  assert.match(server, /"https:\\/\\/localhost,capacitor:\\/\\/localhost"/);
+  assert.match(server, /"x-device-pairing-secret"/);
+  assert.match(server, /"POST"/);
+});
