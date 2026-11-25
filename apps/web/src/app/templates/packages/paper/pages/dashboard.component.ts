@@ -6,7 +6,7 @@ import type { AppComponent } from '../../../../app.component';
   selector: 'bee-template-paper-page',
   standalone: true,
   imports: [BeeDashboardPageComponent],
-  template: '<bee-template-dashboard-page [vm]="vm" [guardDocuments]="false" [passSettingsAccessToken]="true"></bee-template-dashboard-page>',
+  template: '<bee-template-dashboard-page [vm]="vm" [passSettingsAccessToken]="true"></bee-template-dashboard-page>',
   styles: [],
   encapsulation: ViewEncapsulation.None,
 })

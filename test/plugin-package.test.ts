@@ -12,7 +12,8 @@ const validManifest: BeeBusinessPluginManifest = {
   category: "crm",
   compatibility: { minRuntimeVersion: "0.3.0" },
   dependencies: [{ pluginId: "core.audit", versionRange: "^1.0.0", optional: true }],
-  permissions: [{ key: "crm.contacts.read", description: "Read company contacts" }],
+  requiredServices: ["mongoDbName"],
+  permissions: [{ key: "crm.contacts.read", module: "crm.contacts", resource: "contacts", action: "read", label: "Read contacts", defaultGrants: { owner: true, admin: true, manager: true, member: false } }],
   backend: { entrypoint: "dist/backend/index.mjs" },
   frontend: { routes: [{ path: "/crm/contacts", component: "crm.contacts.list" }] },
   collections: ["crm_contacts", "crm_contact_notes"],
@@ -33,6 +34,10 @@ test("plugin manifest rejects unsafe paths, invalid IDs, duplicate permissions a
   assert.throws(() => validatePluginManifest({ ...validManifest, permissions: [...validManifest.permissions, ...validManifest.permissions] }), /unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, dependencies: [...validManifest.dependencies, ...validManifest.dependencies] }), /dependencies must be unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, dependencies: [{ pluginId: "core.audit", versionRange: "latest" }] }), /Invalid plugin dependencies/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, requiredServices: ["jwtSecret"] }), /required services/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, permissions: [{ ...validManifest.permissions[0], defaultGrants: { owner: true, admin: true, manager: true } }] }), /Invalid plugin permissions/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, permissions: [{ ...validManifest.permissions[0], action: "not valid" }] }), /Invalid plugin permissions/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, permissions: [{ ...validManifest.permissions[0], module: "files", key: "files.read" }] }), /Invalid plugin permissions/);
   assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [{ path: "/same", component: "crm.contacts.list" }, { path: "/same", component: "crm.contacts.detail" }] } }), /route paths must be unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, collections: ["crm_contacts", "crm_contacts"] }), /collection names must be unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, migrations: [...validManifest.migrations, ...validManifest.migrations] }), /migration IDs must be unique/);

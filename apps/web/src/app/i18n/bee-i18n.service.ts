@@ -6,7 +6,6 @@ import { MARKETPLACE_EN, MARKETPLACE_ES } from './catalogs/modules/marketplace.c
 import { NOTIFICATIONS_EN, NOTIFICATIONS_ES } from './catalogs/modules/notifications.catalog';
 import { MAIL_EN, MAIL_ES } from './catalogs/modules/mail.catalog';
 import { FILES_EN, FILES_ES } from './catalogs/modules/files.catalog';
-import { DOCUMENTS_EN, DOCUMENTS_ES } from './catalogs/modules/documents.catalog';
 import { PLATFORM_ADMIN_EN, PLATFORM_ADMIN_ES } from './catalogs/modules/platform-admin.catalog';
 
 export type BeeLanguage = 'en' | 'es';
@@ -36,7 +35,6 @@ export class BeeI18nService {
     this.registerCatalog('notifications', 'en', NOTIFICATIONS_EN); this.registerCatalog('notifications', 'es', NOTIFICATIONS_ES);
     this.registerCatalog('mail', 'en', MAIL_EN); this.registerCatalog('mail', 'es', MAIL_ES);
     this.registerCatalog('files', 'en', FILES_EN); this.registerCatalog('files', 'es', FILES_ES);
-    this.registerCatalog('documents', 'en', DOCUMENTS_EN); this.registerCatalog('documents', 'es', DOCUMENTS_ES);
     this.registerCatalog('platform-admin', 'en', PLATFORM_ADMIN_EN); this.registerCatalog('platform-admin', 'es', PLATFORM_ADMIN_ES);
     this.applyDocumentLanguage();
   }

@@ -9,7 +9,7 @@ const isLocale = (value: unknown): value is "en" | "es" => value === "en" || val
 type Claims = { aud?: string; sub?: string; sid?: string; client?: "backend" | "dashboard" | "public" };
 
 export const localizationPlugin: BeePlugin = {
-  manifest: {
+  manifest: { requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: [],
     name: "localization",
     version: "0.1.0",
     description: "Core language preferences, team defaults and locale resolution",

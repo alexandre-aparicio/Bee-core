@@ -8,11 +8,28 @@ const DIST = join(ROOT, "dist");
 const OUTPUT = resolve(process.env.BEE_PLUGIN_PACKAGE_OUTPUT ?? "artifacts/plugin-packages");
 const RUNTIME_VERSION = process.env.BEE_RUNTIME_VERSION ?? "0.3.1";
 const PACKAGES = [
-  { id: "connected-devices", name: "Connected Devices", version: "0.1.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants.", frontendSource: "src/plugins/connected-devices/frontend", frontend: { routes: [{ path: "/dashboard/connected-devices", component: "connected-devices" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js", "frontend/qrcode.min.js"], apiPrefixes: ["/connected-devices"] } },
-  { id: "time-tracking", name: "Control Horario", version: "0.2.0", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }], frontendSource: "src/plugins/time-tracking/frontend", frontend: { routes: [{ path: "/dashboard/time-tracking", component: "bee-time-tracking" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/time-tracking"] } },
-  { id: "documents", name: "Documents", version: "0.1.0", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], tenantDependencies: ["files"], activationPolicy: "automatic", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery.", frontendSource: "src/plugins/documents/frontend", frontend: { routes: [{ path: "/dashboard/documents", component: "documents" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/documents", "/files"] } },
-  { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } }
+  { id: "connected-devices", name: "Connected Devices", version: "0.1.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants.", frontendSource: "src/plugins/connected-devices/frontend", frontend: { routes: [{ path: "/dashboard/connected-devices", component: "connected-devices" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js", "frontend/qrcode.min.js"], apiPrefixes: ["/connected-devices"] } },
+  { id: "time-tracking", name: "Control Horario", version: "0.2.0", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }], frontendSource: "src/plugins/time-tracking/frontend", frontend: { routes: [{ path: "/dashboard/time-tracking", component: "bee-time-tracking" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/time-tracking"] } },
+  { id: "documents", name: "Documents", version: "0.1.0", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], requiredServices: ["mongoDbName", "sessionIdSecret"], optionalServices: ["fileStoragePath"], tenantDependencies: ["files"], activationPolicy: "automatic", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery.", frontendSource: "src/plugins/documents/frontend", frontend: { routes: [{ path: "/dashboard/documents", component: "documents" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/documents", "/files"] } },
+  { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], requiredServices: [], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } }
 ];
+
+const PACKAGE_PERMISSIONS = {
+  "connected-devices": [
+    { key: "connected-devices.read", module: "connected-devices", resource: "devices", action: "read", label: "View connected devices", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+    { key: "connected-devices.manage", module: "connected-devices", resource: "devices", action: "manage", label: "Manage connected devices", defaultGrants: { owner: true, admin: true, manager: false, member: false } }
+  ],
+  "time-tracking": [
+    { key: "time-tracking.read", module: "time-tracking", resource: "records", action: "read", label: "View time records", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+    { key: "time-tracking.clock", module: "time-tracking", resource: "clock", action: "create", label: "Register working time", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+    { key: "time-tracking.manage", module: "time-tracking", resource: "records", action: "manage", label: "Manage time records", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
+  ],
+  documents: [
+    { key: "documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+    { key: "documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
+  ],
+  "hello-world": []
+};
 
 function crc32(buffer) {
   let crc = 0xffffffff;
@@ -137,8 +154,10 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
       description: definition.description, category: definition.category, activationPolicy: definition.activationPolicy,
       compatibility: { minRuntimeVersion: runtimeVersion },
       dependencies: definition.dependencies.map(pluginId => ({ pluginId, versionRange: "*" })),
+      requiredServices: definition.requiredServices ?? [],
+      optionalServices: definition.optionalServices ?? [],
       tenantDependencies: definition.tenantDependencies,
-      permissions: [], backend: { entrypoint: wrapperPath }, frontend: definition.frontend ?? { routes: [] },
+      permissions: PACKAGE_PERMISSIONS[definition.id] ?? [], backend: { entrypoint: wrapperPath }, frontend: definition.frontend ?? { routes: [] },
       collections: [], migrations: definition.migrations ?? [], settingsSchema: { type: "object", properties: {} },
       package: { sha256: "", signature: "", storageKey: "packages/" + definition.id + "/" + definition.version }
     };

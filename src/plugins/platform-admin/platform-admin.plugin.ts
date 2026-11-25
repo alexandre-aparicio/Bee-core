@@ -1,6 +1,6 @@
 import type { BeePlugin } from "../../core/types.js";
 import type { PlatformIdentityDocument } from "../../core/platform-identity.js";
-import { CORE_PERMISSION_CATALOG } from "../../core/permission-catalog.js";
+import { composePermissionCatalog } from "../../core/permission-catalog.js";
 import { COMPANY_ROLE_PERMISSIONS } from "../../core/tenant-context.js";
 
 declare module "fastify" {
@@ -22,13 +22,14 @@ import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "../../core/plugin-package.js";
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
+import { MIGRATABLE_BUILT_IN_PACKAGE_IDS, RETIRED_PACKAGE_POLICIES } from "../plugin-manifest-registry.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
 type Membership={id:string;userId:string;tenantId:string;role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom";status:"active"|"invited"|"suspended";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string};
 export const platformAdminPlugin:BeePlugin={
- manifest:{name:"platform-admin",version:"0.1.0",description:"Platform-wide administration protected by Super Organization super_admin membership",dependencies:["auth","organizations","marketplace"]},
+ manifest:{ requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: ["pluginPackagePath","pluginPublisherPublicKey"],name:"platform-admin",version:"0.1.0",description:"Platform-wide administration protected by Super Organization super_admin membership",dependencies:["auth","organizations","marketplace"]},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
@@ -64,11 +65,8 @@ export const platformAdminPlugin:BeePlugin={
   if(migratedPlatformPackages)ctx.logger.info("Legacy platform package installations migrated",{count:migratedPlatformPackages});
   // Legacy modules must only be available as separately uploaded, signed ZIP packages.
   // Preserve tenant installation history; hide only the old bundled platform record.
-  await retireBundledPlatformPackage(db,"hello-world");
-  await retireBundledPlatformPackage(db,"time-tracking");
-  // Retire this discarded module even if a tenant or platform previously replaced it with a ZIP.
-  // Tenant-owned data, installation rows and migration history remain untouched.
-  await retireBundledPlatformPackage(db,"notes",true);
+  // Retirements are declared once with package metadata; tenant data and history remain intact.
+  for (const policy of RETIRED_PACKAGE_POLICIES) await retireBundledPlatformPackage(db,policy.id,policy.retireSignedZip);
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
@@ -150,15 +148,19 @@ export const platformAdminPlugin:BeePlugin={
   };
   const permissionPolicyCollection=db.collection<{id:string;tenantAssignablePermissions:string[];updatedAt:Date;updatedBy:string}>("platform_permission_policies");
   await permissionPolicyCollection.createIndex({id:1},{unique:true,name:"platform_permission_policy_id_unique"});
-  const defaultTenantAssignablePermissions=CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key);
+  const getPermissionCatalog=async()=>{
+   const packages=await db.collection<{id:string;permissions?:Array<{key:string;module:string;resource:string;action:string;label:string;defaultGrants:{owner:boolean;admin:boolean;manager:boolean;member:boolean}}>}>("plugin_catalog").find({status:"published",permissions:{$exists:true}}).project<{id:string;permissions?:Array<{key:string;module:string;resource:string;action:string;label:string;defaultGrants:{owner:boolean;admin:boolean;manager:boolean;member:boolean}}>}>({id:1,permissions:1,_id:0}).toArray();
+   return composePermissionCatalog(packages);
+  };
   const readPermissionPolicy=async()=>{
-   const saved=await permissionPolicyCollection.findOne({id:"global"},{projection:{_id:0}});
-   return {tenantAssignablePermissions:saved?.tenantAssignablePermissions??defaultTenantAssignablePermissions};
+   const [saved,catalog]=await Promise.all([permissionPolicyCollection.findOne({id:"global"},{projection:{_id:0}}),getPermissionCatalog()]);
+   const defaultPermissions=catalog.filter(item=>item.customRoleAssignable).map(item=>item.key);
+   return {tenantAssignablePermissions:saved?.tenantAssignablePermissions??defaultPermissions};
   };
   ctx.server.get("/platform/permissions",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const policy=await readPermissionPolicy();
-   return {catalog:CORE_PERMISSION_CATALOG,tenantAssignablePermissions:policy.tenantAssignablePermissions,systemRoles:[
+   return {catalog:await getPermissionCatalog(),tenantAssignablePermissions:policy.tenantAssignablePermissions,systemRoles:[
     {key:"super_admin",label:"Super Admin",scope:"platform",protected:true,description:"Full platform administration; assigned only through the Super Organization.",permissions:COMPANY_ROLE_PERMISSIONS.super_admin},
     {key:"owner",label:"Tenant Owner",scope:"tenant",protected:true,description:"Owns one tenant and administers its users, roles and organization settings.",permissions:COMPANY_ROLE_PERMISSIONS.owner},
     {key:"admin",label:"Tenant Admin",scope:"tenant",protected:true,description:"Administers tenant operations within the permissions enforced by Core.",permissions:COMPANY_ROLE_PERMISSIONS.admin},
@@ -171,7 +173,7 @@ export const platformAdminPlugin:BeePlugin={
    const actor=await guard(req,reply);if(!actor)return;
    const requested=req.body?.tenantAssignablePermissions;
    if(!Array.isArray(requested)||requested.length>100||requested.some(item=>typeof item!=="string"))return reply.code(400).send({error:"tenantAssignablePermissions must be an array of permission keys"});
-   const allowedCatalog=new Set(CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key));
+   const allowedCatalog=new Set((await getPermissionCatalog()).filter(item=>item.customRoleAssignable).map(item=>item.key));
    const tenantAssignablePermissions=[...new Set((requested as string[]).map(item=>item.trim()))].sort();
    const unsupported=tenantAssignablePermissions.filter(key=>!allowedCatalog.has(key));
    if(unsupported.length)return reply.code(400).send({error:"Protected or unknown permissions cannot be delegated to tenants: "+unsupported.join(", ")});
@@ -292,8 +294,8 @@ export const platformAdminPlugin:BeePlugin={
      runtimeVersion:ctx.version,
      validateManifest:async manifest=>{
       const existing=await packages.findOne({pluginId:manifest.id});
-      const migratableBuiltIns=new Set(["connected-devices","time-tracking","documents","hello-world"]);
-      if(existing&&existing.source!=="zip"&&!migratableBuiltIns.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
+      
+      if(existing&&existing.source!=="zip"&&!MIGRATABLE_BUILT_IN_PACKAGE_IDS.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
       if(existing?.version){
        const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
@@ -325,7 +327,7 @@ export const platformAdminPlugin:BeePlugin={
      {id:manifest.id},
      {$set:{
       name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,
-      dependencies:manifest.tenantDependencies??[],
+      dependencies:manifest.tenantDependencies??[],permissions:manifest.permissions??[],
       activationPolicy:manifest.activationPolicy??"manual",codeAvailable:false,status:"published"
      },$setOnInsert:{createdAt:now,visibleInPlans:[],includedInPlans:[],purchasable:false,system:false}},
      {upsert:true}

@@ -29,7 +29,7 @@ let installWorkerTimer: ReturnType<typeof setInterval> | undefined;
 let installWorkerTask: Promise<void> | undefined;
 
 export const marketplacePlugin: BeePlugin = {
-  manifest: {
+  manifest: { requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: ["billingWebhookSecret","publicBaseDomain"],
     name: "marketplace",
     version: "0.2.0",
     description: "Central business plugin catalog with company plans and purchase entitlements",

@@ -6,7 +6,11 @@ export type BeePluginDependency = {
 
 export type BeePluginPermission = {
   key: string;
-  description: string;
+  module: string;
+  resource: string;
+  action: string;
+  label: string;
+  defaultGrants: { owner: boolean; admin: boolean; manager: boolean; member: boolean };
 };
 
 export type BeePluginMigration = {
@@ -29,6 +33,10 @@ export interface BeeBusinessPluginManifest {
     maxRuntimeVersion?: string;
   };
   dependencies: BeePluginDependency[];
+  /** Explicit host configuration services requested by this package. */
+  requiredServices?: string[];
+  /** Optional host configuration values; passed only when configured. */
+  optionalServices?: string[];
   /** Dependencies that must be installed for each tenant; separate from host runtime dependencies. */
   tenantDependencies?: string[];
   permissions: BeePluginPermission[];
@@ -58,9 +66,10 @@ export const CORE_RUNTIME_PLUGIN_IDS = new Set([
   "platform-admin", "notifications", "mail", "localization", "hello"
 ]);
 
+export const PLUGIN_HOST_SERVICE_KEYS: ReadonlySet<string> = new Set(["mongoDbName","defaultTenantId","authAdminEmail","authAdminPassword","authMfaEncryptionKey","publicBaseDomain","fileStoragePath","billingWebhookSecret","pluginPackagePath","pluginPublisherPublicKey","sessionIdSecret"]);
 const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const pluginId = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
-const permissionKey = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_]*)+$/;
+const permissionKey = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9_-]*)+$/;
 const collectionName = /^[a-z][a-z0-9_]*$/;
 const sha256 = /^[a-f0-9]{64}$/i;
 function versionTuple(value: string): [number, number, number] {
@@ -119,9 +128,24 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   if (item.compatibility.maxRuntimeVersion !== undefined && (typeof item.compatibility.maxRuntimeVersion !== "string" || !semver.test(item.compatibility.maxRuntimeVersion))) throw new Error("Invalid maximum runtime version");
   const versionRange = /^(?:\*|(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s+\|\|\s+(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)*$/;
   if (!Array.isArray(item.dependencies) || item.dependencies.some((dependency: any) => !record(dependency) || typeof dependency.pluginId !== "string" || !pluginId.test(dependency.pluginId) || typeof dependency.versionRange !== "string" || !versionRange.test(dependency.versionRange.trim()))) throw new Error("Invalid plugin dependencies");
+  if (item.requiredServices !== undefined && (!Array.isArray(item.requiredServices) || item.requiredServices.some((service: unknown) => typeof service !== "string" || !PLUGIN_HOST_SERVICE_KEYS.has(service)) || new Set(item.requiredServices).size !== item.requiredServices.length)) throw new Error("Invalid plugin required services");
+  if (item.optionalServices !== undefined && (!Array.isArray(item.optionalServices) || item.optionalServices.some((service: unknown) => typeof service !== "string" || !PLUGIN_HOST_SERVICE_KEYS.has(service)) || new Set(item.optionalServices).size !== item.optionalServices.length || (item.requiredServices??[]).some((service:string)=>item.optionalServices.includes(service)))) throw new Error("Invalid plugin optional services");
   if (item.tenantDependencies !== undefined && (!Array.isArray(item.tenantDependencies) || item.tenantDependencies.some((id: unknown) => typeof id !== "string" || !pluginId.test(id)) || new Set(item.tenantDependencies).size !== item.tenantDependencies.length)) throw new Error("Invalid tenant plugin dependencies");
   if (new Set(item.dependencies.map((dependency: any) => dependency.pluginId)).size !== item.dependencies.length) throw new Error("Plugin dependencies must be unique");
-  if (!Array.isArray(item.permissions) || item.permissions.some((permission: any) => !record(permission) || typeof permission.key !== "string" || !permissionKey.test(permission.key) || typeof permission.description !== "string" || !permission.description.trim())) throw new Error("Invalid plugin permissions");
+  const roles = ["owner","admin","manager","member"];
+  const validPermission = (permission: unknown): boolean => {
+    if (!record(permission)) return false;
+    const grants = permission.defaultGrants;
+    if (!record(grants)) return false;
+    return typeof permission.key === "string" && permissionKey.test(permission.key) &&
+      permission.module === item.id && permission.key.startsWith(item.id + ".") &&
+      typeof permission.resource === "string" && /^[a-z][a-z0-9_-]*$/.test(permission.resource) &&
+      typeof permission.action === "string" && /^[a-z][a-z0-9_-]*$/.test(permission.action) &&
+      typeof permission.label === "string" && Boolean(permission.label.trim()) &&
+      roles.every(role => typeof grants[role] === "boolean") &&
+      Object.keys(grants).every(role => roles.includes(role));
+  };
+  if (!Array.isArray(item.permissions) || item.permissions.some((permission: unknown) => !validPermission(permission))) throw new Error("Invalid plugin permissions");
   if (new Set(item.permissions.map((permission: any) => permission.key)).size !== item.permissions.length) throw new Error("Plugin permissions must be unique");
   if (!record(item.backend) || typeof item.backend.entrypoint !== "string" || !item.backend.entrypoint.startsWith("dist/") || item.backend.entrypoint.includes("..") || item.backend.entrypoint.includes("\\") || item.backend.entrypoint.startsWith("/")) throw new Error("Backend entrypoint must be a safe path under dist/");
   if (!item.backend.entrypoint.endsWith(".mjs")) throw new Error("Backend entrypoint must be an ES module (.mjs)");

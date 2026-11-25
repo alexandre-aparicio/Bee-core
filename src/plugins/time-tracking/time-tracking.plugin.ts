@@ -9,7 +9,7 @@ const timeTrackingIndexes = [
 ] as const;
 
 export const timeTrackingPlugin: BeePlugin = {
-  manifest: {
+  manifest: { requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: [],
     name: "time-tracking",
     version: "0.2.0",
     description: "Employee time clock, breaks and work-session history",

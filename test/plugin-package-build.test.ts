@@ -163,6 +163,7 @@ test("Hello Mundo is not registered or advertised as a bundled plugin", async ()
   const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
   const registrySource = await readFile(join(process.cwd(), "src/core/platform-plugin-registry.ts"), "utf8");
   const platformAdminSource = await readFile(join(process.cwd(), "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
+  const manifestRegistrySource = await readFile(join(process.cwd(), "src/plugins/plugin-manifest-registry.ts"), "utf8");
 
   assert.doesNotMatch(runtimeSource, /import\s*\{\s*helloWorldPlugin\s*\}/);
   assert.doesNotMatch(runtimeSource, /plugins\.register\(helloWorldPlugin\)/);
@@ -170,7 +171,8 @@ test("Hello Mundo is not registered or advertised as a bundled plugin", async ()
   assert.doesNotMatch(entitlementSource, /hello-world/, "Hello Mundo must not be seeded as a built-in catalog item or included in built-in plans");
   assert.match(registrySource, /retireBundledPlatformPackage/, "legacy bundled records must be retired");
   assert.match(registrySource, /status:\s*"deprecated"/, "retired package records must be hidden from active listings");
-  assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"hello-world"\)/, "platform startup must retire the old bundled record");
+  assert.match(platformAdminSource, /RETIRED_PACKAGE_POLICIES/, "platform startup must consume the central retirement policy");
+  assert.match(manifestRegistrySource, /id:\s*"hello-world",\s*retireSignedZip:\s*false/, "Hello Mundo retirement must be declared in the central package registry");
 });
 
 
@@ -185,7 +187,9 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
   assert.match(pluginSource, /dependencies:\s*\["auth",\s*"organizations"\]/);
   assert.doesNotMatch(pluginSource, /files|FilesStorageAdapter/i);
   assert.doesNotMatch(entitlementSource, /id: "time-tracking",\s*name: "Control Horario"/, "Control Horario must not remain a trusted bundled marketplace package");
-  assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"time-tracking"\)/, "the previous bundled platform record must be retired at startup");
+  const manifestRegistrySource = await readFile(join(process.cwd(), "src/plugins/plugin-manifest-registry.ts"), "utf8");
+  assert.match(platformAdminSource, /RETIRED_PACKAGE_POLICIES/, "platform startup must consume the central retirement policy");
+  assert.match(manifestRegistrySource, /id:\s*"time-tracking",\s*retireSignedZip:\s*false/, "Control Horario bundled retirement must be declared centrally");
   assert.match(packageSource, /id:\s*"time-tracking"[\s\S]*?dependencies:\s*\["auth",\s*"organizations"\]/);
   assert.doesNotMatch(packageSource.match(/\{ id: "time-tracking"[\s\S]*?\},/)?.[0] ?? "", /files|marketplace/i);
   assert.match(repositorySource, /sessionsForTenant/);
@@ -194,11 +198,12 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
   assert.match(repositorySource, /membershipsForTenant/);
   assert.doesNotMatch(handlersSource, /new TenantCollection/);
   const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
-  const frontendRegistrySource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
+  const timeTrackingFrontendSource = await readFile(join(process.cwd(), "apps/web/src/app/time-tracking/time-tracking.frontend.ts"), "utf8");
+  const frontendRegistrationsSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
   assert.doesNotMatch(runtimeSource, /import\s*\{\s*timeTrackingPlugin\s*\}/, "Control Horario backend must load from its signed ZIP only");
   assert.doesNotMatch(runtimeSource, /plugins\.register\(timeTrackingPlugin\)/, "Control Horario must not retain a bundled backend fallback");
-  assert.match(frontendRegistrySource, /BeeTimeTrackingComponent/);
-  assert.match(frontendRegistrySource, /time-tracking.*BeeTimeTrackingComponent/);
+  assert.match(timeTrackingFrontendSource, /loadComponent:[\s\S]*BeeTimeTrackingComponent/);
+  assert.match(frontendRegistrationsSource, /timeTrackingFrontend/);
   const outletSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
   assert.ok(outletSource.indexOf("this.registry.resolve(pluginId)") < outletSource.indexOf("this.loadRemoteRuntime(pluginId)"), "native plugin frontends must render before the remote iframe fallback");
   assert.match(handlersSource, /repository\.sessionsForTenant/);

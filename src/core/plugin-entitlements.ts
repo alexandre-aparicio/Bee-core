@@ -4,6 +4,7 @@ import { TenantCollection } from "./tenant-collection.js";
 import type { TenantPluginMigration } from "./plugin-migrations.js";
 import { hasTenantPermission, type TenantContext } from "./tenant-context.js";
 import { enqueuePluginInstallJob, enqueuePluginUpdateJob, ensurePluginInstallJobIndexes } from "./plugin-install-jobs.js";
+import type { BeePluginPermission } from "./plugin-package.js";
 
 export type PluginPlan = Document & {
   id: string;
@@ -26,6 +27,7 @@ export type PluginPackageDefinition = Document & {
   system: boolean;
   dependencies: string[];
   activationPolicy?: "automatic" | "manual";
+  permissions?: BeePluginPermission[];
   migrations?: TenantPluginMigration[];
   codeAvailable: boolean;
   status: "published" | "draft" | "deprecated";
@@ -68,42 +70,8 @@ type TenantPluginPurchase = Document & {
   expiresAt: Date | null;
 };
 
-export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: null, storageMb: 10240 }
-];
-
-export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
-  {
-    id: "files",
-    name: "Private Files",
-    version: "0.1.0",
-    description: "Private company file and image storage",
-    category: "platform",
-    visibleInPlans: ["starter", "pro", "enterprise"],
-    includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false,
-    system: true,
-    dependencies: [],
-    codeAvailable: true,
-    status: "published"
-  },
-  {
-    id: "documents", name: "Documents", version: "0.1.0",
-    description: "Shared document library with folder-level team access and controlled public delivery",
-    category: "platform", visibleInPlans: ["starter", "pro", "enterprise"], includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false, system: true, dependencies: ["files"], activationPolicy: "automatic", codeAvailable: true, status: "published"
-  },
-  {
-    id: "connected-devices", name: "Connected Devices", version: "0.1.0",
-    description: "Secure tenant-scoped device pairing, capability grants and revocation",
-    category: "platform", visibleInPlans: ["starter", "pro", "enterprise"],
-    includedInPlans: ["starter", "pro", "enterprise"], purchasable: false, system: false,
-    dependencies: [], activationPolicy: "manual", codeAvailable: true, status: "published"
-  },
-
-];
+export { BUILT_IN_PLANS, TRUSTED_PLUGIN_PACKAGES } from "../plugins/plugin-manifest-registry.js";
+import { BUILT_IN_PLANS, TRUSTED_PLUGIN_PACKAGES } from "../plugins/plugin-manifest-registry.js";
 
 
 /**

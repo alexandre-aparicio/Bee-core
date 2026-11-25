@@ -58,7 +58,9 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
           this.i18n.registerCatalog(pluginId, "en", registration.translations.en);
           this.i18n.registerCatalog(pluginId, "es", registration.translations.es);
         }
-        const component = this.host.createComponent(registration.component);
+        const componentType = await registration.loadComponent();
+        if (sequence !== this.renderSequence) return;
+        const component = this.host.createComponent(componentType);
         for (const [name, value] of Object.entries(registration.inputs({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section }))) {
           component.setInput(name, value);
         }
