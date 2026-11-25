@@ -1,133 +1,86 @@
-/* Appearance rules are scoped to the active surface host. Public mode can never restyle dashboard UI. */
-.theme-mode-toggle{display:inline-flex;align-items:center;justify-content:center;padding:8px 11px;border:1px solid var(--bee-border);border-radius:9px;background:var(--bee-surface);color:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
-.theme-mode-toggle:hover{filter:brightness(1.12)}
-.bee-template-manager__mode-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
-.bee-template-mode{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--bee-border);border-radius:10px;background:var(--bee-surface);font-size:12px}
-.bee-template-mode>div{display:flex;gap:4px;padding:3px;border-radius:8px;background:color-mix(in srgb,var(--bee-text-muted) 12%,transparent)}
-.bee-template-mode button{border:0;border-radius:6px;padding:7px 9px;background:transparent;color:var(--bee-text-muted);font-size:11px;cursor:pointer}
-.bee-template-mode button.active{background:var(--bee-bg);color:inherit;box-shadow:0 1px 4px #0002}
-
-/* Dashboard light mode targets the shared bee-dash shell markup. */
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-dashboard{color:#20283a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar,
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-main>header{background:#fff;border-color:#dfe5ef;color:#59657a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.panel,.dash-stat,.bee-template-manager){background:#fff;border-color:#dfe5ef;color:#20283a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar button{color:#59657a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar button.active{background:#eeeaff;color:#5542bd;border-color:#e1dcff}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content .quick-action{color:#657187}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content .quick-action b,
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content .panel-heading h2{color:#20283a}
-
-/* Public light mode is deliberately scoped to the public template host only. */
-.bee-template-package-host[data-bee-public-mode="light"]{background:#f7f8fc;color:#20283a}
-.bee-template-package-host[data-bee-public-mode="light"] .site-header{border-color:#e1e5ef}
-.bee-template-package-host[data-bee-public-mode="light"] :is(.nav-links,.hero-copy,.section-copy){color:#657187}
-.bee-template-package-host[data-bee-public-mode="light"] :is(.nav-links a:hover,.header-login:hover){color:#20283a}
-.bee-template-package-host[data-bee-public-mode="light"] .hero:before{background:#8c72ff18}
-.bee-template-package-host[data-bee-public-mode="light"] .hero-grid{opacity:.55}
-.bee-template-package-host[data-bee-public-mode="light"] .btn-secondary{background:#fff;color:#39445a;border-color:#dfe5ef}
-.bee-template-package-host[data-bee-public-mode="light"] .preview{background:#fff;border-color:#dfe5ef;box-shadow:0 24px 70px #28344a18}
-.bee-template-package-host[data-bee-public-mode="light"] .preview-sidebar{background:#f3f5fa;border-color:#e1e5ef}
-.bee-template-package-host[data-bee-public-mode="light"] :is(.preview-main,.stat-card,.preview-chart){background:#fff;border-color:#e1e5ef;color:#20283a}
-.bee-template-package-host[data-bee-public-mode="light"] :is(.side-item,.chart-head span,.stat-card small,.plugin-list small){color:#657187}
-.bee-template-package-host[data-bee-public-mode="light"] .plugin-list>div{border-color:#e1e5ef}
-.bee-template-package-host[data-bee-public-mode="light"] .feature-grid article{background:#fff;border-color:#e1e5ef}
-.bee-template-package-host[data-bee-public-mode="light"] .feature-grid p{color:#657187}
-.bee-template-package-host[data-bee-public-mode="light"] .architecture-stack{background:linear-gradient(140deg,#fff,#f2f4fa);border-color:#e1e5ef}
-.bee-template-package-host[data-bee-public-mode="light"] .stack-plugins>div{color:#39445a;border-color:#e1e5ef}
-.bee-template-package-host[data-bee-public-mode="light"] .cta{background:linear-gradient(120deg,#8a73ff0d,#58d4d40a);border-color:#e1e5ef}
-.bee-template-package-host[data-bee-public-mode="light"] footer{border-color:#e1e5ef;color:#657187}
-.bee-template-package-host[data-bee-public-mode="light"] footer .brand{color:#20283a}
-.bee-template-package-host[data-bee-public-mode="light"] .header-login{color:#39445a;border-color:#dfe5ef}
-@media(max-width:760px){.bee-template-mode{align-items:flex-start;flex-direction:column}}
-
-
-/* Complete dashboard light mode: normalize feature-owned dark surfaces as well. */
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-dashboard{color-scheme:light;background:#f4f6fb!important;color:#20283a!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.bee-dash-main,.bee-dash-main,.bee-dash-main,.bee-dash-content,.bee-dash-content,.bee-dash-content){background:transparent!important;color:#20283a!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar{background:#fff!important;color:#354158!important;border-color:#dfe5ef!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-main>header{background:#fff!important;color:#59657a!important;border-color:#dfe5ef!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.panel,.dash-stat,.bee-dashboard-card,.bee-template-manager,[class*="platform-admin"],[class*="platform-company"],[class*="company-members"],[class*="settings-page"],[class*="settings-workspace"],[class*="plugin-settings"],[class*="marketplace"],[class*="audit-log"],[class*="section-card"],[class*="settings-card"],[class*="workspace-card"],[class*="toolbar"],[class*="table-wrap"],[class*="role-item"],[class*="invitation"],[class*="detail"],[class*="empty"],[class*="state"],[class*="modal"]:not(.platform-admin__modal-backdrop),[class*="form"],[class*="list-item"],[class*="package"]){background-color:#fff!important;color:#263248!important;border-color:#dfe5ef!important;box-shadow:0 5px 20px #2538580b}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(h1,h2,h3,h4,strong,b,label,th,td,p,span,small,li,a){color:inherit}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(p,small,.muted,[class*="description"],[class*="subtitle"],[class*="eyebrow"],[class*="hint"]){color:#68758b!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(input,select,textarea){color:#263248!important;background:#fff!important;border-color:#cfd8e6!important;color-scheme:light}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(input,select,textarea)::placeholder{color:#8994a7!important;opacity:1}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content table{background:#fff!important;color:#263248!important;border-color:#dfe5ef!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(th,td,tr){background-color:transparent!important;color:#354158!important;border-color:#e5eaf2!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar button{color:#59657a}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar button.active,.bee-template-package-host[data-bee-dashboard-mode="light"] :is(.settings-nav.active,.settings-nav__children button.active){background:#eeeaff!important;color:#5542bd!important;border-color:#e1dcff!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content button{color:#354158}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.quick-action,.platform-admin__create-trigger,.platform-company-card__footer button,.bee-company-members__invite button,.bee-company-members__role-actions button){background:#f3f5fb!important;color:#354158!important;border-color:#d8e0ed!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.platform-admin__modal-backdrop,[role="dialog"]){color:#263248!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.platform-admin__error,.bee-company-members__error,[class*="error"]){color:#b42318!important}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-content :is(.platform-admin__success,.bee-company-members__message,[class*="success"]){color:#167447!important}
-
-
-/* Final light-mode pass: Midnight navigation items and template appearance controls. */
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar>button,
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav,
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav__children button{
-  background:#f4f6fb!important;
-  color:#46536a!important;
-  border-color:#dfe5ef!important;
-}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar>button:hover,
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav:hover,
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav__children button:hover{
-  background:#e9edf6!important;
-  color:#263248!important;
-}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar>button.active,
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav.active,
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-sidebar .settings-nav__children button.active{
-  background:#eeeaff!important;
-  color:#5542bd!important;
-  border-color:#ded7ff!important;
-}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-template-manager__mode-controls .bee-template-mode{
-  background:#fff!important;
-  color:#263248!important;
-  border:1px solid #dfe5ef!important;
-  box-shadow:0 4px 16px #2538580b;
-}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-template-manager__mode-controls .bee-template-mode>span{
-  color:#46536a!important;
-}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-template-manager__mode-controls .bee-template-mode>div{
-  background:#eef1f7!important;
-  border:1px solid #e1e6ef!important;
-}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-template-manager__mode-controls .bee-template-mode button{
-  background:transparent!important;
-  color:#59657a!important;
-  border:1px solid transparent!important;
-}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-template-manager__mode-controls .bee-template-mode button.active{
-  background:#fff!important;
-  color:#43349c!important;
-  border-color:#d9d2ff!important;
-  box-shadow:0 1px 4px #25385818;
-}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-template-manager__fields label{
-  color:#46536a!important;
-}
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-template-manager__fields select{
-  background:#fff!important;
-  color:#263248!important;
-  border-color:#cfd8e6!important;
+/* Core appearance controls. Palette values come only from the active package tokens. */
+.theme-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 11px;
+  border: 1px solid var(--bee-border);
+  border-radius: var(--bee-radius-sm);
+  background: var(--bee-surface);
+  color: var(--bee-text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-/* Semantic token overrides for Midnight workspace features in Light appearance. */
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-users{
-  --panel:#fff;--bg:#f4f6fb;--muted:#68758b;--border:#dfe5ef;--purple:#5542bd;
-  --bee-status-success:#167447;--bee-status-warning:#946200;--bee-status-danger:#b42318;--bee-status-info:#2762b5;
-  --bee-shadow:0 12px 32px #25385818;--bee-action-text:#fff;color:#263248!important;
+.theme-mode-toggle:hover {
+  filter: brightness(1.12);
 }
 
+.bee-template-manager__mode-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
 
-/* Company workspace: semantic Midnight tokens adapted to Light appearance. */
-.bee-template-package-host[data-bee-dashboard-mode="light"] .bee-company{
-  --panel:#fff;--bg:#f4f6fb;--muted:#68758b;--border:#dfe5ef;--purple:#5542bd;
-  --bee-status-success:#167447;--bee-status-warning:#946200;--bee-status-danger:#b42318;--bee-status-info:#2762b5;
-  --bee-shadow:0 12px 32px #25385818;--bee-action-text:#fff;color:#263248!important;
+.bee-template-mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--bee-border);
+  border-radius: var(--bee-radius-md);
+  background: var(--bee-surface);
+  color: var(--bee-text);
+  font-size: 12px;
+  box-shadow: var(--bee-shadow);
+}
+
+.bee-template-mode > span {
+  color: var(--bee-text-muted);
+}
+
+.bee-template-mode > div {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--bee-radius-sm);
+  background: color-mix(in srgb, var(--bee-text-muted) 12%, transparent);
+}
+
+.bee-template-mode button {
+  border: 1px solid transparent;
+  border-radius: var(--bee-radius-sm);
+  padding: 7px 9px;
+  background: transparent;
+  color: var(--bee-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.bee-template-mode button.active {
+  border-color: var(--bee-border);
+  background: var(--bee-surface-raised);
+  color: var(--bee-accent);
+  box-shadow: var(--bee-shadow);
+}
+
+.bee-template-manager__fields label {
+  color: var(--bee-text-muted);
+}
+
+.bee-template-manager__fields select {
+  background: var(--bee-input-bg);
+  color: var(--bee-text);
+  border-color: var(--bee-input-border);
+}
+
+@media (max-width: 760px) {
+  .bee-template-mode {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
