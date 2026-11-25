@@ -2,7 +2,7 @@
 
 ## Status
 
-This document describes the signed package pipeline and the staged frontend migration. Superadmin can upload a signed ZIP, the server validates and extracts it into persistent storage, registers it globally, and loads its backend plugin on restart. A first sandboxed iframe frontend path is implemented and used by Hola Mundo; the three larger business modules still use their current Angular frontend components while they are migrated.
+This document describes the signed package pipeline and the staged frontend migration. Superadmin can upload a signed ZIP, the server validates and extracts it into persistent storage, registers it globally, and loads its backend plugin on restart. The sandboxed iframe frontend path is used by Hola Mundo and Documents. Connected Devices and Time Tracking are still on their Angular migration path.
 
 ## Three independent state dimensions
 
@@ -24,7 +24,7 @@ Every tenant plugin declares an activation policy:
 The policy is a default, not an authorization bypass. Backend routes continue to enforce tenant permission, entitlement, tenant installation and enabled state.
 
 Current built-in defaults:
-- Documents: automatic.
+- Documents: manual.
 - Time Tracking: automatic.
 - Connected Devices: manual, because device pairing and capability grants are operational choices for each company.
 
@@ -61,7 +61,7 @@ The installer accepts a package-owned frontend entrypoint and an explicit asset 
 
 ## Migration of the three built-in modules
 
-- **Documents** retains Files as an explicit infrastructure dependency and keeps its storage adapter.
+- **Documents** is distributed as a signed ZIP. It owns file metadata and binary storage and has no Files dependency.
 - **Connected Devices** remains independent of Documents, Time Tracking and business modules. Its device pairing and lifecycle stay in its own repository/service boundary.
 - **Time Tracking** remains independent of Connected Devices. Browser/mobile clocking must work without a registered device; optional device-aware workflows can integrate through a public contract later.
 - Existing tenant data and collection names must be preserved. Migration work must be additive and reversible where possible.
@@ -74,7 +74,7 @@ The installer accepts a package-owned frontend entrypoint and an explicit asset 
 4. Add Super Organization package-management UI and audit trail. (Upload, package list, plan assignment and manual tenant grants implemented.)
 5. Implement plan-driven automatic provisioning and explicit manual grants, with dependency resolution. (Backend provisioning queue implemented.)
 6. Migrate the three built-in plugins to the same lifecycle and persistence conventions without changing their APIs or deleting tenant data.
-7. Implement the sandboxed frontend bundle/route contract. (Partially implemented; Hola Mundo is packaged and loaded remotely. Documents, Connected Devices and Time Tracking still use statically compiled Angular components.)
+7. Implement the sandboxed frontend bundle/route contract. (Hola Mundo and Documents are packaged and loaded remotely; Connected Devices and Time Tracking still use statically compiled Angular components.)
 8. Add integration tests for install, upgrade, rollback, plan changes, tenant isolation, disable/re-enable and dependency removal.
 
 No stage is complete until the relevant backend tests, Angular build, browser checks and migration/rollback tests have run.
