@@ -35,6 +35,8 @@ export interface BeeBusinessPluginManifest {
   dependencies: BeePluginDependency[];
   /** Explicit host configuration services requested by this package. */
   requiredServices?: string[];
+  /** Optional host configuration values; passed only when configured. */
+  optionalServices?: string[];
   /** Dependencies that must be installed for each tenant; separate from host runtime dependencies. */
   tenantDependencies?: string[];
   permissions: BeePluginPermission[];
@@ -127,6 +129,7 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   if (!Array.isArray(item.dependencies) || item.dependencies.some((dependency: any) => !record(dependency) || typeof dependency.pluginId !== "string" || !pluginId.test(dependency.pluginId) || typeof dependency.versionRange !== "string" || !versionRange.test(dependency.versionRange.trim()))) throw new Error("Invalid plugin dependencies");
   const allowedServices = new Set(["mongoDbName","defaultTenantId","authAdminEmail","authAdminPassword","authMfaEncryptionKey","publicBaseDomain","fileStoragePath","billingWebhookSecret","pluginPackagePath","pluginPublisherPublicKey","sessionIdSecret"]);
   if (item.requiredServices !== undefined && (!Array.isArray(item.requiredServices) || item.requiredServices.some((service: unknown) => typeof service !== "string" || !allowedServices.has(service)) || new Set(item.requiredServices).size !== item.requiredServices.length)) throw new Error("Invalid plugin required services");
+  if (item.optionalServices !== undefined && (!Array.isArray(item.optionalServices) || item.optionalServices.some((service: unknown) => typeof service !== "string" || !allowedServices.has(service)) || new Set(item.optionalServices).size !== item.optionalServices.length || (item.requiredServices??[]).some((service:string)=>item.optionalServices.includes(service)))) throw new Error("Invalid plugin optional services");
   if (item.tenantDependencies !== undefined && (!Array.isArray(item.tenantDependencies) || item.tenantDependencies.some((id: unknown) => typeof id !== "string" || !pluginId.test(id)) || new Set(item.tenantDependencies).size !== item.tenantDependencies.length)) throw new Error("Invalid tenant plugin dependencies");
   if (new Set(item.dependencies.map((dependency: any) => dependency.pluginId)).size !== item.dependencies.length) throw new Error("Plugin dependencies must be unique");
   const roles = ["owner","admin","manager","member"];
