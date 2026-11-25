@@ -130,8 +130,9 @@ test("registered first-party plugin components render natively before remote pac
   const registrySource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
 
   assert.match(registrySource, /\["documents",\s*\{\s*component:\s*BeeDocumentsComponent/);
+  assert.match(outletSource, /pluginId === "documents" \? this\.registry\.resolve\(pluginId\) : undefined/);
   assert.ok(
     outletSource.indexOf("this.registry.resolve(pluginId)") < outletSource.indexOf("this.loadRemoteRuntime(pluginId)"),
-    "trusted native workspace components must render before remote iframe lookup"
+    "Documents must render in the native workspace before any remote iframe lookup"
   );
 });
