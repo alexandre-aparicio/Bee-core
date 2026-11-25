@@ -30,7 +30,7 @@
 - [x] Audit reads are tenant-scoped and the role audit UI consumes the shared audit collection.
 - [x] Marketplace subscription and plugin lifecycle transitions append tenant audit events, with concurrent duplicate webhook transitions producing one event.
 - [ ] Complete audit coverage for every security-sensitive route and asynchronous transition.
-- [ ] Resolve the Connected Devices PR #206 limitation: its route helper logs and swallows audit-write errors, so audit delivery is best-effort rather than atomic with the business mutation.
+- [ ] Resolve best-effort audit delivery in both Marketplace and Connected Devices helpers: they log and swallow audit-write errors, so a business mutation can succeed without a durable audit event. Define fail-closed/outbox/transaction semantics and test audit-storage failures.
 - [ ] Enforce audit immutability at the database privilege/operational boundary. The current application database user has broad `readWrite` privileges; the helper being insert-only does not by itself prevent another code path using the raw MongoDB collection from updating or deleting events.
 - [ ] Define retention, export, monitoring and tamper-evidence procedures.
 
