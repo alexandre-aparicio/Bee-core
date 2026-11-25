@@ -142,7 +142,7 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
     typeof permission.label !== "string" || !permission.label.trim() ||
     typeof permission.description !== "string" || !permission.description.trim() ||
     !record(permission.defaultGrants) ||
-    ["owner", "admin", "manager", "member"].some(role => typeof permission.defaultGrants[role] !== "boolean") ||
+    ["owner", "admin", "manager", "member"].some(role => typeof (permission.defaultGrants as Record<string, unknown>)[role] !== "boolean") ||
     (permission.customRoleAssignable !== undefined && typeof permission.customRoleAssignable !== "boolean")
   )) throw new Error("Invalid plugin permissions; each permission needs key, module, resource, action, label, description and defaultGrants for owner/admin/manager/member");
   if (new Set(item.permissions.map((permission: any) => permission.key)).size !== item.permissions.length) throw new Error("Plugin permissions must be unique");
