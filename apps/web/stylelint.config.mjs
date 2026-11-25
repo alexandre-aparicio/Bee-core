@@ -1,7 +1,7 @@
 /**
- * CSS guardrails for the six template packages and shared template foundation.
+ * CSS guardrails for application stylesheets and the shared template foundation.
  * Inline Angular component styles remain covered by audit:styles and the
- * template-token checker; Stylelint scans standalone template CSS files.
+ * template-token checker; Stylelint scans standalone application CSS files and the global stylesheet.
  */
 export default {
   rules: {
