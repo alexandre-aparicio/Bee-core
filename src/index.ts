@@ -262,10 +262,10 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>, builti
     const pluginId = String(item.pluginId);
     const runtimePlugin = runtimePlugins.get(pluginId);
     const builtinFallbackActive = builtinFallbackIds.has(pluginId) && runtimePlugin?.status === "started";
-    const failure = builtinFallbackActive ? "" : failures.get(pluginId) ?? (runtimePlugin?.status === "started" ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
+    const failure = failures.get(pluginId) ?? (runtimePlugin?.status === "started" ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
     // A broken uploaded ZIP must not hide a healthy Core implementation with the same plugin ID.
     // Keep the ZIP registry state failed, but leave the trusted built-in catalog entry available.
-    const runtimeState = !failure && runtimePlugin?.status === "started" && !builtinFallbackActive ? "loaded" : "failed";
+    const runtimeState = !builtinFallbackActive && !failure && runtimePlugin?.status === "started" ? "loaded" : "failed";
     await registry.updateOne({ pluginId }, { $set: { runtimeState, runtimeError: failure || null, updatedAt: new Date() } });
     await versions.updateOne({ pluginId, version: item.version }, { $set: { runtimeState, runtimeError: failure || null, runtimeCheckedAt: new Date() } });
     await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: runtimeState === "loaded" || Boolean(builtinFallbackActive), updatedAt: new Date() } });
