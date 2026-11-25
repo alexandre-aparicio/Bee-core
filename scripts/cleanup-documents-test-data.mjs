@@ -49,7 +49,7 @@ try{
   result.collections[name]=count;
   if(execute&&count)await collection.deleteMany(tenantFilter);
  }
- for(const name of ["resource_access_policies","team_app_assignments"]){
+ for(const name of ["resource_access_policies"]){
   const filter={pluginId:"documents",...(tenantArg?{tenantId:tenantArg}:{})};
   const count=await db.collection(name).countDocuments(filter);
   result.collections[name]=count;
