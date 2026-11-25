@@ -150,9 +150,9 @@ export const platformAdminPlugin:BeePlugin={
   await permissionPolicyCollection.createIndex({id:1},{unique:true,name:"platform_permission_policy_id_unique"});
   const readPermissionPolicy=async()=>{
    const saved=await permissionPolicyCollection.findOne({id:"global"},{projection:{_id:0}});
-   const packages=await db.collection<{id:string;permissions?:Array<{key:string;module:string;customRoleAssignable?:boolean}>}>("plugin_catalog").find({status:{$in:["published","installed"]}},{projection:{id:1,permissions:1,_id:0}}).toArray();
+   const packages=await db.collection<{id:string;permissions?:Array<{key:string;module:string;label?:string;description?:string;resource?:string;action?:string;defaultGrants?:{owner:boolean;admin:boolean;manager:boolean;member:boolean};customRoleAssignable?:boolean}>}>("plugin_catalog").find({status:{$in:["published","installed"]}},{projection:{id:1,permissions:1,_id:0}}).toArray();
    const pluginCatalog=packages.flatMap(pkg=>(pkg.permissions??[]).filter(permission=>permission.module===pkg.id&&typeof permission.key==="string"));
-   const catalog=[...CORE_PERMISSION_CATALOG,...pluginCatalog.map(permission=>({...permission,label:permission.key,description:permission.key,resource:permission.key.split(".")[0]??"plugin",action:permission.key.split(".")[1]??"read",customRoleAssignable:permission.customRoleAssignable!==false}))];
+   const catalog=[...CORE_PERMISSION_CATALOG,...pluginCatalog.map(permission=>({...permission,label:permission.label??permission.key,description:permission.description??permission.key,resource:permission.resource??permission.key.split(".")[0]??"plugin",action:permission.action??permission.key.split(".")[1]??"read",customRoleAssignable:permission.customRoleAssignable!==false}))];
    const defaultTenantAssignablePermissions=catalog.filter(item=>item.customRoleAssignable).map(item=>item.key);
    return {catalog,tenantAssignablePermissions:saved?.tenantAssignablePermissions??defaultTenantAssignablePermissions};
   };
