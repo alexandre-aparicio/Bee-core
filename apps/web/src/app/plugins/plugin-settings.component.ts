@@ -27,7 +27,7 @@ type PlatformPlan = {
 
 type PluginRecord = {
   id: string; name: string; version: string; description: string; category: string;
-  system: boolean; entitled: boolean; installed: boolean; installedVersion?: string | null;
+  system: boolean; entitled: boolean; installed: boolean; enabled?: boolean; installedVersion?: string | null;
   accessSource?: string | null; dependencies?: string[]; purchasable?: boolean;
   packageSource?: string | null; runtimeState?: string | null; pluginKey?: string; globallyEnabled?: boolean;
 };
@@ -91,6 +91,10 @@ type PluginRecord = {
                 <div><dt>Access</dt><dd>{{plugin.accessSource || '—'}}</dd></div>
               </dl>
               <div *ngIf="plugin.dependencies?.length"><strong>Dependencies</strong><p>{{plugin.dependencies?.length}} required module(s)</p></div>
+              <div *ngIf="canManage && !isPlatformAdmin && plugin.installed" class="plugin-settings__global-control">
+                <div><strong>Company availability</strong><p>{{plugin.enabled === false ? 'This module is deactivated for this company. Its installation and data are preserved.' : 'This module is active for this company.'}}</p></div>
+                <button type="button" class="plugin-settings__save" (click)="toggleTenantActivation(plugin)" [disabled]="tenantActivationBusyId===plugin.id">{{tenantActivationBusyId===plugin.id ? 'Saving…' : (plugin.enabled === false ? 'Activate for this company' : 'Deactivate for this company')}}</button>
+              </div>
               <div *ngIf="isPlatformAdmin && platformPackageFor(plugin) as platformPackage" class="plugin-settings__global-control">
                 <div><strong>Global availability</strong><p>{{platformPackage.globallyEnabled === false ? "Suspended for every tenant. Tenant installations and data are preserved." : "Available to tenants according to their own activation and plan."}}</p></div>
                 <button type="button" class="plugin-settings__save" (click)="toggleGlobalActivation(platformPackage)" [disabled]="globalActivationBusyId===platformPackage.pluginKey">{{globalActivationBusyId===platformPackage.pluginKey ? "Saving…" : (platformPackage.globallyEnabled === false ? "Enable globally" : "Disable globally")}}</button>
@@ -364,6 +368,7 @@ export class PluginSettingsComponent implements OnInit {
   pluginUploadBusy = false;
   packageSavingId = "";
   globalActivationBusyId = "";
+  tenantActivationBusyId = "";
   packageError = "";
   busyId = "";
   message = "";
@@ -405,6 +410,24 @@ export class PluginSettingsComponent implements OnInit {
   }
   closePlanConfig(): void { this.planConfigPlugin = null; this.packageError = ""; }
   toggleMenu(id: string): void { this.openMenuId = this.openMenuId === id ? "" : id; }
+  async toggleTenantActivation(plugin: PluginRecord): Promise<void> {
+    if (!this.canManage || this.isPlatformAdmin || !plugin.installed || this.tenantActivationBusyId) return;
+    const enabled = plugin.enabled === false;
+    this.tenantActivationBusyId = plugin.id; this.packageError = ""; this.message = "";
+    try {
+      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(plugin.id) + "/activation", {
+        method: "PUT", headers: { authorization: "Bearer " + this.token, "content-type": "application/json" },
+        body: JSON.stringify({ enabled })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not change company plugin availability");
+      plugin.enabled = enabled;
+      if (this.detail?.id === plugin.id) this.detail = { ...this.detail, enabled };
+      this.message = plugin.name + (enabled ? " is active for this company again. Existing data was preserved." : " was deactivated for this company. Existing data was preserved.");
+      await this.load();
+    } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not change company plugin availability"; }
+    finally { this.tenantActivationBusyId = ""; }
+  }
   async toggleGlobalActivation(plugin: PlatformPackage): Promise<void> {
     if (!this.isPlatformAdmin || this.globalActivationBusyId) return;
     const enabled = plugin.globallyEnabled === false;
