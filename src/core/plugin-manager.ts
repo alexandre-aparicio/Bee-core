@@ -21,12 +21,15 @@ export class BeePluginManager {
     this.plugins.set(name, { plugin, status: "registered" });
   }
 
+  // Shared, non-secret host capabilities available to every plugin. Plugin-specific
+  // secrets remain explicitly allowlisted below.
+  private readonly sharedConfigAccess = new Set(["mongoDbName", "sessionIdSecret"]);
+
   private readonly configAccess: Record<string, readonly string[]> = {
     auth: ["mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "authMfaEncryptionKey", "publicBaseDomain", "sessionIdSecret"],
     organizations: ["mongoDbName", "publicBaseDomain", "sessionIdSecret"],
     teams: ["mongoDbName", "sessionIdSecret"],
     files: ["mongoDbName", "fileStoragePath", "sessionIdSecret"],
-    documents: ["mongoDbName", "documentsStoragePath", "sessionIdSecret"],
     "connected-devices": ["mongoDbName", "sessionIdSecret"],
     "time-tracking": ["mongoDbName", "sessionIdSecret"],
     marketplace: ["mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
@@ -42,11 +45,11 @@ export class BeePluginManager {
 
   private createPluginContext(pluginName: string, ctx: BeeContext): BeeContext {
     const prefix = `[${pluginName}]`;
-    const allowedConfig = this.configAccess[pluginName.toLowerCase()] ?? [];
-    const scopedConfig = Object.fromEntries(allowedConfig.filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
+    const allowedConfig = new Set([...this.sharedConfigAccess, ...(this.configAccess[pluginName.toLowerCase()] ?? [])]);
+    const scopedConfig = Object.fromEntries([...allowedConfig].filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
     // Resource references use a dedicated key derived from JWT_SECRET. Plugins
     // that serialize IDs never receive the JWT signing secret itself.
-    if (allowedConfig.includes("sessionIdSecret")) {
+    if (allowedConfig.has("sessionIdSecret")) {
       const jwtSecret = String(ctx.config.jwtSecret ?? "");
       if (jwtSecret.length >= 32) scopedConfig.sessionIdSecret = createHmac("sha256", jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
     }
