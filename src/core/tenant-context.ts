@@ -18,7 +18,7 @@ export const COMPANY_ROLE_PERMISSIONS: Record<CompanyRole, readonly string[]> = 
   owner: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "billing.manage", "files.read", "files.write", "documents.read", "documents.write", "time-tracking.read", "time-tracking.clock", "time-tracking.manage", "mail.read", "mail.send", "mail.manage"],
   admin: ["members.read", "members.invite", "members.manage", "plugins.read", "plugins.install", "plugins.manage", "files.read", "files.write", "documents.read", "documents.write", "time-tracking.read", "time-tracking.clock", "time-tracking.manage", "mail.read", "mail.send", "mail.manage"],
   manager: ["members.read", "plugins.read", "files.read", "files.write", "documents.read", "documents.write", "time-tracking.read", "time-tracking.clock", "time-tracking.manage", "mail.read", "mail.send"],
-  member: ["members.read", "plugins.read", "files.read", "documents.read", "notes.read", "time-tracking.read", "time-tracking.clock", "mail.read"],
+  member: ["members.read", "plugins.read", "files.read", "documents.read", "time-tracking.read", "time-tracking.clock", "mail.read"],
   guest: ["plugins.read"]
 };
 
