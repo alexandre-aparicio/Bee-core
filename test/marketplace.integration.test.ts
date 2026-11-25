@@ -660,6 +660,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     if (fixtureIndex >= 0) TRUSTED_PLUGIN_PACKAGES.splice(fixtureIndex, 1);
     await marketplacePlugin.stop?.(ctx);
     await organizationsPlugin.stop?.(ctx);
+    unregisterRuntimePlugin("connected-devices");
     await db.dropDatabase();
     await client.close();
   }
