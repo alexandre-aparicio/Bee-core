@@ -28,7 +28,7 @@ type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:s
 type Membership={id:string;userId:string;tenantId:string;role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom";status:"active"|"invited"|"suspended";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string};
 export const platformAdminPlugin:BeePlugin={
- manifest:{name:"platform-admin",version:"0.1.0",description:"Platform-wide administration protected by Super Organization super_admin membership",dependencies:["auth","organizations","marketplace"]},
+ manifest:{ requiredServices: ["mongo","session-resource-ids","plugin-package-storage","plugin-publisher-public-key"],name:"platform-admin",version:"0.1.0",description:"Platform-wide administration protected by Super Organization super_admin membership",dependencies:["auth","organizations","marketplace"]},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
