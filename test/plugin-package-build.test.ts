@@ -123,3 +123,16 @@ test("Hello Mundo is not registered or advertised as a bundled plugin", async ()
   assert.match(registrySource, /status:\s*"deprecated"/, "retired package records must be hidden from active listings");
   assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"hello-world"\)/, "platform startup must retire the old bundled record");
 });
+
+
+test("registered first-party plugin components render natively before remote package lookup", async () => {
+  const outletSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+  const registrySource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
+
+  assert.match(registrySource, /\["documents",\s*\{\s*component:\s*BeeDocumentsComponent/);
+  assert.match(outletSource, /pluginId === "documents" \? this\.registry\.resolve\(pluginId\) : undefined/);
+  assert.ok(
+    outletSource.indexOf("this.registry.resolve(pluginId)") < outletSource.indexOf("this.loadRemoteRuntime(pluginId)"),
+    "Documents must render in the native workspace before any remote iframe lookup"
+  );
+});
