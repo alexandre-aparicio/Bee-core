@@ -5,13 +5,6 @@
 .bee-template-package-host {
   display: block;
   min-height: 100vh;
-  /* TEMPORARY legacy aliases – remove in Step 8 */
-  --bg: var(--bee-bg);
-  --panel: var(--bee-surface);
-  --muted: var(--bee-text-muted);
-  --border: var(--bee-border);
-  --purple: var(--bee-accent);
-  --cyan: var(--bee-secondary);
 }
 
 .bee-dash-shell {
