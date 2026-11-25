@@ -183,7 +183,8 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
 
   assert.match(pluginSource, /dependencies:\s*\["auth",\s*"organizations"\]/);
   assert.doesNotMatch(pluginSource, /files|FilesStorageAdapter/i);
-  assert.match(entitlementSource, /id: "time-tracking",\s*name: "Control Horario",\s*version: "0\.2\.0"/);
+  assert.doesNotMatch(entitlementSource, /id: "time-tracking",\s*name: "Control Horario"/, "Control Horario must not remain a trusted bundled marketplace package");
+  assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"time-tracking"\)/, "the previous bundled platform record must be retired at startup");
   assert.match(packageSource, /id:\s*"time-tracking"[\s\S]*?dependencies:\s*\["auth",\s*"organizations"\]/);
   assert.doesNotMatch(packageSource.match(/\{ id: "time-tracking"[\s\S]*?\},/)?.[0] ?? "", /files|marketplace/i);
   assert.match(repositorySource, /sessionsForTenant/);
