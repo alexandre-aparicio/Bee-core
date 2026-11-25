@@ -13,7 +13,7 @@ const clean = (value:unknown,max:number) => String(value??"").trim().slice(0,max
 const uniqueStrings = (value:unknown,max=80):string[] => Array.isArray(value) ? [...new Set(value.map(item=>clean(item,80)).filter(Boolean))].slice(0,max) : [];
 
 export const teamsPlugin:BeePlugin = {
- manifest:{ requiredServices: ["mongoDbName","sessionIdSecret"],name:"teams",version:"0.1.0",description:"Tenant-scoped teams, application assignments and resource-level access policies",dependencies:["auth","organizations"]},
+ manifest:{ requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: [],name:"teams",version:"0.1.0",description:"Tenant-scoped teams, application assignments and resource-level access policies",dependencies:["auth","organizations"]},
  async initialize(ctx){
   const db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const secret=String(ctx.config.sessionIdSecret??ctx.config.jwtSecret??"");
