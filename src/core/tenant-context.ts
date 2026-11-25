@@ -1,7 +1,7 @@
 import type { Db } from "mongodb";
 import { applyPermissionRestrictions, permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
 import { unmaskTenantId, unmaskUserId } from "./session-id.js";
-import { composePermissionCatalog, CORE_PERMISSION_KEYS, type PluginPermissionSource } from "./permission-catalog.js";
+import { composePermissionCatalog, CORE_PERMISSION_KEYS, CORE_PERMISSION_CATALOG, type PluginPermissionSource } from "./permission-catalog.js";
 
 export type CompanyRole = "super_admin" | "owner" | "admin" | "manager" | "member" | "guest";
 export type MembershipRole = CompanyRole | "custom";
@@ -124,7 +124,7 @@ export async function resolveTenantContext(
     if (!membership.customRoleId) return null;
     const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId });
     if (!customRole || customRole.mode === "restriction") return null;
-    try { const permissionPolicy = await db.collection<{id:string;tenantAssignablePermissions:string[]}>("platform_permission_policies").findOne({id:"global"},{projection:{tenantAssignablePermissions:1}}); const allowed = permissionPolicy?.tenantAssignablePermissions; permissions = permissionsForCustomRole(customRole, [...(Array.isArray(allowed) ? allowed : []), ...pluginPermissionKeys]); } catch { return null; }
+    try { const permissionPolicy = await db.collection<{id:string;tenantAssignablePermissions:string[]}>("platform_permission_policies").findOne({id:"global"},{projection:{tenantAssignablePermissions:1}}); const allowed = permissionPolicy?.tenantAssignablePermissions; const coreAllowed = CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key); permissions = permissionsForCustomRole(customRole, [...(Array.isArray(allowed) ? allowed : coreAllowed), ...pluginPermissionKeys]); } catch { return null; }
   } else {
     if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
     const roleKey = membership.role === "super_admin" ? "owner" : membership.role;
