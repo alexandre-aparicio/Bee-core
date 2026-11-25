@@ -22,6 +22,7 @@ import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "../../core/plugin-package.js";
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
+import { MIGRATABLE_BUILT_IN_PACKAGE_IDS, RETIRED_PACKAGE_POLICIES } from "../plugin-manifest-registry.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
@@ -64,11 +65,8 @@ export const platformAdminPlugin:BeePlugin={
   if(migratedPlatformPackages)ctx.logger.info("Legacy platform package installations migrated",{count:migratedPlatformPackages});
   // Legacy modules must only be available as separately uploaded, signed ZIP packages.
   // Preserve tenant installation history; hide only the old bundled platform record.
-  await retireBundledPlatformPackage(db,"hello-world");
-  await retireBundledPlatformPackage(db,"time-tracking");
-  // Retire this discarded module even if a tenant or platform previously replaced it with a ZIP.
-  // Tenant-owned data, installation rows and migration history remain untouched.
-  await retireBundledPlatformPackage(db,"notes",true);
+  // Retirements are declared once with package metadata; tenant data and history remain intact.
+  for (const policy of RETIRED_PACKAGE_POLICIES) await retireBundledPlatformPackage(db,policy.id,policy.retireSignedZip);
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
@@ -296,8 +294,8 @@ export const platformAdminPlugin:BeePlugin={
      runtimeVersion:ctx.version,
      validateManifest:async manifest=>{
       const existing=await packages.findOne({pluginId:manifest.id});
-      const migratableBuiltIns=new Set(["connected-devices","time-tracking","documents","hello-world"]);
-      if(existing&&existing.source!=="zip"&&!migratableBuiltIns.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
+      
+      if(existing&&existing.source!=="zip"&&!MIGRATABLE_BUILT_IN_PACKAGE_IDS.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
       if(existing?.version){
        const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
