@@ -42,7 +42,7 @@ export class DocumentsStorageAdapter {
     const normalizedType=String(contentType||"").split(";")[0].trim().toLowerCase();
     if(!ALLOWED_TYPES.has(normalizedType)||!validContent(normalizedType,data))throw new Error("Unsupported or invalid document file content");
     const safeName=path.basename(String(originalName||"document").replace(/[\\/\r\n\0]/g,"_")).slice(0,180)||"document";
-    const id=randomUUID(),directory=this.directory(tenantId),target=this.filePath(tenantId,id),temporary=this.filePath(tenantId,randomUUID()+".tmp");
+    const id=randomUUID(),directory=this.directory(tenantId),target=this.filePath(tenantId,id),temporary=path.resolve(directory,randomUUID()+".tmp");\n    if(path.dirname(temporary)!==directory)throw new Error("Invalid temporary storage location");
     await mkdir(directory,{recursive:true,mode:0o700});
     try{
       await writeFile(temporary,data,{flag:"wx",mode:0o600});
