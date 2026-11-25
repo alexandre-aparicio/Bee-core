@@ -119,7 +119,8 @@ const pluginRuntimeControl = {
     const plugin = await loadSignedZipPlugin(item);
     try { await dynamicPluginRuntime.mount(plugin); }
     catch (error) {
-      await dynamicPluginRuntime.unmount(pluginId).catch(() => undefined);
+      // BeeDynamicPluginRuntime.mount() already disposes the failed candidate and
+      // preserves the previous mounted version. Do not unmount that healthy version.
       throw error;
     }
     const now = new Date();
