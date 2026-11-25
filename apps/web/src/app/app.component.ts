@@ -85,7 +85,7 @@ export class AppComponent implements OnInit {
   companyBusy = false;
   activePlugins: string[] = [];
   private pluginResourceIds: Record<string, string> = {};
-  get pluginResourceIdMap(): Record<string, string> { return { ...this.pluginResourceIds }; }
+  get pluginResourceIdMap(): Record<string, string> { return this.pluginResourceIds; }
   pluginNavigationItems: Array<{id:string;label:string;path:string}> = [];
   private pluginNavigationSequence = 0;
   setActivePlugins(pluginIds: string[]): void {
