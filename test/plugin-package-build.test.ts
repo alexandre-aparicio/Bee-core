@@ -12,6 +12,30 @@ import { installSignedPluginZip } from "../src/core/plugin-zip-installer.js";
 
 const distReady = existsSync(join(process.cwd(), "dist/plugins/documents/documents.plugin.js"));
 
+test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifier", { skip: !distReady }, async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 3072 });
+  const root = await mkdtemp(join(tmpdir(), "bee-rsa-publisher-packages-"));
+  try {
+    const built = await buildPluginPackages({
+      privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+      publicKeyPem: publicKey.export({ type: "spki", format: "pem" }).toString(),
+      outputDir: join(root, "archives")
+    });
+    const timeTracking = built.find(item => item.id === "time-tracking");
+    assert.ok(timeTracking);
+    const installed = await installSignedPluginZip({
+      archive: await readFile(timeTracking.path),
+      storageRoot: join(root, "installed"),
+      publisherPublicKey: publicKey.export({ type: "spki", format: "pem" }).toString(),
+      runtimeVersion: "0.3.1"
+    });
+    assert.equal(installed.manifest.id, "time-tracking");
+    assert.equal(installed.manifest.version, "0.2.0");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("four first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const root = await mkdtemp(join(tmpdir(), "bee-first-party-packages-"));
