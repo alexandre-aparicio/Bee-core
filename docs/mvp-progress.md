@@ -1096,3 +1096,13 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - UI uses semantic theme tokens, Midnight Light overrides, inherited Midnight Dark behavior, responsive stacked metric cards/tables, per-table search and activity filters. Existing role authorization and role editor API contracts are preserved.
 - **CI validation passed (run 45466287794, commit cda2a86015067885e7239f1362c7e39581da5da7):** Angular dependency installation, production build and Playwright test discovery passed; API dependency installation, TypeScript build and test suite passed (95 passed, 20 skipped, 0 failed). The skipped tests are environment-dependent; MongoDB-backed integration coverage was not exercised without a configured test database.
 - **Still pending:** actual browser E2E (Playwright discovery is not execution), keyboard/accessibility interaction checks, responsive visual QA, Midnight Light/Dark screenshots and live MongoDB role-assignment/audit scenarios. No VPS deployment has been performed.
+
+
+## Connected Devices audit and cross-tenant route regression — 2026-11-25
+
+- Added tenant audit action types for Connected Devices pairing, approval, suspend/activate, unlink/delete/revoke/rename, credential rotation and membership-driven revocation.
+- Connected Devices dashboard routes now append successful lifecycle events and actor-tenant-only denial events when a device or pairing challenge is not found inside the active tenant.
+- Membership-driven device revocation from both pairing-status checks and capability checks appends a system-actor tenant audit event.
+- Added a route-level regression using a device owned by a different tenant. It exercises approve, suspend, activate, unlink, delete, revoke, rename and pairing cancellation; asserts 404 responses, no mutation of the foreign device and denial events written only to the requesting tenant.
+- **Validation pending:** backend CI must type-check and execute the new test. This route regression uses a controlled repository/database stub; it is not a substitute for a full Mongo-backed route audit or an exhaustive review of every Connected Devices denial path.
+- **Known limitation:** the route audit helper logs and continues if an append fails. This remains best-effort audit delivery rather than an atomic transaction between the business mutation and audit insert.
