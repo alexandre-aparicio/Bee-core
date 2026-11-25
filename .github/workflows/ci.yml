@@ -82,6 +82,8 @@ jobs:
         run: npm ci
       - name: Check template token contract and package manifests
         run: npm run check:template-tokens -- --contrast-blocking
+      - name: Prove template package extensibility
+        run: node --test scripts/check-extensibility.test.mjs
       - name: Audit style source
         run: npm run audit:styles -- --strict
       - name: Lint standalone application and asset CSS
