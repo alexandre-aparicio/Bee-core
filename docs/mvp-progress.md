@@ -51,7 +51,7 @@ Explicit transition paths from source review:
 
 | Item | Status | Source evidence / remaining work |
 |---|---|---|
-| Temporary compatibility block | Pending | Current source count: 20 `!important` and 15 `[class*=` selectors after retiring six migrated owner selectors (Platform Admin/Company, role-item, settings-card, workspace-card and package). This block is still pending. Delete only as owning components are migrated. |
+| Temporary compatibility block | Done by source search | Deleted. `base.css`: 0 `!important`, 0 `[class*=`, 0 hex, 0 RGB/HSL; braces 96 / 96. |
 | Component migration | Done by source search, with deferred exception | Required owners and remaining non-public feature components have tokenized colors. The only remaining component palette literals found in this pass are Teams Workspace's three explicitly deferred Midnight-Light `:host-context` rules (9 hex values). |
 | Generic element rules | Done by source review | Inputs, placeholders, tables, rows/cells, buttons, dialogs, menus, badges, tabs, empty states and toggles use token-only zero-specificity `:where()` primitives. Explicit `.bee-status--*` and `.bee-text-muted` classes replace broad substring color selectors. |
 | Deferred `:host-context` | Partial / discrepancy with prior edits | Current source: Teams Workspace 3 remain (9 hex values). Documents 0, Organization Roles 0 and Role Audit 0: their prior migrations already removed the 17 + 4 + 1 selectors despite the instruction to defer them. They are not being restored in this pass. |
