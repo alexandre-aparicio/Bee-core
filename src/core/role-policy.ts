@@ -53,9 +53,9 @@ export function normalizeCustomRoleName(input: unknown): string {
   return name;
 }
 
-export function normalizeRestrictionPermissions(input: unknown): string[] {
+export function normalizeRestrictionPermissions(input: unknown, knownPermissions: readonly string[] = CORE_PERMISSION_CATALOG.map(permission => permission.key)): string[] {
   const permissions = normalizeCustomRolePermissions(input);
-  const known = new Set(CORE_PERMISSION_CATALOG.map(permission => permission.key));
+  const known = new Set(knownPermissions);
   const unknown = permissions.filter(permission => !known.has(permission));
   if (unknown.length) throw new Error("Restriction roles can only deny registered permissions: " + unknown.join(", "));
   return permissions;
@@ -68,8 +68,8 @@ export function permissionsForCustomRole(role: Pick<CustomRolePolicy, "permissio
 }
 
 /** Explicit denials from any assigned restriction role override base-role grants. */
-export function applyPermissionRestrictions(granted: readonly string[], restrictions: readonly Pick<CustomRolePolicy, "permissions" | "mode">[]): readonly string[] {
-  const denied = new Set(restrictions.filter(role => role.mode === "restriction").flatMap(role => normalizeRestrictionPermissions(role.permissions)));
+export function applyPermissionRestrictions(granted: readonly string[], restrictions: readonly Pick<CustomRolePolicy, "permissions" | "mode">[], knownPermissions: readonly string[] = CORE_PERMISSION_CATALOG.map(permission => permission.key)): readonly string[] {
+  const denied = new Set(restrictions.filter(role => role.mode === "restriction").flatMap(role => normalizeRestrictionPermissions(role.permissions, knownPermissions)));
   return granted.filter(permission => !denied.has(permission));
 }
 
