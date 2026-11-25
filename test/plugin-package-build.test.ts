@@ -76,7 +76,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/public/documents"]);
         assert.deepEqual(installed.manifest.dependencies.map((dependency: { pluginId: string }) => dependency.pluginId), ["auth", "organizations"]);
-        assert.deepEqual(installed.manifest.tenantDependencies, []);\n        assert.ok(existsSync(join(installed.packageDirectory, "dist/plugins/documents/documents-storage.adapter.js")), "the signed ZIP must include Documents-owned storage in its backend graph");
+        assert.deepEqual(installed.manifest.tenantDependencies, []);
+        assert.ok(existsSync(join(installed.packageDirectory, "dist/plugins/documents/documents-storage.adapter.js")), "the signed ZIP must include Documents-owned storage in its backend graph");
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
         const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
         const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
