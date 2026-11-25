@@ -408,6 +408,30 @@ export class PluginSettingsComponent implements OnInit {
   platformPackageFor(plugin: PluginRecord): PlatformPackage | undefined {
     return this.platformPackages.find(item => item.pluginKey === (plugin.pluginKey || plugin.id) || item.id === plugin.id);
   }
+  superOrganizationPluginFor(plugin: PluginRecord): SuperOrganizationPlugin | undefined {
+    const key = plugin.pluginKey || plugin.id;
+    const catalogPlugin = this.plugins.find(item => item.pluginKey === key || item.id === plugin.id);
+    const maskedId = catalogPlugin?.id || plugin.id;
+    return this.superOrganizationPlugins.find(item => item.id === maskedId);
+  }
+  async toggleSuperOrganizationActivation(plugin: PluginRecord): Promise<void> {
+    const platformPackage = this.platformPackageFor(plugin);
+    if (!this.isPlatformAdmin || !this.superOrganizationTenantId || !platformPackage || platformPackage.status !== 'installed' || this.superOrganizationActivationBusyId) return;
+    const enabled = this.superOrganizationPluginFor(plugin)?.enabled !== true;
+    this.superOrganizationActivationBusyId = platformPackage.pluginKey;
+    this.packageError = ''; this.message = ''; this.openMenuId = '';
+    try {
+      const response = await fetch('/api/platform/companies/' + encodeURIComponent(this.superOrganizationTenantId) + '/plugins/' + encodeURIComponent(plugin.id), {
+        method: 'PUT', headers: { authorization: 'Bearer ' + this.token, 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not change Super Organization module availability');
+      await this.load();
+      this.message = plugin.name + (enabled ? ' enabled for Super Organization.' : ' disabled for Super Organization. Other tenants and their data were not changed.');
+    } catch (error) { this.packageError = error instanceof Error ? error.message : 'Could not change Super Organization module availability'; }
+    finally { this.superOrganizationActivationBusyId = ''; }
+  }
   openPlanConfig(plugin: PluginRecord): void {
     this.openMenuId = "";
     this.planConfigPlugin = this.platformPackageFor(plugin) || null;
