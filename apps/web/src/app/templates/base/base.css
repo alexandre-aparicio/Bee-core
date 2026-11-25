@@ -89,6 +89,30 @@
   background: var(--bee-dashboard-nav-active-background, color-mix(in srgb, var(--bee-accent) 10%, transparent));
 }
 
+/* Shared dashboard navigation states (migrated from appearance-mode overrides). */
+.bee-dash-sidebar > button,
+.bee-dash-sidebar .settings-nav,
+.bee-dash-sidebar .settings-nav__children button {
+  color: var(--bee-dashboard-nav-color, var(--bee-text-muted));
+  background: var(--bee-surface-subtle);
+  border: 1px solid var(--bee-border);
+}
+
+.bee-dash-sidebar > button:hover,
+.bee-dash-sidebar .settings-nav:hover,
+.bee-dash-sidebar .settings-nav__children button:hover {
+  color: var(--bee-text);
+  background: var(--bee-surface-hover);
+}
+
+.bee-dash-sidebar > button.active,
+.bee-dash-sidebar .settings-nav.active,
+.bee-dash-sidebar .settings-nav__children button.active {
+  color: var(--bee-dashboard-nav-active-color, var(--bee-accent-hover));
+  background: var(--bee-dashboard-nav-active-background, color-mix(in srgb, var(--bee-accent) 10%, transparent));
+  border-color: var(--bee-border);
+}
+
 .bee-dash-main {
   min-width: 0;
   padding: 0 var(--bee-dashboard-main-padding-inline, 28px) var(--bee-dashboard-main-padding-bottom, 30px);
@@ -509,4 +533,83 @@
   .bee-public-shell * {
     scroll-behavior: auto;
   }
+}
+
+
+/*
+ * TEMPORARY FEATURE-COMPATIBILITY OVERRIDES.
+ * These rules counter feature components that still ship hard-coded surface
+ * declarations. Keep every override token-only and remove each rule when its
+ * owning component adopts the shared semantic token contract.
+ */
+
+/* Platform Admin, Platform Company, Company Members, Settings, Plugins, Marketplace and Audit Log cards. */
+.bee-dash-content :is([class*="platform-admin"], [class*="platform-company"], [class*="company-members"], [class*="settings-page"], [class*="settings-workspace"], [class*="plugin-settings"], [class*="marketplace"], [class*="audit-log"], [class*="section-card"], [class*="settings-card"], [class*="workspace-card"]) {
+  background-color: var(--bee-dashboard-card-background, var(--bee-surface)) !important;
+  color: var(--bee-dashboard-card-color, var(--bee-text)) !important;
+  border-color: var(--bee-dashboard-card-border, var(--bee-border)) !important;
+  box-shadow: var(--bee-dashboard-card-shadow, var(--bee-shadow));
+}
+
+/* Dashboard toolbars, tables, role items, invitations, detail/empty/state panels, modals, forms, lists and packages. */
+.bee-dash-content :is([class*="toolbar"], [class*="table-wrap"], [class*="role-item"], [class*="invitation"], [class*="detail"], [class*="empty"], [class*="state"], [class*="modal"]:not(.platform-admin__modal-backdrop), [class*="form"], [class*="list-item"], [class*="package"]) {
+  background-color: var(--bee-dashboard-card-background, var(--bee-surface)) !important;
+  color: var(--bee-dashboard-card-color, var(--bee-text)) !important;
+  border-color: var(--bee-dashboard-card-border, var(--bee-border)) !important;
+  box-shadow: var(--bee-dashboard-card-shadow, var(--bee-shadow));
+}
+
+/* Feature descriptions, subtitles, eyebrows and hints use the package muted foreground. */
+.bee-dash-content :is(p, small, .muted, [class*="description"], [class*="subtitle"], [class*="eyebrow"], [class*="hint"]) {
+  color: var(--bee-text-muted) !important;
+}
+
+/* Platform Admin, organization and plugin form controls use the active package input tokens. */
+.bee-dash-content :is(input, select, textarea) {
+  color: var(--bee-text) !important;
+  background: var(--bee-input-bg) !important;
+  border-color: var(--bee-input-border) !important;
+  color-scheme: inherit;
+}
+
+/* Feature form placeholders use the active package placeholder token. */
+.bee-dash-content :is(input, select, textarea)::placeholder {
+  color: var(--bee-input-placeholder) !important;
+  opacity: 1;
+}
+
+/* Feature-owned data tables use the package surface, text and border roles. */
+.bee-dash-content table {
+  background: var(--bee-surface) !important;
+  color: var(--bee-text) !important;
+  border-color: var(--bee-border) !important;
+}
+
+/* Feature-owned table rows and cells remain transparent over the tokenized table surface. */
+.bee-dash-content :is(th, td, tr) {
+  background-color: transparent !important;
+  color: var(--bee-text) !important;
+  border-color: var(--bee-border) !important;
+}
+
+/* Platform Admin, Platform Company and Company Members action buttons. */
+.bee-dash-content :is(.quick-action, .platform-admin__create-trigger, .platform-company-card__footer button, .bee-company-members__invite button, .bee-company-members__role-actions button) {
+  background: var(--bee-dashboard-quick-action-background, var(--bee-surface-subtle)) !important;
+  color: var(--bee-dashboard-quick-action-color, var(--bee-text)) !important;
+  border-color: var(--bee-dashboard-quick-action-border, var(--bee-border)) !important;
+}
+
+/* Platform Admin modal backdrop and all dashboard dialogs use the package foreground. */
+.bee-dash-content :is(.platform-admin__modal-backdrop, [role="dialog"]) {
+  color: var(--bee-text) !important;
+}
+
+/* Platform Admin and Company Members error states use the semantic danger token. */
+.bee-dash-content :is(.platform-admin__error, .bee-company-members__error, [class*="error"]) {
+  color: var(--bee-status-danger) !important;
+}
+
+/* Platform Admin and Company Members success states use the semantic success token. */
+.bee-dash-content :is(.platform-admin__success, .bee-company-members__message, [class*="success"]) {
+  color: var(--bee-status-success) !important;
 }
