@@ -107,7 +107,7 @@ export class AppComponent implements OnInit {
         const route = runtime.routes.find((item: any) =>
           typeof item?.path === "string" && item.path.startsWith("/dashboard/") &&
           !item.path.startsWith("//") && !item.path.includes("..") &&
-          !item.path.includes("?") && !item.path.includes("#")) : null;
+          !item.path.includes("?") && !item.path.includes("#"));
         if (!route) return null;
         const label = id.split(/[-.]/).filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
         return { id, label, path: route.path as string };
