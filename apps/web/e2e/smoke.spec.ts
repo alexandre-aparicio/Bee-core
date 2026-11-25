@@ -387,9 +387,11 @@ test('company owner can invite, change roles and suspend company members', async
       const member = members.find(item => item.userId === userId);
       if (member) member.role = body.role;
     }
-    if (route.request().method() === 'DELETE') {
-      const member = members.find(item => item.userId === userId);
-      if (member) member.status = 'suspended';
+    if (route.request().method() === 'PATCH') {
+      const segments = new URL(route.request().url()).pathname.split('/');
+      const memberId = segments[segments.length - 2];
+      const member = members.find(item => item.userId === memberId);
+      if (member) member.status = route.request().postDataJSON().status;
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
   });
@@ -423,11 +425,13 @@ test('company owner can invite, change roles and suspend company members', async
   await page.getByPlaceholder('name@company.com').fill('new@example.test');
   await page.locator('select[name="inviteRole"]').selectOption('member');
   await page.getByRole('button', { name: 'Create invitation' }).click();
-  await expect(page.getByText('one-time-invite-token')).toBeVisible();
-  const newInvitation = page.locator('.bee-company-members__invitation').filter({ hasText: 'new@example.test' });
+  await expect(page.getByLabel('Invitation link')).toHaveValue(/one-time-invite-token/);
+  const newInvitation = page.locator('.bee-users__invitation').filter({ hasText: 'new@example.test' });
   await expect(newInvitation).toBeVisible();
-  await newInvitation.getByRole('button', { name: 'Cancel' }).click();
-  await expect(newInvitation).toContainText('cancelled');
+  await newInvitation.getByRole('button', { name: /invitation options/i }).click();
+  await newInvitation.getByRole('button', { name: 'Revoke invitation' }).click();
+  await newInvitation.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(newInvitation).toContainText('Revoked');
 });
 
 
