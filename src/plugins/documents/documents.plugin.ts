@@ -8,12 +8,12 @@ import { createDocumentsServices } from "./documents.service.js";
 import { DocumentsRepository } from "./documents.repository.js";
 
 export const documentsPlugin:BeePlugin={
- manifest:{name:"documents",version:"0.1.1",description:"Tenant document library, folder ACLs and controlled public delivery",dependencies:["auth","organizations"],scope:"tenant",activationPolicy:"manual",frontend:{routes:[{path:"/dashboard/documents",component:"documents"}]}},
+ manifest:{name:"documents",version:"0.1.2",description:"Tenant document library, folder ACLs and controlled public delivery",dependencies:["auth","organizations"],scope:"tenant",activationPolicy:"manual",frontend:{routes:[{path:"/dashboard/documents",component:"documents"}]}},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const secret=String(ctx.config.sessionIdSecret??ctx.config.jwtSecret??"");
   if(secret.length<32)throw new Error("Documents requires a session resource ID secret.");
-  const root=path.resolve(String(ctx.config.documentsStoragePath??"/data/bee-documents"));
+  const root=path.resolve(String(process.env.BEE_DOCUMENTS_DIR??"/data/bee-documents"));
   await mkdir(root,{recursive:true,mode:0o700});
   if(!ctx.server.hasContentTypeParser("application/octet-stream"))ctx.server.addContentTypeParser("application/octet-stream",{parseAs:"buffer",bodyLimit:10*1024*1024},(_request:any,body:any,done:any)=>done(null,body));
   const storage=new DocumentsStorageAdapter(db,root);
