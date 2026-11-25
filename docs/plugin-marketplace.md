@@ -56,3 +56,8 @@ Team Notes is no longer a product package. Startup permanently marks its platfor
 - The frontend registry currently contains statically bundled trusted components; loading component code/routes from signed package archives remains pending.
 
 Do not treat the marketplace as production billing or arbitrary third-party plugin execution yet.
+
+
+## Manifest-owned capabilities
+
+First-party package metadata and plan visibility are maintained in the plugin definitions catalogue; plan included/visible IDs are derived from package metadata rather than repeated in separate plan arrays. A package manifest declares structured permissions with default grants for owner/admin/manager/member and the host services it requires. Tenant role catalogues expose only permissions from packages installed for that tenant. Uninstall hides those permissions from effective authorization and role editing without deleting tenant-authored custom-role assignments.
