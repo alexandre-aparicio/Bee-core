@@ -102,6 +102,7 @@ Explicit transition paths from source review:
 | Time Tracking | 3 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Replaced five legacy aliases with semantic palette tokens. | Tokenized controls, status, tabs, table, modal backdrop and elevation without changing component markup or behavior. |
 | Auth MFA QR | 2 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Uses the already declared `--bee-qr-dark` / `--bee-qr-light` package tokens. | QR contrast now reads from the active root theme; no API or authentication flow changes. |
 | Teams Workspace | 9 hex / 0 RGB-HSL / 0 important / 3 palette host-context → 0 / 0 / 0 / 0. Inline style braces: 363 / 363. | Removed the deferred Midnight-Light overrides; the component now inherits the canonical status, action-text, text and shadow tokens from the Midnight package. |
+| Device Simulator (standalone asset) | 66 hex / 0 RGB-HSL / 0 important; CSS braces: 79 / 79. | Kept its self-contained device-demo palette separate from the six application templates; included its stylesheet in Stylelint and removed `!important` from `.hidden`. This is an intentional standalone palette, not a remaining dashboard/public component palette. |
 
 ## Current source audit metrics
 
