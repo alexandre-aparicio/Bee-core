@@ -394,33 +394,63 @@ export const marketplacePlugin: BeePlugin = {
     });
 
     ctx.server.get<{Params:{pluginId:string}}>("/marketplace/plugins/:pluginId/runtime",async(request:any,reply:any)=>{
-      const tenant=await authenticate(request,reply);if(!tenant)return;
+      const requestId=String(request.id??"unknown");
+      const maskedPluginId=String(request.params?.pluginId??"");
+      ctx.logger.info("Marketplace runtime request received",{requestId,maskedPluginId,route:String(request.routerPath??"/marketplace/plugins/:pluginId/runtime")});
+      const tenant=await authenticate(request,reply);
+      if(!tenant){
+        ctx.logger.warn("Marketplace runtime request stopped during authentication",{requestId,maskedPluginId,httpStatus:reply.statusCode});
+        return;
+      }
       const pluginId=String(request.resourceIds?.pluginId ?? request.params?.pluginId ?? "");
-      if(!pluginId)return reply.code(404).send({error:"Resource not found"});
-      const plugin=(await getTenantPluginCatalog(db,tenant.tenantId)).find(item=>item.id===pluginId);
-      if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled||!await isPlatformPluginEnabled(db,pluginId))return reply.code(403).send({error:"Plugin is not available for this company"});
-      // Resolve the platform package independently from its in-memory runtime state.
-      // Filtering by runtimeState in Mongo made a missing/stale state indistinguishable
-      // from a package that was never installed, hiding the actual loader failure.
-      const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed",source:"zip"});
-      if(!globalPackage)return reply.code(404).send({error:"Plugin does not have an external ZIP runtime"});
-      if(!isExternalRuntimePackage(pluginId,globalPackage,Boolean(getTrustedPluginPackage(pluginId)))){
-        return reply.code(404).send({error:"Plugin does not have an external ZIP runtime"});
+      if(!pluginId){
+        ctx.logger.warn("Marketplace runtime request rejected: decoded plugin ID is empty",{requestId,tenantId:tenant.tenantId,maskedPluginId});
+        return reply.code(404).send({error:"Resource not found"});
       }
-      if(globalPackage.runtimeState!=="loaded"){
-        ctx.logger.warn("Marketplace runtime package is not loaded", {
-          pluginId,
-          tenantId:tenant.tenantId,
-          runtimeState:String(globalPackage.runtimeState??"missing"),
-          version:String(globalPackage.version??"unknown")
-        });
-        return reply.code(503).send({error:"Plugin runtime is not loaded"});
+      ctx.logger.info("Marketplace runtime plugin ID resolved",{requestId,tenantId:tenant.tenantId,maskedPluginId,pluginId});
+      try{
+        const catalog=await getTenantPluginCatalog(db,tenant.tenantId);
+        const plugin=catalog.find(item=>item.id===pluginId);
+        const platformEnabled=plugin?await isPlatformPluginEnabled(db,pluginId):false;
+        if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled||!platformEnabled){
+          ctx.logger.warn("Marketplace runtime request denied by tenant catalog",{requestId,tenantId:tenant.tenantId,pluginId,catalogEntryFound:Boolean(plugin),entitled:Boolean(plugin?.entitled),installed:Boolean(plugin?.installed),enabled:Boolean(plugin?.enabled),platformEnabled});
+          return reply.code(403).send({error:"Plugin is not available for this company"});
+        }
+        // Resolve the platform package independently from its in-memory runtime state.
+        // Filtering by runtimeState in Mongo made a missing/stale state indistinguishable
+        // from a package that was never installed, hiding the actual loader failure.
+        const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed",source:"zip"});
+        const trustedPackage=Boolean(getTrustedPluginPackage(pluginId));
+        ctx.logger.info("Marketplace runtime package lookup completed",{requestId,tenantId:tenant.tenantId,pluginId,packageFound:Boolean(globalPackage),packageStatus:String(globalPackage?.status??"missing"),packageSource:String(globalPackage?.source??"missing"),runtimeState:String(globalPackage?.runtimeState??"missing"),version:String(globalPackage?.version??"unknown"),trustedPackage});
+        if(!globalPackage){
+          ctx.logger.warn("Marketplace runtime package missing: no installed ZIP record",{requestId,tenantId:tenant.tenantId,pluginId});
+          return reply.code(404).send({error:"Plugin does not have an external ZIP runtime"});
+        }
+        if(!isExternalRuntimePackage(pluginId,globalPackage,trustedPackage)){
+          ctx.logger.warn("Marketplace runtime package rejected by classification",{requestId,tenantId:tenant.tenantId,pluginId,packagePluginId:String(globalPackage.pluginId??"missing"),packageStatus:String(globalPackage.status??"missing"),packageSource:String(globalPackage.source??"missing"),trustedPackage});
+          return reply.code(404).send({error:"Plugin does not have an external ZIP runtime"});
+        }
+        if(globalPackage.runtimeState!=="loaded"){
+          ctx.logger.warn("Marketplace runtime package is not loaded",{requestId,pluginId,tenantId:tenant.tenantId,runtimeState:String(globalPackage.runtimeState??"missing"),version:String(globalPackage.version??"unknown")});
+          return reply.code(503).send({error:"Plugin runtime is not loaded"});
+        }
+        const version=String(globalPackage.version??"");
+        const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId:plugin.id,version});
+        const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
+        if(!versionRecord){
+          ctx.logger.warn("Marketplace runtime frontend metadata missing",{requestId,tenantId:tenant.tenantId,pluginId,version,versionRecordFound:false});
+          return reply.code(404).send({error:"Plugin has no packaged frontend"});
+        }
+        if(!manifest?.frontend?.entrypoint){
+          ctx.logger.warn("Marketplace runtime frontend entrypoint missing",{requestId,tenantId:tenant.tenantId,pluginId,version,versionRecordFound:true,frontendManifestFound:Boolean(manifest?.frontend),assetsCount:Array.isArray((manifest?.frontend as any)?.assets)?(manifest?.frontend as any).assets.length:0});
+          return reply.code(404).send({error:"Plugin has no packaged frontend"});
+        }
+        ctx.logger.info("Marketplace runtime request resolved successfully",{requestId,tenantId:tenant.tenantId,pluginId,version,entrypoint:manifest.frontend.entrypoint,routeCount:manifest.frontend.routes?.length??0});
+        return {pluginId:plugin.id,version,entrypoint:manifest.frontend.entrypoint,apiPrefixes:manifest.frontend.apiPrefixes??[],routes:manifest.frontend.routes??[]};
+      }catch(error){
+        ctx.logger.error("Marketplace runtime request failed unexpectedly",{requestId,tenantId:tenant.tenantId,pluginId,error});
+        return reply.code(500).send({error:"Unable to resolve plugin runtime"});
       }
-      const version=String(globalPackage.version??"");
-      const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId:plugin.id,version});
-      const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
-      if(!manifest?.frontend?.entrypoint)return reply.code(404).send({error:"Plugin has no packaged frontend"});
-      return {pluginId:plugin.id,version,entrypoint:manifest.frontend.entrypoint,apiPrefixes:manifest.frontend.apiPrefixes??[],routes:manifest.frontend.routes??[]};
     });
     ctx.server.get("/public/tenant/plugins", async (request: any, reply: any) => {
       const hostname = String(request.hostname ?? "").trim().toLowerCase().replace(/\.$/, "");
