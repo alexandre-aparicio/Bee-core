@@ -321,8 +321,14 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const enabledByPlugin = new Map(installed.map(item => [item.pluginId, item.enabled !== false]));
   const planAssignments = await db.collection("plugin_plan_package_assignments").find({ planId: effectivePlan.id }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
   const planAssignedIds = new Set(planAssignments.map(item => item.pluginId));
-  const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...planAssignedIds, ...purchasedIds, ...manualGrantIds])];
-  const platformPackages = await db.collection("platform_plugin_packages").find({ pluginId: { $in: visibleIds } }).project<{pluginId:string;globallyEnabled?:boolean}>({pluginId:1,globallyEnabled:1,_id:0}).toArray();
+  // The platform root is not a commercial tenant. Its plugin access is governed
+  // by the platform package registry, never by a tenant subscription or purchase.
+  const superOrganization = Boolean(await db.collection("tenants").findOne({ id: tenantId, kind: "super" }, { projection: { id: 1, _id: 0 } }));
+  const platformPackages = await db.collection("platform_plugin_packages")
+    .find(superOrganization ? {} : { pluginId: { $in: [...new Set([...effectivePlan.visiblePluginIds, ...planAssignedIds, ...purchasedIds, ...manualGrantIds])] } })
+    .project<{pluginId:string;globallyEnabled?:boolean}>({pluginId:1,globallyEnabled:1,_id:0}).toArray();
+  const platformPackageIds = new Set(platformPackages.map(item => item.pluginId));
+  const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...planAssignedIds, ...purchasedIds, ...manualGrantIds, ...(superOrganization ? [...platformPackageIds] : [])])];
   const globallyEnabledByPlugin = new Map(platformPackages.map(item => [item.pluginId, item.globallyEnabled !== false]));
   const catalog = await db.collection<PluginPackageDefinition>("plugin_catalog")
     .find({ id: { $in: visibleIds }, status: "published", codeAvailable: true })
@@ -334,6 +340,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
       const planEntitled = effectivePlan.includedPluginIds.includes(plugin.id) || planAssignedIds.has(plugin.id);
       const purchased = purchasedIds.has(plugin.id);
       const manual = manualGrantIds.has(plugin.id);
+      const platformManaged = superOrganization && platformPackageIds.has(plugin.id);
       return {
         id: plugin.id,
         name: plugin.name,
@@ -343,8 +350,8 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
         purchasable: plugin.purchasable,
         system: plugin.system,
         activationPolicy: plugin.activationPolicy ?? "manual",
-        entitled: planEntitled || purchased || manual,
-        accessSource: planEntitled ? "plan" : purchased ? "purchase" : manual ? "manual" : null,
+        entitled: planEntitled || purchased || manual || platformManaged,
+        accessSource: platformManaged ? "platform" : planEntitled ? "plan" : purchased ? "purchase" : manual ? "manual" : null,
         installed: installedIds.has(plugin.id),
         tenantEnabled: installedIds.has(plugin.id) && (enabledByPlugin.get(plugin.id) ?? true),
         enabled: installedIds.has(plugin.id) && (enabledByPlugin.get(plugin.id) ?? true) && (globallyEnabledByPlugin.get(plugin.id) ?? true),

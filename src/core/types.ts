@@ -12,6 +12,12 @@ export interface BeeLogger {
   error(message: string, context?: unknown): void;
 }
 
+export interface BeePluginRuntimeControl {
+  mountStoredPackage(pluginId: string): Promise<{ version: string }>;
+  unmount(pluginId: string): Promise<void>;
+  list(): Array<{ pluginId: string; version: string; apiPrefixes: string[] }>;
+}
+
 export interface BeeContext {
   /** Plugin name when this context is scoped; undefined for the application context. */
   readonly pluginName?: string;
@@ -23,6 +29,8 @@ export interface BeeContext {
   readonly server: FastifyInstance;
   /** One process-wide MongoDB client shared by every plugin scope. */
   readonly mongoClient: MongoClient;
+  /** Core-owned lifecycle control for signed ZIP runtimes; unavailable inside external plugin scopes. */
+  readonly pluginRuntime?: BeePluginRuntimeControl;
 }
 
 export interface BeePlugin {
@@ -51,6 +59,8 @@ export interface BeePluginManifest {
   /** All three business modules are tenant-scoped; platform services use platform. */
   scope?: "platform" | "tenant";
   frontend?: { routes: Array<{ path: string; component: string }> };
+  /** Signed API prefixes routed to an isolated, dynamically mounted runtime. */
+  apiPrefixes?: string[];
 }
 
 export interface BeePluginInfo extends BeePluginManifest {

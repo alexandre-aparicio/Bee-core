@@ -19,6 +19,8 @@ type PlatformPackage = {
 
 type PackageTenantUsage = { pluginId: string; canRemove: boolean; installedCount: number; inactiveCount: number; pendingJobCount: number; tenants: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; inactiveTenants?: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; pendingJobs: Array<{tenantName:string;action:string;status:string}>; };
 
+type SuperOrganizationPlugin = { id: string; pluginKey: string; name: string; installed: boolean; enabled: boolean; status: string; };
+
 type PlatformPlan = {
   id: string;
   name: string;
@@ -72,7 +74,7 @@ type PluginRecord = {
       <p *ngIf="loading" class="plugin-settings__state">Loading modules…</p>
       <p *ngIf="error" class="plugin-settings__error bee-status--danger" role="alert">{{error}}</p>
       <p *ngIf="packageError && !planConfigPlugin" class="plugin-settings__error bee-status--danger" role="alert">{{packageError}}</p>
-      <p *ngIf="message" class="plugin-settings__message" role="status">{{message}}</p>
+      <div *ngIf="toastMessage" class="plugin-settings__toast" role="status" aria-live="polite">{{toastMessage}}</div>
 
       <ng-container *ngIf="!loading && !error">
         <ng-container *ngIf="detail as plugin">
@@ -91,6 +93,11 @@ type PluginRecord = {
                 <div><dt>Access</dt><dd>{{plugin.accessSource || '—'}}</dd></div>
               </dl>
               <div *ngIf="plugin.dependencies?.length"><strong>Dependencies</strong><p>{{plugin.dependencies?.length}} required module(s)</p></div>
+              <div *ngIf="isPlatformAdmin && platformPackageFor(plugin)"><strong>Super Organization</strong><p>{{superOrganizationPluginFor(plugin)?.enabled ? "Enabled" : "Disabled"}} · managed independently from global availability and other tenants.</p></div>
+              <div *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" class="plugin-settings__global-control">
+                <div><strong>Super Organization availability</strong><p>{{superOrganizationPluginFor(plugin)?.enabled ? "This module is enabled for the platform organization only." : "This module is currently disabled for the platform organization. Other tenants are unaffected."}}</p></div>
+                <button type="button" class="plugin-settings__save" (click)="toggleSuperOrganizationActivation(plugin)" [disabled]="superOrganizationActivationBusyId===platformPackageFor(plugin)?.pluginKey">{{superOrganizationActivationBusyId===platformPackageFor(plugin)?.pluginKey ? "Saving…" : (superOrganizationPluginFor(plugin)?.enabled ? "Disable for Super Organization" : "Enable for Super Organization")}}</button>
+              </div>
               <div *ngIf="isPlatformAdmin && platformPackageFor(plugin) as platformPackage" class="plugin-settings__global-control">
                 <div><strong>Global availability</strong><p>{{platformPackage.globallyEnabled === false ? "Suspended for every tenant. Tenant installations and data are preserved." : "Available to tenants according to their own activation and plan."}}</p></div>
                 <button type="button" class="plugin-settings__save" (click)="toggleGlobalActivation(platformPackage)" [disabled]="globalActivationBusyId===platformPackage.pluginKey">{{globalActivationBusyId===platformPackage.pluginKey ? "Saving…" : (platformPackage.globallyEnabled === false ? "Enable globally" : "Disable globally")}}</button>
@@ -116,6 +123,7 @@ type PluginRecord = {
                 <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
+                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleSuperOrganizationActivation(plugin)">{{superOrganizationPluginFor(plugin)?.enabled ? "Disable for Super Organization" : "Enable for Super Organization"}}</button>
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                   <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">Install</button>
                   <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">Uninstall</button>
@@ -132,6 +140,7 @@ type PluginRecord = {
               <span>{{plugin.system ? 'System' : 'Extension'}}</span>
               <span class="plugin-settings__status" [class.is-installed]="plugin.installed" [class.bee-status--success]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span>
               <span *ngIf="plugin.packageSource" class="plugin-settings__status">{{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</span>
+               <span *ngIf="isPlatformAdmin && platformPackageFor(plugin)" class="plugin-settings__status">Super Org · {{superOrganizationPluginFor(plugin)?.enabled ? "Enabled" : "Disabled"}}</span>
             </div>
           </article>
         </div>
@@ -144,13 +153,14 @@ type PluginRecord = {
                 <td><button type="button" class="plugin-settings__table-module" (click)="openDetails(plugin)"><span class="plugin-settings__table-icon">{{plugin.system ? '◈' : '▣'}}</span><span><strong>{{plugin.name}}</strong><small>v{{plugin.version}} · {{plugin.description || 'No description'}}</small></span></button></td>
                 <td>{{plugin.system ? 'System' : 'Extension'}}</td>
                 <td>{{plugin.category || 'Uncategorized'}}</td>
-                <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed" [class.bee-status--success]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span><small *ngIf="plugin.packageSource"> {{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</small></td>
+                <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed" [class.bee-status--success]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span><small *ngIf="plugin.packageSource"> {{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</small><small *ngIf="isPlatformAdmin && platformPackageFor(plugin)"> · Super Org {{superOrganizationPluginFor(plugin)?.enabled ? "Enabled" : "Disabled"}}</small></td>
                 <td>
                   <div class="plugin-settings__menu-wrap">
                     <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
                     <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
+                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleSuperOrganizationActivation(plugin)">{{superOrganizationPluginFor(plugin)?.enabled ? "Disable for Super Organization" : "Enable for Super Organization"}}</button>
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                       <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">Install</button>
                   <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">Uninstall</button>
@@ -340,6 +350,8 @@ type PluginRecord = {
     @media(max-width:600px){.plugin-settings__toolbar-filters{gap:8px}.plugin-settings__search,.plugin-settings__type-filter{flex:1 1 0;min-width:0}.plugin-settings__toolbar-actions{justify-content:flex-end}.plugin-settings__cards{grid-template-columns:1fr}.plugin-settings__detail{flex-direction:column}.plugin-settings__overlay{padding:12px}.plugin-settings__plan-dialog{padding:16px}}
 
     .plugin-settings__global-control{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;padding:14px;border:1px solid var(--bee-border);border-radius:10px}
+    .plugin-settings__toast{position:fixed;right:24px;bottom:24px;z-index:1200;max-width:min(420px,calc(100vw - 32px));padding:13px 18px;border:1px solid var(--bee-border);border-radius:12px;background:var(--bee-surface);color:var(--bee-text);font-size:13px;line-height:1.45;pointer-events:none;animation:plugin-toast-in .18s ease-out}
+    @keyframes plugin-toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
     .plugin-settings__global-control p{font-size:11px;max-width:520px}
     @media(max-width:600px){.plugin-settings__global-control{align-items:flex-start;flex-direction:column}}
   `]
@@ -369,10 +381,20 @@ export class PluginSettingsComponent implements OnInit {
   pluginUploadBusy = false;
   packageSavingId = "";
   globalActivationBusyId = "";
+  superOrganizationActivationBusyId = "";
+  superOrganizationTenantId = "";
+  superOrganizationPlugins: SuperOrganizationPlugin[] = [];
   packageError = "";
   busyId = "";
   message = "";
+  toastMessage = "";
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
   ngOnInit(): void { void this.load(); }
+  private showToast(message: string): void {
+    this.toastMessage = message;
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => { this.toastMessage = ""; this.toastTimer = null; }, 3600);
+  }
   private get token(): string { return this.accessToken; }
   get filteredPlugins(): PluginRecord[] {
     const merged = this.plugins.map(plugin => {
@@ -403,6 +425,36 @@ export class PluginSettingsComponent implements OnInit {
   platformPackageFor(plugin: PluginRecord): PlatformPackage | undefined {
     return this.platformPackages.find(item => item.pluginKey === (plugin.pluginKey || plugin.id) || item.id === plugin.id);
   }
+  superOrganizationPluginFor(plugin: PluginRecord): SuperOrganizationPlugin | undefined {
+    const key = plugin.pluginKey || plugin.id;
+    return this.superOrganizationPlugins.find(item => item.pluginKey === key || item.id === plugin.id);
+  }
+  async toggleSuperOrganizationActivation(plugin: PluginRecord): Promise<void> {
+    const platformPackage = this.platformPackageFor(plugin);
+    if (!this.isPlatformAdmin || !this.superOrganizationTenantId || !platformPackage || platformPackage.status !== 'installed' || this.superOrganizationActivationBusyId) return;
+    const enabled = this.superOrganizationPluginFor(plugin)?.enabled !== true;
+    this.superOrganizationActivationBusyId = platformPackage.pluginKey;
+    this.packageError = ''; this.message = ''; this.openMenuId = '';
+    try {
+      const superOrganizationPlugin = this.superOrganizationPluginFor(plugin);
+      if (!superOrganizationPlugin) throw new Error('Could not resolve the Super Organization plugin identifier');
+      const response = await fetch('/api/platform/companies/' + encodeURIComponent(this.superOrganizationTenantId) + '/plugins/' + encodeURIComponent(superOrganizationPlugin.id), {
+        method: 'PUT', headers: { authorization: 'Bearer ' + this.token, 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not change Super Organization module availability');
+      // Keep the catalogue mounted: update only the Super Organization state in memory.
+      this.superOrganizationPlugins = this.superOrganizationPlugins.map(item =>
+        item.pluginKey === platformPackage.pluginKey || item.id === superOrganizationPlugin.id
+          ? { ...item, enabled, status: enabled ? 'enabled' : 'disabled' }
+          : item
+      );
+      window.dispatchEvent(new CustomEvent('bee:plugins-changed'));
+      this.showToast(plugin.name + (enabled ? ' enabled for Super Organization.' : ' disabled for Super Organization. Other tenants and their data were not changed.'));
+    } catch (error) { this.packageError = error instanceof Error ? error.message : 'Could not change Super Organization module availability'; }
+    finally { this.superOrganizationActivationBusyId = ''; }
+  }
   openPlanConfig(plugin: PluginRecord): void {
     this.openMenuId = "";
     this.planConfigPlugin = this.platformPackageFor(plugin) || null;
@@ -424,8 +476,9 @@ export class PluginSettingsComponent implements OnInit {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not change global plugin availability");
       plugin.globallyEnabled = enabled;
-      this.message = plugin.name + (enabled ? " is available globally again." : " has been suspended globally. Tenant data and activation settings were preserved.");
+      this.showToast(plugin.name + (enabled ? " is available globally again." : " has been suspended globally. Tenant data and activation settings were preserved."));
       if (this.detail) this.detail = { ...this.detail, globallyEnabled: enabled };
+      window.dispatchEvent(new CustomEvent('bee:plugins-changed'));
     } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not change global plugin availability"; }
     finally { this.globalActivationBusyId = ""; }
   }
@@ -462,7 +515,7 @@ export class PluginSettingsComponent implements OnInit {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not save plan access");
-      this.message = "Plan access updated for " + plugin.name + ".";
+      this.showToast("Plan access updated for " + plugin.name + ".");
     } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not save plan access"; }
     finally { this.packageSavingId = ""; }
   }
@@ -489,7 +542,7 @@ export class PluginSettingsComponent implements OnInit {
     try {
       const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.id), { method: 'DELETE', headers: { authorization: 'Bearer ' + this.token } });
       const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not remove platform package');
-      this.message = pkg.name + ' removed from the platform. Restart Bee Core to unload it from the current runtime; tenant data was preserved.';
+      this.showToast(pkg.name + ' removed from the platform. Restart Bee Core to unload it from the current runtime; tenant data was preserved.');
       this.packageRemovalPlugin = null; this.packageUsage = null; await this.loadPlatformPackages(); await this.load();
     } catch (error) { this.packageUsageError = error instanceof Error ? error.message : 'Could not remove platform package'; }
     finally { this.packageRemovalBusy = false; }
@@ -505,7 +558,7 @@ export class PluginSettingsComponent implements OnInit {
       const response = await fetch("/api/platform/plugin-packages", { method: "POST", headers: { authorization: "Bearer " + this.token, "content-type": "application/json" }, body: JSON.stringify({ archiveBase64: btoa(binary) }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Plugin upload failed");
-      this.message = "Package " + result.package.name + " v" + result.package.version + " stored. Runtime activation is pending.";
+      this.showToast("Package " + result.package.name + " v" + result.package.version + " stored. Runtime activation is pending.");
       await this.loadPlatformPackages();
     } catch (error) { this.packageError = error instanceof Error ? error.message : "Plugin upload failed"; }
     finally { this.pluginUploadBusy = false; }
@@ -523,6 +576,14 @@ export class PluginSettingsComponent implements OnInit {
       const catalogResult = await catalogResponse.json();
       if (!catalogResponse.ok) throw new Error(catalogResult.error || "Could not load plugins");
       this.plugins = catalogResult.plugins || [];
+      this.superOrganizationTenantId = this.isPlatformAdmin ? String(catalogResult.tenantId || '') : '';
+      this.superOrganizationPlugins = [];
+      if (this.isPlatformAdmin && this.superOrganizationTenantId) {
+        const superPluginsResponse = await fetch('/api/platform/companies/' + encodeURIComponent(this.superOrganizationTenantId) + '/plugins', { headers });
+        const superPluginsResult = await superPluginsResponse.json();
+        if (!superPluginsResponse.ok) throw new Error(superPluginsResult.error || 'Could not load Super Organization module settings');
+        this.superOrganizationPlugins = superPluginsResult.plugins || [];
+      }
 
       if (packagesResponse) {
         const packagesResult = await packagesResponse.json();
@@ -612,9 +673,10 @@ export class PluginSettingsComponent implements OnInit {
       const action = method === "POST" ? "install" : "uninstall";
       if (result.jobId) await this.waitForJob(String(result.jobId), plugin, action);
       await this.load();
-      this.message = method === "POST"
+      window.dispatchEvent(new CustomEvent('bee:plugins-changed'));
+      this.showToast(method === "POST"
         ? plugin.name + " installed successfully."
-        : plugin.name + " uninstalled. Company data is preserved.";
+        : plugin.name + " uninstalled. Company data is preserved.");
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Plugin operation failed";
       this.message = "";
