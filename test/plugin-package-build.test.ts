@@ -130,11 +130,13 @@ test("Hello Mundo is not registered or advertised as a bundled plugin", async ()
 test("Control Horario backend is independent from Files and scopes tenant-owned persistence through its repository", async () => {
   const pluginSource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.plugin.ts"), "utf8");
   const packageSource = await readFile(join(process.cwd(), "scripts/build-plugin-packages.mjs"), "utf8");
+  const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
   const repositorySource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.repository.ts"), "utf8");
   const handlersSource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.handlers.ts"), "utf8");
 
   assert.match(pluginSource, /dependencies:\s*\["auth",\s*"organizations"\]/);
   assert.doesNotMatch(pluginSource, /files|FilesStorageAdapter/i);
+  assert.match(entitlementSource, /id: "time-tracking",\s*name: "Control Horario",\s*version: "0\.2\.0"/);
   assert.match(packageSource, /id:\s*"time-tracking"[\s\S]*?dependencies:\s*\["auth",\s*"organizations"\]/);
   assert.doesNotMatch(packageSource.match(/\{ id: "time-tracking"[\s\S]*?\},/)?.[0] ?? "", /files|marketplace/i);
   assert.match(repositorySource, /sessionsForTenant/);
