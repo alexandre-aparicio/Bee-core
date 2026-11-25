@@ -57,7 +57,7 @@ Uninstalling a platform package must be blocked while tenant installations or de
 
 ## Current package format and frontend limitation
 
-The installer accepts a package-owned frontend entrypoint and an explicit asset allowlist. The runtime serves only declared files and applies a restrictive Content-Security-Policy. The dashboard mounts the page in an iframe with scripts enabled but without same-origin access. The host retains the bearer token; the iframe can request backend calls only through a parent-window message bridge, and only for API prefixes declared in the signed manifest. The token is never sent into the iframe. Hola Mundo is the reference implementation. The bridge is not a general-purpose sandbox for arbitrary backend code: signed backend plugins remain trusted code running inside the Bee Core process.
+The installer accepts a package-owned frontend entrypoint and an explicit asset allowlist. The runtime serves only declared files and applies a restrictive Content-Security-Policy. The dashboard mounts the page in an iframe with scripts enabled but without same-origin access. The host retains the bearer token; the iframe can request backend calls only through a parent-window message bridge, and only for API prefixes declared in the signed manifest. The token is never sent into the iframe. Hola Mundo and Documents use this package-owned frontend path. The bridge is not a general-purpose sandbox for arbitrary backend code: signed backend plugins remain trusted code running inside the Bee Core process.
 
 ## Migration of the three built-in modules
 
@@ -89,7 +89,7 @@ ZIP package versions are recorded in `platform_plugin_package_versions`. The ext
 
 ## Current limitations
 
-- Only Hola Mundo currently uses the package-owned sandboxed frontend. Documents, Connected Devices and Time Tracking still have static Angular frontend registrations.
+- Hola Mundo and Documents use the package-owned sandboxed frontend. Connected Devices and Time Tracking still have static Angular frontend registrations.
 - The package backend is trusted executable code inside the Bee Core process. Signature verification establishes publisher trust; it is not a sandbox.
 - Manifest permission declarations are currently validated and stored as package metadata; they are not automatically added to the tenant role catalog. External route handlers must enforce tenant context, entitlement, installation/enabled state and permissions using the existing Core guards.
 - The public key setting currently supports one configured publisher key, not a multi-publisher trust store or key rotation UI.
