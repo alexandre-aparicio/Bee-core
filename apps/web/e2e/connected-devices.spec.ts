@@ -115,9 +115,10 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
 
   await card.locator('summary[aria-label="Device actions"]').click();
   await card.getByRole("button", { name: "Delete" }).click();
-  await expect(plugin.getByRole("alertdialog")).toBeVisible();
-  await expect(plugin.getByRole("heading", { name: "Delete device permanently?" })).toBeVisible();
-  await plugin.getByRole("button", { name: "Cancel" }).click();
+  const dialog = plugin.getByRole("alertdialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Delete device permanently?" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
   expect(state.deleteCalls).toBe(0);
 
   await card.locator('summary[aria-label="Device actions"]').click();
