@@ -13,7 +13,7 @@ export const timeTrackingPlugin: BeePlugin = {
     name: "time-tracking",
     version: "0.2.0",
     description: "Employee time clock, breaks and work-session history",
-    dependencies: ["auth", "organizations", "marketplace"],
+    dependencies: ["auth", "organizations"],
     scope: "tenant",
     activationPolicy: "automatic",
     frontend: { routes: [{ path: "/dashboard/time-tracking", component: "bee-time-tracking" }] }
