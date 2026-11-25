@@ -323,7 +323,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const planAssignedIds = new Set(planAssignments.map(item => item.pluginId));
   // The platform root is not a commercial tenant. Its plugin access is governed
   // by the platform package registry, never by a tenant subscription or purchase.
-  const superOrganization = Boolean(await db.collection("tenants").findOne({ id: tenantId, kind: "super", status: "active" }));
+  const superOrganization = Boolean(await db.collection("tenants").findOne({ id: tenantId, kind: "super" }, { projection: { id: 1, _id: 0 } }));
   const platformPackages = await db.collection("platform_plugin_packages")
     .find(superOrganization ? {} : { pluginId: { $in: [...new Set([...effectivePlan.visiblePluginIds, ...planAssignedIds, ...purchasedIds, ...manualGrantIds])] } })
     .project<{pluginId:string;globallyEnabled?:boolean}>({pluginId:1,globallyEnabled:1,_id:0}).toArray();
