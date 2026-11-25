@@ -601,9 +601,10 @@ export const marketplacePlugin: BeePlugin = {
             const migrationRun = await runTenantPluginMigrations(db, job.tenantId, job.pluginId, tenantMigrations);
             try {
               await trusted.installTenant?.(db, job.tenantId);
+              const installedAt = new Date();
               await installations.updateOne(
                 { tenantId: job.tenantId, pluginId: job.pluginId },
-                { $set: { status: "installed", version: trusted.version, installedAt: new Date(), updatedAt: new Date() }, $unset: { error: "" } }
+                { $set: { status: "installed", version: trusted.version, installedAt, updatedAt: installedAt, enabled: true, enabledUpdatedAt: installedAt, enabledUpdatedBy: job.actorId }, $unset: { error: "" } }
               );
               if (tenantRecord.kind === "super") {
                 await setPlatformPackageInstalled(db, job.pluginId, trusted.version, job.actorId);
