@@ -383,9 +383,11 @@ export const marketplacePlugin: BeePlugin = {
       if(!globalPackage)return reply.code(404).send({error:"Plugin frontend package is not loaded"});
       const version=String(globalPackage.version??"");
       const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId:plugin.id,version});
-      const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
+      const manifest=versionRecord?.manifest as {frontendContract?:number;frontend?:{entrypoint?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
+      const hostFrontendContract=1;
+      if((manifest?.frontendContract??1)!==hostFrontendContract)return reply.code(409).send({code:"PLUGIN_FRONTEND_CONTRACT_MISMATCH",error:"Plugin update required: this package targets frontend contract "+String(manifest?.frontendContract)+" but this Bee Core host supports "+hostFrontendContract+"."});
       if(!manifest?.frontend?.entrypoint)return reply.code(404).send({error:"Plugin has no packaged frontend"});
-      return {pluginId:plugin.id,version,entrypoint:manifest.frontend.entrypoint,apiPrefixes:manifest.frontend.apiPrefixes??[],routes:manifest.frontend.routes??[]};
+      return {pluginId:plugin.id,version,frontendContract:hostFrontendContract,entrypoint:manifest.frontend.entrypoint,apiPrefixes:manifest.frontend.apiPrefixes??[],routes:manifest.frontend.routes??[]};
     });
     ctx.server.get("/public/tenant/plugins", async (request: any, reply: any) => {
       const hostname = String(request.hostname ?? "").trim().toLowerCase().replace(/\.$/, "");
