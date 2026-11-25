@@ -114,7 +114,7 @@ for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !
       if (count > 1) errors.push(id + ': ' + mode + ' declares ' + token + ' ' + count + ' times');
     }
     blocks.set(mode, declared);
-    const modeValues = new Map([...match[2].matchAll(/^\\s*(--bee-[\\w-]+)\\s*:\\s*([^;]+);?/gm)].map(item => [item[1], item[2].trim()]));
+    const modeValues = new Map([...match[2].matchAll(/^\s*(--bee-[\w-]+)\s*:\s*([^;]+);?/gm)].map(item => [item[1], item[2].trim()]));
     blockValues.set(mode, modeValues);
   }
 
@@ -157,7 +157,7 @@ function parseColor(input, values, depth = 0) {
       a: hasAlpha ? parseInt(hex.slice(6, 8), 16) / 255 : 1
     };
   }
-  const rgbMatch = value.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+)%?)?\s*\)$/i);
+  const rgbMatch = value.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/i);
   if (rgbMatch) {
     const alphaText = rgbMatch[4] || '1';
     const alpha = alphaText.endsWith('%') ? Number(alphaText.slice(0, -1)) / 100 : Number(alphaText);
