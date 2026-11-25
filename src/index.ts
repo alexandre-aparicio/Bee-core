@@ -21,7 +21,6 @@ import { teamsPlugin } from "./plugins/teams/teams.plugin.js";
 import { filesPlugin } from "./plugins/files/files.plugin.js";
 import { documentsPlugin } from "./plugins/documents/documents.plugin.js";
 import { connectedDevicesPlugin } from "./plugins/connected-devices/connected-devices.plugin.js";
-import { timeTrackingPlugin } from "./plugins/time-tracking/time-tracking.plugin.js";
 import { marketplacePlugin } from "./plugins/marketplace/marketplace.plugin.js";
 import { notesPlugin } from "./plugins/notes/notes.plugin.js";
 import { notificationsPlugin } from "./plugins/notifications/notifications.plugin.js";
@@ -322,11 +321,10 @@ async function bootstrap(): Promise<void> {
   const uploadedIds = new Set(uploadedPackages.map(item => item.pluginId));
   if (!uploadedIds.has("documents")) plugins.register(documentsPlugin);
   if (!uploadedIds.has("connected-devices")) plugins.register(connectedDevicesPlugin);
-  if (!uploadedIds.has("time-tracking")) plugins.register(timeTrackingPlugin);
 
   const zipPluginFailures = await loadSignedZipPlugins();
   const builtinFallbacks = new Map([
-    ["documents", documentsPlugin], ["connected-devices", connectedDevicesPlugin], ["time-tracking", timeTrackingPlugin]
+    ["documents", documentsPlugin], ["connected-devices", connectedDevicesPlugin]
   ]);
   const builtinFallbackIds = new Set<string>();
   for (const [pluginId, plugin] of builtinFallbacks) {

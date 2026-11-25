@@ -62,8 +62,10 @@ export const platformAdminPlugin:BeePlugin={
   await seedBundledPlatformPackages(db,TRUSTED_PLUGIN_PACKAGES);
   const migratedPlatformPackages=await migrateLegacyPlatformPackageInstalls(db,superOrganization.id);
   if(migratedPlatformPackages)ctx.logger.info("Legacy platform package installations migrated",{count:migratedPlatformPackages});
-  // Hello World must only be available as a separately uploaded, signed ZIP.
+  // Legacy modules must only be available as separately uploaded, signed ZIP packages.
+  // Preserve tenant installation history; hide only the old bundled platform record.
   await retireBundledPlatformPackage(db,"hello-world");
+  await retireBundledPlatformPackage(db,"time-tracking");
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
@@ -129,8 +131,18 @@ export const platformAdminPlugin:BeePlugin={
    if(builtIn)return builtIn;
    const runtime=getRuntimePlugin(pluginId);
    if(!runtime)return undefined;
-   const metadata=await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({id:pluginId,status:"published",codeAvailable:true});
+   const metadata=await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({id:pluginId,status:"published"});
    if(!metadata)return undefined;
+   // ZIP packages deliberately keep codeAvailable=false: their executable code
+   // lives in the signed-package runtime, not in the bundled plugin catalogue.
+   // Resolve that metadata only while the matching global ZIP is installed and
+   // mounted successfully. Preserve the existing bundled/external-code path.
+   if(metadata.codeAvailable!==true){
+    const loadedZip=await db.collection("platform_plugin_packages").findOne({
+     pluginId,status:"installed",source:"zip",runtimeState:"loaded"
+    });
+    if(!loadedZip)return undefined;
+   }
    return {...metadata,migrations:runtime.tenantMigrations??[],installTenant:runtime.installTenant,updateTenant:runtime.updateTenant,uninstallTenant:runtime.uninstallTenant};
   };
   const permissionPolicyCollection=db.collection<{id:string;tenantAssignablePermissions:string[];updatedAt:Date;updatedBy:string}>("platform_permission_policies");
@@ -279,11 +291,13 @@ export const platformAdminPlugin:BeePlugin={
       const existing=await packages.findOne({pluginId:manifest.id});
       const migratableBuiltIns=new Set(["connected-devices","time-tracking","documents","hello-world"]);
       if(existing&&existing.source!=="zip"&&!migratableBuiltIns.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
-      if(existing?.version&&existing.version!==manifest.version){
+      if(existing?.version){
        const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const isUpgrade=incoming[0]!>current[0]!||(incoming[0]===current[0]&&incoming[1]!>current[1]!)||(incoming[0]===current[0]&&incoming[1]===current[1]&&incoming[2]!>current[2]!);
-       if(!isUpgrade)throw new Error("Package version must be newer than the currently installed version");
+       const isSameVersion=incoming[0]===current[0]&&incoming[1]===current[1]&&incoming[2]===current[2];
+       const isBundledMigration=existing.source!=="zip"&&isSameVersion;
+       if(!isUpgrade&&!isBundledMigration)throw new Error("Package version must be newer than the currently installed version unless replacing the same-version bundled package");
       }
       for(const dependency of manifest.dependencies.filter(item=>!item.optional)){
        if(CORE_RUNTIME_PLUGIN_IDS.has(dependency.pluginId)){
@@ -541,8 +555,18 @@ export const platformAdminPlugin:BeePlugin={
    ]);
    const globalByPlugin=new Map(platformPackages.map(item=>[item.pluginId,item]));
    const tenantByPlugin=new Map(tenantInstallations.map(item=>[String(item.pluginId),item]));
-   const externalCatalog=await db.collection<PluginPackageDefinition>("plugin_catalog").find({status:"published",codeAvailable:true}).toArray();
-   const externalDefinitions=externalCatalog.filter(plugin=>!TRUSTED_PLUGIN_PACKAGES.some(builtIn=>builtIn.id===plugin.id));
+   const loadedZipIds=platformPackages
+    .filter(item=>item.source==="zip"&&item.status==="installed"&&item.runtimeState==="loaded")
+    .map(item=>item.pluginId);
+   const externalCatalog=await db.collection<PluginPackageDefinition>("plugin_catalog").find({
+    status:"published",
+    $or:[{codeAvailable:true},{id:{$in:loadedZipIds},codeAvailable:false}]
+   }).toArray();
+   const externalDefinitions=externalCatalog.filter(plugin=>
+    !TRUSTED_PLUGIN_PACKAGES.some(builtIn=>builtIn.id===plugin.id)&&
+    (plugin.codeAvailable===true||loadedZipIds.includes(plugin.id))&&
+    Boolean(getRuntimePlugin(plugin.id))
+   );
    const definitions=[...TRUSTED_PLUGIN_PACKAGES,...externalDefinitions];
    const tenantCatalog=await getTenantPluginCatalog(db,company.id);
    const entitlementByPlugin=new Map(tenantCatalog.map(item=>[item.id,item]));

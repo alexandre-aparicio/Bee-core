@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, sign } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, sign, verify as verifySignature } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { deflateRawSync } from "node:zlib";
@@ -9,7 +9,7 @@ const OUTPUT = resolve(process.env.BEE_PLUGIN_PACKAGE_OUTPUT ?? "artifacts/plugi
 const RUNTIME_VERSION = process.env.BEE_RUNTIME_VERSION ?? "0.3.1";
 const PACKAGES = [
   { id: "connected-devices", name: "Connected Devices", version: "0.1.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants.", frontendSource: "src/plugins/connected-devices/frontend", frontend: { routes: [{ path: "/dashboard/connected-devices", component: "connected-devices" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js", "frontend/qrcode.min.js"], apiPrefixes: ["/connected-devices"] } },
-  { id: "time-tracking", name: "Control Horario", version: "0.2.0", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations", "marketplace"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }], frontendSource: "src/plugins/time-tracking/frontend", frontend: { routes: [{ path: "/dashboard/time-tracking", component: "bee-time-tracking" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/time-tracking"] } },
+  { id: "time-tracking", name: "Control Horario", version: "0.2.0", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }], frontendSource: "src/plugins/time-tracking/frontend", frontend: { routes: [{ path: "/dashboard/time-tracking", component: "bee-time-tracking" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/time-tracking"] } },
   { id: "documents", name: "Documents", version: "0.1.0", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], tenantDependencies: ["files"], activationPolicy: "automatic", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery.", frontendSource: "src/plugins/documents/frontend", frontend: { routes: [{ path: "/dashboard/documents", component: "documents" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/documents", "/files"] } },
   { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } }
 ];
@@ -88,9 +88,30 @@ function exportName(id) {
   return { "connected-devices": "connectedDevicesPlugin", "time-tracking": "timeTrackingPlugin", documents: "documentsPlugin", "hello-world": "helloWorldPlugin" }[id];
 }
 
-export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, distDir = DIST, runtimeVersion = RUNTIME_VERSION }) {
+export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputDir = OUTPUT, distDir = DIST, runtimeVersion = RUNTIME_VERSION }) {
   if (!privateKeyPem?.trim()) throw new Error("BEE_PLUGIN_PUBLISHER_PRIVATE_KEY is required to sign release packages.");
-  const privateKey = createPrivateKey(privateKeyPem.replace(/\\n/g, "\n"));
+  if (!publicKeyPem?.trim()) throw new Error("BEE_PLUGIN_PUBLISHER_PUBLIC_KEY is required to verify release packages.");
+  let privateKey, publicKey;
+  try {
+    privateKey = createPrivateKey(privateKeyPem.replace(/\\n/g, "\n"));
+    publicKey = createPublicKey(publicKeyPem.replace(/\\n/g, "\n"));
+  } catch {
+    throw new Error("The configured plugin publisher key pair is invalid.");
+  }
+  const supportedKeyTypes = new Set(["ed25519", "rsa"]);
+  if (
+    privateKey.asymmetricKeyType !== publicKey.asymmetricKeyType ||
+    !supportedKeyTypes.has(privateKey.asymmetricKeyType ?? "")
+  ) {
+    throw new Error("Plugin publisher keys must be a matching Ed25519 or RSA key pair.");
+  }
+  const derivedPublicKey = createPublicKey(privateKey).export({ type: "spki", format: "der" });
+  const configuredPublicKey = publicKey.export({ type: "spki", format: "der" });
+  if (!derivedPublicKey.equals(configuredPublicKey)) {
+    throw new Error("BEE_PLUGIN_PUBLISHER_PRIVATE_KEY does not match BEE_PLUGIN_PUBLISHER_PUBLIC_KEY.");
+  }
+  // Match the runtime verifier: EdDSA uses a null digest; RSA signatures use SHA-256.
+  const signatureAlgorithm = privateKey.asymmetricKeyType === "ed25519" ? null : "sha256";
   const output = resolve(outputDir);
   await mkdir(output, { recursive: true });
   const results = [];
@@ -122,7 +143,18 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
       package: { sha256: "", signature: "", storageKey: "packages/" + definition.id + "/" + definition.version }
     };
     manifest.package.sha256 = digestPackage(files);
-    manifest.package.signature = sign(null, canonicalPayload(manifest), privateKey).toString("base64");
+    const signature = sign(signatureAlgorithm, canonicalPayload(manifest), privateKey);
+    if (!verifySignature(signatureAlgorithm, canonicalPayload(manifest), publicKey, signature)) {
+      throw new Error("Generated plugin publisher signature could not be verified.");
+    }
+    manifest.package.signature = signature.toString("base64");
+    for (const requiredPath of [
+      manifest.backend.entrypoint,
+      ...(manifest.frontend.entrypoint ? [manifest.frontend.entrypoint] : []),
+      ...(manifest.frontend.assets ?? [])
+    ]) {
+      if (!files.has(requiredPath)) throw new Error("Package " + definition.id + " is missing declared asset: " + requiredPath);
+    }
     files.set("bee-plugin.json", Buffer.from(JSON.stringify(manifest, null, 2) + "\n"));
     const archive = zip(files), target = join(output, definition.id + "-" + definition.version + ".zip");
     await writeFile(target, archive);
@@ -132,6 +164,6 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) {
-  const results = await buildPluginPackages({ privateKeyPem: process.env.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY ?? "" });
+  const results = await buildPluginPackages({ privateKeyPem: process.env.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY ?? "", publicKeyPem: process.env.BEE_PLUGIN_PUBLISHER_PUBLIC_KEY ?? "" });
   for (const result of results) process.stdout.write(JSON.stringify(result) + "\n");
 }

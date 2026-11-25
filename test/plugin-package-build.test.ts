@@ -12,16 +12,51 @@ import { installSignedPluginZip } from "../src/core/plugin-zip-installer.js";
 
 const distReady = existsSync(join(process.cwd(), "dist/plugins/documents/documents.plugin.js"));
 
+test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifier", { skip: !distReady }, async () => {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 3072 });
+  const root = await mkdtemp(join(tmpdir(), "bee-rsa-publisher-packages-"));
+  try {
+    const built = await buildPluginPackages({
+      privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+      publicKeyPem: publicKey.export({ type: "spki", format: "pem" }).toString(),
+      outputDir: join(root, "archives")
+    });
+    const timeTracking = built.find(item => item.id === "time-tracking");
+    assert.ok(timeTracking);
+    const installed = await installSignedPluginZip({
+      archive: await readFile(timeTracking.path),
+      storageRoot: join(root, "installed"),
+      publisherPublicKey: publicKey.export({ type: "spki", format: "pem" }).toString(),
+      runtimeVersion: "0.3.1"
+    });
+    assert.equal(installed.manifest.id, "time-tracking");
+    assert.equal(installed.manifest.version, "0.2.0");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("four first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const root = await mkdtemp(join(tmpdir(), "bee-first-party-packages-"));
   try {
+    const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     const built = await buildPluginPackages({
-      privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+      privateKeyPem,
+      publicKeyPem,
       outputDir: join(root, "archives")
     });
+    const mismatchedPair = generateKeyPairSync("ed25519");
+    await assert.rejects(
+      () => buildPluginPackages({
+        privateKeyPem,
+        publicKeyPem: mismatchedPair.publicKey.export({ type: "spki", format: "pem" }).toString(),
+        outputDir: join(root, "rejected")
+      }),
+      /does not match/
+    );
     assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking"]);
-    const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     for (const item of built) {
       assert.ok(item.bytes > 100);
       const installed = await installSignedPluginZip({
@@ -54,11 +89,15 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "time-tracking") {
+        assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
+        assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/time-tracking"]);
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
         const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
         const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
+        assert.equal(html, await readFile(join(process.cwd(), "src/plugins/time-tracking/frontend/index.html"), "utf8"), "the ZIP must contain the exact current standalone HTML");
+        assert.equal(script, await readFile(join(process.cwd(), "src/plugins/time-tracking/frontend/main.js"), "utf8"), "the ZIP must contain the exact current standalone frontend and all its functionality");
         assert.match(html, /Control horario/);
         assert.match(script, /clock-in/);
         assert.match(script, /team\/schedules/);
@@ -67,6 +106,16 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /saveSchedule/);
         assert.match(script, /confirmReview/);
         assert.match(script, /renderReviewModal/);
+        assert.match(script, /my-day/);
+        assert.match(script, /historyPanel/);
+        assert.match(script, /schedulePanel/);
+        assert.match(script, /requestsPanel/);
+        assert.match(script, /\/time-tracking\/me\/status/);
+        assert.match(script, /\/time-tracking\/me\/sessions/);
+        assert.match(script, /\/time-tracking\/me\/corrections/);
+        assert.match(script, /\/time-tracking\/team\/members/);
+        assert.match(script, /\/time-tracking\/team\/schedules/);
+        assert.match(script, /\/time-tracking\/team\/corrections/);
         assert.match(script, /clock-in/);
         assert.match(script, /break-start/);
         assert.match(script, /break-end/);
@@ -122,4 +171,38 @@ test("Hello Mundo is not registered or advertised as a bundled plugin", async ()
   assert.match(registrySource, /retireBundledPlatformPackage/, "legacy bundled records must be retired");
   assert.match(registrySource, /status:\s*"deprecated"/, "retired package records must be hidden from active listings");
   assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"hello-world"\)/, "platform startup must retire the old bundled record");
+});
+
+
+test("Control Horario backend is independent from Files and scopes tenant-owned persistence through its repository", async () => {
+  const pluginSource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.plugin.ts"), "utf8");
+  const packageSource = await readFile(join(process.cwd(), "scripts/build-plugin-packages.mjs"), "utf8");
+  const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
+  const repositorySource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.repository.ts"), "utf8");
+  const handlersSource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.handlers.ts"), "utf8");
+  const platformAdminSource = await readFile(join(process.cwd(), "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
+
+  assert.match(pluginSource, /dependencies:\s*\["auth",\s*"organizations"\]/);
+  assert.doesNotMatch(pluginSource, /files|FilesStorageAdapter/i);
+  assert.doesNotMatch(entitlementSource, /id: "time-tracking",\s*name: "Control Horario"/, "Control Horario must not remain a trusted bundled marketplace package");
+  assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"time-tracking"\)/, "the previous bundled platform record must be retired at startup");
+  assert.match(packageSource, /id:\s*"time-tracking"[\s\S]*?dependencies:\s*\["auth",\s*"organizations"\]/);
+  assert.doesNotMatch(packageSource.match(/\{ id: "time-tracking"[\s\S]*?\},/)?.[0] ?? "", /files|marketplace/i);
+  assert.match(repositorySource, /sessionsForTenant/);
+  assert.match(repositorySource, /schedulesForTenant/);
+  assert.match(repositorySource, /correctionsForTenant/);
+  assert.match(repositorySource, /membershipsForTenant/);
+  assert.doesNotMatch(handlersSource, /new TenantCollection/);
+  const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
+  const frontendRegistrySource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
+  assert.doesNotMatch(runtimeSource, /import\s*\{\s*timeTrackingPlugin\s*\}/, "Control Horario backend must load from its signed ZIP only");
+  assert.doesNotMatch(runtimeSource, /plugins\.register\(timeTrackingPlugin\)/, "Control Horario must not retain a bundled backend fallback");
+  assert.match(frontendRegistrySource, /BeeTimeTrackingComponent/);
+  assert.match(frontendRegistrySource, /time-tracking.*BeeTimeTrackingComponent/);
+  const outletSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+  assert.ok(outletSource.indexOf("this.registry.resolve(pluginId)") < outletSource.indexOf("this.loadRemoteRuntime(pluginId)"), "native plugin frontends must render before the remote iframe fallback");
+  assert.match(handlersSource, /repository\.sessionsForTenant/);
+  assert.match(handlersSource, /repository\.schedulesForTenant/);
+  assert.match(handlersSource, /repository\.correctionsForTenant/);
+  assert.match(handlersSource, /repository\.membershipsForTenant/);
 });

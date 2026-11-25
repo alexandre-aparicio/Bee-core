@@ -9,6 +9,8 @@ import {mkdtemp,rm} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {base32Decode} from "../src/core/totp.js";
+import {maskResourceId} from "../src/core/session-id.js";
+import {registerRuntimePlugin,unregisterRuntimePlugin} from "../src/core/runtime-plugin-registry.js";
 import {authPlugin} from "../src/plugins/auth/auth.plugin.js";
 import {organizationsPlugin} from "../src/plugins/organizations/organizations.plugin.js";
 import {marketplacePlugin} from "../src/plugins/marketplace/marketplace.plugin.js";
@@ -94,6 +96,36 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   assert.equal((await db.collection("plugin_catalog").findOne({id:"hello-world"}))?.status,"deprecated");
   const superOrganization=await db.collection("tenants").findOne({kind:"super"});
   assert.ok(superOrganization,"platform installation must be owned by the Super Organization");
+
+  // A signed ZIP is intentionally catalogued with codeAvailable=false. It must
+  // still be discoverable and activatable when its global runtime is mounted.
+  const zipRuntimePlugin={manifest:{name:"zip-only-test",version:"0.1.0",description:"Signed ZIP regression fixture",dependencies:[]}} as any;
+  const failedRuntimePlugin={manifest:{name:"zip-failed-test",version:"0.1.0",description:"Failed ZIP regression fixture",dependencies:[]}} as any;
+  registerRuntimePlugin(zipRuntimePlugin);
+  registerRuntimePlugin(failedRuntimePlugin);
+  await db.collection("platform_plugin_packages").insertMany([
+   {pluginId:"zip-only-test",name:"ZIP Only Test",version:"0.1.0",description:"Signed ZIP regression fixture",category:"test",dependencies:[],status:"installed",source:"zip",runtimeState:"loaded",createdAt:new Date(),updatedAt:new Date()},
+   {pluginId:"zip-failed-test",name:"ZIP Failed Test",version:"0.1.0",description:"Failed ZIP regression fixture",category:"test",dependencies:[],status:"installed",source:"zip",runtimeState:"failed",createdAt:new Date(),updatedAt:new Date()}
+  ]);
+  await db.collection("plugin_catalog").insertMany([
+   {id:"zip-only-test",name:"ZIP Only Test",version:"0.1.0",description:"Signed ZIP regression fixture",category:"test",dependencies:[],status:"published",codeAvailable:false},
+   {id:"zip-failed-test",name:"ZIP Failed Test",version:"0.1.0",description:"Failed ZIP regression fixture",category:"test",dependencies:[],status:"published",codeAvailable:false}
+  ]);
+  const sessionContext={sessionId:rootSession.id,expiresAt:rootSession.expiresAt};
+  const superOrganizationRef=maskResourceId(superOrganization.id,"tenant",sessionContext,jwtSecret);
+  const zipPluginRef=maskResourceId("zip-only-test","plugin",sessionContext,jwtSecret);
+  const failedPluginRef=maskResourceId("zip-failed-test","plugin",sessionContext,jwtSecret);
+  const superPlugins=await app.inject({method:"GET",url:"/platform/companies/"+encodeURIComponent(superOrganizationRef)+"/plugins",headers:rootHeaders});
+  assert.equal(superPlugins.statusCode,200);
+  const zipRow=superPlugins.json().plugins.find((plugin:any)=>plugin.pluginKey==="zip-only-test");
+  assert.ok(zipRow?.installed&&!zipRow.enabled,"a loaded signed ZIP must be listed as installed and initially disabled in Super Organization");
+  assert.equal(superPlugins.json().plugins.find((plugin:any)=>plugin.pluginKey==="zip-failed-test"),undefined,"a ZIP whose runtime failed must not be listed as activatable");
+  const activateZip=await app.inject({method:"PUT",url:"/platform/companies/"+encodeURIComponent(superOrganizationRef)+"/plugins/"+encodeURIComponent(zipPluginRef),headers:rootHeaders,payload:{enabled:true}});
+  assert.equal(activateZip.statusCode,200,"Super Organization must activate a loaded signed ZIP without requiring codeAvailable=true");
+  assert.equal(activateZip.json().enabled,true);
+  assert.ok(await db.collection("tenant_plugin_installations").findOne({tenantId:superOrganization.id,pluginId:"zip-only-test",status:"installed",enabled:true}));
+  const activateFailedZip=await app.inject({method:"PUT",url:"/platform/companies/"+encodeURIComponent(superOrganizationRef)+"/plugins/"+encodeURIComponent(failedPluginRef),headers:rootHeaders,payload:{enabled:true}});
+  assert.equal(activateFailedZip.statusCode,404,"a ZIP with a failed runtime must not be activatable");
   const helloWorld=platformPlugins.json().plugins.find((plugin:any)=>plugin.name==="Hola Mundo");
   assert.equal(helloWorld,undefined,"Hello Mundo must not be exposed as a bundled platform plugin; it is available only after a signed ZIP upload");
   const pluginRows=platformPlugins.json().plugins as Array<{id:string;name:string;installed:boolean;enabled:boolean;system:boolean}>;
@@ -123,5 +155,5 @@ test("platform admin requires enrolled and recent MFA and audits sensitive actio
   const tenantLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"acme-owner@example.test",password:"Acme-owner-Password-123",client:"dashboard"}});assert.equal(tenantLogin.statusCode,200);
   const tenantHeaders={authorization:"Bearer "+tenantLogin.json().accessToken};
   const forbidden=await app.inject({method:"GET",url:"/platform/companies",headers:tenantHeaders});assert.equal(forbidden.statusCode,403,"company owners must not access global platform endpoints");
- }finally{await marketplacePlugin.stop?.();await app.close().catch(()=>{});await client.db(dbName).dropDatabase();await rm(pluginPackagePath,{recursive:true,force:true});await client.close();}
+ }finally{unregisterRuntimePlugin("zip-only-test");unregisterRuntimePlugin("zip-failed-test");await marketplacePlugin.stop?.();await app.close().catch(()=>{});await client.db(dbName).dropDatabase();await rm(pluginPackagePath,{recursive:true,force:true});await client.close();}
 });

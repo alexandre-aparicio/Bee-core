@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MongoClient, type Document } from "mongodb";
+import { MongoClient, type Collection, type Document } from "mongodb";
 import { TenantCollection, tenantDocument, tenantFilter } from "../src/core/tenant-collection.js";
 
 const uri = process.env.MONGODB_TEST_URI;
@@ -28,6 +28,16 @@ test("tenant collection scopes every query and mutation to one company", { skip:
     const crossTenantDelete = await alpha.deleteOne({ id: "beta-contact" });
     assert.equal(crossTenantDelete.deletedCount, 0);
     assert.equal((await beta.findOne({ id: "beta-contact" }))?.label, "Beta record");
+
+    await alpha.updateOne(
+      { id: "alpha-upsert" },
+      { $set: { email: "upsert@example.test", label: "Alpha upsert" } },
+      { upsert: true }
+    );
+    const upserted = await alpha.findOne({ id: "alpha-upsert" });
+    assert.equal(upserted?.tenantId, "company-alpha");
+    assert.equal(upserted?.label, "Alpha upsert");
+    assert.equal(await beta.countDocuments({ id: "alpha-upsert" }), 0);
 
     assert.throws(
       () => alpha.insertOne({ id: "bad-contact", email: "bad@example.test", label: "Bad", tenantId: "company-beta" }),
@@ -61,6 +71,29 @@ test("tenant collection scopes every query and mutation to one company", { skip:
     await client.db(dbName).dropDatabase();
     await client.close();
   }
+});
+
+test("tenant collection automatically stamps tenantId on upserts", async () => {
+  let captured: { filter: unknown; update: unknown; options: unknown } | undefined;
+  const raw = {
+    updateOne: async (filter: unknown, update: unknown, options: unknown) => {
+      captured = { filter, update, options };
+      return { acknowledged: true, matchedCount: 0, modifiedCount: 0, upsertedCount: 1, upsertedId: "new-id" };
+    }
+  } as unknown as Collection<Contact>;
+  const scoped = new TenantCollection<Contact>(raw, "company-alpha");
+
+  await scoped.updateOne(
+    { id: "schedule-one" },
+    { $set: { label: "Weekly schedule" } },
+    { upsert: true }
+  );
+
+  assert.deepEqual(captured, {
+    filter: { $and: [{ id: "schedule-one" }, { tenantId: "company-alpha" }] },
+    update: { $set: { label: "Weekly schedule" }, $setOnInsert: { tenantId: "company-alpha" } },
+    options: { upsert: true }
+  });
 });
 
 test("tenant helpers reject missing or conflicting tenant context", () => {
