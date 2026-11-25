@@ -88,6 +88,9 @@ function fixture(role: "member" | "owner"): Fixture {
 test("member can clock in, start/end a break and clock out without a remote iframe", async ({ page }) => {
   const auth = fixture("member");
   const state = { session: null as any, history: [] as any[], myCorrections: [], mySchedule: null, members: [], schedules: [], teamCorrections: [] as any[] };
+  const browserErrors: string[] = [];
+  page.on("pageerror", error => browserErrors.push(error.stack || error.message));
+  page.on("console", message => { if (message.type() === "error") browserErrors.push(message.text()); });
   await authenticate(page, auth);
   await installApiMocks(page, auth, state);
   await page.goto("/dashboard");
@@ -95,7 +98,13 @@ test("member can clock in, start/end a break and clock out without a remote ifra
   await page.getByRole("button", { name: /Control Horario/ }).click();
   await page.getByRole("button", { name: "Mi jornada" }).click();
 
-  await expect(page.getByRole("heading", { name: "Mi jornada" })).toBeVisible({ timeout: 15000 });
+  try {
+    await expect(page.getByRole("heading", { name: "Mi jornada" })).toBeVisible({ timeout: 15000 });
+  } catch (error) {
+    const body = await page.locator("body").innerText();
+    await page.screenshot({ path: "test-results/template-screenshots/time-tracking-member-debug.png", fullPage: true });
+    throw new Error(String(error) + "\\nURL: " + page.url() + "\\nBODY: " + body + "\\nBROWSER ERRORS: " + browserErrors.join(" | "));
+  }
   await expect(page.getByRole("button", { name: "Fichar entrada" })).toBeVisible();
   await expect(page.locator('iframe[title="time-tracking plugin"]')).toHaveCount(0);
 
@@ -132,6 +141,9 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
       reason: "Forgot to register", status: "pending", createdAt: "2026-11-25T10:00:00.000Z"
     }]
   };
+  const browserErrors: string[] = [];
+  page.on("pageerror", error => browserErrors.push(error.stack || error.message));
+  page.on("console", message => { if (message.type() === "error") browserErrors.push(message.text()); });
   await authenticate(page, auth);
   await installApiMocks(page, auth, state);
   await page.goto("/dashboard");
@@ -139,7 +151,13 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
   await page.getByRole("button", { name: /Control Horario/ }).click();
   await page.getByRole("button", { name: "Horarios" }).click();
 
-  await expect(page.getByRole("heading", { name: "Planificación de horarios" })).toBeVisible({ timeout: 15000 });
+  try {
+    await expect(page.getByRole("heading", { name: "Planificación de horarios" })).toBeVisible({ timeout: 15000 });
+  } catch (error) {
+    const body = await page.locator("body").innerText();
+    await page.screenshot({ path: "test-results/template-screenshots/time-tracking-owner-debug.png", fullPage: true });
+    throw new Error(String(error) + "\\nURL: " + page.url() + "\\nBODY: " + body + "\\nBROWSER ERRORS: " + browserErrors.join(" | "));
+  }
   await page.getByRole("checkbox", { name: "Activar lunes" }).check();
   await page.locator('input[type="time"]').nth(1).fill("08:30");
   await page.locator('input[type="time"]').nth(2).fill("16:30");
