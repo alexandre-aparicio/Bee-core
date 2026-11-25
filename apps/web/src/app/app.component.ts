@@ -510,23 +510,22 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.navigateSection(target);
   }
-  get canManageTimeTracking(): boolean { return ['owner','admin','manager','super_admin','superadmin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get canReadActivity(): boolean {
     // Keep navigation visibility aligned with AuditLogComponent.canRead.
     return ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase());
   }
-  get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string}> {
-    // One shared navigation structure for platform and tenant administrators.
-    // Privileged areas are restricted within Settings and by section access checks.
+  get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string;pluginId?:string;children?:Array<{id:string;label:string;labelKey:string;icon:string;group:string;pluginId:string}>;defaultChild?:string}> {
+    const pluginItems = this.pluginFrontends.getNavigationItems(this.activePlugins, (this.activeCompanyRole || "member").toLowerCase()).map(item => ({
+      ...item, label: this.i18n.t(item.labelKey),
+      children: item.children.map(child => ({ ...child, label: this.i18n.t(child.labelKey) }))
+    }));
     const items = [
       {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
-      ...(this.isPluginEnabled('documents') ? [{id:'documents',label:'Documents',labelKey:'nav.documents',icon:'documentation',group:'WORKSPACE'}] : []),
-      ...(this.isPluginEnabled('connected-devices') ? [{id:'connected-devices',label:this.i18n.t('nav.connectedDevices'),labelKey:'nav.connectedDevices',icon:'infrastructure',group:'WORKSPACE'}] : []),
-      ...(this.isPluginEnabled('time-tracking') ? [{id:'time-tracking',label:'Control Horario',labelKey:'nav.timeTracking',icon:'activity',group:'WORKSPACE'}] : []),
-      {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
+      ...pluginItems,
+      {id:'organization',label:this.i18n.t('organization:nav.organization'),labelKey:'organization:nav.organization',icon:'organization',group:'WORKSPACE'},
       {id:'activity',label:this.i18n.t('nav.activity'),labelKey:'nav.activity',icon:'activity',group:'WORKSPACE'},
-      {id:'mail',label:this.i18n.t('nav.mail'),labelKey:'nav.mail',icon:'mail',group:'WORKSPACE'},
-      {id:'notifications',label:this.i18n.t('nav.notifications'),labelKey:'nav.notifications',icon:'notifications',group:'WORKSPACE'},
+      {id:'mail',label:this.i18n.t('mail:nav.mail'),labelKey:'mail:nav.mail',icon:'mail',group:'WORKSPACE'},
+      {id:'notifications',label:this.i18n.t('notifications:nav.notifications'),labelKey:'notifications:nav.notifications',icon:'notifications',group:'WORKSPACE'},
       {id:'settings',label:this.i18n.t('nav.settings'),labelKey:'nav.settings',icon:'settings',group:'SYSTEM'}
     ];
     return items.filter(item => item.id !== 'activity' || this.canReadActivity);
