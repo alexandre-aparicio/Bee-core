@@ -609,7 +609,8 @@ export const marketplacePlugin: BeePlugin = {
             );
             // External package uninstall must retain tenant-owned collections.
             // Data cleanup is a separate, explicit operation and is never implicit in uninstall.
-            const externalRuntimePackage = !getTrustedPluginPackage(job.pluginId) && Boolean(getRuntimePlugin(job.pluginId));
+            const runtimePackageRecord=await db.collection("platform_plugin_packages").findOne({pluginId:job.pluginId,status:"installed",source:"zip"});
+            const externalRuntimePackage=isExternalRuntimePackage(job.pluginId,runtimePackageRecord,Boolean(getTrustedPluginPackage(job.pluginId)));
             if (!externalRuntimePackage) await trusted.uninstallTenant?.(db, job.tenantId);
             await db.collection("tenant_plugin_installations").updateOne(
               { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
