@@ -74,7 +74,7 @@ type PluginRecord = {
       <p *ngIf="loading" class="plugin-settings__state">Loading modules…</p>
       <p *ngIf="error" class="plugin-settings__error bee-status--danger" role="alert">{{error}}</p>
       <p *ngIf="packageError && !planConfigPlugin" class="plugin-settings__error bee-status--danger" role="alert">{{packageError}}</p>
-      <p *ngIf="message" class="plugin-settings__message" role="status">{{message}}</p>
+      <div *ngIf="toastMessage" class="plugin-settings__toast" role="status" aria-live="polite">{{toastMessage}}</div>
 
       <ng-container *ngIf="!loading && !error">
         <ng-container *ngIf="detail as plugin">
@@ -350,6 +350,8 @@ type PluginRecord = {
     @media(max-width:600px){.plugin-settings__toolbar-filters{gap:8px}.plugin-settings__search,.plugin-settings__type-filter{flex:1 1 0;min-width:0}.plugin-settings__toolbar-actions{justify-content:flex-end}.plugin-settings__cards{grid-template-columns:1fr}.plugin-settings__detail{flex-direction:column}.plugin-settings__overlay{padding:12px}.plugin-settings__plan-dialog{padding:16px}}
 
     .plugin-settings__global-control{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;padding:14px;border:1px solid var(--bee-border);border-radius:10px}
+    .plugin-settings__toast{position:fixed;right:24px;bottom:24px;z-index:1200;max-width:min(420px,calc(100vw - 32px));padding:13px 18px;border:1px solid var(--bee-border);border-radius:12px;background:var(--bee-surface,#fff);color:var(--bee-text);box-shadow:0 12px 36px rgba(0,0,0,.18);font-size:13px;line-height:1.45;pointer-events:none;animation:plugin-toast-in .18s ease-out}
+    @keyframes plugin-toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
     .plugin-settings__global-control p{font-size:11px;max-width:520px}
     @media(max-width:600px){.plugin-settings__global-control{align-items:flex-start;flex-direction:column}}
   `]
@@ -385,7 +387,14 @@ export class PluginSettingsComponent implements OnInit {
   packageError = "";
   busyId = "";
   message = "";
+  toastMessage = "";
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
   ngOnInit(): void { void this.load(); }
+  private showToast(message: string): void {
+    this.toastMessage = message;
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => { this.toastMessage = ""; this.toastTimer = null; }, 3600);
+  }
   private get token(): string { return this.accessToken; }
   get filteredPlugins(): PluginRecord[] {
     const merged = this.plugins.map(plugin => {
@@ -435,9 +444,14 @@ export class PluginSettingsComponent implements OnInit {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not change Super Organization module availability');
-      await this.load();
+      // Keep the catalogue mounted: update only the Super Organization state in memory.
+      this.superOrganizationPlugins = this.superOrganizationPlugins.map(item =>
+        item.pluginKey === platformPackage.pluginKey || item.id === superOrganizationPlugin.id
+          ? { ...item, enabled, status: enabled ? 'enabled' : 'disabled' }
+          : item
+      );
       window.dispatchEvent(new CustomEvent('bee:plugins-changed'));
-      this.message = plugin.name + (enabled ? ' enabled for Super Organization.' : ' disabled for Super Organization. Other tenants and their data were not changed.');
+      this.showToast(plugin.name + (enabled ? ' enabled for Super Organization.' : ' disabled for Super Organization. Other tenants and their data were not changed.'));
     } catch (error) { this.packageError = error instanceof Error ? error.message : 'Could not change Super Organization module availability'; }
     finally { this.superOrganizationActivationBusyId = ''; }
   }
