@@ -570,7 +570,7 @@
  */
 
 /* Platform Admin, Platform Company, Company Members, Settings, Plugins, Marketplace, Audit Log, tables, role items, invitations, detail/empty/state panels, modals, forms, lists and packages. */
-.bee-dash-content :is([class*="platform-admin"], [class*="platform-company"], [class*="settings-page"], [class*="settings-workspace"], [class*="marketplace"], [class*="audit-log"], [class*="section-card"], [class*="settings-card"], [class*="workspace-card"], [class*="toolbar"], [class*="table-wrap"], [class*="role-item"], [class*="detail"], [class*="empty"], [class*="state"], [class*="modal"]:not(.platform-admin__modal-backdrop), [class*="form"], [class*="list-item"], [class*="package"]):not(.org-roles *):not(.role-audit *):not(.plugin-settings *) {
+.bee-dash-content :is([class*="platform-admin"], [class*="platform-company"], [class*="marketplace"], [class*="audit-log"], [class*="section-card"], [class*="settings-card"], [class*="workspace-card"], [class*="toolbar"], [class*="table-wrap"], [class*="role-item"], [class*="detail"], [class*="empty"], [class*="state"], [class*="modal"]:not(.platform-admin__modal-backdrop), [class*="form"], [class*="list-item"], [class*="package"]):not(.org-roles *):not(.role-audit *):not(.plugin-settings *):not(.settings-workspace *) {
   background-color: var(--bee-dashboard-card-background, var(--bee-surface)) !important;
   color: var(--bee-dashboard-card-color, var(--bee-text)) !important;
   border-color: var(--bee-dashboard-card-border, var(--bee-border)) !important;
@@ -578,12 +578,12 @@
 }
 
 /* Feature descriptions, subtitles, eyebrows and hints use the package muted foreground. */
-.bee-dash-content :is(p, small, .muted, [class*="description"], [class*="subtitle"], [class*="eyebrow"], [class*="hint"]):not(.org-roles *):not(.role-audit *):not(.plugin-settings *):not(.bee-status--danger):not(.bee-status--success):not(.bee-status--warning):not(.bee-status--info):not(.bee-text-muted) {
+.bee-dash-content :is(p, small, .muted, [class*="description"], [class*="subtitle"], [class*="eyebrow"], [class*="hint"]):not(.org-roles *):not(.role-audit *):not(.plugin-settings *):not(.settings-workspace *):not(.bee-status--danger):not(.bee-status--success):not(.bee-status--warning):not(.bee-status--info):not(.bee-text-muted) {
   color: var(--bee-text-muted) !important;
 }
 
 /* Platform Admin, organization and plugin form controls use the active package input tokens. */
-.bee-dash-content :is(input, select, textarea):not(.org-roles *):not(.role-audit *):not(.plugin-settings *) {
+.bee-dash-content :is(input, select, textarea):not(.org-roles *):not(.role-audit *):not(.plugin-settings *):not(.settings-workspace *) {
   color: var(--bee-text) !important;
   background: var(--bee-input-bg) !important;
   border-color: var(--bee-input-border) !important;
@@ -591,20 +591,20 @@
 }
 
 /* Feature form placeholders use the active package placeholder token. */
-.bee-dash-content :is(input, select, textarea):not(.org-roles *):not(.role-audit *):not(.plugin-settings *)::placeholder {
+.bee-dash-content :is(input, select, textarea):not(.org-roles *):not(.role-audit *):not(.plugin-settings *):not(.settings-workspace *)::placeholder {
   color: var(--bee-input-placeholder) !important;
   opacity: 1;
 }
 
 /* Feature-owned data tables use the package surface, text and border roles. */
-.bee-dash-content table:not(.org-roles table):not(.role-audit table):not(.plugin-settings table) {
+.bee-dash-content table:not(.org-roles table):not(.role-audit table):not(.plugin-settings table):not(.settings-workspace table) {
   background: var(--bee-surface) !important;
   color: var(--bee-text) !important;
   border-color: var(--bee-border) !important;
 }
 
 /* Feature-owned table rows and cells remain transparent over the tokenized table surface. */
-.bee-dash-content :is(th, td, tr):not(.org-roles *):not(.role-audit *):not(.plugin-settings *) {
+.bee-dash-content :is(th, td, tr):not(.org-roles *):not(.role-audit *):not(.plugin-settings *):not(.settings-workspace *) {
   background-color: transparent !important;
   color: var(--bee-text) !important;
   border-color: var(--bee-border) !important;
@@ -623,11 +623,11 @@
 }
 
 /* Platform Admin and Company Members error states use the semantic danger token. */
-.bee-dash-content :is([class*="error"]):not(.org-roles *):not(.role-audit *):not(.plugin-settings *) {
+.bee-dash-content :is([class*="error"]):not(.org-roles *):not(.role-audit *):not(.plugin-settings *):not(.settings-workspace *) {
   color: var(--bee-status-danger) !important;
 }
 
 /* Platform Admin and Company Members success states use the semantic success token. */
-.bee-dash-content :is([class*="success"]):not(.org-roles *):not(.role-audit *):not(.plugin-settings *) {
+.bee-dash-content :is([class*="success"]):not(.org-roles *):not(.role-audit *):not(.plugin-settings *):not(.settings-workspace *) {
   color: var(--bee-status-success) !important;
 }
