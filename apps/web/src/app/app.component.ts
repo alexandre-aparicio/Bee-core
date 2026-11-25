@@ -107,6 +107,12 @@ export class AppComponent implements OnInit, OnDestroy {
   setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.pluginFrontends.setActivePlugins(this.activePlugins); this.syncActiveSectionFromPath(); }
   isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
   pluginIdForSection(section: string): string | null { return this.pluginFrontends.getPluginIdForSection(section, this.activePlugins, (this.activeCompanyRole || "member").toLowerCase()) ?? null; }
+  isPluginSection(section: string): boolean { return this.pluginIdForSection(section) !== null; }
+  pluginIdsForSection(section: string): string[] { const pluginId = this.pluginIdForSection(section); return pluginId ? [pluginId] : []; }
+  isNavigationMenuActive(menuId: string): boolean {
+    const item = this.navigationItems.find(entry => entry.id === menuId);
+    return this.activeSection === menuId || Boolean(item?.children?.some(child => child.id === this.activeSection));
+  }
   private async refreshTenantPlugins(): Promise<void> {
     if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
     try {
