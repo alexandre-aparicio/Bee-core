@@ -119,7 +119,7 @@ The original-rule classification above is the migration ledger for all 65 CSS bl
 - **(a) Core controls:** the theme toggle, mode cards, segmented controls, labels and fields remain in core/appearance-modes.css. They use semantic tokens, have no !important, and are not restricted to Light mode.
 - **(b) Shared dashboard shell:** canvas, sidebar, header, cards, quick actions, content foreground inheritance, settings navigation and responsive drawer rules live in base/base.css. They are not selected by data-bee-dashboard-mode; package token blocks supply the Light/Dark values.
 - **(c) Public Light presentation:** the old public Light selector block was removed only after its presentation had token-driven equivalents in global styles.css and package token sheets. Public page styling remains separate from the dashboard shell.
-- **(d) Temporary feature compatibility:** the feature-owned surface, muted text, form controls, placeholders, table, action, dialog, error and success rules are grouped at the end of base/base.css. Each rule has a component/responsibility comment. The block uses only semantic tokens; its specificity overrides are the only !important and [class*= uses in base.css. Remove these rules as their feature components adopt the shared tokens.
+- **(d) Temporary feature compatibility:** the feature-owned surface, muted text, form controls, placeholders, table, action, dialog, error and success rules are grouped at the end of base/base.css. Each rule has a component/responsibility comment. The block uses only semantic tokens; its specificity overrides are the only uses of !important and [class*= selectors in base.css. Remove these rules as their feature components adopt the shared tokens.
 
 ### Source inspection after migration
 
@@ -131,7 +131,7 @@ The original-rule classification above is the migration ledger for all 65 CSS bl
 | packages/midnight/styles.css | 0 | 0 | 0 | Empty of package-specific palette overrides; shared shell is in base. |
 | packages/paper/styles.css | 0 | 0 | 0 | Remaining component refinements use package input, text and accent tokens. |
 | packages/glass/styles.css | 0 | 0 | 0 | Remaining Light dashboard refinements use package input, text and accent tokens. |
-| styles.css | 0 | 8 | 0 | Global/public and auth presentation uses semantic tokens; the eight remaining !important declarations belong to the password-field control, not the dashboard compatibility migration. |
+| styles.css | 0 | 8 | 0 | Global/public and auth presentation uses semantic tokens; eight unrelated !important declarations remain in legacy password-field, status/stat and Notes utility rules outside the appearance-mode migration. |
 
 The original appearance stylesheet contained 65 CSS blocks, 59 !important declarations, 28 [class*= selectors, 131 hex literals, 41 .bee-dash- selector occurrences and 66 dashboard/public mode-attribute selector occurrences. These are historical source counts, not current counts. The migrated temporary block intentionally retains 20 !important declarations and all 28 broad class-substring selectors from the feature compatibility rules. The other 39 original !important declarations were removed or replaced by token-driven core/shell rules.
 
