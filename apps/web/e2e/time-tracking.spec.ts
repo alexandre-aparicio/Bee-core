@@ -170,8 +170,9 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
   await page.locator(".tt-content select").selectOption("masked-member-e2e", { timeout: 5000 });
   await expect(page.getByRole("button", { name: "Guardar horario" })).toBeEnabled();
   await page.getByRole("checkbox", { name: "Activar lunes" }).check();
-  await page.locator('input[type="time"]').nth(1).fill("08:30");
-  await page.locator('input[type="time"]').nth(2).fill("16:30");
+  const mondayRow = page.locator(".tt-table tbody tr").filter({ hasText: "Lunes" });
+  await mondayRow.locator('input[type="time"]').nth(0).fill("08:30");
+  await mondayRow.locator('input[type="time"]').nth(1).fill("16:30");
   await page.getByRole("button", { name: "Guardar horario" }).click();
   await expect(page.getByRole("status")).toContainText("Horario guardado.");
   expect(state.schedules[0].timezone).toBe("Europe/Madrid");
