@@ -19,8 +19,8 @@ Scope: `apps/web` template palettes, shared dashboard styles and feature CSS. No
 |---|---|---|
 | Six package palettes | Done by source comparison | 89 contract tokens compared against both mode blocks in all six packages; zero missing/duplicate in the source comparison after adding the QR contrast tokens. |
 | F2 missing control tokens | Done by source search | Replaced `--bee-control-bg` / `--bee-control-border` in time tracking with existing `--bee-input-bg` / `--bee-input-border`; updated Midnight STYLE-GUIDE. No new tokens required. |
-| F3 used-token checker | Implemented; source-reviewed, NOT executed | Scans `src/**/*.{css,ts,html}` outside contract/package token sheets and reports every used `var(--bee-*)` absent from the contract. |
-| Package token checker | Implemented; source-reviewed, NOT executed | Validates manifest id/target/default mode, missing manifests as warnings, unique contract declarations, exactly one token block per declared mode, complete token coverage, and rejects duplicate or undeclared tokens/modes. Script NOT executed. |
+| F3 used-token checker | Implemented; GitHub CI PASS | Scans `src/**/*.{css,ts,html}` outside contract/package token sheets and reports every used `var(--bee-*)` absent from the contract. |
+| Package token checker | Implemented; GitHub CI PASS | Validates manifest id/target/default mode, missing manifests as warnings, unique contract declarations, exactly one token block per declared mode, complete token coverage, and rejects duplicate or undeclared tokens/modes. Script executed successfully in GitHub Actions. |
 
 ## Step 3 — Active surface synchronization
 
@@ -67,8 +67,8 @@ Explicit transition paths from source review:
 
 | Item | Status | Scope |
 |---|---|---|
-| Package token and manifest checker | Implemented; source-reviewed, NOT executed | `check-template-tokens.mjs` scans CSS/TS/HTML token usages against the contract; validates manifest id/target/default mode, unique contract declarations, one block per declared mode, complete token coverage, and rejects duplicate/undeclared tokens or modes. It excludes `shared`, reports missing manifests as warnings, and exits 1 for errors. Six current package directories contain manifests by tree inventory. |
-| Stylelint and CI policy | Implemented in source; NOT executed | Added `stylelint.config.mjs`; `lint:styles` pins `stylelint@18.1.0` via `npx` and covers standalone `src/app/**/*.css`, `src/assets/**/*.css` and `src/styles.css`. Inline Angular CSS remains source-audited, not parsed by Stylelint. Device-simulator's local standalone palette is intentionally independent of the six app templates; its forced-priority utility was removed. CI runs token/manifest checks, style audit, Stylelint, production build and Playwright discovery; web Node is pinned to 22.22.2. Stylelint is not in package-lock; npm/CI NOT executed. |
+| Package token and manifest checker | Implemented; GitHub CI PASS | `check-template-tokens.mjs` scans CSS/TS/HTML token usages against the contract; validates manifest id/target/default mode, unique contract declarations, one block per declared mode, complete token coverage, and rejects duplicate/undeclared tokens or modes. It excludes `shared`, reports missing manifests as warnings, and exits 1 for errors. Six current package directories contain manifests by tree inventory. |
+| Stylelint and CI policy | GitHub CI PASS | Added `stylelint.config.mjs`; `lint:styles` pins `stylelint@18.1.0` via `npx` and covers standalone `src/app/**/*.css`, `src/assets/**/*.css` and `src/styles.css`. Inline Angular CSS remains source-audited, not parsed by Stylelint. Device-simulator's local standalone palette is intentionally independent of the six app templates; its forced-priority utility was removed. CI runs token/manifest checks, style audit, Stylelint, production build and Playwright discovery; web Node is pinned to 22.22.2. Stylelint is installed by the pinned npx invocation; CI executed successfully on the refactor branch. |
 
 ## Step 8 — Cleanup and documentation
 
@@ -116,11 +116,11 @@ Explicit transition paths from source review:
 | Package styles | hex in Midnight / Paper / Glass | 0 / 0 / 0 (previously reviewed) |
 | Feature components | palette `:host-context` | 0 remaining in all migrated feature owners |
 | F2 source references | `--bee-control-(bg|border|placeholder)` in time tracking and STYLE-GUIDE | 0; uses `--bee-input-*` equivalents |
-| F3 checker | source review / execution | Re-read; scans CSS/TS/HTML `var(--bee-*)` uses outside token files and reports contract misses. NOT executed. |
+| F3 checker | GitHub CI | Scans CSS/TS/HTML `var(--bee-*)` uses outside token files and reports contract misses. Executed successfully. |
 
-## Human validation commands
+## Remaining human validation
 
-Run locally from the repository:
+The CI run validates Playwright test discovery only; it does not run the browser suite. For full browser and visual validation, run locally from the repository:
 
 ```bash
 cd apps/web
@@ -136,4 +136,4 @@ Then visually review Midnight Dark and Light, Paper and Glass on Platform Admin,
 
 ## Validation boundary
 
-No repository code or GitHub workflow was executed by this work. Source-level work for Steps 1–8 is integrated, but the token checker, style audit, Stylelint, Angular build, Playwright tests, route runtime behavior, cascade behavior, responsive behavior and all visual comparisons are **NOT verified**. Do not describe runtime or visual acceptance as complete until those checks have been run.
+GitHub Actions run [#45590215483](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45590215483) completed with **success** on `refactor/template-base-and-packages` (commit `9970b58f17a49ae9e0ec2d0c06546880138f6042`). Passed: dependency installation, token/manifest checker, style audit, Stylelint, Angular production build, Playwright test discovery (`--list`), backend build, backend tests, and the no-skipped-tests guard. The full Playwright browser suite was not executed; route runtime behavior, cascade behavior, responsive behavior and visual comparisons remain **NOT verified**. Do not describe runtime or visual acceptance as complete until those checks have been run.
