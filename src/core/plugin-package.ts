@@ -66,7 +66,7 @@ export const CORE_RUNTIME_PLUGIN_IDS = new Set([
 
 const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const pluginId = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
-const permissionKey = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_]*)+$/;
+const permissionKey = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9_-]*)+$/;
 const collectionName = /^[a-z][a-z0-9_]*$/;
 const sha256 = /^[a-f0-9]{64}$/i;
 function versionTuple(value: string): [number, number, number] {
