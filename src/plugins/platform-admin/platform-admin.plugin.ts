@@ -332,7 +332,7 @@ export const platformAdminPlugin:BeePlugin={
     );
     await packages.updateOne(
      {pluginId:manifest.id},
-     {$set:{name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),activationPolicy:manifest.activationPolicy??"manual",status:"installed",source:"zip",runtimeState:"stored_pending_runtime",publisher:manifest.publisher,digest,packageDirectory,backendEntrypoint:manifest.backend.entrypoint,frontendRoutes:manifest.frontend.routes,installedAt:now,installedBy:actor.id,updatedAt:now},$setOnInsert:{pluginId:manifest.id,createdAt:now}},
+     {$set:{name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),activationPolicy:manifest.activationPolicy??"manual",status:"installed",source:"zip",runtimeState:"stored_pending_runtime",publisher:manifest.publisher,digest,packageDirectory,backendEntrypoint:manifest.backend.entrypoint,frontendRoutes:manifest.frontend.routes,permissions:manifest.permissions,requiredServices:manifest.requiredServices??[],frontendContract:manifest.frontendContract??1,installedAt:now,installedBy:actor.id,updatedAt:now},$setOnInsert:{pluginId:manifest.id,createdAt:now}},
      {upsert:true}
     );
     ctx.logger.info("Platform package upload stored; mounting runtime without restarting Bee Core", { pluginId: manifest.id, version: manifest.version, actorId: actor.id });
