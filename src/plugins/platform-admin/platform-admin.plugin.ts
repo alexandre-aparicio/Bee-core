@@ -557,7 +557,9 @@ export const platformAdminPlugin:BeePlugin={
      await installations.updateOne({tenantId:company.id,pluginId:plugin.id,status:"installed"},{$set:{enabled:false,enabledUpdatedAt:now,enabledUpdatedBy:actor.id,updatedAt:now}});
     }
    }else{
-    if(!await hasPluginEntitlement(db,company.id,plugin.id))return reply.code(402).send({error:"This company plan or an active plugin purchase does not include this package"});
+    // Super Organization is the platform root: an installed platform package is available to it without a commercial tenant entitlement.
+    // Commercial tenants must still pass the normal plan, purchase or manual-grant check.
+    if(company.kind!=="super"&&!await hasPluginEntitlement(db,company.id,plugin.id))return reply.code(402).send({error:"This company plan or an active plugin purchase does not include this package"});
     for(const dependencyId of plugin.dependencies){
      const dependencyGlobal=await db.collection("platform_plugin_packages").findOne({pluginId:dependencyId,status:"installed"});
      const dependencyTenant=await installations.findOne({tenantId:company.id,pluginId:dependencyId,status:"installed",enabled:{$ne:false}});
