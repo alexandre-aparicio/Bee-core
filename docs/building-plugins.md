@@ -96,3 +96,21 @@ The `hello-world` package demonstrates the minimal signed-ZIP runtime contract. 
 - payment checkout and customer billing portal.
 
 Do not bypass these constraints by importing or executing untrusted package code.
+
+
+## Host services, permissions and frontend compatibility
+
+A plugin package must declare only the host capabilities it needs in `requiredServices`. Supported names are `mongo`, `session-resource-ids`, `file-storage`, `auth-bootstrap`, `billing-webhook`, `public-domain`, `plugin-package-storage` and `plugin-publisher-public-key`. Unknown service names fail plugin initialization with an actionable error; the host no longer grants configuration by matching a plugin ID.
+
+Each manifest permission is structured and self-describing:
+
+- `key`: stable permission key, such as `time-tracking.clock`
+- `module`, `resource`, `action`, `label`, `description`
+- `defaultGrants`: explicit booleans for `owner`, `admin`, `manager` and `member`
+- optional `customRoleAssignable` (defaults to true)
+
+Bee Core composes a tenant's effective permission catalogue only from installed packages. When a package is uninstalled, its permissions disappear from effective access and the tenant role editor, but custom-role documents retain their stored permission keys. Reinstalling the package makes those stored assignments effective again, subject to the platform's tenant-assignable permission policy.
+
+ZIP manifests declare `frontendContract`. The current host contract is version 1. An incompatible package is rejected with a clear “Plugin update required” response instead of attempting to load an unsupported frontend.
+
+Native first-party UI registers through the generic frontend contract: plugin ID, lazy component loader, navigation entries, typed input mapping and module-owned en/es catalogues. Level B ZIP-supplied UI isolation is documented separately in [the frontend decision](architecture/frontend-decision.md) and remains awaiting owner approval.
