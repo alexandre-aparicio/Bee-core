@@ -15,7 +15,7 @@ on:
       - "tsconfig.json"
       - ".github/workflows/ci.yml"
   push:
-    branches: [main]
+    branches: [main, refactor/template-base-and-packages]
 
 permissions:
   contents: read
