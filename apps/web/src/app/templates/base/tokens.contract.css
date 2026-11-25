@@ -48,6 +48,9 @@
   --bee-input-placeholder: #788291;
   --bee-dashboard-font-family: Inter, system-ui;
   --bee-dashboard-font-size: 14px;
+  --bee-dashboard-sidebar-heading-font-family: inherit;
+  --bee-dashboard-sidebar-heading-letter-spacing: .14em;
+  --bee-dashboard-welcome-font-weight: inherit;
   --bee-dashboard-sidebar-width: 256px;
   --bee-dashboard-sidebar-padding: 22px 17px;
   --bee-dashboard-sidebar-gap: 12px;
