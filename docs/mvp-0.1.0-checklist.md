@@ -9,11 +9,11 @@
 |---|---|---|
 | Backend TypeScript build and automated tests | Main CI run [45509283984](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45509283984) passed; PR #205 run [45577648364](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45577648364) backend job passed; PR #206 run [45577111065](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45577111065) backend job passed (119 passed, 0 failed, 0 skipped). | Verified on those commits; rerun on final release candidate |
 | Angular production build | PR #207 migration rehearsal run [45580607220](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45580607220) completed Angular 19 → 20 → 21 → 22 migration and production build successfully. | Verified in migration rehearsal; apply/review patch and rerun on release PR |
-| Angular production dependency audit | The migration rehearsal's initial Angular 19 `npm ci` reported 38 vulnerabilities (1 low, 24 moderate, 11 high, 2 critical). After the sequential Angular 22 migration and lockfile regeneration, the final `npm ci` audited 308 packages and reported **0 vulnerabilities**; `npm audit --omit=dev` also reported **0 production vulnerabilities**. Deprecated `tar@6.2.1` and `glob@10.5.0` warnings appeared during the initial install and should still be reviewed. | Production audit verified in rehearsal; full audit open |
+| Angular dependency audit | The migration rehearsal's initial Angular 19 `npm ci` reported 38 vulnerabilities (1 low, 24 moderate, 11 high, 2 critical). After the sequential Angular 22 migration and lockfile regeneration, the final `npm ci` audited 308 packages and reported **0 vulnerabilities**; `npm audit --omit=dev` also reported **0 production vulnerabilities**. Deprecated `tar@6.2.1` and `glob@10.5.0` warnings appeared during the initial install and should still be reviewed. | Full and production audit passed in rehearsal; rerun on PR #210 |
 | Playwright | Migration rehearsal successfully enumerated the existing smoke test. | Discovery only; browser E2E not executed |
 | Production Compose clean install | PR #205 head `1695d687a87f5fa293c2e99688413fa9b8bffa8d`, run [45577648364](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45577648364), passed production overlay validation, clean build/start, web and reverse-proxied API health. | Verified on PR #205 head |
 | Persistence and backup/restore | The same PR #205 run passed MongoDB/auth persistence after restart, authenticated MongoDB backup/restore, and private-file plus uploaded-plugin-volume backup/restore. | Verified on PR #205 head |
-| One candidate commit with all gates green | PR #205 currently has a failing Angular production audit; the Angular 22 migration has not yet been applied to a release PR and tested together with production Compose. | **Open release blocker** |
+| One candidate commit with all gates green | PR #205's Angular 19 web audit failed (6 production vulnerabilities). PR #210 now carries the Angular 22 migration and Node 22.22.3 web build image pin; its exact-head Backend, Angular and production Compose workflows are pending. | **Open release blocker until PR #210 CI completes** |
 
 ## Tenant isolation and authorization
 
@@ -50,7 +50,7 @@
 
 - [x] Production Compose overlay removes host-published MongoDB and API ports; only the web entry point is published.
 - [x] CI has exercised clean build/start, health, auth/session rotation, MongoDB and file persistence, and restore round-trips for MongoDB, private files and plugin-package files.
-- [ ] Apply the Angular 22 migration to a dedicated release branch and pin the web build image to a Node patch satisfying Angular 22's engine requirement; rerun the complete production Compose workflow on that exact commit.
+- [x] Apply the Angular 22 migration to a dedicated branch and pin the web build image to `node:22.22.3-alpine` (PR #210). The migration rehearsal passed; exact-head Backend, Angular audit/build and production Compose CI remain pending.
 - [ ] Use reproducible `npm ci` installs for backend and frontend; keep both lockfiles committed.
 - [ ] Verify the human-operated backup/restore commands in the deployment guide. The current documentation correction is proposed in PR #208 and is not yet merged.
 - [ ] Configure real TLS, firewall restrictions, secret storage/rotation, encrypted off-site backups, retention, monitoring, log rotation and tested operational alerts.
