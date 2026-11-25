@@ -1,5 +1,8 @@
 .bee-template-package-host[data-bee-template="studio"][data-bee-public-mode="light"],
 html[data-bee-active-template="studio"][data-bee-active-mode="light"] {
+  --bee-public-hero-grid-opacity: .55;
+  --bee-public-preview-sidebar-background: var(--bee-surface-subtle);
+  --bee-public-feature-card-background: var(--bee-surface);
   color-scheme: light;
   --bee-dashboard-font-family: Georgia, serif;
   --bee-dashboard-font-size: 15px;
@@ -90,6 +93,9 @@ html[data-bee-active-template="studio"][data-bee-active-mode="light"] {
 
 .bee-template-package-host[data-bee-template="studio"][data-bee-public-mode="dark"],
 html[data-bee-active-template="studio"][data-bee-active-mode="dark"] {
+  --bee-public-hero-grid-opacity: .35;
+  --bee-public-preview-sidebar-background: var(--bee-surface-subtle);
+  --bee-public-feature-card-background: var(--bee-surface);
   color-scheme: dark;
   --bee-dashboard-font-family: Georgia, serif;
   --bee-dashboard-font-size: 15px;
