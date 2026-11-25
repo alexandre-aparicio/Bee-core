@@ -191,7 +191,8 @@ export class AppComponent implements OnInit {
   private renderMfaQr(): void {
     if (!this.mfaSetupUri) { this.mfaQrDataUrl = ''; return; }
     const container = document.createElement('div');
-    new QRCode(container, { text: this.mfaSetupUri, width: 240, height: 240, colorDark: '#111827', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    const activeTokens = getComputedStyle(document.documentElement);
+    new QRCode(container, { text: this.mfaSetupUri, width: 240, height: 240, colorDark: activeTokens.getPropertyValue('--bee-qr-dark').trim(), colorLight: activeTokens.getPropertyValue('--bee-qr-light').trim(), correctLevel: QRCode.CorrectLevel.M });
     const canvas = container.querySelector('canvas') as HTMLCanvasElement | null;
     this.mfaQrDataUrl = canvas?.toDataURL('image/png') ?? '';
   }
