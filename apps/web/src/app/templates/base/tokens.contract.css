@@ -46,6 +46,9 @@
   --bee-input-bg: #ffffff;
   --bee-input-border: #cbd2dc;
   --bee-input-placeholder: #788291;
+  --bee-public-hero-grid-opacity: .35;
+  --bee-public-preview-sidebar-background: var(--bee-surface-subtle);
+  --bee-public-feature-card-background: var(--bee-surface);
   --bee-dashboard-font-family: Inter, system-ui;
   --bee-dashboard-font-size: 14px;
   --bee-dashboard-sidebar-heading-font-family: inherit;
