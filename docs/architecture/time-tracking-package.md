@@ -14,10 +14,10 @@ npm run build:plugin-packages
 
 The process requires these environment variables to be supplied by the VPS secret/environment configuration:
 
-- `BEE_PLUGIN_PUBLISHER_PRIVATE_KEY`: Ed25519 PKCS#8 PEM private key. Used only to sign.
-- `BEE_PLUGIN_PUBLISHER_PUBLIC_KEY`: matching Ed25519 SPKI PEM public key. Used to validate the key pair and verify the signature immediately after signing.
+- `BEE_PLUGIN_PUBLISHER_PRIVATE_KEY`: PKCS#8 PEM private key. Used only to sign.
+- `BEE_PLUGIN_PUBLISHER_PUBLIC_KEY`: matching SPKI PEM public key. Used to validate the key pair and verify the signature immediately after signing.
 
-The publisher refuses to generate packages when either key is absent, malformed, not Ed25519, or does not match the other. Each signature is verified before the ZIP is written. The public and private key material are not package assets and must never be copied into a ZIP or committed to the repository. Bee-Core installation/startup continues to verify the signature with the public key configured on the server.
+The publisher accepts matching Ed25519 or RSA key pairs. It uses the EdDSA null-digest mode for Ed25519 and SHA-256 for RSA, matching the runtime ZIP verifier. It refuses missing, malformed, unsupported, or mismatched keys. Each signature is verified before the ZIP is written. The public and private key material are not package assets and must never be copied into a ZIP or committed to the repository. Bee-Core installation/startup continues to verify the signature with the public key configured on the server.
 
 ## Control Horario package contents
 
