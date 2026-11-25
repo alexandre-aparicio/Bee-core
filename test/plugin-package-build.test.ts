@@ -167,6 +167,11 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
   assert.match(repositorySource, /correctionsForTenant/);
   assert.match(repositorySource, /membershipsForTenant/);
   assert.doesNotMatch(handlersSource, /new TenantCollection/);
+  const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
+  const frontendRegistrySource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
+  assert.doesNotMatch(runtimeSource, /import\s*\{\s*timeTrackingPlugin\s*\}/, "Control Horario backend must load from its signed ZIP only");
+  assert.doesNotMatch(runtimeSource, /plugins\.register\(timeTrackingPlugin\)/, "Control Horario must not retain a bundled backend fallback");
+  assert.doesNotMatch(frontendRegistrySource, /BeeTimeTrackingComponent|\["time-tracking"/, "Control Horario frontend must load from its signed ZIP, not the Angular registry");
   assert.match(handlersSource, /repository\.sessionsForTenant/);
   assert.match(handlersSource, /repository\.schedulesForTenant/);
   assert.match(handlersSource, /repository\.correctionsForTenant/);
