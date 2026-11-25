@@ -210,7 +210,13 @@ app.get("/", async () => ({
   status: "running",
   endpoints: ["/health", "/plugins", "/auth/login", "/auth/refresh", "/auth/me", "/auth/logout"]
 }));
-app.all("/*", async (request, reply) => dynamicPluginRuntime.dispatch(request, reply));
+// OPTIONS is handled by the explicit CORS route above. Exclude it from
+// the wildcard dispatcher to avoid registering OPTIONS twice in Fastify.
+app.route({
+  method: ["GET", "HEAD", "TRACE", "DELETE", "PATCH", "PUT", "POST", "QUERY"],
+  url: "/*",
+  handler: async (request, reply) => dynamicPluginRuntime.dispatch(request, reply)
+});
 
 
 async function loadSignedZipPlugin(item: any): Promise<BeePlugin> {
