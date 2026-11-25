@@ -24,7 +24,7 @@ The package is registered as:
 - Layout key: `dashboard.midnight`
 - Slots: sidebar, topbar, content and widgets.
 
-The package currently contains `manifest.ts`, `theme-tokens.ts`, `styles.css`, layout component, pages/components and assets. Its current token object defines six tokens; the package stylesheet applies them to the Midnight host and styles selected dashboard content surfaces.
+The package currently contains `manifest.ts`, `tokens.css`, `styles.css`, layout component, pages/components and assets. Its semantic `tokens.css` defines the package palette for Light and Dark and scopes it to the Midnight host and the matching active html surface.
 
 This guide documents the existing palette and defines the intended complete semantic contract. Where a semantic role is not yet represented by a dedicated runtime token, treat it as a documented implementation gap: add it centrally to the Midnight token contract before using it in feature CSS. Do not fill the gap with an arbitrary local color.
 
@@ -57,7 +57,7 @@ This guide documents the existing palette and defines the intended complete sema
 
 ### 4.1 Existing canonical values
 
-These are the values currently present in `theme-tokens.ts`; do not silently change them in a feature PR.
+The canonical Midnight Dark palette is defined in the Dark block of `tokens.css`; preserve its semantic mapping when changing dashboard surfaces.
 
 | Token | Value | Intended role |
 |---|---|---|
