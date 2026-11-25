@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { appendTenantAuditEvent, type TenantAuditEvent } from "../../core/audit-log.js";
 import type { Db } from "mongodb";
 import { resolveTenantContext, type TenantContext } from "../../core/tenant-context.js";
 import { hasPluginEntitlement, isPluginEnabled, isPluginInstalled } from "../../core/plugin-entitlements.js";
@@ -31,8 +32,16 @@ export async function isConnectedDeviceOwnerActive(db:Db,device:ConnectedDeviceR
  ]);
  return Boolean(membership&&user&&tenant);
 }
-export function createConnectedDevicesServices(input:{db:Db;secret:string;repository:ConnectedDevicesRepository}){
- const {db,secret,repository}=input;
+export function createConnectedDevicesServices(input:{db:Db;secret:string;repository:ConnectedDevicesRepository;logger?:{error:(message:string,context?:unknown)=>void}}){
+ const {db,secret,repository,logger}=input;
+ const auditMembershipRevocation=async(device:ConnectedDeviceRecord)=>{
+  try{
+   await appendTenantAuditEvent(db.collection<TenantAuditEvent>("tenant_audit_events"),{id:randomUUID(),tenantId:device.tenantId,actorId:"system:membership-revoked",action:"device.membership_revoked",outcome:"success",resourceType:"connected_device",resourceId:device.id,metadata:{reason:"owner_membership_inactive"},occurredAt:new Date()});
+  }catch(error){
+   if(logger)logger.error("Connected Devices membership-revocation audit write failed",{tenantId:device.tenantId,deviceId:device.id,error});
+   else throw error;
+  }
+ };
  const dashboardTenant=async(request:any,reply:any):Promise<TenantContext|null>=>{
   try{
    await request.jwtVerify();
@@ -48,7 +57,8 @@ export function createConnectedDevicesServices(input:{db:Db;secret:string;reposi
   const device=await repository.devices.findOne({credentialHash:hashDeviceSecret(credential),status:"active"});
   if(!device)return null;
   if(!await isConnectedDeviceOwnerActive(db,device)){
-   await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+   const revoked=await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+   if(revoked.modifiedCount)await auditMembershipRevocation(device);
    return null;
   }
   const available=await hasPluginEntitlement(db,device.tenantId,"connected-devices")&&await isPluginInstalled(db,device.tenantId,"connected-devices")&&await isPluginEnabled(db,device.tenantId,"connected-devices");
@@ -63,14 +73,22 @@ export function createConnectedDevicesServices(input:{db:Db;secret:string;reposi
  return {db,secret,repository,dashboardTenant,deviceFromCredential,authenticateDevice};
 }
 /** Public integration contract for consuming plugins. Tenant ID must come from Core's authenticated context. */
-export async function hasConnectedDeviceCapability(db:Db,tenantId:string,deviceId:string,capability:string):Promise<boolean>{
+export async function hasConnectedDeviceCapability(db:Db,tenantId:string,deviceId:string,capability:string,logger?:{error:(message:string,context?:unknown)=>void}):Promise<boolean>{
  if(!CONNECTED_DEVICE_CAPABILITIES.includes(capability as ConnectedDeviceCapability))return false;
  const [entitled,installed,enabled]=await Promise.all([hasPluginEntitlement(db,tenantId,"connected-devices"),isPluginInstalled(db,tenantId,"connected-devices"),isPluginEnabled(db,tenantId,"connected-devices")]);
  if(!entitled||!installed||!enabled)return false;
  const device=await db.collection<ConnectedDeviceRecord>("connected_devices").findOne({tenantId,id:deviceId,status:"active",grantedCapabilities:capability});
  if(!device)return false;
  if(!await isConnectedDeviceOwnerActive(db,device)){
-  await db.collection<ConnectedDeviceRecord>("connected_devices").updateOne({tenantId,id:deviceId,status:"active"},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+  const revoked=await db.collection<ConnectedDeviceRecord>("connected_devices").updateOne({tenantId,id:deviceId,status:"active"},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+  if(revoked.modifiedCount){
+   try{
+    await appendTenantAuditEvent(db.collection<TenantAuditEvent>("tenant_audit_events"),{id:randomUUID(),tenantId,actorId:"system:membership-revoked",action:"device.membership_revoked",outcome:"success",resourceType:"connected_device",resourceId:deviceId,metadata:{reason:"owner_membership_inactive"},occurredAt:new Date()});
+   }catch(error){
+    if(logger)logger.error("Connected Devices membership-revocation audit write failed",{tenantId,deviceId,error});
+    else throw error;
+   }
+  }
   return false;
  }
  return true;
