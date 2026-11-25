@@ -93,7 +93,7 @@ $("upload").addEventListener("click",async()=>{
  if(!file.size){notify("The selected file is empty.");return;}
  if(file.size>10*1024*1024){notify("The maximum file size is 10 MB.");return;}
  try{
-  const uploaded=await request("/files","POST",{__beeBinary:true,contentType:"text/plain",fileName:file.name,base64:toBase64(await file.arrayBuffer())});
+  const uploaded=await request("/documents/files","POST",{__beeBinary:true,contentType:"text/plain",fileName:file.name,base64:toBase64(await file.arrayBuffer())});
   if(!uploaded.file?.id)throw new Error("The file upload did not return a file reference.");
   await request("/documents","POST",{fileId:uploaded.file.id,folderId:currentFolderId,title:file.name});
   notify("Document uploaded successfully.",true);await load();
