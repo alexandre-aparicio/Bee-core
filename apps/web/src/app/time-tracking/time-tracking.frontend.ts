@@ -5,7 +5,7 @@ export const TIME_TRACKING_FRONTEND_PROVIDER = provideBeePluginFrontend({
   id: "time-tracking",
   loadComponent: async () => (await import("./time-tracking.component")).BeeTimeTrackingComponent,
   navigation: [
-    { id: "time-tracking", labelKey: "time-tracking:nav.title", icon: "activity", group: "WORKSPACE", route: "/dashboard/time-tracking/my_jorney", defaultChild: "time-tracking-day" },
+    { id: "time-tracking", labelKey: "time-tracking:nav.title", icon: "activity", group: "WORKSPACE", route: "/dashboard/time-tracking", defaultChild: "time-tracking-day" },
     { id: "time-tracking-day", parentId: "time-tracking", labelKey: "time-tracking:nav.myDay", icon: "clock", group: "WORKSPACE", route: "/dashboard/time-tracking/my_jorney" },
     { id: "time-tracking-schedule", parentId: "time-tracking", labelKey: "time-tracking:nav.schedules", icon: "calendar", group: "WORKSPACE", route: "/dashboard/time-tracking/schedule", visibleForRoles: ["owner", "admin", "manager", "super_admin"] },
     { id: "time-tracking-schedule", parentId: "time-tracking", labelKey: "time-tracking:nav.mySchedule", icon: "calendar", group: "WORKSPACE", route: "/dashboard/time-tracking/schedule", visibleForRoles: ["member", "guest"] },
