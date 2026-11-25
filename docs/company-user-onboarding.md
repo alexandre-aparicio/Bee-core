@@ -87,7 +87,7 @@ These are future implementation tasks. This specification does not change curren
 
 ## Roles & Permissions workspace — 2026-11-23
 
-Organization → Roles & Permissions is the dedicated location for creating and editing custom roles. Users remains responsible for invitations, membership status and assigning an available role. The initial catalogue covers current Core permission keys for Organization members, Plugins, Billing, Files, Notes and Mail. Custom roles may receive explicitly delegable capabilities; sensitive membership, plugin, billing and mailbox administration permissions remain protected. Tenant custom roles cannot receive platform-global permissions such as platform.super_admin; backend role-management authorization remains owner-only. Record-level scopes and granular Teams/Company permissions are not yet implemented.
+Organization → Roles & Permissions is the dedicated location for creating and editing custom roles. Users remains responsible for invitations, membership status and assigning an available role. The initial catalogue covers current Core permission keys for Organization members, Plugins, Billing, Files and Mail. Custom roles may receive explicitly delegable capabilities; sensitive membership, plugin, billing and mailbox administration permissions remain protected. Tenant custom roles cannot receive platform-global permissions such as platform.super_admin; backend role-management authorization remains owner-only. Record-level scopes and granular Teams/Company permissions are not yet implemented.
 
 
 ## Platform and tenant permission governance — 2026-11-23

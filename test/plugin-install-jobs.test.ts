@@ -22,9 +22,9 @@ test("durable plugin install jobs deduplicate, recover expired leases and reject
   const collection: Collection<PluginInstallJob> = client.db(dbName).collection("plugin_install_jobs");
   try {
     await ensurePluginInstallJobIndexes(collection);
-    const first = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    const first = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "sample-workspace", actorId: "owner-a" });
     assert.equal(first.created, true);
-    const duplicate = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    const duplicate = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "sample-workspace", actorId: "owner-a" });
     assert.equal(duplicate.created, false);
     assert.equal(duplicate.job.id, first.job.id);
 
@@ -47,7 +47,7 @@ test("durable plugin install jobs deduplicate, recover expired leases and reject
     const completed = await collection.findOne({ id: first.job.id });
     assert.equal(completed?.status, "succeeded");
     assert.equal(completed?.result?.version, "0.1.0");
-    const nextInstall = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    const nextInstall = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "sample-workspace", actorId: "owner-a" });
     assert.equal(nextInstall.created, true, "a completed job must release its active deduplication key");
     assert.notEqual(nextInstall.job.id, first.job.id);
 
@@ -71,11 +71,11 @@ test("durable plugin install jobs deduplicate, recover expired leases and reject
     assert.equal(retryState?.attempts, 3);
     assert.equal(retryState?.activeKey, undefined, "terminal failure must release the active job key");
 
-    const update = await enqueuePluginUpdateJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a", previousVersion: "0.0.9" });
+    const update = await enqueuePluginUpdateJob(collection, { tenantId: "tenant-a", pluginId: "sample-workspace", actorId: "owner-a", previousVersion: "0.0.9" });
     assert.equal(update.created, true);
     assert.equal(update.job.action, "update");
     assert.equal(update.job.previousVersion, "0.0.9");
-    const duplicateUpdate = await enqueuePluginUpdateJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a", previousVersion: "0.0.9" });
+    const duplicateUpdate = await enqueuePluginUpdateJob(collection, { tenantId: "tenant-a", pluginId: "sample-workspace", actorId: "owner-a", previousVersion: "0.0.9" });
     assert.equal(duplicateUpdate.created, false);
     assert.equal(duplicateUpdate.job.id, update.job.id);
     const claimedUpdate = await claimPluginInstallJob(collection, "worker-update");
@@ -83,13 +83,13 @@ test("durable plugin install jobs deduplicate, recover expired leases and reject
     assert.equal(claimedUpdate.action, "update");
     assert.equal(await completePluginInstallJob(collection, claimedUpdate, "worker-update", "0.1.0"), true);
 
-    const uninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    const uninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-a", pluginId: "sample-workspace", actorId: "owner-a" });
     assert.equal(uninstall.created, true);
     assert.equal(uninstall.job.action, "uninstall");
-    const duplicateUninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    const duplicateUninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-a", pluginId: "sample-workspace", actorId: "owner-a" });
     assert.equal(duplicateUninstall.created, false);
     assert.equal(duplicateUninstall.job.id, uninstall.job.id);
-    const anotherTenantUninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-b", pluginId: "notes", actorId: "owner-b" });
+    const anotherTenantUninstall = await enqueuePluginUninstallJob(collection, { tenantId: "tenant-b", pluginId: "sample-workspace", actorId: "owner-b" });
     assert.equal(anotherTenantUninstall.created, true, "another company has an independent lifecycle queue key");
     assert.notEqual(anotherTenantUninstall.job.id, uninstall.job.id);
   } finally {
@@ -106,7 +106,7 @@ test("expired plugin lifecycle leases cannot be renewed or completed by stale wo
   const collection: Collection<PluginInstallJob> = client.db(dbName).collection("plugin_install_jobs");
   try {
     await ensurePluginInstallJobIndexes(collection);
-    const queued = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    const queued = await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "sample-workspace", actorId: "owner-a" });
     const oldWorkerJob = await claimPluginInstallJob(collection, "worker-old", new Date(), 1_000);
     assert.ok(oldWorkerJob);
     await new Promise(resolve => setTimeout(resolve, 1_150));
@@ -128,7 +128,7 @@ test("active lifecycle workers can extend their lease but cannot extend after an
   const collection: Collection<PluginInstallJob> = client.db(dbName).collection("plugin_install_jobs");
   try {
     await ensurePluginInstallJobIndexes(collection);
-    await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "notes", actorId: "owner-a" });
+    await enqueuePluginInstallJob(collection, { tenantId: "tenant-a", pluginId: "sample-workspace", actorId: "owner-a" });
     const claimed = await claimPluginInstallJob(collection, "worker-a", new Date(), 5_000);
     assert.ok(claimed);
     assert.equal(await renewPluginInstallJobLease(collection, claimed, "worker-a", new Date(), 10_000), true);

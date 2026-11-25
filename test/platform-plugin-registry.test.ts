@@ -178,3 +178,69 @@ test("retiring a bundled package never hides a package already replaced by a sig
     await client.close();
   }
 });
+
+
+test("permanent retirement hides a replaced package while preserving tenant data and installation history", { skip: !mongoUri }, async () => {
+  const client = new MongoClient(mongoUri!);
+  await client.connect();
+  const db = client.db("bee_retired_workspace_module_" + Date.now());
+  try {
+    await ensurePlatformPluginRegistry(db);
+    await db.collection("platform_plugin_packages").insertOne({
+      pluginId: "notes",
+      name: "Team Notes",
+      version: "0.1.0",
+      description: "Previously uploaded package",
+      category: "productivity",
+      dependencies: [],
+      status: "installed",
+      source: "zip",
+      runtimeState: "loaded",
+      installedAt: new Date(),
+      installedBy: "super-admin",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    await db.collection("plugin_catalog").insertOne({
+      id: "notes",
+      name: "Team Notes",
+      status: "published",
+      codeAvailable: true
+    });
+    await db.collection("tenant_plugin_installations").insertOne({
+      tenantId: "tenant-legacy",
+      pluginId: "notes",
+      version: "0.1.0",
+      status: "installed"
+    });
+    await db.collection("tenant_notes").insertOne({
+      tenantId: "tenant-legacy",
+      id: "legacy-row",
+      title: "Keep this data",
+      content: "Retirement must not delete tenant content"
+    });
+
+    await retireBundledPlatformPackage(db, "notes", true);
+
+    const packageRecord = await db.collection("platform_plugin_packages").findOne({ pluginId: "notes" });
+    assert.equal(packageRecord?.status, "deprecated");
+    assert.equal(packageRecord?.source, "zip");
+    assert.equal(packageRecord?.runtimeState, "loaded");
+    const catalogEntry = await db.collection("plugin_catalog").findOne({ id: "notes" });
+    assert.equal(catalogEntry?.status, "deprecated");
+    assert.equal(catalogEntry?.codeAvailable, false);
+    assert.equal(await db.collection("tenant_plugin_installations").countDocuments({ tenantId: "tenant-legacy", pluginId: "notes" }), 1);
+    assert.deepEqual(await db.collection("tenant_notes").findOne({ tenantId: "tenant-legacy", id: "legacy-row" }), {
+      _id: (await db.collection("tenant_notes").findOne({ tenantId: "tenant-legacy", id: "legacy-row" }))!._id,
+      tenantId: "tenant-legacy",
+      id: "legacy-row",
+      title: "Keep this data",
+      content: "Retirement must not delete tenant content"
+    });
+    assert.equal(await migrateLegacyPlatformPackageInstalls(db, "tenant-legacy"), 0, "retired records must not be migrated back into the platform catalogue");
+    assert.equal((await listPlatformPluginPackages(db)).some(item => item.pluginId === "notes"), false);
+  } finally {
+    await db.dropDatabase();
+    await client.close();
+  }
+});

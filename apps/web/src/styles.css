@@ -189,33 +189,6 @@ footer .bee-template-manager{width:min(100%,420px);margin:0 0 15px}
 .bee-company-members__accept button:disabled{opacity:.5;cursor:wait}
 @media(max-width:600px){.bee-company-members__accept form{grid-template-columns:minmax(0,1fr)}}
 
-/* Tenant-scoped Notes plugin UI */
-.bee-notes{margin-top:16px}
-.bee-notes__refresh,.bee-notes__editor-actions button,.bee-notes__item-actions button{border:1px solid var(--bee-border);border-radius:8px;padding:8px 12px;background:color-mix(in srgb, var(--bee-text) 4%, transparent);color:inherit;font-size:11px;cursor:pointer}
-.bee-notes__editor{display:grid;gap:10px;margin:14px 0;padding:14px;border:1px solid var(--bee-border);border-radius:10px;background:color-mix(in srgb, var(--bee-text) 2%, transparent)}
-.bee-notes__editor label{display:grid;gap:6px;color:var(--bee-text-muted);font-size:10px}
-.bee-notes__editor input,.bee-notes__editor textarea{width:100%;min-width:0;border:1px solid var(--bee-border);border-radius:8px;padding:10px;background:color-mix(in srgb, var(--bee-text) 3%, transparent);color:inherit;font:inherit;font-size:12px;resize:vertical}
-.bee-notes__editor-actions,.bee-notes__item-actions{display:flex;gap:8px;justify-content:flex-end}
-.bee-notes__editor-actions button[type=submit]{background:var(--bee-accent);border-color:transparent;color:var(--bee-text);font-weight:600}
-.bee-notes .bee-notes__secondary{background:transparent}
-.bee-notes .bee-notes__danger{color:var(--bee-status-danger)}
-.bee-notes__item{margin-top:10px;padding:14px;border:1px solid var(--bee-border);border-radius:10px;background:color-mix(in srgb, var(--bee-text) 2%, transparent)}
-.bee-notes__item-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.bee-notes__item-head h3{margin:0;font-size:13px}
-.bee-notes__item-head span{color:var(--bee-text-muted);font-size:10px}
-.bee-notes__item p{margin:10px 0 0;color:var(--bee-text-muted);font-size:12px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
-.bee-notes__state,.bee-notes__message,.bee-notes__error{margin:12px 0;padding:10px 12px;border-radius:8px;font-size:11px}
-.bee-notes__state{color:var(--bee-text-muted);background:color-mix(in srgb, var(--bee-text) 2%, transparent)}
-.bee-notes__message{color:var(--bee-status-success);background:color-mix(in srgb, var(--bee-status-success) 9%, transparent)}
-.bee-notes__error{color:var(--bee-status-danger);background:color-mix(in srgb, var(--bee-status-danger) 9%, transparent)}
-
-.bee-company-members__accept{margin:12px 0 16px;padding:12px;border:1px solid var(--bee-border);border-radius:9px;background:color-mix(in srgb, var(--bee-text) 2%, transparent)}
-.bee-company-members__accept form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
-.bee-company-members__accept input{min-width:0;border:1px solid var(--bee-border);border-radius:8px;padding:9px 10px;background:color-mix(in srgb, var(--bee-text) 3%, transparent);color:inherit;font-size:10px}
-.bee-company-members__accept button{border:1px solid transparent;border-radius:8px;padding:8px 12px;background:var(--bee-accent);color:var(--bee-text);font-size:10px;font-weight:600;cursor:pointer}
-.bee-company-members__accept button:disabled{opacity:.5;cursor:wait}
-@media(max-width:600px){.bee-company-members__accept form{grid-template-columns:minmax(0,1fr)}}
-
 /* Tenant-scoped audit activity panel */
 .bee-audit-log{margin-top:16px;scroll-margin-top:24px}
 .bee-audit-log__controls{display:flex;align-items:center;gap:8px}

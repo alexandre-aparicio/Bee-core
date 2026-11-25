@@ -84,7 +84,7 @@ Register the standalone component in `BeePluginFrontendRegistry`; `BeePluginOutl
 
 ## Current reference implementation
 
-The `notes` plugin demonstrates the complete current pattern: tenant-scoped CRUD API, plan/purchase entitlement, installation state, role-based write access, Angular component and cross-company integration tests.
+The `hello-world` package demonstrates the minimal signed-ZIP runtime contract. Marketplace lifecycle and tenant-isolation integration tests use a test-only generic workspace fixture; it is not shipped as a product module.
 
 ## Not yet available
 

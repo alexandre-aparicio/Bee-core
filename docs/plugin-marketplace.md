@@ -10,7 +10,7 @@ Bee-Core keeps the trusted plugin catalogue centrally and seeds its metadata int
 - `tenant_plugin_installations`: installation state per company and plugin;
 - `plugin_install_jobs`: durable, tenant-scoped installation jobs with active-job deduplication, attempts, worker lease, status, result and error metadata.
 
-Each company receives its own filtered catalogue. Starter includes Private Files and can see Team Notes as a purchasable add-on, but cannot install or use Notes until an active purchase or an eligible plan is recorded. Pro and Enterprise include both Files and Notes. Other packages can be hidden from Starter entirely by leaving them out of its `visiblePluginIds`.
+Each company receives its own filtered catalogue. Starter includes Private Files; Documents is provisioned with its Files dependency. Other packages are visible only when listed in the effective plan or granted through an active purchase/manual entitlement. Team Notes has been retired: it is excluded from all plans and catalogues, and its previous tenant data and installation/migration history are retained without restoring runtime access.
 
 Companies without a subscription record receive a 14-day Starter trial on first marketplace access. Current plan definitions are code-managed defaults seeded into MongoDB, not yet editable through an administration UI.
 
@@ -40,15 +40,9 @@ The current webhook credential is a shared static Bearer secret with constant-ti
 
 This is a webhook contract, not a complete billing product. Checkout, invoices, payment retries, refunds, taxes, customer portal and provider-specific reconciliation are not implemented yet.
 
-## Reference plugin: Notes
+## Retired package history
 
-The `notes` plugin demonstrates the intended pattern:
-- its routes are registered by the trusted runtime;
-- each request validates the persisted session and active company membership;
-- each query uses `TenantCollection`;
-- access requires the company to be entitled and the plugin to be installed;
-- role permissions distinguish read and write access;
-- uninstall or entitlement revocation disables access but does not delete company notes.
+Team Notes is no longer a product package. Startup permanently marks its platform package and catalogue record as deprecated, including a previous ZIP replacement. Tenant-owned rows, installation records and migration history are retained; the retired package is not restored to tenant catalogues or runtime access.
 
 ## Important limitations before commercial launch
 
@@ -59,6 +53,6 @@ The `notes` plugin demonstrates the intended pattern:
 - Install and uninstall jobs are durable and recover expired worker leases. Version upgrades, rollback, immutable package archive verification and full dependency graph resolution remain pending.
 - Plan user and storage quotas are enforced for new operations: invitations/direct membership additions reserve the company user allowance, and file uploads reserve storage atomically per company. A downgrade does not automatically suspend existing members or delete files; it blocks new additions/uploads that exceed the new allowance.
 - A company-facing dashboard catalogue with install/uninstall controls is implemented and hides management actions from non-admin roles. Checkout, subscription management and payment-provider UI remain pending.
-- Notes now includes a dashboard component mounted by a generic Angular plugin outlet from the active company installation state. The registry currently contains statically bundled trusted components; loading component code/routes from signed package archives remains pending.
+- The frontend registry currently contains statically bundled trusted components; loading component code/routes from signed package archives remains pending.
 
 Do not treat the marketplace as production billing or arbitrary third-party plugin execution yet.

@@ -8,7 +8,6 @@ const runtimeFiles = [
   "../src/plugins/files/files.plugin.ts",
   "../src/plugins/mail/mail.plugin.ts",
   "../src/plugins/marketplace/marketplace.plugin.ts",
-  "../src/plugins/notes/notes.plugin.ts",
   "../src/plugins/notifications/notifications.plugin.ts",
   "../src/plugins/organizations/organizations.plugin.ts",
   "../src/plugins/platform-admin/platform-admin.plugin.ts"

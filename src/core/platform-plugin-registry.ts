@@ -165,15 +165,15 @@ export async function setPlatformPackageAvailable(db: Db, pluginId: string): Pro
  * Retire the legacy bundled Hello World record without deleting tenant history.
  * A later signed ZIP upload can replace this platform registry entry.
  */
-export async function retireBundledPlatformPackage(db: Db, pluginId: string): Promise<void> {
+export async function retireBundledPlatformPackage(db: Db, pluginId: string, retireSignedZip = false): Promise<void> {
   const packages = db.collection<PlatformPluginPackage>("platform_plugin_packages");
   const existing = await packages.findOne({ pluginId });
-  // Never hide a package that has already been replaced by its signed ZIP.
-  if (existing?.source === "zip") return;
+  // Signed ZIP replacements remain available unless the owner explicitly retires the plugin ID.
+  if (existing?.source === "zip" && !retireSignedZip) return;
 
   const now = new Date();
   await packages.updateOne(
-    { pluginId, source: "bundled" },
+    { pluginId, ...(retireSignedZip ? {} : { source: "bundled" }) },
     { $set: { status: "deprecated", installedAt: null, installedBy: null, updatedAt: now } }
   );
   await db.collection("plugin_catalog").updateOne(

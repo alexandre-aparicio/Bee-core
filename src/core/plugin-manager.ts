@@ -30,7 +30,6 @@ export class BeePluginManager {
     "connected-devices": ["mongoDbName", "sessionIdSecret"],
     "time-tracking": ["mongoDbName", "sessionIdSecret"],
     marketplace: ["mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
-    notes: ["mongoDbName", "sessionIdSecret"],
     mail: ["mongoDbName", "sessionIdSecret"],
     notifications: ["mongoDbName", "sessionIdSecret"],
     // Platform package upload and verification need the configured storage root

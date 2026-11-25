@@ -69,9 +69,9 @@ type TenantPluginPurchase = Document & {
 };
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "connected-devices"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "connected-devices"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "connected-devices"], maxUsers: null, storageMb: 10240 }
+  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: null, storageMb: 10240 }
 ];
 
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
@@ -102,34 +102,7 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     includedInPlans: ["starter", "pro", "enterprise"], purchasable: false, system: false,
     dependencies: [], activationPolicy: "manual", codeAvailable: true, status: "published"
   },
-  {
-    id: "notes",
-    name: "Team Notes",
-    version: "0.1.0",
-    description: "Company-scoped notes with role-based access",
-    category: "productivity",
-    visibleInPlans: ["pro", "enterprise"],
-    includedInPlans: ["pro", "enterprise"],
-    purchasable: true,
-    system: false,
-    dependencies: [],
-    codeAvailable: true,
-    status: "published",
-    migrations: [{
-      id: "001_create_tenant_notes_indexes",
-      checksum: "59292026541b47ed1e52ec773fed06e3f1e5324621b8237da85f6da59de083e2",
-      up: async db => {
-        await db.collection("tenant_notes").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "tenant_notes_company_id_unique" });
-        await db.collection("tenant_notes").createIndex({ tenantId: 1, updatedAt: -1 }, { name: "tenant_notes_company_updated" });
-      },
-      down: async db => {
-        for (const name of ["tenant_notes_company_id_unique", "tenant_notes_company_updated"]) {
-          try { await db.collection("tenant_notes").dropIndex(name); }
-          catch (error) { if (![26, 27].includes((error as { code?: number }).code ?? 0)) throw error; }
-        }
-      }
-    }]
-  },
+
 ];
 
 
@@ -305,7 +278,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
     .sort({ name: 1 })
     .toArray();
   return catalog
-    .filter(plugin => packagesById.has(plugin.id) || plugin.codeAvailable === true)
+    .filter(plugin => TRUSTED_PLUGIN_PACKAGES.some(definition => definition.id === plugin.id) || plugin.codeAvailable === true)
     .map(plugin => {
       const planEntitled = effectivePlan.includedPluginIds.includes(plugin.id) || planAssignedIds.has(plugin.id);
       const purchased = purchasedIds.has(plugin.id);
@@ -369,7 +342,7 @@ export function requireInstalledPlugin(db: Db, pluginId: string) {
 }
 
 export function getTrustedPluginPackage(pluginId: string): PluginPackageDefinition | undefined {
-  return packagesById.get(pluginId);
+  return TRUSTED_PLUGIN_PACKAGES.find(plugin => plugin.id === pluginId);
 }
 
 export function getBuiltInPlan(planId: string): PluginPlan | undefined {
