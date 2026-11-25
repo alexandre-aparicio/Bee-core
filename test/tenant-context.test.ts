@@ -52,8 +52,8 @@ test("tenant context requires a valid session, active membership and company", {
     await db.collection("tenant_plugin_entitlements").insertOne({ tenantId: "company-one", pluginId: "documents", status: "granted" });
     await db.collection("plugin_catalog").insertOne({
       id: "documents", status: "published", permissions: [
-        { key: "documents.documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
-        { key: "documents.documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
+        { key: "documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+        { key: "documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
       ]
     });
 \n    const context = await resolveTenantContext(db, claims, {}, secret);
@@ -63,8 +63,8 @@ test("tenant context requires a valid session, active membership and company", {
     assert.equal(context.tenantId, "company-one");
     assert.equal(context.role, "manager");
     assert.ok(hasTenantPermission(context, "files.read"));
-    assert.ok(hasTenantPermission(context, "documents.documents.read"));
-    assert.ok(hasTenantPermission(context, "documents.documents.write"));
+    assert.ok(hasTenantPermission(context, "documents.read"));
+    assert.ok(hasTenantPermission(context, "documents.write"));
     assert.equal(hasTenantPermission(context, "members.manage"), false);
 
     await db.collection("company_roles").insertOne({
