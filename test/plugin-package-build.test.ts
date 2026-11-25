@@ -117,6 +117,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
 test("Hello Mundo and Documents are not registered or advertised as bundled plugins", async () => {
   const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
   const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
+  assert.doesNotMatch(entitlementSource, /includedPluginIds:\s*\[[^\]]*"documents"|visiblePluginIds:\s*\[[^\]]*"documents"/, "Documents must not remain bundled in built-in plan entitlements");
   const registrySource = await readFile(join(process.cwd(), "src/core/platform-plugin-registry.ts"), "utf8");
   const platformAdminSource = await readFile(join(process.cwd(), "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
   const pluginManagerSource = await readFile(join(process.cwd(), "src/core/plugin-manager.ts"), "utf8");
