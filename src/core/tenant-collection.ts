@@ -3,7 +3,8 @@ import type {
   Document,
   Filter,
   OptionalUnlessRequiredId,
-  UpdateFilter
+  UpdateFilter,
+  UpdateOptions
 } from "mongodb";
 
 /**
@@ -68,9 +69,18 @@ export class TenantCollection<T extends Document = Document> {
     return this.collection.insertMany(documents.map(document => this.stamp(document) as OptionalUnlessRequiredId<T>));
   }
 
-  updateOne(filter: Filter<T>, update: UpdateFilter<T>) {
+  updateOne(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}) {
     this.assertTenantImmutable(update);
-    return this.collection.updateOne(this.scoped(filter), update);
+    const scopedUpdate = options.upsert
+      ? {
+          ...update,
+          $setOnInsert: {
+            ...((update as Document).$setOnInsert ?? {}),
+            tenantId: this.tenantId
+          }
+        } as UpdateFilter<T>
+      : update;
+    return this.collection.updateOne(this.scoped(filter), scopedUpdate, options);
   }
 
   updateMany(filter: Filter<T>, update: UpdateFilter<T>) {
