@@ -266,9 +266,22 @@ export const marketplacePlugin: BeePlugin = {
           return null;
         }
         try {
-          if (request.params?.pluginId) request.params.pluginId=unmaskResourceId(String(request.params.pluginId),"plugin",sessionOf(tenant),sessionIdSecret);
-          if (request.params?.jobId) request.params.jobId=unmaskResourceId(String(request.params.jobId),"job",sessionOf(tenant),sessionIdSecret);
-        } catch { reply.code(404).send({error:"Resource not found"}); return null; }
+          // Decode masked route IDs once and retain the canonical values separately
+          // from Fastify's route-parameter object.
+          const resourceIds: Record<string,string> = {};
+          if (request.params?.pluginId) resourceIds.pluginId=unmaskResourceId(String(request.params.pluginId),"plugin",sessionOf(tenant),sessionIdSecret);
+          if (request.params?.jobId) resourceIds.jobId=unmaskResourceId(String(request.params.jobId),"job",sessionOf(tenant),sessionIdSecret);
+          request.resourceIds = resourceIds;
+          // Keep the existing contract for handlers that read request.params.
+          Object.assign(request.params ?? {}, resourceIds);
+        } catch {
+          ctx.logger.warn("Marketplace request rejected: invalid masked resource reference", {
+            route: String(request.routerPath ?? request.routeOptions?.url ?? "unknown"),
+            resourceType: request.params?.jobId ? "job" : request.params?.pluginId ? "plugin" : "unknown"
+          });
+          reply.code(404).send({error:"Resource not found"});
+          return null;
+        }
         if (!hasTenantPermission(tenant, "plugins.read")) {
           await auditMarketplaceEvent({tenantId:tenant.tenantId,actorId:tenant.userId,action:"permission.denied",outcome:"denied",resourceType:"permission",metadata:{permission:"plugins.read"}});
           reply.code(403).send({ error: "Plugin catalog permission required" });
@@ -377,9 +390,11 @@ export const marketplacePlugin: BeePlugin = {
 
     ctx.server.get<{Params:{pluginId:string}}>("/marketplace/plugins/:pluginId/runtime",async(request:any,reply:any)=>{
       const tenant=await authenticate(request,reply);if(!tenant)return;
-      const plugin=(await getTenantPluginCatalog(db,tenant.tenantId)).find(item=>item.id===request.params.pluginId);
-      if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled||!await isPlatformPluginEnabled(db,String(request.params.pluginId)))return reply.code(403).send({error:"Plugin is not available for this company"});
-      const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId:plugin.id,status:"installed",source:"zip",runtimeState:"loaded"});
+      const pluginId=String(request.resourceIds?.pluginId ?? request.params?.pluginId ?? "");
+      if(!pluginId)return reply.code(404).send({error:"Resource not found"});
+      const plugin=(await getTenantPluginCatalog(db,tenant.tenantId)).find(item=>item.id===pluginId);
+      if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled||!await isPlatformPluginEnabled(db,pluginId))return reply.code(403).send({error:"Plugin is not available for this company"});
+      const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed",source:"zip",runtimeState:"loaded"});
       if(!globalPackage)return reply.code(404).send({error:"Plugin frontend package is not loaded"});
       const version=String(globalPackage.version??"");
       const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId:plugin.id,version});
