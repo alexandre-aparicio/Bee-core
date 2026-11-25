@@ -6,7 +6,7 @@ export const timeTrackingFrontend: BeePluginFrontendRegistration = {
   loadComponent: () => import("./time-tracking.component").then(module => module.BeeTimeTrackingComponent),
   inputs: context => ({ tenantId: context.tenantId, role: context.role, accessToken: context.accessToken, section: context.section }),
   navigation: {
-    id: "time-tracking", label: "Time Tracking", labelEs: "Control Horario", icon: "activity", group: "WORKSPACE",
+    id: "time-tracking", label: "Time Tracking", labelEs: "Control Horario", icon: "activity", group: "WORKSPACE", aliases: ["/dashboard/time-tracking"],
     children: [
       { id: "time-tracking-day", label: "My day", labelEs: "Mi jornada", route: "/dashboard/time-tracking/my_jorney" },
       { id: "time-tracking-schedule", label: "Schedule", labelEs: "Horarios", route: "/dashboard/time-tracking/schedule" },
