@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MongoClient, type Document } from "mongodb";
+import { MongoClient, type Collection, type Document } from "mongodb";
 import { TenantCollection, tenantDocument, tenantFilter } from "../src/core/tenant-collection.js";
 
 const uri = process.env.MONGODB_TEST_URI;
@@ -71,6 +71,29 @@ test("tenant collection scopes every query and mutation to one company", { skip:
     await client.db(dbName).dropDatabase();
     await client.close();
   }
+});
+
+test("tenant collection automatically stamps tenantId on upserts", async () => {
+  let captured: { filter: unknown; update: unknown; options: unknown } | undefined;
+  const raw = {
+    updateOne: async (filter: unknown, update: unknown, options: unknown) => {
+      captured = { filter, update, options };
+      return { acknowledged: true, matchedCount: 0, modifiedCount: 0, upsertedCount: 1, upsertedId: "new-id" };
+    }
+  } as unknown as Collection<Contact>;
+  const scoped = new TenantCollection<Contact>(raw, "company-alpha");
+
+  await scoped.updateOne(
+    { id: "schedule-one" },
+    { $set: { label: "Weekly schedule" } },
+    { upsert: true }
+  );
+
+  assert.deepEqual(captured, {
+    filter: { $and: [{ id: "schedule-one" }, { tenantId: "company-alpha" }] },
+    update: { $set: { label: "Weekly schedule" }, $setOnInsert: { tenantId: "company-alpha" } },
+    options: { upsert: true }
+  });
 });
 
 test("tenant helpers reject missing or conflicting tenant context", () => {
