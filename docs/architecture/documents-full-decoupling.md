@@ -6,9 +6,27 @@ Make Documents a self-contained, signed ZIP plugin that can be installed, activa
 disabled, upgraded and removed through the platform package lifecycle without a
 built-in Documents implementation in Bee-core.
 
-"Self-contained" means Documents owns its document upload, metadata, binary storage,
-download and public-delivery lifecycle. It must not require the Files plugin to be
-installed or enabled for Documents to work.
+Documents owns its upload, metadata, binary storage, download and public-delivery
+lifecycle. It must not require Files to be installed or enabled.
+
+## Data cleanup scope (approved)
+
+The user has authorized deleting all existing test data and files belonging to
+Documents. The cleanup is limited to Documents-owned records and binaries.
+
+- Delete Documents folders, document records, folder/resource ACLs and Documents-owned
+  file metadata/blobs, including any test-only references to legacy Files objects.
+- Do not delete the Files plugin, its collections, shared storage root, or files owned
+  by other modules or tenants.
+- A legacy Files blob may be deleted only when a reliable ownership/reference check
+  proves it is exclusively associated with a Documents test record and no other
+  consumer references it. Otherwise leave it untouched and report it as an orphan
+  candidate for manual review.
+- Implement cleanup as an explicit, tenant-scoped, auditable operation with a dry-run
+  report before destructive execution. Never run it automatically during plugin
+  startup, install, upgrade or ordinary deployment.
+- Do not connect to or mutate a live VPS database from this GitHub change. The cleanup
+  operation must be reviewed and deliberately executed in the target environment.
 
 ## Current coupling confirmed in main
 
@@ -18,10 +36,9 @@ installed or enabled for Documents to work.
 - The package builder declares both runtime and tenant dependency `files`.
 - `FilesStorageAdapter` reads metadata from `tenant_files` and binary content from
   the Files storage root.
-- The Documents create/download/public-download handlers resolve file IDs as Files
+- Documents create/download/public-download handlers resolve file IDs as Files
   resources and evaluate Files ACLs.
-- Documents therefore currently depends on Files for more than a storage path: it
-  depends on its metadata contract, file ID semantics and resource-access policy.
+- Documents therefore depends on Files metadata, file ID semantics and access policy.
 
 ## Target architecture
 
@@ -36,52 +53,36 @@ installed or enabled for Documents to work.
   permissions.
 - Documents enforces its own document/folder ACLs. It must not call Files ACL checks
   for its own resources.
-- The package manifest and runtime manifest list only genuine host dependencies
-  (currently auth and organizations, subject to code audit). Files is not a runtime
-  or tenant dependency.
+- The package manifest and runtime manifest list only genuine host dependencies.
+  Files is not a runtime or tenant dependency.
 - The signed ZIP contains the complete backend module graph and all frontend assets.
 - Bee-core loads Documents only from its verified ZIP package. No static import,
   registration fallback or bundled Documents UI remains in the host.
 
-## Existing-data compatibility
-
-Existing records in `tenant_documents` refer to IDs in `tenant_files`, whose
-metadata and binary files live under the Files storage root. This data must remain
-readable during and after migration.
-
-The migration must be non-destructive:
-1. Keep existing Files collections and binary files untouched.
-2. Add a compatibility reader for legacy document file references.
-3. On first successful access, optionally copy legacy binary content into Documents
-   storage and create Documents-owned metadata, using an idempotent migration marker.
-4. Switch the document record to the new file reference only after the copy and
-   checksum verification succeed.
-5. Never delete legacy Files records or binaries as part of this migration.
-6. Keep a rollback path so the old release can still read existing records.
-
-Do not migrate unrelated Files owned by other modules or users.
-
 ## Implementation sequence
 
-1. Add Documents-owned storage, metadata repository, upload/download handlers and
+1. Audit every backend, frontend, package-builder, installer and test reference to Files.
+2. Add Documents-owned storage, metadata repository, upload/download handlers and
    validation tests.
-2. Update Documents frontend to use its own upload endpoint; remove Files ACL and
-   metadata calls from the Documents request path.
-3. Add idempotent, tenant-scoped legacy-file compatibility/migration with checksum
-   verification and rollback safety.
+3. Update the Documents frontend to use its own upload endpoint; remove Files ACL and
+   metadata calls from Documents request paths.
 4. Remove `files` from Documents runtime and tenant dependency declarations.
 5. Update the ZIP builder and verify the signed package includes all backend and
    frontend assets with matching manifest/runtime dependencies.
 6. Remove the static Documents import and fallback registration from `src/index.ts`.
-7. Add integration coverage for ZIP install, startup, tenant install/activation,
-   upload, download, public links, ACLs, existing-data compatibility, disable/re-enable,
+7. Add scoped cleanup tooling with dry-run, explicit execute mode, tenant boundaries,
+   audit output and conservative legacy-blob ownership checks.
+8. Add integration coverage for ZIP install, startup, tenant install/activation,
+   upload, download, public links, ACLs, tenant isolation, disable/re-enable,
    restart persistence and uninstall safety.
 
 ## Acceptance criteria
 
 - Documents installs and starts from the signed ZIP with Files unavailable.
-- No source/runtime dependency from Documents to the Files plugin remains.
-- Existing Documents remain accessible without data loss.
+- No source/runtime dependency from Documents to Files remains.
+- All Documents test records and exclusively Documents-owned test blobs can be
+  removed through the explicit cleanup operation.
+- Files data belonging to other modules or tenants remains untouched.
 - New uploads are stored and served entirely by Documents.
 - Tenant boundaries, ACLs, public-link controls and file validation remain enforced.
 - The package can be disabled/re-enabled and Bee-core restarted without losing data.
