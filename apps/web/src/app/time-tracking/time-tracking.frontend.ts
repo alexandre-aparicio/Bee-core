@@ -1,9 +1,9 @@
-import { BeeTimeTrackingComponent } from "./time-tracking.component";
+
 import type { BeePluginFrontendRegistration } from "../plugins/plugin-frontend-registry.service";
 
 export const timeTrackingFrontend: BeePluginFrontendRegistration = {
   pluginId: "time-tracking",
-  component: BeeTimeTrackingComponent,
+  loadComponent: () => import("./time-tracking.component").then(module => module.BeeTimeTrackingComponent),
   inputs: context => ({ tenantId: context.tenantId, role: context.role, accessToken: context.accessToken, section: context.section }),
   navigation: {
     id: "time-tracking", label: "Time Tracking", labelEs: "Control Horario", icon: "activity", group: "WORKSPACE",
