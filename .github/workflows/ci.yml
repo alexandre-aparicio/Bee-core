@@ -83,7 +83,7 @@ jobs:
       - name: Check template token contract and package manifests
         run: npm run check:template-tokens
       - name: Audit style source
-        run: npm run audit:styles
+        run: npm run audit:styles -- --strict
       - name: Lint standalone application and asset CSS
         run: npm run lint:styles
       - name: Production build

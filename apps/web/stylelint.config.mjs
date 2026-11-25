@@ -10,7 +10,7 @@ export default {
     "color-no-hex": true,
     "declaration-no-important": true,
     "declaration-property-value-disallowed-list": {
-      "/^(?:color|background(?:-color)?|border(?:-[a-z-]+)?-color|outline(?:-color)?|text-decoration-color|fill|stroke|caret-color)$/i": [namedColors]
+      "/.*/": [namedColors]
     },
     "function-disallowed-list": ['rgb', 'rgba', 'hsl', 'hsla', 'hwb', 'lab', 'lch', 'oklab', 'oklch', 'color'],
     "function-no-unknown": true,
