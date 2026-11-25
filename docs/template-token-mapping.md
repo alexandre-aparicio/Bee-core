@@ -49,3 +49,29 @@ The Midnight DARK values in `apps/web/src/app/templates/packages/midnight/tokens
 - Shadow and overlay colors use semantic overlay tokens; alpha and shadow geometry are retained through token mixes.
 
 These are semantic consolidations, not claims of pixel equivalence. Review public preview, auth, dashboard cards, company directory, audit table, invitation menus and platform-admin modals in all six templates and both modes.
+
+## Step 3 — Dashboard wrapper migration
+
+The Midnight, Paper and Glass dashboard page wrappers no longer carry inline component styles. Shared dashboard structure now lives in `apps/web/src/app/templates/base/base.css`; package-specific geometry is supplied through the dashboard token contract in `tokens.contract.css` and both appearance blocks in all six package token sheets.
+
+The shared shell consumes these package-level values:
+
+- Typography and geometry: `--bee-dashboard-font-family`, `--bee-dashboard-font-size`, `--bee-dashboard-sidebar-width`, `--bee-dashboard-sidebar-padding`, `--bee-dashboard-sidebar-gap`, `--bee-dashboard-main-padding-inline`, `--bee-dashboard-main-padding-bottom`, `--bee-dashboard-header-height`, `--bee-dashboard-content-width`, and `--bee-dashboard-content-margin`.
+- Semantic shell surfaces: `--bee-dashboard-sidebar-background`, `--bee-dashboard-sidebar-border`, `--bee-dashboard-header-background`, `--bee-dashboard-header-border`, `--bee-dashboard-header-color`, `--bee-dashboard-header-button-background`, `--bee-dashboard-header-button-border`, and `--bee-dashboard-header-button-radius`.
+- Navigation and content: `--bee-dashboard-sidebar-heading-color`, `--bee-dashboard-nav-color`, `--bee-dashboard-nav-active-background`, `--bee-dashboard-nav-active-color`, `--bee-dashboard-nav-radius`, `--bee-dashboard-card-background`, `--bee-dashboard-card-border`, `--bee-dashboard-card-color`, `--bee-dashboard-card-shadow`, `--bee-dashboard-quick-action-background`, `--bee-dashboard-quick-action-border`, `--bee-dashboard-quick-action-color`, `--bee-dashboard-quick-action-muted`, and `--bee-dashboard-quick-action-radius`.
+- Settings, profile and mobile drawer: `--bee-dashboard-settings-active-background`, `--bee-dashboard-settings-panel-border`, `--bee-dashboard-settings-panel-background`, `--bee-dashboard-profile-menu-border`, `--bee-dashboard-profile-status-border`, `--bee-dashboard-mobile-overlay`, `--bee-dashboard-mobile-drawer-shadow`, and `--bee-dashboard-mobile-overlay-blur`.
+
+| Package | Dashboard font | Sidebar width | Sidebar padding | Sidebar gap | Header min-height | Main horizontal padding | Content max-width | Content margin |
+|---|---|---:|---|---:|---:|---:|---:|---|
+| Midnight | Inter / system-ui, 14px | 260px | 22px 17px | 12px | 75px | 28px | 1400px | 25px auto |
+| Paper | Georgia / serif, 15px | 238px | 24px 16px | 11px | 78px | 34px | 1380px | 28px auto |
+| Glass | Inter / system-ui, 14px | 255px | 22px 17px | 12px | 78px | 27px | 1450px | 25px auto |
+| Aurora | Inter / system-ui, 14px | 256px | 22px 17px | 12px | 78px | 28px | 1440px | 25px auto |
+| Editorial | Inter / system-ui, 14px | 256px | 22px 17px | 12px | 78px | 28px | 1440px | 25px auto |
+| Studio | Georgia / serif, 15px | 248px | 24px 16px | 11px | 78px | 30px | 1380px | 28px auto |
+
+All six packages define the custom dashboard tokens in both Light and Dark blocks. Surface, border, text, accent, shadow and overlay values resolve through the package's semantic tokens; the shared base stylesheet contains no literal palette colors. Glass keeps its translucent surfaces and uses the package `--bee-blur` value for the shared sidebar, header and card surfaces in both modes. Midnight Dark continues to resolve the dashboard canvas, surfaces, text, borders and accents through the canonical Midnight Dark tokens described above.
+
+The removed wrapper-only selectors `.bee-dash-workspace`, `.bee-dash-label` and `.bee-dash-user` were dead in the current shared dashboard template (the workspace switcher and sidebar user block are not rendered). The obsolete Paper workspace override was removed. Dashboard grid columns are defined once in `base.css`, with the mobile single-column override in the same rule family.
+
+This is a source migration, not a claim of visual equivalence. Production build, token checker, style audit, browser screenshots and visual comparison remain required before acceptance.
