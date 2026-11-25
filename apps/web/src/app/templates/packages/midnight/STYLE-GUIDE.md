@@ -420,7 +420,7 @@ The System Roles tab MUST use the same collection composition as Organization �
 
 
 ### Organization Roles — Midnight Light parity
-- Organization → Roles & Permissions uses the same explicit Midnight Light host-context token mapping as Organization → Teams. The override is scoped to the Midnight package in Light mode and remaps local surfaces, foreground, muted text, borders, accent, semantic status colors and shadow; it must not affect Midnight Dark, Glass or Paper.
+- Organization → Roles & Permissions and Organization → Teams consume the canonical Midnight package tokens directly; neither component carries a local Midnight-Light `:host-context` palette override. Light and Dark differences come only from the package's active mode token blocks, so Glass and Paper remain isolated.
 - System-role cards, tabs, search, table, overflow menus, permission circles/tooltips and role dialogs must use the mapped semantic tokens. Selected Cards/Table controls and primary actions keep a white foreground over violet for contrast, matching Teams.
 - Any new Roles surface or control must be checked in both Midnight Light and Midnight Dark; a light dashboard canvas alone does not count as Light-mode support.
 
