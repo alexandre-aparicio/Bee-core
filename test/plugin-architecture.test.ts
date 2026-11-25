@@ -58,7 +58,7 @@ test("Connected Devices is ZIP-only and has no Core or Angular static registrati
   const builtInPlans = manifestRegistry.split("export const TRUSTED_PLUGIN_PACKAGES")[0] ?? "";
   const trustedPackages = manifestRegistry.split("export const MIGRATABLE_BUILT_IN_PACKAGE_IDS")[0] ?? "";
   assert.doesNotMatch(builtInPlans, /connected-devices/, "Connected Devices must not be a built-in plan entitlement");
-  assert.doesNotMatch(trustedPackages, /id:\\s*"connected-devices"/, "Connected Devices must not be seeded as a trusted bundled package");
+  assert.doesNotMatch(trustedPackages, /id:\s*"connected-devices"/, "Connected Devices must not be seeded as a trusted bundled package");
 
   const frontendRegistrations = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
   assert.doesNotMatch(frontendRegistrations, /connected-devices|connectedDevicesFrontend/i);
@@ -87,11 +87,11 @@ test("Connected Devices simulator remains a separate developer asset with its se
   const styleGuard = JSON.parse(await readFile(resolve(root, "apps/web/scripts/style-guard.config.json"), "utf8"));
   const simulator = await readFile(resolve(root, "apps/web/src/assets/device-simulator/device-simulator.js"), "utf8");
   const server = await readFile(resolve(root, "src/index.ts"), "utf8");
-  assert.match(angular, /src\\/assets\\/device-simulator/);
+  assert.match(angular, /src\/assets\/device-simulator/);
   assert.ok(styleGuard.allowlist?.some((item: { pattern?: string }) => item.pattern === "src/assets/device-simulator/**"));
-  assert.match(simulator, /fetch\\(api\\(\\)\\+path/);
-  assert.match(simulator, /method:"POST",body:"\\{\\}"/, "heartbeat must keep an explicit JSON body");
-  assert.match(server, /"https:\\/\\/localhost,capacitor:\\/\\/localhost"/);
+  assert.match(simulator, /fetch\(api\(\)\+path/);
+  assert.match(simulator, /method:"POST",body:"\{\}"/, "heartbeat must keep an explicit JSON body");
+  assert.match(server, /"https:\/\/localhost,capacitor:\/\/localhost"/);
   assert.match(server, /"x-device-pairing-secret"/);
   assert.match(server, /"POST"/);
 });
