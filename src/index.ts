@@ -159,8 +159,8 @@ const ctx: BeeContext = {
 };
 dynamicPluginRuntime = new BeeDynamicPluginRuntime(() => ctx, environment.jwtSecret, () => plugins.list());
 
-// Host services stay in Core. The four installable modules use a temporary
-// compatibility fallback only until their signed ZIP has been uploaded.
+// Host services stay in Core. Tenant-facing packages load from verified signed ZIPs.
+// Documents keeps its explicit migration fallback until its own ZIP rollout is complete.
 plugins.register(helloPlugin);
 plugins.register(authPlugin);
 plugins.register(organizationsPlugin);
