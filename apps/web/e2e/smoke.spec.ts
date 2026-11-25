@@ -166,7 +166,7 @@ test('dashboard template can be selected without changing public theme', async (
   await manager.getByRole('button', { name: 'Discard' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
   await manager.getByLabel('Dashboard template').selectOption('paper');
-  await manager.getByRole('button', { name: 'Apply template changes' }).click();
+  await manager.getByRole('button', { name: 'Apply template' }).click();
   await expect(page.locator('[data-bee-slot="sidebar"]')).toHaveCount(1);
   await expect(page.locator('[data-bee-slot="widgets"]')).toHaveCount(1);
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'aurora');
@@ -215,11 +215,11 @@ test('tenant admin can install and activate a trusted dashboard template package
   await manager.getByLabel('Dashboard template').selectOption('glass');
   await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
-  await manager.getByRole('button', { name: 'Discard preview' }).click();
+  await manager.getByRole('button', { name: 'Discard' }).click();
   await expect(page.locator('[data-bee-layout="dashboard.midnight"]')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--midnight').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
   await manager.getByLabel('Dashboard template').selectOption('glass');
-  await manager.getByRole('button', { name: 'Apply template changes' }).click();
+  await manager.getByRole('button', { name: 'Apply template' }).click();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
 });
 
@@ -591,7 +591,7 @@ test('Settings > Tenants supports card/list views, tenant management and create 
 });
 
 
-test('Settings plugins supports cards/list and only enables plugin details', async ({ page }) => {
+test('Settings plugins supports cards/list and role-scoped plugin actions', async ({ page }) => {
   await setSessionFixture(page, {
     accessToken: 'tenant-admin-token',
     tenantId: 'tenant-ref',
@@ -615,7 +615,7 @@ test('Settings plugins supports cards/list and only enables plugin details', asy
   await page.getByRole('button', { name: 'Plugins', exact: true }).click();
   const catalogue = page.locator('bee-plugin-settings');
   await expect(catalogue.getByRole('heading', { name: 'Plugins' })).toBeVisible();
-  await expect(catalogue.getByRole('button', { name: /upload/i })).toBeDisabled();
+  await expect(catalogue.getByRole('button', { name: /upload/i })).toHaveCount(0);
   await catalogue.getByRole('button', { name: 'Table view' }).click();
   await expect(catalogue.locator('.plugin-settings__table-wrap')).toBeVisible();
   await catalogue.getByRole('button', { name: 'Card view' }).click();
