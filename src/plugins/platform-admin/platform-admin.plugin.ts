@@ -34,6 +34,19 @@ export const platformAdminPlugin:BeePlugin={
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
   // The default tenant is a legacy authentication fallback, not a customer tenant.
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
+  // Signed ZIP runtimes are loaded during bootstrap. Restart only after the
+  // HTTP response is delivered; debounce bursts into a single restart.
+  let runtimeRestartTimer:ReturnType<typeof setTimeout>|undefined;
+  const scheduleRuntimeRestart=(reply:import("fastify").FastifyReply,reason:string):void=>{
+   reply.raw.once("finish",()=>{
+    if(runtimeRestartTimer)clearTimeout(runtimeRestartTimer);
+    runtimeRestartTimer=setTimeout(()=>{
+     ctx.logger.warn("Scheduling graceful Bee Core restart for plugin runtime change",{reason});
+     process.kill(process.pid,"SIGTERM");
+    },3000);
+    runtimeRestartTimer.unref();
+   });
+  };
   const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Platform admin: JWT_SECRET must contain at least 32 characters.");
   const platformAudit=db.collection("platform_audit_events");
@@ -321,7 +334,8 @@ export const platformAdminPlugin:BeePlugin={
      {upsert:true}
     );
     await recordPlatformAudit({actorId:actor.id,action:"plugin.package_uploaded",resourceType:"plugin_package",resourceId:manifest.id,metadata:{version:manifest.version,digest,publisher:manifest.publisher,extractedFiles,extractedBytes,runtimeState:"stored_pending_runtime"}});
-    return reply.code(201).send({success:true,package:{id:mask(req.platformSession!,manifest.id,"plugin"),pluginKey:manifest.id,name:manifest.name,version:manifest.version,status:"installed",runtimeState:"stored_pending_runtime",activationPolicy:manifest.activationPolicy??"manual",extractedFiles,extractedBytes,storageKey}});
+    scheduleRuntimeRestart(reply,"signed plugin package installed: "+manifest.id);
+    return reply.code(201).send({success:true,restartRequired:true,message:"Package installed. Bee Core will restart automatically to load the plugin runtime.",package:{id:mask(req.platformSession!,manifest.id,"plugin"),pluginKey:manifest.id,name:manifest.name,version:manifest.version,status:"installed",runtimeState:"stored_pending_runtime",activationPolicy:manifest.activationPolicy??"manual",extractedFiles,extractedBytes,storageKey}});
    }catch(error){
     const message=error instanceof Error?error.message:"Plugin package installation failed";
     const status=/not configured/.test(message)?503:/already stored|already being installed|reserved by a built-in|must be newer|dependency is not installed|dependency is not healthy/.test(message)?409:/signature|digest|manifest|ZIP|archive|path|entrypoint|compatible|storageKey|README|frontend|backend|publisher|version/i.test(message)?400:500;
@@ -417,7 +431,8 @@ export const platformAdminPlugin:BeePlugin={
    ]);
    await db.collection("plugin_catalog").updateOne({id:pluginId},{$set:{status:"deprecated",codeAvailable:false,updatedAt:new Date()}});
    await recordPlatformAudit({actorId:actor.id,action:"plugin.package_removed",resourceType:"plugin_package",resourceId:pluginId,metadata:{version:packageRecord.version,activeTenantInstallations:0,inactiveTenantInstallationsRetired:inactiveInstallations.length,tenantDataPreserved:true}});
-   return {success:true,pluginId,restartRequired:true,tenantDataPreserved:true,message:"Package removed from the platform registry. Restart Bee Core to unload its runtime from the current process."};
+   scheduleRuntimeRestart(reply,"signed plugin package removed: "+pluginId);
+   return {success:true,pluginId,restartRequired:true,tenantDataPreserved:true,message:"Package removed. Bee Core will restart automatically to unload its runtime. Tenant data was preserved."};
   });
   ctx.server.get("/platform/plugin-plans",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
