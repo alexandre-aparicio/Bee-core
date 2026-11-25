@@ -201,6 +201,9 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(alphaInstall.statusCode, 202, "a granted tenant can install the signed package");
     const connectedDevicesInstallJob = await waitForInstallJob(await resolveJobId(alphaToken, alphaInstall.json().jobId as string));
     assert.equal(connectedDevicesInstallJob.status, "succeeded");
+    const alphaActivate = await app.inject({ method: "PUT", url: "/marketplace/plugins/connected-devices/activation", headers: { authorization: "Bearer " + alphaToken }, payload: { enabled: true } });
+    assert.equal(alphaActivate.statusCode, 200);
+    assert.equal(alphaActivate.json().enabled, true);
     const alphaRuntime = await app.inject({ method: "GET", url: "/marketplace/plugins/connected-devices/runtime", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaRuntime.statusCode, 200);
     assert.equal(alphaRuntime.json().entrypoint, "frontend/index.html");
