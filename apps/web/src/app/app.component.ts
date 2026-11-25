@@ -416,13 +416,11 @@ export class AppComponent implements OnInit, OnDestroy {
     {id:'settings-localization',label:'Localization',icon:'localization',description:'Languages, regions, currencies and global formats.'}
   ];
   private syncActiveSectionFromPath(): void {
-    if (this.path === '/dashboard/time-tracking' || this.path.startsWith('/dashboard/time-tracking/')) {
-      const pathSection = this.path.split('/').filter(Boolean)[2] || 'my_jorney';
-      const legacySection = new URLSearchParams(window.location.search).get('section');
-      const section = legacySection || pathSection;
-      this.activeSection = section === 'schedule' ? 'time-tracking-schedule' : section === 'history' ? 'time-tracking-history' : section === 'requests' ? 'time-tracking-requests' : 'time-tracking-day';
-      this.expandedMenuId = 'time-tracking';
-      if (!this.isPluginEnabled('time-tracking')) this.activeSection = 'dashboard';
+    const pluginSection = this.pluginFrontends.sectionForPath(this.path);
+    if (pluginSection) {
+      const pluginId = this.pluginFrontends.pluginForSection(pluginSection);
+      this.activeSection = pluginId && !this.isPluginEnabled(pluginId) ? 'dashboard' : pluginSection;
+      this.expandedMenuId = this.pluginFrontends.navigationGroupForSection(pluginSection) ?? '';
       return;
     }
     if (/^\/dashboard\/plugins\/[^/]+\/details\/?$/.test(this.path)) { this.activeSection = 'settings-plugins'; this.expandedMenuId = 'settings'; return; }
@@ -445,7 +443,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
     const nextSection = entry?.[0] || 'dashboard';
     this.activeSection = nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection) ? 'dashboard' : nextSection;
-    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : '');
+    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : this.pluginFrontends.navigationGroupForSection(this.activeSection) ?? '');
   }
   get pluginDetailsId(): string { const match = this.path.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/); return match ? decodeURIComponent(match[1]) : ''; }
   get platformTenantId(): string {
