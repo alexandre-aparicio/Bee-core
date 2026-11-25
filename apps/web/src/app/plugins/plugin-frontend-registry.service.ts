@@ -16,6 +16,7 @@ export type BeePluginNavigation = {
   icon: string;
   group: string;
   route?: string;
+  aliases?: string[];
   children?: BeePluginNavigationChild[];
 };
 
@@ -61,7 +62,8 @@ export class BeePluginFrontendRegistry {
 
   sectionForPath(path: string): string | undefined {
     for (const item of this.registrations.values()) {
-      if (item.navigation.route === path) return item.navigation.id;
+      if (item.navigation.route === path) return item.navigation.children?.[0]?.id ?? item.navigation.id;
+      if (item.navigation.aliases?.includes(path)) return item.navigation.children?.[0]?.id ?? item.navigation.id;
       const child = item.navigation.children?.find(entry => entry.route === path);
       if (child) return child.id;
     }
