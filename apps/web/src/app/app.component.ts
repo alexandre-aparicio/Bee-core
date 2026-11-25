@@ -6,7 +6,7 @@ import { BeeStudioPageComponent } from './templates/packages/studio/pages/public
 import { BeeMidnightPageComponent } from './templates/packages/midnight/pages/dashboard.component';
 import { BeePaperPageComponent } from './templates/packages/paper/pages/dashboard.component';
 import { BeeGlassPageComponent } from './templates/packages/glass/pages/dashboard.component';
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateEngine } from './templates/template-engine.service';
@@ -16,7 +16,7 @@ import { BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutC
 
 @Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], templateUrl: './app.component.html' })
 export class AppComponent implements OnInit, OnDestroy {
-  constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService) {}
+  constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService, private readonly zone: NgZone) {}
 
   ngOnInit(): void {
     this.syncActiveSectionFromPath();
@@ -31,9 +31,13 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private readonly handlePluginsChanged = (): void => {
     void this.refreshTenantPlugins().then(() => {
-      if (this.activeSection === 'documents' && !this.isPluginEnabled('documents')) this.navigateSection('dashboard');
-      else if (this.activeSection === 'connected-devices' && !this.isPluginEnabled('connected-devices')) this.navigateSection('dashboard');
-      else if (this.activeSection.startsWith('time-tracking') && !this.isPluginEnabled('time-tracking')) this.navigateSection('dashboard');
+      // The settings component can dispatch this event from an async request.
+      // Re-enter Angular explicitly so the sidebar is rendered immediately.
+      this.zone.run(() => {
+        if (this.activeSection === 'documents' && !this.isPluginEnabled('documents')) this.navigateSection('dashboard');
+        else if (this.activeSection === 'connected-devices' && !this.isPluginEnabled('connected-devices')) this.navigateSection('dashboard');
+        else if (this.activeSection.startsWith('time-tracking') && !this.isPluginEnabled('time-tracking')) this.navigateSection('dashboard');
+      });
     });
   };
   ngOnDestroy(): void {
@@ -104,7 +108,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private async refreshTenantPlugins(): Promise<void> {
     if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
     try {
-      const response = await fetch(this.api + '/marketplace/plugins', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
+      const response = await fetch(this.api + '/marketplace/plugins', { cache: 'no-store', credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not load enabled company plugins');
       const enabledIds = (Array.isArray(result.plugins) ? result.plugins : []).filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true).map((plugin: any) => String(plugin.pluginKey || plugin.id || '')).filter(Boolean);
