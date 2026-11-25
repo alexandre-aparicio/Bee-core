@@ -131,8 +131,18 @@ export const platformAdminPlugin:BeePlugin={
    if(builtIn)return builtIn;
    const runtime=getRuntimePlugin(pluginId);
    if(!runtime)return undefined;
-   const metadata=await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({id:pluginId,status:"published",codeAvailable:true});
+   const metadata=await db.collection<PluginPackageDefinition>("plugin_catalog").findOne({id:pluginId,status:"published"});
    if(!metadata)return undefined;
+   // ZIP packages deliberately keep codeAvailable=false: their executable code
+   // lives in the signed-package runtime, not in the bundled plugin catalogue.
+   // Resolve that metadata only while the matching global ZIP is installed and
+   // mounted successfully. Preserve the existing bundled/external-code path.
+   if(metadata.codeAvailable!==true){
+    const loadedZip=await db.collection("platform_plugin_packages").findOne({
+     pluginId,status:"installed",source:"zip",runtimeState:"loaded"
+    });
+    if(!loadedZip)return undefined;
+   }
    return {...metadata,migrations:runtime.tenantMigrations??[],installTenant:runtime.installTenant,updateTenant:runtime.updateTenant,uninstallTenant:runtime.uninstallTenant};
   };
   const permissionPolicyCollection=db.collection<{id:string;tenantAssignablePermissions:string[];updatedAt:Date;updatedBy:string}>("platform_permission_policies");
@@ -545,8 +555,18 @@ export const platformAdminPlugin:BeePlugin={
    ]);
    const globalByPlugin=new Map(platformPackages.map(item=>[item.pluginId,item]));
    const tenantByPlugin=new Map(tenantInstallations.map(item=>[String(item.pluginId),item]));
-   const externalCatalog=await db.collection<PluginPackageDefinition>("plugin_catalog").find({status:"published",codeAvailable:true}).toArray();
-   const externalDefinitions=externalCatalog.filter(plugin=>!TRUSTED_PLUGIN_PACKAGES.some(builtIn=>builtIn.id===plugin.id));
+   const loadedZipIds=platformPackages
+    .filter(item=>item.source==="zip"&&item.status==="installed"&&item.runtimeState==="loaded")
+    .map(item=>item.pluginId);
+   const externalCatalog=await db.collection<PluginPackageDefinition>("plugin_catalog").find({
+    status:"published",
+    $or:[{codeAvailable:true},{id:{$in:loadedZipIds},codeAvailable:false}]
+   }).toArray();
+   const externalDefinitions=externalCatalog.filter(plugin=>
+    !TRUSTED_PLUGIN_PACKAGES.some(builtIn=>builtIn.id===plugin.id)&&
+    (plugin.codeAvailable===true||loadedZipIds.includes(plugin.id))&&
+    Boolean(getRuntimePlugin(plugin.id))
+   );
    const definitions=[...TRUSTED_PLUGIN_PACKAGES,...externalDefinitions];
    const tenantCatalog=await getTenantPluginCatalog(db,company.id);
    const entitlementByPlugin=new Map(tenantCatalog.map(item=>[item.id,item]));
