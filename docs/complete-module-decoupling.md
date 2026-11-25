@@ -9,7 +9,7 @@ The public third-party SDK is explicitly deferred. This work is limited to four 
 3. **Documents** — tenant-facing module.
 4. **Hola Mundo** — deliberately simple example package used to prove that the runtime can install and load a module without a hard-coded integration.
 
-**Private Files is platform infrastructure and is not part of this four-package migration. Team Notes is also outside the current scope.** The remaining Core capabilities (authentication, organizations, teams, files infrastructure, marketplace, platform administration, notifications, mail, localization and shared runtime services) are not to be converted into tenant-installable modules as part of this task.
+**Private Files is platform infrastructure and is not part of this four-package migration. Team Notes has been retired from the product catalogue and runtime; its historical tenant data and installation records are preserved.** The remaining Core capabilities (authentication, organizations, teams, files infrastructure, marketplace, platform administration, notifications, mail, localization and shared runtime services) are not to be converted into tenant-installable modules as part of this task.
 
 The acceptance model is that these four package artifacts are delivered through the same upload, verification, persistence, registration and runtime-loading pipeline. All four packages are tenant-facing and require tenant entitlement/grant, installation and enabled state before their routes, navigation entries, frontend assets or APIs can be used. Their actual manifest scopes must be preserved.
 
@@ -78,11 +78,11 @@ The automated tests must simulate the existing modules as uploaded packages rath
 
 - Public SDK or third-party developer experience.
 - Private Files and other Core/platform infrastructure.
-- Team Notes.
+- Retired Team Notes product code and catalogue entries (historical tenant data is retained).
 - Converting all Core capabilities or all catalog entries into installable packages.
 - Arbitrary untrusted code execution or an unrestricted plugin sandbox.
 - Rewriting business behavior unrelated to removing static coupling.
-- Merging this work into `main` without explicit user authorization.
+- Merging this work into `main` only after the owner has reviewed the phase and its CI evidence.
 
 ## Completion rule
 
