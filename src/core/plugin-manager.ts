@@ -30,8 +30,6 @@ export class BeePluginManager {
     const unknownService = requiredServices.find(service => !Object.prototype.hasOwnProperty.call(CORE_PLUGIN_SERVICE_CONFIG, service));
     if (unknownService) throw new Error(`Plugin '${pluginName}' requires unsupported host service '${unknownService}'.`);
     const allowedConfig = [...new Set(requiredServices.flatMap(service => CORE_PLUGIN_SERVICE_CONFIG[service] ?? []))];
-    const missingConfig = allowedConfig.filter(key => !Object.prototype.hasOwnProperty.call(ctx.config, key) && key !== "sessionIdSecret");
-    if (missingConfig.length) throw new Error(`Plugin '${pluginName}' requires host service configuration that is unavailable: ${missingConfig.join(", ")}.`);
     const scopedConfig = Object.fromEntries(allowedConfig.filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
     // Resource references use a dedicated key derived from JWT_SECRET. Plugins
     // that serialize IDs never receive the JWT signing secret itself.
