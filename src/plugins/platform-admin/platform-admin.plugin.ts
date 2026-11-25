@@ -67,7 +67,7 @@ export const platformAdminPlugin:BeePlugin={
   await retireBundledPlatformPackage(db,"hello-world");
   await retireBundledPlatformPackage(db,"time-tracking");
   // Retire this discarded module even if a tenant or platform previously replaced it with a ZIP.
-  // Tenant installation rows, migration history and tenant_workspace-independent data remain untouched.
+  // Tenant-owned data, installation rows and migration history remain untouched.
   await retireBundledPlatformPackage(db,"notes",true);
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
