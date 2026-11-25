@@ -18,7 +18,6 @@ import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
 import { teamsPlugin } from "./plugins/teams/teams.plugin.js";
 import { filesPlugin } from "./plugins/files/files.plugin.js";
-import { documentsPlugin } from "./plugins/documents/documents.plugin.js";
 import { connectedDevicesPlugin } from "./plugins/connected-devices/connected-devices.plugin.js";
 import { timeTrackingPlugin } from "./plugins/time-tracking/time-tracking.plugin.js";
 import { marketplacePlugin } from "./plugins/marketplace/marketplace.plugin.js";
@@ -279,7 +278,6 @@ async function bootstrap(): Promise<void> {
   const platformPackages = mongoClient.db(environment.mongoDbName).collection("platform_plugin_packages");
   const uploadedPackages = await platformPackages.find({ source: "zip", status: "installed" }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
   const uploadedIds = new Set(uploadedPackages.map(item => item.pluginId));
-  if (!uploadedIds.has("documents")) plugins.register(documentsPlugin);
   if (!uploadedIds.has("connected-devices")) plugins.register(connectedDevicesPlugin);
   if (!uploadedIds.has("time-tracking")) plugins.register(timeTrackingPlugin);
 
