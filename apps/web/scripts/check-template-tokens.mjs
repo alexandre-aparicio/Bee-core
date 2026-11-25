@@ -5,11 +5,18 @@ import { join } from 'node:path';
 const packageRoot = 'src/app/templates/packages';
 const contractPath = 'src/app/templates/base/tokens.contract.css';
 const contract = await readFile(contractPath, 'utf8');
-const requiredTokens = [...contract.matchAll(/^\s*(--bee-[\w-]+)\s*:/gm)].map(match => match[1]);
+const contractDeclarations = [...contract.matchAll(/^\s*(--bee-[\w-]+)\s*:/gm)].map(match => match[1]);
+const requiredTokens = [...new Set(contractDeclarations)].sort();
 const packageDirs = await readdir(packageRoot, { withFileTypes: true });
 const errors = [];
 const warnings = [];
 const results = [];
+
+const contractCounts = new Map();
+for (const token of contractDeclarations) contractCounts.set(token, (contractCounts.get(token) || 0) + 1);
+for (const [token, count] of contractCounts) {
+  if (count > 1) errors.push('tokens.contract.css: ' + token + ' is declared ' + count + ' times');
+}
 
 async function collectSourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -69,27 +76,43 @@ for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !
     continue;
   }
 
+  const manifestId = manifest.match(/\bid:\s*'([^']+)'/)?.[1];
   const target = manifest.match(/target:\s*'(public|dashboard)'/)?.[1];
   const defaultMode = manifest.match(/defaultMode:\s*'(light|dark)'/)?.[1];
   const modeList = manifest.match(/appearanceModes:\s*\[([^\]]+)\]/)?.[1] || '';
   const declaredModes = [...modeList.matchAll(/'(light|dark)'/g)].map(match => match[1]);
-  if (!target) errors.push(`${id}: manifest target is missing or invalid`);
-  if (!defaultMode || !declaredModes.includes(defaultMode)) errors.push(`${id}: defaultMode must be included in appearanceModes`);
+  if (manifestId !== id) errors.push(id + ': manifest id is missing or does not match its package directory');
+  if (!target) errors.push(id + ': manifest target is missing or invalid');
+  if (!declaredModes.length) errors.push(id + ': appearanceModes must declare at least one supported mode');
+  if (new Set(declaredModes).size !== declaredModes.length) errors.push(id + ': appearanceModes contains duplicate entries');
+  if (!defaultMode || !declaredModes.includes(defaultMode)) errors.push(id + ': defaultMode must be included in appearanceModes');
 
   const modeAttribute = target === 'public' ? 'public' : 'dashboard';
   const blocks = new Map();
+  const blockCounts = new Map();
   const blockPattern = /([^{}]+)\{([^{}]*)\}/g;
   for (const match of tokens.matchAll(blockPattern)) {
     const selectors = match[1];
-    if (!selectors.includes(`.bee-template-package-host[data-bee-template="${id}"][data-bee-${modeAttribute}-mode="`)) continue;
+    if (!selectors.includes('.bee-template-package-host[data-bee-template="' + id + '"][data-bee-' + modeAttribute + '-mode="')) continue;
     const mode = selectors.match(/data-bee-(?:public|dashboard)-mode="(light|dark)"/)?.[1];
     if (!mode) continue;
-    const htmlSelector = `html[data-bee-active-template="${id}"][data-bee-active-mode="${mode}"]`;
-    if (!selectors.includes(htmlSelector)) errors.push(`${id}: ${mode} block is missing html active-template scope`);
+    blockCounts.set(mode, (blockCounts.get(mode) || 0) + 1);
+    const htmlSelector = 'html[data-bee-active-template="' + id + '"][data-bee-active-mode="' + mode + '"]';
+    if (!selectors.includes(htmlSelector)) errors.push(id + ': ' + mode + ' block is missing html active-template scope');
     const selectorTarget = selectors.match(/data-bee-(public|dashboard)-mode=/)?.[1];
-    if (selectorTarget !== modeAttribute) errors.push(`${id}: ${mode} block uses data-bee-${selectorTarget}-mode but target is ${target}`);
-    const declared = new Set([...match[2].matchAll(/^\s*(--bee-[\w-]+)\s*:/gm)].map(item => item[1]));
+    if (selectorTarget !== modeAttribute) errors.push(id + ': ' + mode + ' block uses data-bee-' + selectorTarget + '-mode but target is ' + target);
+    const declarations = [...match[2].matchAll(/^\s*(--bee-[\w-]+)\s*:/gm)].map(item => item[1]);
+    const declared = new Set(declarations);
+    const declarationCounts = new Map();
+    for (const token of declarations) declarationCounts.set(token, (declarationCounts.get(token) || 0) + 1);
+    for (const [token, count] of declarationCounts) {
+      if (count > 1) errors.push(id + ': ' + mode + ' declares ' + token + ' ' + count + ' times');
+    }
     blocks.set(mode, declared);
+  }
+
+  for (const [mode, count] of blockCounts) {
+    if (count > 1) errors.push(id + ': duplicate ' + mode + ' token blocks (' + count + ')');
   }
 
   for (const mode of declaredModes) {
