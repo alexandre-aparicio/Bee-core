@@ -1,9 +1,3 @@
-export interface RuntimePackageClassificationRecord {
-  pluginId?: unknown;
-  status?: unknown;
-  source?: unknown;
-}
-
 /**
  * Runtime registry membership alone does not mean a plugin is an installable ZIP.
  * Core/legacy plugins may also be registered in the in-memory runtime registry.
@@ -11,11 +5,12 @@ export interface RuntimePackageClassificationRecord {
  */
 export function isExternalRuntimePackage(
   pluginId: string,
-  packageRecord: RuntimePackageClassificationRecord | null | undefined,
+  packageRecord: unknown,
   trustedPackage: boolean
 ): boolean {
-  return !trustedPackage &&
-    packageRecord?.pluginId === pluginId &&
-    packageRecord.status === "installed" &&
-    packageRecord.source === "zip";
+  if (trustedPackage || !packageRecord || typeof packageRecord !== "object") return false;
+  const record=packageRecord as {pluginId?:unknown;status?:unknown;source?:unknown};
+  return record.pluginId === pluginId &&
+    record.status === "installed" &&
+    record.source === "zip";
 }
