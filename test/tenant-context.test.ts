@@ -56,7 +56,8 @@ test("tenant context requires a valid session, active membership and company", {
         { key: "documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
       ]
     });
-\n    const context = await resolveTenantContext(db, claims, {}, secret);
+
+    const context = await resolveTenantContext(db, claims, {}, secret);
     assert.ok(context);
     assert.equal(context.userId, "user-one");
     assert.equal(context.email, "real@example.test");
