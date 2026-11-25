@@ -80,6 +80,9 @@ export const platformAdminPlugin:BeePlugin={
   if(migratedPlatformPackages)ctx.logger.info("Legacy platform package installations migrated",{count:migratedPlatformPackages});
   // Hello World must only be available as a separately uploaded, signed ZIP.
   await retireBundledPlatformPackage(db,"hello-world");
+  // Documents is now an independently distributed signed ZIP plugin. Retire
+  // any legacy bundled registry entry without touching tenant files or history.
+  await retireBundledPlatformPackage(db,"documents");
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
