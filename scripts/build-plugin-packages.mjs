@@ -2,6 +2,7 @@ import { createHash, createPrivateKey, sign } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { deflateRawSync } from "node:zlib";
+import { pathToFileURL } from "node:url";
 
 const ROOT = resolve(process.cwd());
 const DIST = join(ROOT, "dist");
@@ -10,7 +11,7 @@ const RUNTIME_VERSION = process.env.BEE_RUNTIME_VERSION ?? "0.3.1";
 const PACKAGES = [
   { id: "connected-devices", name: "Connected Devices", version: "0.1.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants.", frontendSource: "src/plugins/connected-devices/frontend", frontend: { routes: [{ path: "/dashboard/connected-devices", component: "connected-devices" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js", "frontend/qrcode.min.js"], apiPrefixes: ["/connected-devices"] } },
   { id: "time-tracking", name: "Control Horario", version: "0.2.0", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations", "marketplace"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }], frontendSource: "src/plugins/time-tracking/frontend", frontend: { routes: [{ path: "/dashboard/time-tracking", component: "bee-time-tracking" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/time-tracking"] } },
-  { id: "documents", name: "Documents", version: "0.1.2", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery.", frontendSource: "src/plugins/documents/frontend", frontend: { routes: [{ path: "/dashboard/documents", component: "documents" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/documents", "/public/documents"] } },
+  { id: "documents", name: "Documents", version: "0.1.3", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery.", frontendSource: "src/plugins/documents/frontend", frontend: { routes: [{ path: "/dashboard/documents", component: "documents" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/documents", "/public/documents"] } },
   { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } }
 ];
 
@@ -97,6 +98,23 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
   for (const definition of PACKAGES) {
     const entry = resolve(distDir, definition.entry), entryRelative = relative(resolve(distDir), entry);
     const files = await collectModuleGraph(entryRelative, distDir);
+
+    // Never sign a package whose compiled backend differs from its manifest.
+    const compiledModule = await import(pathToFileURL(entry).href);
+    const compiledPlugin = compiledModule[exportName(definition.id)];
+    if (!compiledPlugin || compiledPlugin.manifest?.name !== definition.id || compiledPlugin.manifest?.version !== definition.version) {
+      throw new Error(
+        `Compiled backend mismatch for ${definition.id}: expected manifest ${definition.id}@${definition.version}, got ${compiledPlugin?.manifest?.name ?? "missing"}@${compiledPlugin?.manifest?.version ?? "missing"}. Rebuild dist/ before packaging.`
+      );
+    }
+    const expectedPrefixes = [...(definition.frontend?.apiPrefixes ?? [])].sort();
+    const actualPrefixes = [...(compiledPlugin.manifest?.apiPrefixes ?? [])].sort();
+    if (JSON.stringify(expectedPrefixes) !== JSON.stringify(actualPrefixes)) {
+      throw new Error(
+        `Compiled backend API prefixes mismatch for ${definition.id}: expected ${JSON.stringify(expectedPrefixes)}, got ${JSON.stringify(actualPrefixes)}.`
+      );
+    }
+
     const wrapperPath = "dist/backend/index.mjs";
     files.set(wrapperPath, Buffer.from("export { " + exportName(definition.id) + " as default } from \"../" + definition.entry.replaceAll("\\", "/") + "\";\n"));
     files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "\n"));
