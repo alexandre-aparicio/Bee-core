@@ -7,7 +7,7 @@ type RemoteFrame = { pluginId: string; apiPrefixes: string[] };
 @Component({
   selector: "bee-plugin-outlet",
   standalone: true,
-  template: `<div #remoteHost class="bee-plugin-remote-host">@if(runtimeError){<div class="bee-plugin-update-required" role="status">{{runtimeError}}</div>}</div><ng-container #pluginHost></ng-container>`
+  template: `<div class="bee-plugin-remote-shell">@if(runtimeError){<div class="bee-plugin-update-required" role="status">{{runtimeError}}</div>}<div #remoteHost class="bee-plugin-remote-host"></div></div><ng-container #pluginHost></ng-container>`
 })
 export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() pluginIds: string[] = [];
