@@ -5,7 +5,7 @@ import { CORE_PERMISSION_CATALOG, CORE_PERMISSION_KEYS } from "../src/core/permi
 import { COMPANY_ROLE_PERMISSIONS } from "../src/core/tenant-context.js";
 
 test("custom role permission normalization validates, deduplicates and sorts", () => {
-  assert.deepEqual(normalizeCustomRolePermissions(["notes.read", "files.write", "notes.read"]), ["files.write", "notes.read"]);
+  assert.deepEqual(normalizeCustomRolePermissions(["files.read", "files.write", "files.read"]), ["files.write", "files.read"]);
 });
 test("custom role permissions reject malformed keys and oversized arrays", () => {
   assert.throws(() => normalizeCustomRolePermissions(["*"]), /Invalid permission key/);
@@ -18,9 +18,9 @@ test("role names are trimmed and constrained", () => {
   assert.throws(() => normalizeCustomRoleName("Editor*"), /unsupported/);
 });
 test("policy permission check is exact (no implicit wildcards)", () => {
-  const policy = { role: "custom" as const, permissions: ["notes.read"] };
-  assert.equal(hasPolicyPermission(policy, "notes.read"), true);
-  assert.equal(hasPolicyPermission(policy, "notes.write"), false);
+  const policy = { role: "custom" as const, permissions: ["files.read"] };
+  assert.equal(hasPolicyPermission(policy, "files.read"), true);
+  assert.equal(hasPolicyPermission(policy, "files.write"), false);
   assert.equal(hasPolicyPermission(policy, "notes.*"), false);
 });
 
@@ -36,7 +36,7 @@ test("the core permission catalogue is unique and covers every built-in role per
 });
 
 test("tenant custom roles accept delegable permissions and reject protected capabilities", () => {
-  const selected = ["notes.read", "files.read", "members.invite", "mail.read", "mail.send"];
+  const selected = ["files.read", "files.read", "members.invite", "mail.read", "mail.send"];
   assert.deepEqual(normalizeTenantCustomRolePermissions(selected), [...selected].sort());
   for (const protectedPermission of ["members.manage", "plugins.manage", "billing.manage", "mail.manage"]) {
     assert.throws(() => normalizeTenantCustomRolePermissions([protectedPermission]), /protected permissions/);
@@ -46,16 +46,16 @@ test("tenant custom roles accept delegable permissions and reject protected capa
 });
 
 test("platform policy can narrow tenant custom-role delegation without changing protected capabilities", () => {
-  const allowed = ["members.read", "plugins.read", "notes.read"];
-  assert.deepEqual(normalizeTenantCustomRolePermissions(["members.read", "notes.read"], allowed), ["members.read", "notes.read"]);
+  const allowed = ["members.read", "plugins.read", "files.read"];
+  assert.deepEqual(normalizeTenantCustomRolePermissions(["members.read", "files.read"], allowed), ["members.read", "files.read"]);
   assert.throws(() => normalizeTenantCustomRolePermissions(["mail.send"], allowed), /protected permissions/);
   assert.throws(() => normalizeTenantCustomRolePermissions(["members.manage"], allowed), /protected permissions/);
 });
 
 test("custom role effective permissions honor the current platform delegation policy", () => {
-  const role = { permissions: ["notes.read", "files.write", "mail.send"] };
-  assert.deepEqual(permissionsForCustomRole(role, ["notes.read", "files.write"]), ["files.write", "notes.read"]);
-  assert.deepEqual(permissionsForCustomRole(role, ["notes.read"]), ["notes.read"]);
+  const role = { permissions: ["files.read", "files.write", "mail.send"] };
+  assert.deepEqual(permissionsForCustomRole(role, ["files.read", "files.write"]), ["files.write", "files.read"]);
+  assert.deepEqual(permissionsForCustomRole(role, ["files.read"]), ["files.read"]);
 });
 
 
