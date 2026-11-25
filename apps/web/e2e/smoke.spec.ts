@@ -125,6 +125,7 @@ test('template manager keeps public and dashboard themes independent', async ({ 
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
   await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
+  await manager.getByRole('button', { name: 'Apply template changes' }).click();
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
   await expect(manager.getByLabel('Public website template')).toHaveValue('editorial');
