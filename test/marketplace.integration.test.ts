@@ -191,7 +191,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(await db.collection("tenant_plugin_installations").countDocuments({ tenantId: "market-beta", pluginId: "workspace", status: "installed" }), 1);
     const betaItemsList = await app.inject({ method: "GET", url: "/workspace-items", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaItemsList.statusCode, 200);
-    assert.deepEqual(betaItemsList.json().workspace, []);
+    assert.deepEqual(betaItemsList.json().items, []);
     const betaDeactivate = await app.inject({ method: "PUT", url: "/marketplace/plugins/" + encodeURIComponent(betaItemsPluginRef) + "/activation", headers: { authorization: "Bearer " + betaToken }, payload: { enabled: false } });
     assert.equal(betaDeactivate.statusCode, 200);
     assert.equal(betaDeactivate.json().enabled, false);
@@ -240,7 +240,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal((await db.collection("tenant_plugin_installations").findOne({tenantId:"market-beta",pluginId:"workspace"}))?.enabled,true);
     const betaAfterReinstall = await app.inject({ method: "GET", url: "/workspace-items", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterReinstall.statusCode, 200);
-    assert.equal(betaAfterReinstall.json().workspace.length, 1,"activation after deactivation/uninstall must retain tenant-owned data");
+    assert.equal(betaAfterReinstall.json().items.length, 1,"activation after deactivation/uninstall must retain tenant-owned data");
 
     await db.collection("tenant_plugin_installations").updateOne(
       { tenantId: "market-beta", pluginId: "workspace" },
