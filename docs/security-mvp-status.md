@@ -76,3 +76,10 @@ The following evidence must come from successful CI runs on the exact PR head:
 - Gitleaks scan of the full Git history and working tree.
 
 A CI pass proves only the scripted cases. It does not prove real TLS, secret-management practices, off-site backups, successful disaster recovery or resistance to an independent penetration test.
+
+
+## Connected Devices audit coverage proposal — 2026-11-25
+
+The current security branch adds tenant-scoped append events for Connected Devices lifecycle operations and denial events for cross-tenant/missing device or pairing references. Its route regression asserts that a foreign tenant's device is not mutated and that denial records are written only to the actor's active tenant.
+
+This work is pending GitHub CI on its PR head. Coverage currently uses a controlled route/repository test double; it does not prove all Connected Devices endpoints or every asynchronous device path are audited. Route-level audit append failures are currently logged and swallowed, so business changes and audit writes are not atomic. Do not treat this as complete audit coverage until those gaps are addressed and a full route review is recorded.
