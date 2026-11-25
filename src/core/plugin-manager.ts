@@ -20,23 +20,26 @@ export class BeePluginManager {
     }
     const allowedServices = new Set(["mongoDbName","defaultTenantId","authAdminEmail","authAdminPassword","authMfaEncryptionKey","publicBaseDomain","fileStoragePath","billingWebhookSecret","pluginPackagePath","pluginPublisherPublicKey","sessionIdSecret"]);
     const requiredServices = plugin.manifest.requiredServices ?? [];
-    if (!Array.isArray(requiredServices) || requiredServices.some(service => typeof service !== "string" || !allowedServices.has(service))) {
-      const invalid = Array.isArray(requiredServices) ? requiredServices.filter(service => typeof service !== "string" || !allowedServices.has(service)).join(", ") : "invalid value";
-      throw new Error("Plugin '" + name + "' declares unsupported required service(s): " + invalid);
+    const optionalServices = plugin.manifest.optionalServices ?? [];
+    const declaredServices = [...requiredServices, ...optionalServices];
+    if (!Array.isArray(requiredServices) || !Array.isArray(optionalServices) || declaredServices.some(service => typeof service !== "string" || !allowedServices.has(service))) {
+      const invalid = declaredServices.filter(service => typeof service !== "string" || !allowedServices.has(service)).join(", ") || "invalid value";
+      throw new Error("Plugin '" + name + "' declares unsupported service(s): " + invalid);
     }
-    if (new Set(requiredServices).size !== requiredServices.length) throw new Error("Plugin '" + name + "' declares duplicate required services");
+    if (new Set(declaredServices).size !== declaredServices.length) throw new Error("Plugin '" + name + "' declares duplicate required/optional services");
     this.plugins.set(name, { plugin, status: "registered" });
   }
 
-  private createPluginContext(pluginName: string, ctx: BeeContext, requiredServices: readonly string[]): BeeContext {
+  private createPluginContext(pluginName: string, ctx: BeeContext, requiredServices: readonly string[], optionalServices: readonly string[] = []): BeeContext {
     const prefix = `[${pluginName}]`;
     const jwtSecret = String(ctx.config.jwtSecret ?? "");
     const missingServices = requiredServices.filter(key => key === "sessionIdSecret" ? jwtSecret.length < 32 : !Object.prototype.hasOwnProperty.call(ctx.config, key));
     if (missingServices.length) throw new Error("Plugin '" + pluginName + "' requires unavailable service(s): " + missingServices.join(", "));
-    const scopedConfig = Object.fromEntries(requiredServices.filter(key => key !== "sessionIdSecret" && Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
+    const requestedServices = [...requiredServices, ...optionalServices];
+    const scopedConfig = Object.fromEntries(requestedServices.filter(key => key !== "sessionIdSecret" && Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
     // Resource references use a dedicated key derived from JWT_SECRET. Plugins
     // that serialize IDs never receive the JWT signing secret itself.
-    if (requiredServices.includes("sessionIdSecret")) {
+    if (requestedServices.includes("sessionIdSecret")) {
       scopedConfig.sessionIdSecret = createHmac("sha256", jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
     }
     return Object.freeze({
@@ -185,7 +188,7 @@ export class BeePluginManager {
             ...ctx,
             server: scopedServer,
             events: ctx.events.forPlugin(pluginName)
-          }, managed.plugin.manifest.requiredServices ?? []);
+          }, managed.plugin.manifest.requiredServices ?? [], managed.plugin.manifest.optionalServices ?? []);
           managed.context = pluginContext;
           this.dependenciesReady(managed);
           await managed.plugin.initialize?.(pluginContext);
@@ -214,7 +217,7 @@ export class BeePluginManager {
   async stopAll(ctx: BeeContext): Promise<void> {
     for (const managed of [...this.startupOrder].reverse()) {
       if (managed.status !== "started") continue;
-      const pluginContext = managed.context ?? this.createPluginContext(managed.plugin.manifest.name, ctx, managed.plugin.manifest.requiredServices ?? []);
+      const pluginContext = managed.context ?? this.createPluginContext(managed.plugin.manifest.name, ctx, managed.plugin.manifest.requiredServices ?? [], managed.plugin.manifest.optionalServices ?? []);
       try {
         await managed.plugin.stop?.(pluginContext);
         managed.status = "stopped";
