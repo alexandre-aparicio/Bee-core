@@ -85,7 +85,7 @@ export class BeeI18nService {
   setLocale(language: BeeLanguage): void {
     if (language !== 'en' && language !== 'es') return;
     this.locale = language;
-    this.applyDocumentLanguage();
+    this.applyLocaleToDocument();
   }
 
   updatePreferences(preferences: Partial<BeeLanguagePreferences>): void {
