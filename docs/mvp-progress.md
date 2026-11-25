@@ -97,8 +97,9 @@ Explicit transition paths from source review:
 | Platform Roles | 11 hex / 17 RGB-HSL / 11 important / 0 palette host-context → 0 / 0 / 0 / 0. Nine used tokens have no missing contract/package-mode declarations; inline style braces: 69 / 69. | Replaced translucent palette literals and strengthened component selectors to remove important flags; component styles now use semantic tokens. Error/success messages carry semantic status classes. |
 | Platform Users | 8 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Uses existing border, subtle-surface and muted-text tokens; inline style braces: 20 / 20. | Replaced all slate color literals and muted fallback with semantic token color-mix values. |
 | Mail Workspace | 11 hex / 18 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Twelve used tokens have no missing contract/package-mode declarations; inline style braces: 79 / 79. | Replaced gradients, translucent surfaces, modal backdrop, controls, toast and text colors with package semantic tokens; modal elevation uses `--bee-shadow-raised`. |
-| Time Tracking | 3 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Replaced six legacy aliases with semantic palette tokens. | Tokenized controls, status, tabs, table, modal backdrop and elevation without changing component markup or behavior. |
+| Time Tracking | 3 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Replaced five legacy aliases with semantic palette tokens. | Tokenized controls, status, tabs, table, modal backdrop and elevation without changing component markup or behavior. |
 | Auth MFA QR | 2 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Uses the already declared `--bee-qr-dark` / `--bee-qr-light` package tokens. | QR contrast now reads from the active root theme; no API or authentication flow changes. |
+| Teams Workspace | 9 hex / 0 RGB-HSL / 0 important / 3 palette host-context remain. | Deliberately left untouched per the deferred host-context instruction; all nine literals are inside those three Midnight-Light selectors. |
 
 ## Current source audit metrics
 
