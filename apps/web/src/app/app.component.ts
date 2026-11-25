@@ -394,17 +394,18 @@ export class AppComponent implements OnInit, OnDestroy {
 
   activeSection = 'dashboard';
   expandedMenuId = '';
-  private readonly sectionRoutes: Record<string, string> = {
-    dashboard: '/dashboard', documents: '/dashboard/documents', 'connected-devices': '/dashboard/connected-devices', 'time-tracking': '/dashboard/time-tracking/my_jorney', 'time-tracking-day':'/dashboard/time-tracking/my_jorney', 'time-tracking-schedule':'/dashboard/time-tracking/schedule', 'time-tracking-history':'/dashboard/time-tracking/history', 'time-tracking-requests':'/dashboard/time-tracking/requests', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
-    activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
-    'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
-    'settings-plans': '/dashboard/settings/plans-licensing',
-    'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
-    'settings-localization': '/dashboard/settings/localization',
-    'themes-dashboard': '/dashboard/themes', 'themes-public': '/dashboard/public-theme',
-    branding: '/dashboard/branding', domains: '/dashboard/domains', integrations: '/dashboard/integrations',
-    security: '/dashboard/security', system: '/dashboard/system'
-  };
+  private get sectionRoutes(): Record<string, string> {
+    return {
+      dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization',
+      'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
+      activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
+      'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
+      'settings-plans': '/dashboard/settings/plans-licensing', 'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
+      'settings-localization': '/dashboard/settings/localization', 'themes-dashboard': '/dashboard/themes', 'themes-public': '/dashboard/public-theme',
+      branding: '/dashboard/branding', domains: '/dashboard/domains', integrations: '/dashboard/integrations', security: '/dashboard/security', system: '/dashboard/system',
+      ...this.pluginFrontends.getRoutes(this.activePlugins)
+    };
+  }
   private readonly allSettingsSections = [
     {id:'settings-general',label:'General',icon:'general',description:'Platform name, domain, identity and global configuration.'},
     {id:'settings-tenants',label:'Tenants',icon:'tenants',description:'Tenant directory, company status, subdomains and platform-level controls.'},
