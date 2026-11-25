@@ -98,14 +98,20 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
   } catch {
     throw new Error("The configured plugin publisher key pair is invalid.");
   }
-  if (privateKey.asymmetricKeyType !== "ed25519" || publicKey.asymmetricKeyType !== "ed25519") {
-    throw new Error("Plugin publisher keys must both use Ed25519.");
+  const supportedKeyTypes = new Set(["ed25519", "rsa"]);
+  if (
+    privateKey.asymmetricKeyType !== publicKey.asymmetricKeyType ||
+    !supportedKeyTypes.has(privateKey.asymmetricKeyType ?? "")
+  ) {
+    throw new Error("Plugin publisher keys must be a matching Ed25519 or RSA key pair.");
   }
   const derivedPublicKey = createPublicKey(privateKey).export({ type: "spki", format: "der" });
   const configuredPublicKey = publicKey.export({ type: "spki", format: "der" });
   if (!derivedPublicKey.equals(configuredPublicKey)) {
     throw new Error("BEE_PLUGIN_PUBLISHER_PRIVATE_KEY does not match BEE_PLUGIN_PUBLISHER_PUBLIC_KEY.");
   }
+  // Match the runtime verifier: EdDSA uses a null digest; RSA signatures use SHA-256.
+  const signatureAlgorithm = privateKey.asymmetricKeyType === "ed25519" ? null : "sha256";
   const output = resolve(outputDir);
   await mkdir(output, { recursive: true });
   const results = [];
@@ -137,8 +143,8 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
       package: { sha256: "", signature: "", storageKey: "packages/" + definition.id + "/" + definition.version }
     };
     manifest.package.sha256 = digestPackage(files);
-    const signature = sign(null, canonicalPayload(manifest), privateKey);
-    if (!verifySignature(null, canonicalPayload(manifest), publicKey, signature)) {
+    const signature = sign(signatureAlgorithm, canonicalPayload(manifest), privateKey);
+    if (!verifySignature(signatureAlgorithm, canonicalPayload(manifest), publicKey, signature)) {
       throw new Error("Generated plugin publisher signature could not be verified.");
     }
     manifest.package.signature = signature.toString("base64");
