@@ -528,7 +528,7 @@ export const platformAdminPlugin:BeePlugin={
     const installed=globalPackage?.status==="installed"&&(globalPackage.source!=="zip"||globalPackage.runtimeState==="loaded");
     const enabled=!!installed&&tenantInstallation?.status==="installed"&&tenantInstallation?.enabled!==false;
     const entitlement=entitlementByPlugin.get(plugin.id);
-    return {id:mask(req.platformSession!,plugin.id,"plugin"),name:plugin.name,description:plugin.description,version:globalPackage?.version??plugin.version,system:plugin.system,installed,enabled,status:!installed?"uninstalled":enabled?"installed":"disabled",dependencies:plugin.dependencies,activationPolicy:plugin.activationPolicy??"manual",entitled:!!entitlement?.entitled,accessSource:entitlement?.accessSource??null};
+    return {id:mask(req.platformSession!,plugin.id,"plugin"),pluginKey:plugin.id,name:plugin.name,description:plugin.description,version:globalPackage?.version??plugin.version,system:plugin.system,installed,enabled,status:!installed?"uninstalled":enabled?"installed":"disabled",dependencies:plugin.dependencies,activationPolicy:plugin.activationPolicy??"manual",entitled:!!entitlement?.entitled,accessSource:entitlement?.accessSource??null};
    })};
   });
   ctx.server.put<{Params:{companyId:string;pluginId:string};Body:{enabled?:boolean}}>("/platform/companies/:companyId/plugins/:pluginId",async(req,reply)=>{
