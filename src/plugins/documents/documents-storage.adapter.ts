@@ -1,4 +1,4 @@
-import type { Db, Document } from "mongodb";
+import type { Db, Document, Collection } from "mongodb";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -21,7 +21,7 @@ function validContent(contentType:string,data:Buffer):boolean {
   return false;
 }
 export class DocumentsStorageAdapter {
-  private readonly collection;
+  private readonly collection: Collection<DocumentFileRecord>;
   constructor(private readonly db:Db,private readonly root:string){
     this.collection=db.collection<DocumentFileRecord>("tenant_document_files");
   }
