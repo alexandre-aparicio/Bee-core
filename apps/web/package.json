@@ -8,7 +8,8 @@
     "test:e2e": "playwright test",
     "audit:production": "npm audit --omit=dev",
     "audit:styles": "node scripts/audit-styles.mjs src",
-    "check:template-tokens": "node scripts/check-template-tokens.mjs"
+    "check:template-tokens": "node scripts/check-template-tokens.mjs",
+    "lint:styles": "npx --yes stylelint@18.1.0 --config stylelint.config.mjs \"src/app/templates/**/*.css\""
   },
   "dependencies": {
     "@angular/common": "19.2.15",
