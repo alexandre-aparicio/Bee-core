@@ -129,38 +129,44 @@ jobs:
         if: steps.migration-state.outputs.run == 'true'
         run: |
           npx ng update @angular/core@20 @angular/cli@20
-          git add -A .
-          git commit -m "temp: migrate Angular core and CLI to 20"
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular core and CLI to 20"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
       - name: Migrate Angular CDK 19 to 20
         if: steps.migration-state.outputs.run == 'true'
         run: |
           npx ng update @angular/cdk@20
-          git add -A .
-          git commit -m "temp: migrate Angular CDK to 20"
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular CDK to 20"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
       - name: Migrate Angular core and CLI 20 to 21
         if: steps.migration-state.outputs.run == 'true'
         run: |
           npx ng update @angular/core@21 @angular/cli@21
-          git add -A .
-          git commit -m "temp: migrate Angular core and CLI to 21"
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular core and CLI to 21"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
       - name: Migrate Angular CDK 20 to 21
         if: steps.migration-state.outputs.run == 'true'
         run: |
           npx ng update @angular/cdk@21
-          git add -A .
-          git commit -m "temp: migrate Angular CDK to 21"
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular CDK to 21"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
       - name: Migrate Angular core and CLI 21 to 22
         if: steps.migration-state.outputs.run == 'true'
         run: |
           npx ng update @angular/core@22 @angular/cli@22
-          git add -A .
-          git commit -m "temp: migrate Angular core and CLI to 22"
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular core and CLI to 22"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
       - name: Migrate Angular CDK 21 to 22
         if: steps.migration-state.outputs.run == 'true'
         run: |
           npx ng update @angular/cdk@22
-          git add -A .
-          git commit -m "temp: migrate Angular CDK to 22"
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular CDK to 22"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
       - name: Verify regenerated lockfile
         if: steps.migration-state.outputs.run == 'true'
         run: npm ci
