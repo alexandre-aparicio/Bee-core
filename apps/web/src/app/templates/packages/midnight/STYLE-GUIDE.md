@@ -346,32 +346,24 @@ Before a Midnight page is considered complete, verify:
 - [ ] No shell/navigation styles are duplicated by the feature.
 - [ ] Global Bee-Core Design System guide is followed.
 
-## 19. Known gaps to close in implementation
+## 19. Validation boundary
 
-This guide intentionally distinguishes current code from the desired stable contract. The following should be consolidated centrally as the design-system implementation progresses:
-1. Keep all 89 semantic tokens complete in both Midnight modes.
-2. Preserve canonical Midnight Dark values as the visual reference.
-3. Keep package-specific layout styles separate from shared base structure.
-4. Build or consolidate shared PageLayout/PageHeader/PageSection and common controls where equivalent implementations currently live in feature components.
-5. Audit existing dashboard pages for local hard-coded colors, inconsistent cards/forms/tables and broad CSS selectors.
-6. Add automated or documented visual regression checks for Midnight at mobile/tablet/desktop breakpoints.
+The source-level contract is implemented: all 89 tokens exist in both Midnight modes, the strict style guard is active, the WCAG checker is blocking, and the template browser matrix exercises both modes. CI also captures full-page screenshots of the key dashboard screens.
 
-Do not mark these gaps complete merely because this guide documents them. Update this document when the implementation contract changes.
+The automated screenshot suite does not compare pixels with the pre-refactor baseline. Human visual equivalence for Midnight Dark/Light, Paper and Glass remains NOT verified. First paint before Angular boots also remains NOT verified.
 
 ### Light appearance refinements for shared workspace pages
 
 - Shared components MUST adapt to the active appearance mode through semantic tokens; the Midnight package must not force its dark surface palette into light mode.
 - Modal overlays should remain neutral dark translucent layers in both modes; dialogs and menus use the active panel/background tokens, while dialog shadows remain neutral dark.
-- Validate the collection toolbar, active/inactive view control, cards, table row hover, overflow menus, forms, empty states and modal details in both light and dark appearance. Violet/cyan accents are preserved as functional states, not decorative gradients or glow.
+- Validate the collection toolbar, active/inactive view control, cards, table row hover, overflow menus, forms, empty states and modal details in both light and dark appearance. The active package accent tokens are preserved as functional states, not decorative gradients or glow.
 
 
-### Documents light-mode surface audit (2026-11-23)
+### Documents active dashboard token contract
 
-- Documents responds to the Midnight dashboard host's `data-bee-dashboard-mode="light"` state with component-local semantic surface/text/accent tokens so `--bee-surface`, `--bee-bg`, `--bee-text-muted` and `--bee-border` no longer resolve to dark-only values in Light mode.
-- Folder/document cards, card hover, overflow menus, share/detail dialogs, share tabs, suggestions, chips, hint panels, empty state and table surface are explicitly reviewed for Light contrast.
-- Primary buttons and selected view controls use a contrast-safe white foreground over the violet action/selection surface in Light mode.
-- This component-scoped treatment MUST NOT bleed into other features or alter Midnight Dark. Confirm visually in browser in both modes before marking verified.
+Documents consumes the active dashboard package tokens in both modes. Cards, card hover, menus, dialogs, tabs, suggestions, chips, hint panels, empty states and tables must use semantic tokens. Component-local Midnight-Light palette overrides are not permitted.
 
+The template runtime owns the active HTML mode attributes. Browser tests capture Documents under Midnight, Paper and Glass in Light and Dark, but those screenshots are not pixel assertions against a pre-refactor baseline.
 
 ## 20. Toast notifications and full-viewport modal overlays
 
@@ -428,8 +420,8 @@ The System Roles tab MUST use the same collection composition as Organization �
 ### Organization → Users collection (Midnight)
 
 - Match Documents' collection toolbar: two equal 50% zones, with search/status filters on the left and the Cards/Table selector right-aligned in the right zone with a small right inset. Stack the zones cleanly on mobile.
-- Reuse Documents' view selector exactly: 34×32px buttons, 5px gap, 7px radius, 17px centered glyph, zero padding, semantic border and violet selected state. Keep keyboard focus and aria-pressed behavior.
-- Users cards use three columns on desktop, two on tablet and one on mobile; equal-height cards per row, 12px gap, 12px radius, 16px padding and the Documents restrained violet hover tint. Table rows use the matching 5% violet hover tint.
+- Reuse Documents' view selector exactly: 34×32px buttons, 5px gap, 7px radius, 17px centered glyph, zero padding, semantic border and active package accent selected state. Keep keyboard focus and aria-pressed behavior.
+- Users cards use three columns on desktop, two on tablet and one on mobile; equal-height cards per row, 12px gap, 12px radius, 16px padding and the Documents restrained violet hover tint. Table rows use the matching 5% active-package accent hover tint.
 - Cards and Table show the same filtered members and preserve all existing role assignment, restriction, status and overflow actions. Use Midnight semantic tokens so panels, controls, borders, text and selected states remain correct in Light and Dark.
 
 

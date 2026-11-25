@@ -75,7 +75,7 @@ The backend legacy `/templates/theme` endpoint and response shape remain unchang
 
 ## Full token reference
 
-Generated from `templates/base/tokens.contract.css` (89 declared tokens).
+Generated from `apps/web/src/app/templates/base/tokens.contract.css` (89 declared tokens).
 
 | Token | Purpose | Example usage | Light / Dark intent |
 |---|---|---|---|
@@ -99,7 +99,7 @@ Generated from `templates/base/tokens.contract.css` (89 declared tokens).
 | `--bee-accent-hover` | Accent hover | `background: var(--bee-accent-hover);` | Use a mode-appropriate foreground/accent with contrast against its actual surface. |
 | `--bee-accent-soft` | Accent soft | `background: var(--bee-accent-soft);` | Use a mode-appropriate foreground/accent with contrast against its actual surface. |
 | `--bee-accent-text` | Foreground on accent surfaces | `color: var(--bee-accent-text);` | Use a mode-appropriate foreground/accent with contrast against its actual surface. |
-| `--bee-secondary` | Secondary | `background: var(--bee-secondary);` | Package-specific value; preserve semantic meaning and readable contrast in both modes. |
+| `--bee-secondary` | Secondary | `color: var(--bee-secondary);` | Package-specific value; preserve semantic meaning and readable contrast in both modes. |
 | `--bee-action-text` | Action text | `color: var(--bee-action-text);` | Use a mode-appropriate foreground/accent with contrast against its actual surface. |
 | `--bee-status-success` | Status success | `color: var(--bee-status-success);` | Keep semantic status meaning and contrast against its matching soft surface. |
 | `--bee-status-success-soft` | Status success soft | `color: var(--bee-status-success-soft);` | Keep semantic status meaning and contrast against its matching soft surface. |
@@ -158,7 +158,7 @@ Generated from `templates/base/tokens.contract.css` (89 declared tokens).
 | `--bee-dashboard-quick-action-background` | Dashboard quick action background | `background: var(--bee-dashboard-quick-action-background);` | Light uses lighter surfaces; Dark uses deeper surfaces with clear layer separation. |
 | `--bee-dashboard-quick-action-border` | Dashboard quick action border | `border-color: var(--bee-dashboard-quick-action-border);` | Package-specific value; preserve semantic meaning and readable contrast in both modes. |
 | `--bee-dashboard-quick-action-color` | Dashboard quick action color | `color: var(--bee-dashboard-quick-action-color);` | Use a mode-appropriate foreground/accent with contrast against its actual surface. |
-| `--bee-dashboard-quick-action-muted` | Dashboard quick action muted | `background: var(--bee-dashboard-quick-action-muted);` | Package-specific value; preserve semantic meaning and readable contrast in both modes. |
+| `--bee-dashboard-quick-action-muted` | Dashboard quick action muted | `color: var(--bee-dashboard-quick-action-muted);` | Package-specific value; preserve semantic meaning and readable contrast in both modes. |
 | `--bee-dashboard-quick-action-radius` | Dashboard quick action radius | `border-radius: var(--bee-dashboard-quick-action-radius);` | Geometry/typography normally stays stable between modes. |
 | `--bee-dashboard-settings-active-background` | Dashboard settings active background | `background: var(--bee-dashboard-settings-active-background);` | Light uses lighter surfaces; Dark uses deeper surfaces with clear layer separation. |
 | `--bee-dashboard-settings-panel-border` | Dashboard settings panel border | `border-color: var(--bee-dashboard-settings-panel-border);` | Package-specific value; preserve semantic meaning and readable contrast in both modes. |
