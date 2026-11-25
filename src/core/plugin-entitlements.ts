@@ -90,12 +90,6 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     status: "published"
   },
   {
-    id: "documents", name: "Documents", version: "0.1.1",
-    description: "Tenant document library with independent storage, folder ACLs and controlled public delivery",
-    category: "platform", visibleInPlans: ["starter", "pro", "enterprise"], includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false, system: false, dependencies: [], activationPolicy: "manual", codeAvailable: true, status: "published"
-  },
-  {
     id: "connected-devices", name: "Connected Devices", version: "0.1.0",
     description: "Secure tenant-scoped device pairing, capability grants and revocation",
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"],
