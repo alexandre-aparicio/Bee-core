@@ -1096,3 +1096,23 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - UI uses semantic theme tokens, Midnight Light overrides, inherited Midnight Dark behavior, responsive stacked metric cards/tables, per-table search and activity filters. Existing role authorization and role editor API contracts are preserved.
 - **CI validation passed (run 45466287794, commit cda2a86015067885e7239f1362c7e39581da5da7):** Angular dependency installation, production build and Playwright test discovery passed; API dependency installation, TypeScript build and test suite passed (95 passed, 20 skipped, 0 failed). The skipped tests are environment-dependent; MongoDB-backed integration coverage was not exercised without a configured test database.
 - **Still pending:** actual browser E2E (Playwright discovery is not execution), keyboard/accessibility interaction checks, responsive visual QA, Midnight Light/Dark screenshots and live MongoDB role-assignment/audit scenarios. No VPS deployment has been performed.
+
+
+## MVP 0.1.0 deployment and CI evidence snapshot — 2026-11-25
+
+- Current `main` inspected at `699f6d2cb9986090ab33e4c76bbe6c4155f24824`.
+- The latest confirmed `main` CI run available at inspection time was [45509283984](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45509283984): Backend build/tests passed with **118 tests, 118 passed, 0 failed, 0 skipped**; Angular production build and Playwright test discovery passed. Playwright discovery is not browser E2E execution.
+- The Angular dependency-install log for that run reported **38 npm vulnerabilities (1 low, 24 moderate, 11 high, 2 critical)**. This is the install summary, not a production-only audit breakdown; the findings have not been triaged or remediated in this snapshot. `docs/security-hardening.md` still records the Angular 19.2 dependency migration as unresolved.
+- PR #6 remains closed without merge. Its original head SHA `5c0f78c0d6ae94370c30884376834a45f0179ff6` currently has no check runs or commit statuses returned by GitHub. PR #7 is merged; its original head SHA `47a8514f14cc9b1f972192fd5f5cf7089a665247` likewise has no current check-run/status records. Do not infer a fresh result for either historical head.
+- Current `main` has backend and Angular jobs in `.github/workflows/ci.yml`, but no production Compose workflow. The production overlay remains in `docker-compose.prod.yml`; this branch adds a dedicated Compose clean-install, persistence and backup/restore workflow.
+- Deployment documentation now uses MongoDB root authentication for backup/restore and includes the third persistent volume, `bee_core_plugins`, alongside MongoDB and private files.
+- No local Docker, build, npm or test command was run by this GitHub-only workflow. The new production Compose workflow must complete on the PR head before Docker installation can be called CI-verified.
+- Release remains blocked on successful production Compose CI, a complete route-by-route tenant isolation review, the outstanding security limitations in `docs/tenant-data-isolation.md` and `docs/security-mvp-status.md`, and dependency vulnerability triage.
+
+
+## Production Compose and dependency audit evidence — 2026-11-25
+
+- PR #205's initial CI run [45575968435](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45575968435) on commit `9cb0420f0723c4b161cd76660d86f0854429a3d4` passed backend (118/118, 0 skipped), Angular build/test discovery and the production Compose clean-install job. The Compose job verified no host-published MongoDB/API ports, clean image build/start, web and API-proxy health, login/refresh rotation across MongoDB/API restarts, authenticated MongoDB dump/restore, and private-file plus plugin-package volume backup/restore.
+- After adding explicit production dependency audit steps, PR #205 run [45576502545](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45576502545) on commit `aa04fdb10e595d64ebde3b8ac2dbb76a802e1658` completed backend and Compose successfully. Backend production audit reported **0 vulnerabilities** and backend tests reported **118 passed, 0 failed, 0 skipped**. The production Compose job passed all clean-install, persistence and restore steps.
+- The same run's Angular production audit **failed** with **6 production vulnerabilities (2 moderate, 4 high)** in the Angular 19.2.15 dependency line. The Angular production build and Playwright test discovery were skipped after the audit failure. Do not report the latest PR #205 head as green.
+- A separate sequential Angular 19 → 20 → 21 → 22 migration rehearsal is open in PR #207. Its migration workflow must complete and the generated package/lockfile/source patch must be reviewed and applied before the Angular audit gate can pass.

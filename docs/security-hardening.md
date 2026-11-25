@@ -34,3 +34,11 @@ The dependency migration and lockfile regeneration require executing the Angular
 - Do not weaken tests, compiler checks, lint rules or audit severity.
 - Do not use `--force` or `--legacy-peer-deps` to bypass dependency conflicts.
 - Do not claim a clean audit, successful build or browser verification without captured command output.
+
+
+## CI result — 2026-11-25
+
+- Backend production dependency audit on PR #205 reported 0 vulnerabilities; backend suite passed 118/118 with no skipped tests.
+- The production Compose job passed clean build/start, private API/network exposure checks, authenticated session persistence across service restarts, MongoDB dump/restore, and private-file plus plugin-package volume backup/restore.
+- Angular production audit failed on Angular 19.2.15 with 6 production vulnerabilities (2 moderate, 4 high). The audit output identifies advisories for XSS/sanitization bypass, HTTP transfer-cache information leakage and denial of service. Angular build and Playwright discovery were skipped in that run.
+- The remediation is not complete. The sequential migration rehearsal is tracked in [PR #207](https://github.com/alexandre-aparicio/Bee-core/pull/207); do not use `npm audit fix --force`.
