@@ -1,5 +1,6 @@
 export const MAIL_EN = {
   "title": "Mail",
+  "nav.mail": "Mail",
   "inbox": "Inbox",
   "sent": "Sent",
   "compose": "Compose",
@@ -7,6 +8,7 @@ export const MAIL_EN = {
 } as const;
 export const MAIL_ES = {
   "title": "Correo",
+  "nav.mail": "Correo",
   "inbox": "Bandeja de entrada",
   "sent": "Enviados",
   "compose": "Redactar",
