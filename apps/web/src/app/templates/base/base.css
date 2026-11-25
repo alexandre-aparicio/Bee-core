@@ -541,6 +541,27 @@
 }
 
 
+/* Explicit semantic text/status classes for feature-owned state messaging. */
+.bee-dash-content .bee-text-muted {
+  color: var(--bee-text-muted);
+}
+
+.bee-dash-content .bee-status--danger {
+  color: var(--bee-status-danger);
+}
+
+.bee-dash-content .bee-status--success {
+  color: var(--bee-status-success);
+}
+
+.bee-dash-content .bee-status--warning {
+  color: var(--bee-status-warning);
+}
+
+.bee-dash-content .bee-status--info {
+  color: var(--bee-status-info);
+}
+
 /*
  * TEMPORARY FEATURE-COMPATIBILITY OVERRIDES.
  * These rules counter feature components that still ship hard-coded surface
@@ -557,7 +578,7 @@
 }
 
 /* Feature descriptions, subtitles, eyebrows and hints use the package muted foreground. */
-.bee-dash-content :is(p, small, .muted, [class*="description"], [class*="subtitle"], [class*="eyebrow"], [class*="hint"]):not(.org-roles *) {
+.bee-dash-content :is(p, small, .muted, [class*="description"], [class*="subtitle"], [class*="eyebrow"], [class*="hint"]):not(.org-roles *):not(.bee-status--danger):not(.bee-status--success):not(.bee-status--warning):not(.bee-status--info):not(.bee-text-muted) {
   color: var(--bee-text-muted) !important;
 }
 
