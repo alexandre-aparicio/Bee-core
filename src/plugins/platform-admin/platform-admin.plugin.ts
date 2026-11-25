@@ -293,8 +293,7 @@ export const platformAdminPlugin:BeePlugin={
      runtimeVersion:ctx.version,
      validateManifest:async manifest=>{
       const existing=await packages.findOne({pluginId:manifest.id});
-      const migratableBuiltIns=new Set(["connected-devices","time-tracking","documents","hello-world"]);
-      if(existing&&existing.source!=="zip"&&!migratableBuiltIns.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
+      if(existing&&existing.source!=="zip"&&!MIGRATABLE_BUILTIN_PLUGIN_IDS.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
       if(existing?.version){
        const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
