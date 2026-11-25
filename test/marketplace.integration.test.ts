@@ -161,7 +161,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     });
     const connectedDevicesRepository = new ConnectedDevicesRepository(db);
     await connectedDevicesRepository.initializeIndexes();
-    const connectedDevicesServices = createConnectedDevicesServices({ db, secret: jwtSecret, repository: connectedDevicesRepository });
+    const connectedDevicesServices = createConnectedDevicesServices({ db, secret: "01234567890123456789012345678901", repository: connectedDevicesRepository });
     registerConnectedDevicesRoutes({ server: app, logger } as any, {
       ...connectedDevicesServices,
       repository: connectedDevicesRepository
