@@ -89,10 +89,12 @@ export class BeePluginFrontendRegistry {
   }
 
   getRoutes(pluginIds: string[]): Record<string, string> {
-    return Object.fromEntries(this.getNavigationItems(pluginIds).flatMap(item => [
-      [item.id, item.route],
-      ...item.children.map(child => [child.id, child.route])
-    ]));
+    const entries: Array<[string, string]> = [];
+    for (const item of this.getNavigationItems(pluginIds)) {
+      entries.push([item.id, item.route]);
+      for (const child of item.children) entries.push([child.id, child.route]);
+    }
+    return Object.fromEntries(entries);
   }
 
   getPluginIdForSection(section: string, pluginIds: string[]): string | undefined {
