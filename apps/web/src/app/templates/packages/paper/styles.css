@@ -1,13 +1,33 @@
-/* Paper package-owned dashboard layout styles. */
-.bee-template-package-host--paper .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
+/* Paper package-owned decorative refinements. Palette values come from tokens.css. */
 
+.bee-template-package-host--paper .bee-template-manager__fields select {
+  background: var(--bee-input-bg);
+  color: var(--bee-text);
+  border-color: var(--bee-input-border);
+}
 
 .bee-template-package-host--paper .bee-company-members__table select option,
-.bee-template-package-host--paper .bee-company-members__invite select option{background:#fff;color:#292825}
-.bee-template-package-host--paper .platform-admin-form input{background:#fff;color:#292825;border-color:#dedbd4}
+.bee-template-package-host--paper .bee-company-members__invite select option {
+  background: var(--bee-input-bg);
+  color: var(--bee-text);
+}
+
+.bee-template-package-host--paper .platform-admin-form input {
+  background: var(--bee-input-bg);
+  color: var(--bee-text);
+  border-color: var(--bee-input-border);
+}
+
 .bee-template-package-host--paper .platform-admin-form label,
 .bee-template-package-host--paper .platform-admin-companies h3,
-.bee-template-package-host--paper .platform-admin-form h3{color:#292825}
+.bee-template-package-host--paper .platform-admin-form h3 {
+  color: var(--bee-text);
+}
+
 .bee-template-package-host--paper .platform-admin-form button,
 .bee-template-package-host--paper .platform-company button,
-.bee-template-package-host--paper .platform-admin .panel-heading button{background:#6654c8;color:#fff;border-color:#6654c8}
+.bee-template-package-host--paper .platform-admin .panel-heading button {
+  background: var(--bee-accent);
+  color: var(--bee-accent-text);
+  border-color: var(--bee-accent);
+}
