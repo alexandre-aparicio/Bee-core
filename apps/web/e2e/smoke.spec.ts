@@ -227,7 +227,7 @@ test('tenant admin can install and activate a trusted dashboard template package
   await expect(manager.getByText('Template installed for this company.')).toBeVisible();
   await manager.getByLabel('Dashboard template').selectOption('glass');
   await expect(page.locator('.bee-template-package-host--glass')).toBeVisible();
-  await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bee-bg').trim())).toBe('#eaf1fc');
+  await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bee-bg').trim())).toBe('#101827');
   await manager.getByRole('button', { name: 'Discard' }).click();
   await expect(page.locator('.bee-template-package-host--midnight')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--midnight').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
@@ -642,7 +642,7 @@ test('Settings plugins supports cards/list and role-scoped plugin actions', asyn
   await expect(plugin.getByRole('menuitem', { name: 'Delete' })).toHaveCount(0);
   await plugin.getByRole('menuitem', { name: 'Details' }).click();
   await expect(page).toHaveURL(/\/dashboard\/plugins\/masked-plugin-ref\/details$/);
-  await expect(catalogue.getByRole('heading', { name: 'Team Notes' })).toBeVisible();
+  await expect(catalogue.getByRole('heading', { name: 'Team Notes', level: 2 })).toBeVisible();
   await catalogue.getByRole('button', { name: 'Back to modules' }).click();
   await expect(page).toHaveURL(/\/dashboard\/settings\/plugins$/);
 });
