@@ -56,7 +56,7 @@ export async function seedBundledPlatformPackages(
   const now = new Date();
   for (const definition of definitions) {
     const existing = await packages.findOne({ pluginId: definition.id });
-    if (existing?.source === "zip") continue;
+    if (existing?.source === "zip" || existing?.status === "deprecated") continue;
     await packages.updateOne(
       { pluginId: definition.id },
       {
