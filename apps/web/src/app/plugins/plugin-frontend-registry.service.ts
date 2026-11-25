@@ -1,5 +1,5 @@
 import { Inject, Injectable, InjectionToken, Optional, type Provider, type Type } from "@angular/core";
-import { BeeI18nService, type BeeLanguage } from "../i18n/bee-i18n.service";
+import { BeeI18nService } from "../i18n/bee-i18n.service";
 
 export type BeePluginFrontendContext = {
   tenantId: string;
