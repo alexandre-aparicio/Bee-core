@@ -162,7 +162,7 @@ export async function setPlatformPackageAvailable(db: Db, pluginId: string): Pro
 }
 
 /**
- * Retire the legacy bundled Hello World record without deleting tenant history.
+ * Retire a legacy bundled plugin record without deleting tenant history or data.
  * A later signed ZIP upload can replace this platform registry entry.
  */
 export async function retireBundledPlatformPackage(db: Db, pluginId: string): Promise<void> {
