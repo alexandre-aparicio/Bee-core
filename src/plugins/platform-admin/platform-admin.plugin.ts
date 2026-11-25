@@ -1,6 +1,6 @@
 import type { BeePlugin } from "../../core/types.js";
 import type { PlatformIdentityDocument } from "../../core/platform-identity.js";
-import { CORE_PERMISSION_CATALOG, composePermissionCatalog } from "../../core/permission-catalog.js";
+import { composePermissionCatalog } from "../../core/permission-catalog.js";
 import { COMPANY_ROLE_PERMISSIONS } from "../../core/tenant-context.js";
 
 declare module "fastify" {
