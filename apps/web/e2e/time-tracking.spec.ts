@@ -164,6 +164,8 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
     await page.screenshot({ path: "test-results/template-screenshots/time-tracking-owner-debug.png", fullPage: true });
     throw new Error(String(error) + "\\nURL: " + page.url() + "\\nBODY: " + body + "\\nBROWSER ERRORS: " + browserErrors.join(" | "));
   }
+  await page.getByLabel("Trabajador").selectOption("masked-member-e2e");
+  await expect(page.getByRole("button", { name: "Guardar horario" })).toBeEnabled();
   await page.getByRole("checkbox", { name: "Activar lunes" }).check();
   await page.locator('input[type="time"]').nth(1).fill("08:30");
   await page.locator('input[type="time"]').nth(2).fill("16:30");
