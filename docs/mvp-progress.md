@@ -52,10 +52,10 @@ Explicit transition paths from source review:
 | Item | Status | Source evidence / remaining work |
 |---|---|---|
 | Temporary compatibility block | Pending | Current source count: 20 `!important` and 15 `[class*=` selectors after retiring six migrated owner selectors (Platform Admin/Company, role-item, settings-card, workspace-card and package). This block is still pending. Delete only as owning components are migrated. |
-| Component migration | Pending | Required order: Platform Admin, Company Members, Organization Roles, Role Audit, Plugin Settings, Settings Workspace, Marketplace, Audit Log, Documents, then remaining non-public feature components. |
-| Generic element rules | Pending | Graduate tokenized input/table/text/dialog/button rules into zero-specificity `:where(.bee-dash-content)` styles only after their hard-coded component owners are migrated. |
-| Deferred `:host-context` | Pending / intentionally deferred | Documents 17, Organization Roles 4, Teams Workspace 3, Role Audit 1 (25 total); do not rewrite in this pass. |
-| Component counts | Baseline from task brief; current values NOT verified | Organization Roles: 124 hex / 22 important / 4 host-context; Plugin Settings 65 hex; Platform Identity 26; Connected Devices 25; Role Audit 22 hex / 5 important / 1 host-context; Documents 21 hex / 6 important / 17 host-context; Notifications Page 20; Settings Workspace 19; Messages Inbox 14; Template Manager 13; Notification Center 12. Other listed components await baseline search. |
+| Component migration | Done by source search, with deferred exception | Required owners and remaining non-public feature components have tokenized colors. The only remaining component palette literals found in this pass are Teams Workspace's three explicitly deferred Midnight-Light `:host-context` rules (9 hex values). |
+| Generic element rules | Done by source review | Inputs, placeholders, tables, rows/cells, buttons, dialogs, menus, badges, tabs, empty states and toggles use token-only zero-specificity `:where()` primitives. Explicit `.bee-status--*` and `.bee-text-muted` classes replace broad substring color selectors. |
+| Deferred `:host-context` | Partial / discrepancy with prior edits | Current source: Teams Workspace 3 remain (9 hex values). Documents 0, Organization Roles 0 and Role Audit 0: their prior migrations already removed the 17 + 4 + 1 selectors despite the instruction to defer them. They are not being restored in this pass. |
+| Component counts | Source-reviewed | All migrated components recorded below now have 0 hex / 0 RGB-HSL / 0 `!important`; Documents, Organization Roles and Role Audit have 0 palette `:host-context`. Teams Workspace remains 9 hex / 3 palette `:host-context` by explicit deferral. Runtime visual result NOT verified. |
 
 ## Step 6 — Public templates
 
@@ -96,19 +96,24 @@ Explicit transition paths from source review:
 | Notification Center | 12 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Six used tokens have no missing contract/package-mode declarations; inline style braces: 20 / 20. | Replaced legacy palette fallbacks and shadow literal; error message carries explicit danger status class. It renders in the dashboard header, outside the temporary content overrides. |
 | Platform Roles | 11 hex / 17 RGB-HSL / 11 important / 0 palette host-context → 0 / 0 / 0 / 0. Nine used tokens have no missing contract/package-mode declarations; inline style braces: 69 / 69. | Replaced translucent palette literals and strengthened component selectors to remove important flags; generic compatibility rules exclude `.platform-roles *`. Error/success messages carry semantic status classes. |
 | Platform Users | 8 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Uses existing border, subtle-surface and muted-text tokens; inline style braces: 20 / 20. | Replaced all slate color literals and muted fallback with semantic token color-mix values. |
+| Mail Workspace | 11 hex / 18 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Twelve used tokens have no missing contract/package-mode declarations; inline style braces: 79 / 79. | Replaced gradients, translucent surfaces, modal backdrop, controls, toast and text colors with package semantic tokens; modal elevation uses `--bee-shadow-raised`. |
+| Time Tracking | 3 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Replaced six legacy aliases with semantic palette tokens. | Tokenized controls, status, tabs, table, modal backdrop and elevation without changing component markup or behavior. |
+| Auth MFA QR | 2 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Uses the already declared `--bee-qr-dark` / `--bee-qr-light` package tokens. | QR contrast now reads from the active root theme; no API or authentication flow changes. |
+| Platform Users | 8 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Uses existing border, subtle-surface and muted-text tokens; inline style braces: 20 / 20. | Replaced all slate color literals and muted fallback with semantic token color-mix values. |
 | Mail Workspace | 11 hex / 18 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Twelve used tokens have no missing contract/package-mode declarations; inline style braces: 79 / 79. | Replaced gradients, translucent surfaces, modal backdrop, controls, toast and text colors with package semantic tokens. Modal elevation now uses `--bee-shadow-raised`; generic compatibility selectors exclude `.mail-app *`. |
 
 ## Current source audit metrics
 
 | Scope | Metric | Result |
 |---|---|---:|
-| `base.css` temporary compatibility block | `!important` | 20 (previously reviewed) |
-| `base.css` temporary compatibility block | `[class*=` | 15 after removing six migrated owner selectors (Platform Admin, Platform Company, role-item, settings-card, workspace-card, package) |
+| `base.css` temporary compatibility block | `!important` | 0; block deleted |
+| `base.css` | `[class*=` | 0; all substring compatibility selectors deleted |
+| `base.css` | hex / RGB-HSL / brace balance | 0 / 0 / 96 open = 96 close |
 | `core/appearance-modes.css` | palette literals / `!important` / `[class*=` | 0 / 0 / 0 (previously reviewed) |
 | Package styles | hex in Midnight / Paper / Glass | 0 / 0 / 0 (previously reviewed) |
-| Deferred feature overrides | `:host-context` | 25 total (task baseline) |
-| F2 source references | `--bee-control-(bg|border|placeholder)` in time tracking and STYLE-GUIDE | 0 after replacement; NOT independently executed |
-| F3 checker | execution | NOT verified |
+| Deferred feature overrides | `:host-context` | 3 in Teams Workspace; 22 other selectors had already been removed in prior changes (scope discrepancy recorded above) |
+| F2 source references | `--bee-control-(bg|border|placeholder)` in time tracking and STYLE-GUIDE | 0; uses `--bee-input-*` equivalents |
+| F3 checker | source review / execution | Re-read; scans CSS/TS/HTML `var(--bee-*)` uses outside token files and reports contract misses. NOT executed. |
 
 ## Human validation commands
 
