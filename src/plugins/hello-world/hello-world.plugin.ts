@@ -2,7 +2,7 @@ import type { BeePlugin } from "../../core/types.js";
 
 /** Minimal tenant-facing plugin proving the generic package lifecycle. */
 export const helloWorldPlugin: BeePlugin = {
-  manifest: {
+  manifest: { requiredServices: ["mongo"],
     name: "hello-world",
     version: "0.1.0",
     description: "Minimal example tenant plugin loaded from a signed ZIP package.",
