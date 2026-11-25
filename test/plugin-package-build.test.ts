@@ -66,6 +66,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         runtimeVersion: "0.3.1"
       });
       assert.equal(installed.manifest.id, item.id);
+      assert.equal(installed.manifest.frontendContract, 1);
+      assert.ok(Array.isArray(installed.manifest.requiredServices));
       assert.ok(installed.extractedFiles >= 4);
       if (item.id === "hello-world") {
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
@@ -75,6 +77,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /Hola Mundo/);
         assert.match(script, /bee-plugin:ready/);
       } else if (item.id === "connected-devices") {
+        assert.deepEqual(installed.manifest.requiredServices, ["mongo", "session-resource-ids"]);
+        assert.deepEqual(installed.manifest.permissions.map(permission => permission.key).sort(), ["connected-devices.manage", "connected-devices.read"]);
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/connected-devices"]);
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/qrcode.min.js"));
@@ -89,6 +93,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "time-tracking") {
+        assert.deepEqual(installed.manifest.requiredServices, ["mongo", "session-resource-ids"]);
+        assert.deepEqual(installed.manifest.permissions.map(permission => permission.key).sort(), ["time-tracking.clock", "time-tracking.manage", "time-tracking.read"]);
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
