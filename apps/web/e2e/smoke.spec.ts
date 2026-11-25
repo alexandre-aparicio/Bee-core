@@ -147,7 +147,7 @@ test('dashboard template can be selected without changing public theme', async (
   await expect(manager.getByText('Preview only')).toBeVisible();
   await manager.getByRole('button', { name: 'Discard preview' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
-  await manager.getByLabel('Dashboard').selectOption('paper');
+  await manager.getByLabel('Dashboard template').selectOption('paper');
   await manager.getByRole('button', { name: 'Apply template changes' }).click();
   await expect(page.locator('[data-bee-slot="sidebar"]')).toHaveCount(1);
   await expect(page.locator('[data-bee-slot="widgets"]')).toHaveCount(1);
@@ -200,7 +200,7 @@ test('tenant admin can install and activate a trusted dashboard template package
   await manager.getByRole('button', { name: 'Discard preview' }).click();
   await expect(page.locator('[data-bee-layout="dashboard.midnight"]')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--midnight').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
-  await manager.getByLabel('Dashboard').selectOption('glass');
+  await manager.getByLabel('Dashboard template').selectOption('glass');
   await manager.getByRole('button', { name: 'Apply template changes' }).click();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
 });
@@ -343,7 +343,7 @@ test('starter company sees purchasable add-ons but cannot install them without e
     ] })
   }));
   await page.goto('/dashboard');
-  await page.getByRole('button', { name: /manage plugins/i }).click();
+  await page.getByRole('main').getByRole('button', { name: /manage plugins/i }).click();
   const notesRow = page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' });
   await expect(notesRow).toBeVisible();
   await expect(notesRow.getByText('Available as add-on')).toBeVisible();
@@ -509,7 +509,7 @@ test('company member data cannot leak across a rapid active-company switch', asy
     ] }) });
   });
   await page.goto('/dashboard');
-  await page.getByRole('button', { name: /organization/i }).click();
+  await page.getByRole('complementary').getByRole('button', { name: 'Organization' }).click();
   await page.getByRole('button', { name: /users/i }).click();
   await companyAStarted;
   const selector = page.getByLabel('Active company');
