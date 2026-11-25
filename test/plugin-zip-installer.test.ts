@@ -58,7 +58,7 @@ function signedArchive() {
   const manifest:any={
     id:"demo.crm",name:"Demo CRM",version:"1.0.0",publisher:"Bee Projects",description:"Test package",category:"crm",
     activationPolicy:"manual",compatibility:{minRuntimeVersion:"0.3.0"},
-    dependencies:[],permissions:[{key:"demo.crm.read",description:"Read CRM records"}],
+    dependencies:[],permissions:[{key:"demo.crm.read",module:"demo.crm",resource:"contacts",action:"read",label:"Read contacts",description:"Read CRM records",defaultGrants:{owner:true,admin:true,manager:true,member:false}}],
     backend:{entrypoint:"dist/backend/index.mjs"},frontend:{routes:[]},collections:["demo_crm_records"],migrations:[],settingsSchema:{type:"object"},
     package:{sha256:digest,signature:"",storageKey:"packages/demo.crm/1.0.0"}
   };
