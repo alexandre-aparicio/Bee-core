@@ -5,7 +5,7 @@ import { CORE_PERMISSION_CATALOG, CORE_PERMISSION_KEYS } from "../src/core/permi
 import { COMPANY_ROLE_PERMISSIONS } from "../src/core/tenant-context.js";
 
 test("custom role permission normalization validates, deduplicates and sorts", () => {
-  assert.deepEqual(normalizeCustomRolePermissions(["documents.read", "files.write", "documents.read"]), ["files.write", "documents.read"]);
+  assert.deepEqual(normalizeCustomRolePermissions(["documents.read", "files.write", "documents.read"]), ["documents.read", "files.write"]);
 });
 test("custom role permissions reject malformed keys and oversized arrays", () => {
   assert.throws(() => normalizeCustomRolePermissions(["*"]), /Invalid permission key/);
