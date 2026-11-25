@@ -150,15 +150,18 @@ export const platformAdminPlugin:BeePlugin={
   };
   const permissionPolicyCollection=db.collection<{id:string;tenantAssignablePermissions:string[];updatedAt:Date;updatedBy:string}>("platform_permission_policies");
   await permissionPolicyCollection.createIndex({id:1},{unique:true,name:"platform_permission_policy_id_unique"});
-  const defaultTenantAssignablePermissions=CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key);
   const readPermissionPolicy=async()=>{
    const saved=await permissionPolicyCollection.findOne({id:"global"},{projection:{_id:0}});
-   return {tenantAssignablePermissions:saved?.tenantAssignablePermissions??defaultTenantAssignablePermissions};
+   const packages=await db.collection<{id:string;permissions?:Array<{key:string;module:string;customRoleAssignable?:boolean}>}>("plugin_catalog").find({status:"published"},{projection:{id:1,permissions:1,_id:0}}).toArray();
+   const pluginCatalog=packages.flatMap(pkg=>(pkg.permissions??[]).filter(permission=>permission.module===pkg.id&&typeof permission.key==="string"));
+   const catalog=[...CORE_PERMISSION_CATALOG,...pluginCatalog.map(permission=>({...permission,label:permission.key,description:permission.key,resource:permission.key.split(".")[0]??"plugin",action:permission.key.split(".")[1]??"read",customRoleAssignable:permission.customRoleAssignable!==false}))];
+   const defaultTenantAssignablePermissions=catalog.filter(item=>item.customRoleAssignable).map(item=>item.key);
+   return {catalog,tenantAssignablePermissions:saved?.tenantAssignablePermissions??defaultTenantAssignablePermissions};
   };
   ctx.server.get("/platform/permissions",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const policy=await readPermissionPolicy();
-   return {catalog:CORE_PERMISSION_CATALOG,tenantAssignablePermissions:policy.tenantAssignablePermissions,systemRoles:[
+   return {catalog:policy.catalog,tenantAssignablePermissions:policy.tenantAssignablePermissions,systemRoles:[
     {key:"super_admin",label:"Super Admin",scope:"platform",protected:true,description:"Full platform administration; assigned only through the Super Organization.",permissions:COMPANY_ROLE_PERMISSIONS.super_admin},
     {key:"owner",label:"Tenant Owner",scope:"tenant",protected:true,description:"Owns one tenant and administers its users, roles and organization settings.",permissions:COMPANY_ROLE_PERMISSIONS.owner},
     {key:"admin",label:"Tenant Admin",scope:"tenant",protected:true,description:"Administers tenant operations within the permissions enforced by Core.",permissions:COMPANY_ROLE_PERMISSIONS.admin},
@@ -171,15 +174,15 @@ export const platformAdminPlugin:BeePlugin={
    const actor=await guard(req,reply);if(!actor)return;
    const requested=req.body?.tenantAssignablePermissions;
    if(!Array.isArray(requested)||requested.length>100||requested.some(item=>typeof item!=="string"))return reply.code(400).send({error:"tenantAssignablePermissions must be an array of permission keys"});
-   const allowedCatalog=new Set(CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key));
+   const policy=await readPermissionPolicy();
+   const allowedCatalog=new Set(policy.catalog.filter(item=>item.customRoleAssignable).map(item=>item.key));
    const tenantAssignablePermissions=[...new Set((requested as string[]).map(item=>item.trim()))].sort();
    const unsupported=tenantAssignablePermissions.filter(key=>!allowedCatalog.has(key));
    if(unsupported.length)return reply.code(400).send({error:"Protected or unknown permissions cannot be delegated to tenants: "+unsupported.join(", ")});
    const updatedAt=new Date();
    await permissionPolicyCollection.updateOne({id:"global"},{$set:{tenantAssignablePermissions,updatedAt,updatedBy:actor.id}},{upsert:true});
-   // A global revocation is immediate: remove the revoked capability from every
-   // tenant custom role so existing assignments cannot retain stale authority.
-   await db.collection("company_roles").updateMany({mode:{$ne:"restriction"}},{$pull:{permissions:{$nin:tenantAssignablePermissions}}} as any);
+   // Keep previously stored role permissions intact. Effective tenant contexts hide
+   // unavailable or revoked capabilities without deleting tenant-authored policy.
    await recordPlatformAudit({actorId:actor.id,action:"platform.permissions.updated",resourceType:"permission_policy",metadata:{tenantAssignablePermissions,updatedAt:updatedAt.toISOString()}});
    return {success:true,tenantAssignablePermissions};
   });
