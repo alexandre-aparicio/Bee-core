@@ -51,7 +51,7 @@ Explicit transition paths from source review:
 
 | Item | Status | Source evidence / remaining work |
 |---|---|---|
-| Temporary compatibility block | Pending | Current source count: 20 `!important` and 21 `[class*=` selectors after removing Company Members, Plugin Settings, Settings Workspace, Marketplace and Audit Log selectors. This block is still pending. Delete only as owning components are migrated. |
+| Temporary compatibility block | Pending | Current source count: 20 `!important` and 15 `[class*=` selectors after retiring six migrated owner selectors (Platform Admin/Company, role-item, settings-card, workspace-card and package). This block is still pending. Delete only as owning components are migrated. |
 | Component migration | Pending | Required order: Platform Admin, Company Members, Organization Roles, Role Audit, Plugin Settings, Settings Workspace, Marketplace, Audit Log, Documents, then remaining non-public feature components. |
 | Generic element rules | Pending | Graduate tokenized input/table/text/dialog/button rules into zero-specificity `:where(.bee-dash-content)` styles only after their hard-coded component owners are migrated. |
 | Deferred `:host-context` | Pending / intentionally deferred | Documents 17, Organization Roles 4, Teams Workspace 3, Role Audit 1 (25 total); do not rewrite in this pass. |
@@ -95,13 +95,15 @@ Explicit transition paths from source review:
 | Template Manager | 13 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Five used tokens have no missing contract/package-mode declarations; inline style braces: 39 / 39. | Replaced legacy aliases; component is isolated under `.settings-workspace *`. |
 | Notification Center | 12 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Six used tokens have no missing contract/package-mode declarations; inline style braces: 20 / 20. | Replaced legacy palette fallbacks and shadow literal; error message carries explicit danger status class. It renders in the dashboard header, outside the temporary content overrides. |
 | Platform Roles | 11 hex / 17 RGB-HSL / 11 important / 0 palette host-context → 0 / 0 / 0 / 0. Nine used tokens have no missing contract/package-mode declarations; inline style braces: 69 / 69. | Replaced translucent palette literals and strengthened component selectors to remove important flags; generic compatibility rules exclude `.platform-roles *`. Error/success messages carry semantic status classes. |
+| Platform Users | 8 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Uses existing border, subtle-surface and muted-text tokens; inline style braces: 20 / 20. | Replaced all slate color literals and muted fallback with semantic token color-mix values. |
+| Mail Workspace | 11 hex / 18 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Twelve used tokens have no missing contract/package-mode declarations; inline style braces: 79 / 79. | Replaced gradients, translucent surfaces, modal backdrop, controls, toast and text colors with package semantic tokens. Modal elevation now uses `--bee-shadow-raised`; generic compatibility selectors exclude `.mail-app *`. |
 
 ## Current source audit metrics
 
 | Scope | Metric | Result |
 |---|---|---:|
 | `base.css` temporary compatibility block | `!important` | 20 (previously reviewed) |
-| `base.css` temporary compatibility block | `[class*=` | 21 after seven selector removals (Company Members ×2; Plugin Settings ×1; Settings Workspace ×2; Marketplace ×1; Audit Log ×1) |
+| `base.css` temporary compatibility block | `[class*=` | 15 after removing six migrated owner selectors (Platform Admin, Platform Company, role-item, settings-card, workspace-card, package) |
 | `core/appearance-modes.css` | palette literals / `!important` / `[class*=` | 0 / 0 / 0 (previously reviewed) |
 | Package styles | hex in Midnight / Paper / Glass | 0 / 0 / 0 (previously reviewed) |
 | Deferred feature overrides | `:host-context` | 25 total (task baseline) |
