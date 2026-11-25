@@ -94,7 +94,7 @@ export async function migrateLegacyPlatformPackageInstalls(db: Db, superOrganiza
   for (const installation of legacy) {
     if (!installation.pluginId) continue;
     const existing = await packages.findOne({ pluginId: installation.pluginId });
-    if (existing?.source === "zip") continue;
+    if (existing?.source === "zip" || existing?.status === "deprecated") continue;
     if (existing?.status === "installed" && (!installation.version || existing.version === installation.version)) continue;
     const now = new Date();
     const result = await packages.updateOne(
