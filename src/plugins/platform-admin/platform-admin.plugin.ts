@@ -14,7 +14,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Db } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { normalizeTenantSlug, slugifyTenantName } from "../../core/tenant-domain.js";
-import { getTenantSubscription, getTenantPluginCatalog, getTrustedPluginPackage, hasPluginEntitlement, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates, TRUSTED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
+import { getTenantSubscription, getTenantPluginCatalog, getTrustedPluginPackage, hasPluginEntitlement, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates, TRUSTED_PLUGIN_PACKAGES, MIGRATABLE_BUILTIN_PLUGIN_IDS, RETIRED_BUNDLED_PLUGIN_PACKAGES } from "../../core/plugin-entitlements.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, listPlatformPluginPackages, migrateLegacyPlatformPackageInstalls, retireBundledPlatformPackage, seedBundledPlatformPackages } from "../../core/platform-plugin-registry.js";
@@ -64,11 +64,9 @@ export const platformAdminPlugin:BeePlugin={
   if(migratedPlatformPackages)ctx.logger.info("Legacy platform package installations migrated",{count:migratedPlatformPackages});
   // Legacy modules must only be available as separately uploaded, signed ZIP packages.
   // Preserve tenant installation history; hide only the old bundled platform record.
-  await retireBundledPlatformPackage(db,"hello-world");
-  await retireBundledPlatformPackage(db,"time-tracking");
-  // Retire this discarded module even if a tenant or platform previously replaced it with a ZIP.
-  // Tenant-owned data, installation rows and migration history remain untouched.
-  await retireBundledPlatformPackage(db,"notes",true);
+  for (const retiredPackage of RETIRED_BUNDLED_PLUGIN_PACKAGES) {
+    await retireBundledPlatformPackage(db, retiredPackage.id, retiredPackage.retireSignedZip);
+  }
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
