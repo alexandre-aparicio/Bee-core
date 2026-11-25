@@ -314,6 +314,10 @@ export class BeeTemplateEngine {
     this.setMode(target, this.getMode(target) === 'dark' ? 'light' : 'dark');
   }
 
+  syncActiveSurface(): void {
+    this.apply();
+  }
+
   private apply(): void {
     if (typeof document === 'undefined') return;
     document.body.dataset['beePublicTemplate'] = this.selection.public;
