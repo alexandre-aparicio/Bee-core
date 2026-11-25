@@ -86,6 +86,16 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /pairing-challenges/);
         assert.match(script, /approve/);
         assert.match(script, /bee-plugin:api-request/);
+        assert.match(script, /function showConfirm/);
+        assert.match(script, /role="alertdialog"/, "destructive actions must use an accessible warning dialog");
+        assert.match(script, /Delete device permanently/);
+        assert.match(script, /action.type==="delete"\?"DELETE":"POST"/);
+        assert.match(script, /action.type==="delete"\?undefined:\{\}/, "DELETE requests must not send an empty JSON body");
+        assert.match(script, /unlink/, "the owner UI must retain the unlink action");
+        const simulator = await readFile(join(root, "apps/web/src/assets/device-simulator/device-simulator.js"), "utf8");
+        assert.match(simulator, /method:"POST",body:"\\{\\}"/, "the device simulator must send a JSON heartbeat body");
+        const bridge = await readFile(join(root, "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+        assert.match(bridge, /if\s*\(body\s*!==\s*undefined\)/, "the package bridge must omit Content-Type when DELETE has no body");
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "time-tracking") {
