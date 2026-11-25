@@ -552,6 +552,14 @@ export class PluginSettingsComponent implements OnInit {
       const catalogResult = await catalogResponse.json();
       if (!catalogResponse.ok) throw new Error(catalogResult.error || "Could not load plugins");
       this.plugins = catalogResult.plugins || [];
+      this.superOrganizationTenantId = this.isPlatformAdmin ? String(catalogResult.tenantId || '') : '';
+      this.superOrganizationPlugins = [];
+      if (this.isPlatformAdmin && this.superOrganizationTenantId) {
+        const superPluginsResponse = await fetch('/api/platform/companies/' + encodeURIComponent(this.superOrganizationTenantId) + '/plugins', { headers });
+        const superPluginsResult = await superPluginsResponse.json();
+        if (!superPluginsResponse.ok) throw new Error(superPluginsResult.error || 'Could not load Super Organization module settings');
+        this.superOrganizationPlugins = superPluginsResult.plugins || [];
+      }
 
       if (packagesResponse) {
         const packagesResult = await packagesResponse.json();
