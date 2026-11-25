@@ -88,29 +88,29 @@ export class BeePluginFrontendRegistry {
     return result;
   }
 
-  getRoutes(pluginIds: string[]): Record<string, string> {
+  getRoutes(pluginIds: string[], role = "member"): Record<string, string> {
     const entries: Array<[string, string]> = [];
-    for (const item of this.getNavigationItems(pluginIds)) {
+    for (const item of this.getNavigationItems(pluginIds, role)) {
       entries.push([item.id, item.route]);
       for (const child of item.children) entries.push([child.id, child.route]);
     }
     return Object.fromEntries(entries);
   }
 
-  getPluginIdForSection(section: string, pluginIds: string[]): string | undefined {
-    return this.getNavigationItems(pluginIds).find(item => item.id === section || item.children.some(child => child.id === section))?.pluginId;
+  getPluginIdForSection(section: string, pluginIds: string[], role = "member"): string | undefined {
+    return this.getNavigationItems(pluginIds, role).find(item => item.id === section || item.children.some(child => child.id === section))?.pluginId;
   }
 
-  getParentMenuId(section: string, pluginIds: string[]): string | undefined {
-    const parent = this.getNavigationItems(pluginIds).find(item => item.children.some(child => child.id === section));
+  getParentMenuId(section: string, pluginIds: string[], role = "member"): string | undefined {
+    const parent = this.getNavigationItems(pluginIds, role).find(item => item.children.some(child => child.id === section));
     return parent?.id;
   }
 
-  getDefaultSection(menuId: string, pluginIds: string[]): string | undefined {
-    return this.getNavigationItems(pluginIds).find(item => item.id === menuId)?.defaultChild;
+  getDefaultSection(menuId: string, pluginIds: string[], role = "member"): string | undefined {
+    return this.getNavigationItems(pluginIds, role).find(item => item.id === menuId)?.defaultChild;
   }
 
-  hasSection(section: string, pluginIds: string[]): boolean {
-    return this.getPluginIdForSection(section, pluginIds) !== undefined;
+  hasSection(section: string, pluginIds: string[], role = "member"): boolean {
+    return this.getPluginIdForSection(section, pluginIds, role) !== undefined;
   }
 }
