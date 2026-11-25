@@ -1,6 +1,7 @@
 import type { BeeTemplateSlotName } from './template-slot-registry.service';
 
 export type BeeTemplateTarget = 'public' | 'dashboard';
+export type BeeTemplateAppearanceMode = 'light' | 'dark';
 
 export interface BeeTemplateManifest {
   id: string;
@@ -13,6 +14,8 @@ export interface BeeTemplateManifest {
   layout: string;
   componentId: string;
   slots: BeeTemplateSlotName[];
+  appearanceModes?: BeeTemplateAppearanceMode[];
+  defaultMode?: BeeTemplateAppearanceMode;
 }
 
 export interface BeeTemplateSelection {

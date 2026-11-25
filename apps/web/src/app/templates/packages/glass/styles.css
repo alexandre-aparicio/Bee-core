@@ -1,24 +1,27 @@
-/* Glass package-owned dashboard layout styles. */
-.bee-template-package-host--glass{display:block;min-height:100vh}
-.bee-template-package-host--glass .gd-dashboard{background:radial-gradient(ellipse at 75% 0%,#6377bd24,transparent 45%),#101827}
-.bee-template-package-host--glass .gd-sidebar,.bee-template-package-host--glass .gd-main>header{background:#17243ad9;border-color:#40516b;backdrop-filter:blur(18px)}
-.bee-template-package-host--glass .gd-content .dash-stat,.bee-template-package-host--glass .gd-content .panel,.bee-template-package-host--glass .gd-content .bee-template-manager{background:#1b2940c9;border-color:#40516b;backdrop-filter:blur(16px)}
-.bee-template-package-host--glass .gd-sidebar button.active{background:#8b9dff20;color:#c4ccff}
-.bee-template-package-host--glass .gd-content .bee-template-manager__status{background:#69d9e81a;color:#8ce5ef}
+/* Glass package-owned dashboard refinements. Translucency and blur are defined by tokens.css. */
 
-/* Dashboard page structure and section cards use this package's own surface. */
-.bee-template-package-host--glass .gd-content .panel,.bee-template-package-host--glass .gd-content .dash-stat{background:#ffffff90;border:1px solid #ffffffb5;color:#28344d;box-shadow:0 14px 36px #5a77a215}
-.bee-template-package-host--glass .gd-content .quick-action{background:#ffffff75;border:1px solid #ffffffb5;color:#28344d;border-radius:14px}
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .bee-company-members__table select option,
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .bee-company-members__invite select option {
+  background: var(--bee-input-bg);
+  color: var(--bee-text);
+}
 
-.bee-template-package-host--glass .gd-content .bee-dashboard-card{background:#ffffff90;border:1px solid #ffffffb5;color:#28344d;box-shadow:0 14px 36px #5a77a215}
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .platform-admin-form input {
+  background: var(--bee-input-bg);
+  color: var(--bee-text);
+  border-color: var(--bee-input-border);
+}
 
-.bee-template-package-host--glass{--bg:#eaf1fc;--panel:#ffffff90;--muted:#68748d;--border:#ffffffa8;--purple:#657ee8;--cyan:#69d9e8;color:#20283c}
-.bee-template-package-host--glass .bee-company-members__table select option,
-.bee-template-package-host--glass .bee-company-members__invite select option{background:#fff;color:#28344d}
-.bee-template-package-host--glass .platform-admin-form input{background:#fff;color:#28344d;border-color:#d8e3f4}
-.bee-template-package-host--glass .platform-admin-form label,
-.bee-template-package-host--glass .platform-admin-companies h3,
-.bee-template-package-host--glass .platform-admin-form h3{color:#28344d}
-.bee-template-package-host--glass .platform-admin-form button,
-.bee-template-package-host--glass .platform-company button,
-.bee-template-package-host--glass .platform-admin .panel-heading button{background:#657ee8;color:#fff;border-color:#657ee8}
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .platform-admin-form label,
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .platform-admin-companies h3,
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .platform-admin-form h3 {
+  color: var(--bee-text);
+}
+
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .platform-admin-form button,
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .platform-company button,
+.bee-template-package-host--glass[data-bee-dashboard-mode="light"] .platform-admin .panel-heading button {
+  background: var(--bee-accent);
+  color: var(--bee-accent-text);
+  border-color: var(--bee-accent);
+}

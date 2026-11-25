@@ -1,0 +1,7 @@
+{
+  "allowlist": [
+    {"pattern":"**/tokens.css","reason":"Package token sheets define the fixed semantic palette values."},
+    {"pattern":"**/tokens.contract.css","reason":"The token contract contains neutral fallback values and token defaults."},
+    {"pattern":"src/assets/device-simulator/**","reason":"The simulator is a standalone preview asset with an intentionally independent palette."}
+  ]
+}

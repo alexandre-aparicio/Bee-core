@@ -43,12 +43,19 @@ type MarketplacePlugin = {
               <span *ngIf="plugin.accessSource === 'purchase'">Purchased add-on</span>
               <span *ngIf="plugin.accessSource === 'manual'">Granted by Superadmin</span>
               <span *ngIf="!plugin.entitled">Not included</span>
-              <span *ngIf="plugin.installed" class="bee-marketplace__installed">{{plugin.enabled ? (plugin.entitled ? "Active" : "Blocked") : "Inactive"}}</span>
+              <span *ngIf="plugin.installed" class="bee-marketplace__installed bee-status--success">Installed</span>
+              <span *ngIf="plugin.installed" class="bee-marketplace__activation">{{plugin.enabled ? (plugin.entitled ? "Active" : "Blocked") : "Inactive"}}</span>
             </div>
           </div>
           <div class="bee-marketplace__actions">
-            <button *ngIf="canManage && (plugin.installed || plugin.entitled)" type="button" (click)="toggleActivation(plugin)" [disabled]="busyId !== '' || (!plugin.enabled && !plugin.entitled)">
+            <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" (click)="install(plugin)" [disabled]="busyId !== ''">
+              {{busyId === plugin.id ? 'Installing…' : 'Install'}}
+            </button>
+            <button *ngIf="canManage && plugin.installed" type="button" (click)="toggleActivation(plugin)" [disabled]="busyId !== '' || (!plugin.enabled && !plugin.entitled)">
               {{busyId === plugin.id ? (plugin.enabled ? 'Deactivating…' : 'Activating…') : plugin.enabled ? 'Deactivate' : 'Activate'}}
+            </button>
+            <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" class="bee-marketplace__remove" (click)="uninstall(plugin)" [disabled]="busyId !== ''">
+              {{busyId === plugin.id ? 'Uninstalling…' : 'Uninstall'}}
             </button>
             <button *ngIf="canManage && plugin.installed && !plugin.system && plugin.installedVersion && plugin.installedVersion !== plugin.version" type="button" (click)="update(plugin)" [disabled]="busyId !== ''">
               {{busyId === plugin.id ? 'Updating…' : 'Update to v' + plugin.version}}
@@ -102,11 +109,21 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
     }
   }
 
+  async install(plugin: MarketplacePlugin): Promise<void> {
+    if (!this.canManage || !plugin.entitled || plugin.installed) return;
+    await this.runAction(plugin, "POST", "install");
+  }
+
   async update(plugin: MarketplacePlugin): Promise<void> {
     await this.runAction(plugin, "POST", "update");
   }
 
-  private async waitForLifecycleJob(jobId: string): Promise<void> {
+  async uninstall(plugin: MarketplacePlugin): Promise<void> {
+    if (!this.canManage || !plugin.installed || plugin.system) return;
+    await this.runAction(plugin, "DELETE", "install");
+  }
+
+  private async waitForLifecycleJob(jobId: string, action: "install" | "update" | "uninstall"): Promise<void> {
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {
       const response = await fetch("/api/marketplace/install-jobs/" + encodeURIComponent(jobId), {
@@ -117,11 +134,11 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       const job = result.job as { status: string; error?: string };
       if (job.status === "succeeded") return;
       if (job.status === "failed") throw new Error(job.error || "Plugin installation failed");
-      const verb = "Updating ";
+      const verb = action === "install" ? "Installing " : action === "update" ? "Updating " : "Uninstalling ";
       this.message = job.status === "running" ? verb + this.plugins.find(item => item.id === this.busyId)?.name + "…" : "Waiting for plugin lifecycle worker…";
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-    throw new Error("Plugin update is still running. Refresh the marketplace to check its status.");
+    throw new Error("Plugin " + action + " is still running. Refresh the marketplace to check its status.");
   }
 
   async toggleActivation(plugin: MarketplacePlugin): Promise<void> {
@@ -148,7 +165,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
     }
   }
 
-  private async runAction(plugin: MarketplacePlugin, method: "POST", operation: "update"): Promise<void> {
+  private async runAction(plugin: MarketplacePlugin, method: "POST" | "DELETE", operation: "install" | "update"): Promise<void> {
     if (this.busyId) return;
     this.busyId = plugin.id;
     this.error = "";
@@ -161,11 +178,13 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Plugin action failed");
       if (result.jobId) {
-        this.message = plugin.name + " update queued…";
-        await this.waitForLifecycleJob(result.jobId as string);
+        const action = operation === "update" ? "update" : method === "POST" ? "install" : "uninstall";
+        this.message = plugin.name + (action === "update" ? " update queued…" : action === "install" ? " installation queued…" : " uninstallation queued…");
+        await this.waitForLifecycleJob(result.jobId as string, action);
       }
       await this.load();
-      this.message = plugin.name + " updated for this company.";
+      const action = operation === "update" ? "update" : method === "POST" ? "install" : "uninstall";
+      this.message = action === "update" ? plugin.name + " updated for this company." : action === "install" ? plugin.name + " installed for this company." : plugin.name + " uninstalled. Company data is preserved.";
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Plugin action failed";
     } finally {

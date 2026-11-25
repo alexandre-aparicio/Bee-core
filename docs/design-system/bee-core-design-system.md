@@ -3,7 +3,7 @@
 > **Status:** Normative design and implementation standard  
 > **Scope:** Every first-party Bee-Core dashboard page and shared frontend component  
 > **Applies to:** Page System (Layer 1) and Shared UI Components (Layer 2)  
-> **Theme relationship:** This document defines structure, semantics, interaction and reusable component contracts. The active dashboard template defines the visual skin. For the current target, also read [Midnight Style Guide](../../apps/web/src/app/templates/packages/midnight/STYLE-GUIDE.md).
+> **Theme relationship:** This document defines structure, semantics, interaction and reusable component contracts. The active dashboard template defines the visual skin. Read the active package README for its visual identity. The [Midnight Style Guide](../../apps/web/src/app/templates/packages/midnight/STYLE-GUIDE.md) is the detailed Midnight dashboard reference, not a global palette.
 
 ## 1. Purpose and authority
 
@@ -20,32 +20,26 @@ When an existing implementation conflicts with this guide, do not silently creat
 
 1. **Page System:** page composition, layout, hierarchy, spacing, responsive behavior and common page states.
 2. **Shared UI:** reusable controls and patterns (cards, buttons, forms, tables, tabs, dialogs, feedback).
-3. **Template skin:** theme tokens and visual expression (Midnight today).
+3. **Template skin:** fixed package tokens and visual expression for Aurora, Editorial, Studio, Midnight, Paper and Glass.
 
 Layers 1 and 2 MUST NOT hard-code a template's colors, shadows, background treatments or other theme-specific visual decisions. Layer 3 MUST NOT redefine business behavior, permissions, routing, data loading or page structure.
 
 ## 2. Repository reality and implementation boundary
 
-The current frontend is Angular and uses trusted dashboard template packages under `apps/web/src/app/templates/packages`. The template registry currently includes Midnight and Paper as built-in dashboard templates and Glass as a package. Midnight is the default dashboard selection in the template engine.
+The Angular frontend has two runtime targets: `public` and `dashboard`. The registry contains six trusted compiled packages: Aurora, Editorial and Studio for public pages; Midnight, Paper and Glass for the dashboard. Every package declares Light and Dark modes and a default mode.
 
-The Midnight package currently exposes a small fixed token set:
-- `--bg`: `#080a12`
-- `--panel`: `#10131e`
-- `--muted`: `#8991a4`
-- `--border`: `#303447`
-- `--purple`: `#8c72ff`
-- `--cyan`: `#69e5d4`
+The architecture is:
+- `templates/base/base.css`: shared shell structure, responsive geometry and neutral primitives.
+- `templates/base/tokens.contract.css`: authoritative 89-token semantic contract and neutral fallbacks.
+- `templates/packages/<id>/tokens.css`: fixed package values for all 89 tokens in both modes.
+- `templates/packages/<id>/styles.css`: package-specific layout/decorative rules using semantic tokens.
+- Template engine, package/slot registry and `templates/core/appearance-modes.css`: lifecycle, selection, mode controls and active-surface synchronization.
 
-The current package CSS also styles dashboard content surfaces such as `.panel`, `.dash-stat`, `.quick-action` and `.bee-dashboard-card`. Some feature components still carry local component styles and use legacy classes/tokens. Therefore this guide establishes the canonical target and migration rules; it does **not** claim that every primitive described below already exists as a shared Angular component or that every current page already conforms.
+The runtime mirrors the active package/mode to `html[data-bee-active-template]` and `html[data-bee-active-mode]`, with independent surface metadata on `body`. Package token selectors apply the same values to their own host and the active HTML surface.
 
-Relevant implementation locations:
-- Template registry and engine: `apps/web/src/app/templates/`
-- Template package: `apps/web/src/app/templates/packages/<template-id>/`
-- Midnight package: `apps/web/src/app/templates/packages/midnight/`
-- Global frontend stylesheet: `apps/web/src/styles.css`
-- Existing page examples include Organization Company, Users and Roles & Permissions components.
+The shared base owns dashboard shell surfaces and responsive structure. Feature components own content and interactions; they consume active semantic tokens and do not carry package palette overrides. The device simulator under `src/assets/device-simulator/**` is a standalone preview asset with an intentionally independent palette, not a seventh template.
 
-Before implementing a primitive, search for an existing shared component, directive, utility or established pattern. Extend/reuse it where appropriate; do not create a parallel component just because its name differs.
+Relevant locations: `apps/web/src/app/templates/`, `templates/base/`, `templates/packages/<id>/` and `apps/web/src/styles.css`. Reuse existing shared components and patterns rather than creating parallel implementations.
 
 ## 3. Global experience principles
 
@@ -409,16 +403,19 @@ Exact typography, token values, radii and surfaces are specified by the active t
 
 ## 7. Color, theming and CSS ownership
 
-- Feature components MUST NOT hard-code template palette hex values.
-- Use semantic CSS custom properties exposed by the active template. For Midnight see its style guide and current package token definitions.
-- Do not use `!important` to defeat template styles except for a documented, narrowly scoped integration fix.
-- Do not set global `body`, dashboard shell or host surface styles from a feature component.
-- Scope feature CSS under the component root or a unique feature prefix.
-- Prefer CSS variables and shared utility/component classes over repeated local declarations.
-- Avoid selectors that reach into unrelated feature internals.
-- Never assume that a fallback literal color will look correct across themes.
-- A missing semantic token is a design-system gap: propose and add a named token centrally, then document it. Do not invent a local hex fallback.
-- Template package CSS owns template shell and theme skin; shared UI owns structural primitives; feature CSS owns only feature-specific layout details that cannot be expressed through shared primitives.
+The 89-token contract in `templates/base/tokens.contract.css` is authoritative. Every package `tokens.css` defines all tokens for Light and Dark. Base provides neutral fallbacks; packages provide fixed palette values.
+
+- Shared base and feature CSS MUST consume semantic `--bee-*` variables.
+- Package palette declarations belong only in that package's `tokens.css`.
+- Package `styles.css` may define layout/decoration but MUST NOT create a second palette.
+- Feature components MUST NOT add local palette `:host-context` overrides.
+- Do not use literal hex, RGB/HSL/HWB/Lab/LCH/OKLab/OKLCH/`color()`, CSS named colors, `!important`, `[class*=` color hacks, old `md-`/`pd-`/`gd-` prefixes or removed aliases `--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`.
+- `transparent`, `inherit`, `currentColor`, `initial` and `unset` remain valid CSS keywords.
+- Public and dashboard selections/modes remain independent; the runtime owns active HTML attributes.
+
+CI checks 4.5:1 for body text, surfaces, muted text, accent text, statuses and links; placeholders and focus rings target 3:1. Supported alpha surfaces are composited over their actual backdrop. Midnight Dark's accent-text/accent pair is the only documented 3.52:1 reference exception.
+
+The strict audit scans CSS, TypeScript (including inline Angular styles/templates) and HTML. Stylelint covers standalone CSS. The committed allowlist is limited to package `tokens.css`, `tokens.contract.css` and the independent device-simulator directory.
 
 ## 8. Accessibility and inclusive interaction
 
@@ -525,25 +522,23 @@ A feature is not visually complete merely because it renders. It is design-syste
 
 ### Light/dark theme compatibility for collection workspaces
 
-- Shared collection workspaces (including Documents) MUST use the active template's semantic surface, foreground, muted, border and accent tokens. Avoid hard-coded light/dark card, text, menu or input colors.
-- Overlays are the exception to surface token mixing: modal backdrops MUST use the shared neutral-dark `--bee-overlay` token in both light and dark modes so the entire underlying viewport is consistently dimmed; do not derive the backdrop from the page background token, which can turn it pale in light mode.
-- Dialog shadows should use a neutral dark shadow rather than the active background token. Check dialogs, menus, selected segmented controls, empty states, tables and forms in both modes for contrast.
-- Light-mode checks are required alongside dark-mode checks for first-party collection pages: primary action text, muted labels, table headers, hover rows, menu surfaces, selected/unselected view controls, borders and keyboard focus must remain readable.
+- Collection workspaces (including Documents) MUST use the active package's semantic surface, foreground, muted, border, input and accent tokens.
+- Modal backdrops use neutral-dark `--bee-overlay` in both modes. Dialog shadows use neutral elevation tokens.
+- Validate cards, tables, menus, selected controls, empty states, forms and keyboard focus in both modes.
+- Components do not implement local package palettes or mode-specific `:host-context` overrides.
 
+## Documents theme-mode contract
 
-## Documents theme-mode contract (implementation correction — 2026-11-23)
+Documents consumes the active dashboard package tokens. Cards, menus, dialogs, inputs, selected controls, chips, suggestions, empty/loading/feedback states and tables must use semantic tokens in both modes. A component-local Midnight-Light palette is not permitted.
 
-- Documents is a theme-aware collection workspace. A light page canvas is not sufficient: folder/document cards, overflow menus, dialogs, inputs, selected controls, chips, suggestions, empty/loading/feedback states and table surfaces must all resolve to light surfaces and dark readable foregrounds in Light mode.
-- The Midnight dashboard host exposes its mode through `data-bee-dashboard-mode`. Documents component-local semantic tokens must respond to this host state without changing Midnight Dark or other features.
-- Primary actions and selected view controls must use contrast-safe foregrounds; do not use the light `--bg` token as their text color in Light mode.
-- Validate Cards and Table, opening every menu and dialog, in both light and dark modes. Source-level corrections do not count as browser verification.
+The template runtime owns the active HTML mode attributes. Documents must not synthesize a separate mode state. Source changes alone are not browser verification.
 
 ## Collection hover treatment (Documents reference)
 
 Cards and equivalent table rows in collection views MUST use the same restrained accent-tint hover language as Documents. The treatment is a surface-color shift, not a glow, scale, shadow, opacity or layout animation:
 
-- Collection cards: blend the surface with the template accent at 8% (`color-mix(in srgb, var(--surface) 92%, var(--accent))`) and blend the border with the accent at 48%.
-- Table rows: use a 5% accent tint over the transparent row background (`color-mix(in srgb, var(--accent) 5%, transparent)`).
+- Collection cards: blend the surface with the template accent at 8% (`color-mix(in srgb, var(--bee-surface) 92%, var(--bee-accent))`) and blend the border with the accent at 48%.
+- Table rows: use a 5% accent tint over the transparent row background (`color-mix(in srgb, var(--bee-accent) 5%, transparent)`).
 - Keep transitions brief and limited to background/border colors. Selected, focused, drag-target and keyboard-focus states remain distinct and MUST NOT be replaced by hover styling.
 - Apply the same treatment to equivalent card and table representations within a feature. Light and Dark modes MUST both use semantic surface/accent tokens so the tint remains subtle and readable.
 - Documents is the visual reference implementation (`.documents__item:hover` and `.documents__table tbody tr:hover`).
@@ -564,10 +559,10 @@ For the System Roles collection, reuse the Organization → Teams composition an
 - The Cards/Table controls must be geometrically identical to Organization → Teams: 34×32px hit areas, zero button padding, a 1px border, 7px radius, and the same 17px glyphs. Center the glyph both horizontally and vertically with grid placement and a line-height of 1; explicitly reset inherited feature button padding.
 
 
-### Midnight Light mode — Organization Roles
-- Organization → Roles & Permissions MUST follow the same explicit Light-mode host-context strategy as Organization → Teams. Scope the override to `.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]` so it cannot leak into Midnight Dark, Glass or Paper.
-- Map the component's local semantic tokens to the Midnight Light palette: canvas `#f4f6fb`, panel/surface/raised surface `#fff`, foreground `#263248`, muted `#68758b`, border `#dfe5ef`, violet accent `#5542bd`, success `#167447`, warning `#946200`, danger `#b42318`, and the shared Light shadow. Cards, tabs, search, tables, menus, permission circles, tooltips and dialogs must resolve through these tokens rather than retaining dark-mode values.
-- Selected Cards/Table controls and primary actions MUST retain a white foreground over the violet action surface in Light mode, matching Teams. Verify both System Roles and Custom Roles in Light and Dark.
+### Organization Roles — active package token contract
+- Organization → Roles & Permissions and Organization → Teams MUST consume the active package tokens directly. Do not add Midnight-Light `:host-context` or package-host overrides.
+- Canvas, panels, foreground, muted text, borders, status and action colors resolve from the selected package's `tokens.css` mode block.
+- Selected Cards/Table controls and primary actions MUST use the package's contrast-safe accent foreground. Preserve existing permission, role mutation and routing behavior. Verify System Roles and Custom Roles in both modes.
 
 
 ## Organization → Users collection layout

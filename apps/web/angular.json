@@ -59,6 +59,14 @@
               "src/assets/qrcode.min.js"
             ],
             "styles": [
+              "src/app/templates/base/tokens.contract.css",
+              "src/app/templates/base/base.css",
+              "src/app/templates/packages/midnight/tokens.css",
+              "src/app/templates/packages/paper/tokens.css",
+              "src/app/templates/packages/glass/tokens.css",
+              "src/app/templates/packages/aurora/tokens.css",
+              "src/app/templates/packages/editorial/tokens.css",
+              "src/app/templates/packages/studio/tokens.css",
               "src/styles.css"
             ],
             "outputMode": "static"
