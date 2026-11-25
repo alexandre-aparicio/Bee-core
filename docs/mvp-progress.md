@@ -1106,3 +1106,6 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Added a route-level regression using a device owned by a different tenant. It exercises approve, suspend, activate, unlink, delete, revoke, rename and pairing cancellation; asserts 404 responses, no mutation of the foreign device and denial events written only to the requesting tenant.
 - **Validation pending:** backend CI must type-check and execute the new test. This route regression uses a controlled repository/database stub; it is not a substitute for a full Mongo-backed route audit or an exhaustive review of every Connected Devices denial path.
 - **Known limitation:** the route audit helper logs and continues if an append fails. This remains best-effort audit delivery rather than an atomic transaction between the business mutation and audit insert.
+
+
+- **CI validation passed:** GitHub Actions run [45576331382](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45576331382) on commit `2591c6ee350d357badfa3f99285b96ebb64d54bb` completed backend build/tests and Angular production build/test discovery successfully. Backend reported **119 passed, 0 failed, 0 skipped**. Angular test discovery is not browser E2E execution, and this run did not include a production dependency audit.
