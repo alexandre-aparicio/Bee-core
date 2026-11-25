@@ -18,7 +18,7 @@ async function collectSourceFiles(directory) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) {
       files.push(...await collectSourceFiles(path));
-    } else if (entry.isFile() && /\\.(?:css|ts|html)$/i.test(entry.name)) {
+    } else if (entry.isFile() && /\.(?:css|ts|html)$/i.test(entry.name)) {
       files.push(path);
     }
   }
@@ -28,9 +28,9 @@ async function collectSourceFiles(directory) {
 const sourceFiles = await collectSourceFiles('src');
 const usedTokens = new Map();
 for (const file of sourceFiles) {
-  if (file === contractPath || /\\/tokens\\.css$/.test(file)) continue;
+  if (file === contractPath || /\/tokens\.css$/.test(file)) continue;
   const source = await readFile(file, 'utf8');
-  for (const match of source.matchAll(/var\\(\\s*(--bee-[\\w-]+)/g)) {
+  for (const match of source.matchAll(/var\(\s*(--bee-[\w-]+)/g)) {
     const token = match[1];
     if (!usedTokens.has(token)) usedTokens.set(token, new Set());
     usedTokens.get(token).add(file);
