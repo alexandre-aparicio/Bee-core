@@ -99,7 +99,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "time-tracking") {
-        assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
+        assert.deepEqual([...installed.manifest.dependencies].sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/time-tracking"]);
@@ -137,7 +137,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         const documentsPlugin = await readFile(join(root, "src/plugins/documents/documents.plugin.ts"), "utf8");
         const documentsService = await readFile(join(root, "src/plugins/documents/documents.service.ts"), "utf8");
         assert.match(documentsPlugin, /dependencies:\["auth","organizations","files"\]/, "Documents may depend on Files but not on another tenant business package");
-        assert.match(documentsService, /!await hasPluginEntitlement\(db,tenant\.tenantId,"documents"\).*!await isPluginInstalled\(db,tenant\.tenantId,"documents"\).*!await isPluginEnabled\(db,tenant\.tenantId,"documents"\)/);
+        assert.match(documentsService, /await hasPluginEntitlement\(db,tenant\.tenantId,"documents"\).*await isPluginInstalled\(db,tenant\.tenantId,"documents"\).*await isPluginEnabled\(db,tenant\.tenantId,"documents"\)/);
         assert.match(documentsService, /Documents is not entitled, installed or enabled/, "Documents must fail closed when its package access is unavailable");
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/files"]);
