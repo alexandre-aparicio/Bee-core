@@ -83,3 +83,6 @@ A CI pass proves only the scripted cases. It does not prove real TLS, secret-man
 The current security branch adds tenant-scoped append events for Connected Devices lifecycle operations and denial events for cross-tenant/missing device or pairing references. Its route regression asserts that a foreign tenant's device is not mutated and that denial records are written only to the actor's active tenant.
 
 This work is pending GitHub CI on its PR head. Coverage currently uses a controlled route/repository test double; it does not prove all Connected Devices endpoints or every asynchronous device path are audited. Route-level audit append failures are currently logged and swallowed, so business changes and audit writes are not atomic. Do not treat this as complete audit coverage until those gaps are addressed and a full route review is recorded.
+
+
+**CI evidence for Connected Devices audit proposal:** run [45576331382](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45576331382) on commit `2591c6ee350d357badfa3f99285b96ebb64d54bb` passed backend build/tests (119 passed, 0 failed, 0 skipped) and Angular build/test discovery. This confirms the proposed route audit regression executes in the backend suite; it does not establish exhaustive audit coverage or atomic audit delivery.
