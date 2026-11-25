@@ -1,7 +1,7 @@
 import type { Db } from "mongodb";
 import { applyPermissionRestrictions, permissionsForCustomRole, type CustomRolePolicy } from "./role-policy.js";
 import { unmaskTenantId, unmaskUserId } from "./session-id.js";
-import { CORE_PERMISSION_KEYS, getTenantPluginPermissionCatalog } from "./permission-catalog.js";
+import { CORE_PERMISSION_CATALOG, CORE_PERMISSION_KEYS, getTenantPluginPermissionCatalog } from "./permission-catalog.js";
 
 export type CompanyRole = "super_admin" | "owner" | "admin" | "manager" | "member" | "guest";
 export type MembershipRole = CompanyRole | "custom";
@@ -93,7 +93,7 @@ export async function resolveTenantContext(
     if (!membership.customRoleId) return null;
     const customRole = await db.collection<CustomRolePolicy>("company_roles").findOne({ id: membership.customRoleId, tenantId });
     if (!customRole || customRole.mode === "restriction") return null;
-    try { const permissionPolicy = await db.collection<{id:string;tenantAssignablePermissions:string[]}>("platform_permission_policies").findOne({id:"global"},{projection:{tenantAssignablePermissions:1}}); const defaultAllowed = [...CORE_PERMISSION_KEYS, ...pluginPermissionCatalog.filter(permission => permission.customRoleAssignable).map(permission => permission.key)]; const allowed = Array.isArray(permissionPolicy?.tenantAssignablePermissions) ? permissionPolicy.tenantAssignablePermissions : defaultAllowed; permissions = permissionsForCustomRole(customRole, allowed.filter(key => availablePermissionKeys.includes(key))); } catch { return null; }
+    try { const permissionPolicy = await db.collection<{id:string;tenantAssignablePermissions:string[]}>("platform_permission_policies").findOne({id:"global"},{projection:{tenantAssignablePermissions:1}}); const defaultAllowed = [...CORE_PERMISSION_CATALOG.filter(permission => permission.customRoleAssignable).map(permission => permission.key), ...pluginPermissionCatalog.filter(permission => permission.customRoleAssignable).map(permission => permission.key)]; const allowed = Array.isArray(permissionPolicy?.tenantAssignablePermissions) ? permissionPolicy.tenantAssignablePermissions : defaultAllowed; permissions = permissionsForCustomRole(customRole, allowed.filter(key => availablePermissionKeys.includes(key))); } catch { return null; }
   } else {
     if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
     const rolePermissions = COMPANY_ROLE_PERMISSIONS[membership.role];
