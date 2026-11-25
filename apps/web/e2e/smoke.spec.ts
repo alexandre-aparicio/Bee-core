@@ -193,7 +193,7 @@ test('tenant admin can install and activate a trusted dashboard template package
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
   await manager.locator('.bee-template-package').filter({ hasText: 'Glass' }).getByRole('button', { name: 'Install' }).click();
-  await expect(manager.getByText('Package installed for this tenant.')).toBeVisible();
+  await expect(manager.getByText('Template installed for this company.')).toBeVisible();
   await manager.getByLabel('Dashboard template').selectOption('glass');
   await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
@@ -298,7 +298,7 @@ test('dashboard marketplace shows company packages and installs an entitled plug
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pluginId: 'notes', status: 'uninstalled', dataPreserved: true }) });
   });
   await page.goto('/dashboard');
-  await page.getByRole('button', { name: /manage plugins/i }).click();
+  await page.getByRole('main').getByRole('button', { name: /manage plugins/i }).click();
   await expect(page.getByRole('heading', { name: 'Company plugin marketplace' })).toBeVisible();
   await expect(page.getByText('Private Files')).toBeVisible();
   await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' })).toBeVisible();
@@ -397,7 +397,7 @@ test('company owner can invite, change roles and suspend company members', async
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
   });
   await page.goto('/dashboard');
-  await page.getByRole('button', { name: /organization/i }).click();
+  await page.getByRole('complementary').getByRole('button', { name: 'Organization' }).click();
   await page.getByRole('button', { name: /users/i }).click();
   await expect(page.getByRole('heading', { name: 'Company members' })).toBeVisible();
   const memberRow = page.locator('.bee-company-members__table tr').filter({ hasText: 'member@example.test' });
@@ -449,7 +449,7 @@ test('a signed-in member can accept an invitation through the secure invitation 
   await expect(page.getByRole('heading', { name: 'Join your organization' })).toBeVisible();
   await expect(page.getByText('You have been invited to join Company B.')).toBeVisible();
   await page.getByLabel('I already have a Bee-Core account').check();
-  await page.getByLabel('Account password').fill('correct-horse-battery');
+  await page.locator('input[name="invitationPassword"]').fill('correct-horse-battery');
   await page.getByRole('button', { name: 'Sign in and accept invitation' }).click();
   await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard');
   await expect(page.getByLabel('Active company')).toHaveValue('company-b');
