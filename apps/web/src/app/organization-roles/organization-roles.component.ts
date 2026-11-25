@@ -127,7 +127,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
    <div class="org-roles__modal-backdrop" *ngIf="modalOpen" (click)="closeModal()">
     <div class="org-roles__modal" role="dialog" aria-modal="true" aria-labelledby="org-role-modal-title" (click)="$event.stopPropagation()">
      <div class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">ORGANIZATION ACCESS</span><h2 id="org-role-modal-title">{{editingId?'Edit custom role':'Create custom role'}}</h2><p>Define the role identity and choose its permission behavior.</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeModal()">×</button></div>
-     <p class="org-roles__error" *ngIf="error" role="alert">{{error}}</p>
+     <p class="org-roles__error bee-status--danger" *ngIf="error" role="alert">{{error}}</p>
      <div class="org-roles__editor org-roles__editor--modal">
      <div class="org-roles__editor-heading"><div><h3>{{editingId?'Edit custom role':'Create custom role'}}</h3><p>Define the role identity and choose its permission behavior.</p></div><span class="org-roles__section-tag">{{mode==='restriction'?'Deny overlay':'Permission grants'}}</span></div>
      <form (submit)="save($event)">
