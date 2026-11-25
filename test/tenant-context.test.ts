@@ -60,7 +60,7 @@ test("tenant context requires a valid session, active membership and company", {
       id: "role-reader",
       tenantId: "company-one",
       name: "Reader",
-      permissions: ["documents.read", "files.read"],
+      permissions: ["documents.read", "files.read", "time-tracking.read"],
       createdBy: "user-one",
       updatedBy: "user-one",
       createdAt: new Date(),
@@ -73,6 +73,31 @@ test("tenant context requires a valid session, active membership and company", {
     assert.equal(customContext.customRoleId, "role-reader");
     assert.ok(hasTenantPermission(customContext, "documents.read"));
     assert.equal(hasTenantPermission(customContext, "files.write"), false);
+    await db.collection("plugin_catalog").insertOne({
+      id: "time-tracking", status: "installed",
+      permissions: [
+        { key: "time-tracking.read", module: "time-tracking", resource: "time-records", action: "read", label: "View time records", description: "View personal records.", customRoleAssignable: true, defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+        { key: "time-tracking.clock", module: "time-tracking", resource: "time-records", action: "clock", label: "Register time", description: "Clock in and out.", customRoleAssignable: true, defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+        { key: "time-tracking.manage", module: "time-tracking", resource: "time-records", action: "manage", label: "Manage time records", description: "Review team records.", customRoleAssignable: false, defaultGrants: { owner: true, admin: true, manager: false, member: false } }
+      ]
+    });
+    await db.collection("tenant_plugin_installations").insertOne({ id: "time-install", tenantId: "company-one", pluginId: "time-tracking", version: "0.2.0", status: "installed", installedAt: new Date(), updatedAt: new Date() });
+    const installedPluginContext = await resolveTenantContext(db, claims, {}, secret);
+    assert.ok(installedPluginContext);
+    assert.ok(hasTenantPermission(installedPluginContext, "time-tracking.read"));
+    assert.ok(hasTenantPermission(installedPluginContext, "time-tracking.clock"));
+    assert.equal(hasTenantPermission(installedPluginContext, "time-tracking.manage"), false);
+    assert.ok(hasTenantPermission(installedPluginContext, "time-tracking.read"), "custom role's stored plugin permission is effective while the plugin is installed");
+    await db.collection("tenant_plugin_installations").updateOne({ id: "time-install" }, { $set: { status: "uninstalled" } });
+    const retiredPluginContext = await resolveTenantContext(db, claims, {}, secret);
+    assert.ok(retiredPluginContext);
+    assert.equal(hasTenantPermission(retiredPluginContext, "time-tracking.read"), false, "uninstalled plugin permissions are hidden from the effective context");
+    const preservedRole = await db.collection("company_roles").findOne({ id: "role-reader" });
+    assert.ok(preservedRole?.permissions.includes("time-tracking.read"), "tenant-authored custom role permissions must not be deleted on uninstall");
+    await db.collection("tenant_plugin_installations").updateOne({ id: "time-install" }, { $set: { status: "installed" } });
+    const reinstalledPluginContext = await resolveTenantContext(db, claims, {}, secret);
+    assert.ok(reinstalledPluginContext);
+    assert.ok(hasTenantPermission(reinstalledPluginContext, "time-tracking.read"), "reinstall restores the previously stored plugin permission");
     await db.collection("company_roles").insertOne({
       id: "role-no-member-management",
       tenantId: "company-one",
