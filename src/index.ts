@@ -7,10 +7,11 @@ import { readFile } from "node:fs/promises";
 import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { BeeEventBus } from "./core/event-bus.js";
 import { BeePluginManager } from "./core/plugin-manager.js";
+import { BeeDynamicPluginRuntime } from "./core/dynamic-plugin-runtime.js";
 import { validateEnvironment } from "./core/environment.js";
-import type { BeeContext, BeeLogger, BeePlugin } from "./core/types.js";
+import type { BeeContext, BeeLogger, BeePlugin, BeePluginRuntimeControl } from "./core/types.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
-import { registerRuntimePlugin } from "./core/runtime-plugin-registry.js";
+import { replaceRuntimePlugin, unregisterRuntimePlugin } from "./core/runtime-plugin-registry.js";
 import { syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
@@ -106,6 +107,36 @@ app.register(jwt, {
 app.register(websocket);
 
 
+let dynamicPluginRuntime: BeeDynamicPluginRuntime | undefined;
+const pluginRuntimeControl: BeePluginRuntimeControl = {
+  mountStoredPackage: async (pluginId: string) => {
+    const db = mongoClient.db(environment.mongoDbName);
+    const item = await db.collection("platform_plugin_packages").findOne({ pluginId, source: "zip", status: "installed" });
+    if (!item || item.globallyEnabled === false) throw new Error("Enabled signed plugin package was not found");
+    logger.info("Plugin runtime lifecycle: loading stored package", { pluginId, version: item.version });
+    const plugin = await loadSignedZipPlugin(item);
+    if (!dynamicPluginRuntime) throw new Error("Dynamic plugin runtime has not been initialized");
+    await dynamicPluginRuntime.mount(plugin);
+    replaceRuntimePlugin(plugin);
+    const now = new Date();
+    await db.collection("platform_plugin_packages").updateOne({ pluginId, version: item.version }, { $set: { runtimeState: "loaded", runtimeError: null, updatedAt: now } });
+    await db.collection("platform_plugin_package_versions").updateOne({ pluginId, version: item.version }, { $set: { runtimeState: "loaded", runtimeError: null, runtimeCheckedAt: now } });
+    await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: true, updatedAt: now } });
+    logger.info("Plugin runtime lifecycle: package mounted and available", { pluginId, version: plugin.manifest.version, apiPrefixes: plugin.manifest.apiPrefixes ?? [] });
+    return { version: plugin.manifest.version };
+  },
+  unmount: async (pluginId: string) => {
+    logger.info("Plugin runtime lifecycle: unloading package", { pluginId });
+    if (!dynamicPluginRuntime) throw new Error("Dynamic plugin runtime has not been initialized");
+    await dynamicPluginRuntime.unmount(pluginId);
+    unregisterRuntimePlugin(pluginId);
+    const db = mongoClient.db(environment.mongoDbName);
+    await db.collection("platform_plugin_packages").updateOne({ pluginId, source: "zip", status: "installed" }, { $set: { runtimeState: "stored_pending_runtime", runtimeError: null, updatedAt: new Date() } });
+    logger.info("Plugin runtime lifecycle: package unloaded", { pluginId });
+  },
+  list: () => dynamicPluginRuntime?.list() ?? []
+};
+
 const ctx: BeeContext = {
   appName: "Bee-Core",
   version: "0.3.1",
@@ -113,6 +144,7 @@ const ctx: BeeContext = {
   logger,
   server: app,
   mongoClient,
+  pluginRuntime: pluginRuntimeControl,
   config: Object.freeze({
     environment: environment.environment,
     jwtSecret: environment.jwtSecret,
@@ -127,6 +159,7 @@ const ctx: BeeContext = {
     publicBaseDomain: process.env.PUBLIC_BASE_DOMAIN ?? "beecore.beeprojects.net"
   })
 };
+dynamicPluginRuntime = new BeeDynamicPluginRuntime(() => ctx, environment.jwtSecret, () => plugins.list());
 
 // Host services stay in Core. The four installable modules use a temporary
 // compatibility fallback only until their signed ZIP has been uploaded.
@@ -184,88 +217,97 @@ app.get("/", async () => ({
   endpoints: ["/health", "/plugins", "/auth/login", "/auth/refresh", "/auth/me", "/auth/logout"]
 }));
 
+app.route({
+  method: ["GET", "HEAD", "TRACE", "DELETE", "PATCH", "PUT", "POST", "QUERY"],
+  url: "/*",
+  handler: async (request, reply) => {
+    if (!dynamicPluginRuntime) return reply.code(503).send({ error: "Plugin runtime is starting" });
+    return dynamicPluginRuntime.dispatch(request, reply);
+  }
+});
+
+const preparedZipPlugins = new Map<string, BeePlugin>();
+
+async function loadSignedZipPlugin(item: any): Promise<BeePlugin> {
+  const db = mongoClient.db(environment.mongoDbName);
+  const registry = db.collection("platform_plugin_packages");
+  if (typeof item.pluginId !== "string" || typeof item.version !== "string" || typeof item.packageDirectory !== "string") {
+    throw new Error("Platform package registry record is incomplete");
+  }
+  const storageRoot = resolve(String(ctx.config.pluginPackagePath ?? "/data/bee-plugins"));
+  const expectedDirectory = resolve(storageRoot, item.pluginId, item.version);
+  if (resolve(item.packageDirectory) !== expectedDirectory) throw new Error("Stored package path does not match its registered identity");
+  const manifest = await verifyStoredPluginDirectory({ packageDirectory: expectedDirectory, publisherPublicKey: String(ctx.config.pluginPublisherPublicKey ?? ""), runtimeVersion: ctx.version });
+  if (manifest.id !== item.pluginId || manifest.version !== item.version) throw new Error("Stored package manifest does not match its registry record");
+  for (const dependency of manifest.dependencies.filter(entry => !entry.optional)) {
+    if (CORE_RUNTIME_PLUGIN_IDS.has(dependency.pluginId)) {
+      const hostDependency = plugins.list().find(plugin => plugin.name.toLowerCase() === dependency.pluginId.toLowerCase());
+      if (!hostDependency || hostDependency.status === "failed" || !satisfiesPluginVersion(hostDependency.version, dependency.versionRange)) {
+        throw new Error("Required Core runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
+      }
+    } else {
+      const installedDependency = await registry.findOne({ pluginId: dependency.pluginId, status: "installed" });
+      if (!installedDependency || !satisfiesPluginVersion(String(installedDependency.version ?? "0.0.0"), dependency.versionRange)) {
+        throw new Error("Required runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
+      }
+    }
+  }
+  const entrypoint = resolve(expectedDirectory, manifest.backend.entrypoint);
+  const relativeEntrypoint = relative(expectedDirectory, entrypoint);
+  if (!relativeEntrypoint || relativeEntrypoint.startsWith(".." + sep) || isAbsolute(relativeEntrypoint)) throw new Error("Backend entrypoint escaped the package directory");
+  const moduleUrl = pathToFileURL(entrypoint).href + "?bee-package-version=" + encodeURIComponent(manifest.version) + "&runtime-load=" + Date.now();
+  const loadedModule = await import(moduleUrl) as { default?: BeePlugin; plugin?: BeePlugin };
+  const exported = loadedModule.default ?? loadedModule.plugin;
+  if (!exported || !exported.manifest || exported.manifest.name !== manifest.id || exported.manifest.version !== manifest.version) {
+    throw new Error("Backend module must export a default BeePlugin whose manifest ID and version match bee-plugin.json");
+  }
+  const requiredDependencies = manifest.dependencies.filter(dependency => !dependency.optional).map(dependency => dependency.pluginId).sort();
+  const runtimeDependencies = [...(exported.manifest.dependencies ?? [])].sort();
+  if (JSON.stringify(requiredDependencies) !== JSON.stringify(runtimeDependencies)) throw new Error("Backend runtime dependencies do not match the signed package manifest");
+  const expectedMigrations = manifest.migrations.filter(migration => migration.phase !== "uninstall").map(migration => ({ id: migration.id, checksum: migration.checksum, phase: migration.phase })).sort((a,b) => a.id.localeCompare(b.id));
+  const runtimeMigrations = [...(exported.tenantMigrations ?? [])].map(migration => ({ id: migration.id, checksum: migration.checksum, phase: migration.phase ?? "install" })).sort((a,b) => a.id.localeCompare(b.id));
+  if (JSON.stringify(expectedMigrations) !== JSON.stringify(runtimeMigrations)) throw new Error("Backend tenant migrations do not match the signed package manifest");
+  return { ...exported, manifest: { ...exported.manifest, apiPrefixes: [...(manifest.frontend.apiPrefixes ?? [])] } };
+}
+
 async function loadSignedZipPlugins(): Promise<Map<string,string>> {
   const failures = new Map<string,string>();
   const db = mongoClient.db(environment.mongoDbName);
   const registry = db.collection("platform_plugin_packages");
   const packages = await registry.find({ source: "zip", status: "installed" }).sort({ pluginId: 1 }).toArray();
-  const storageRoot = resolve(String(ctx.config.pluginPackagePath ?? "/data/bee-plugins"));
-  const publicKey = String(ctx.config.pluginPublisherPublicKey ?? "");
   for (const item of packages) {
     try {
-      if (typeof item.pluginId !== "string" || typeof item.version !== "string" || typeof item.packageDirectory !== "string") {
-        throw new Error("Platform package registry record is incomplete");
-      }
-      const expectedDirectory = resolve(storageRoot, item.pluginId, item.version);
-      if (resolve(item.packageDirectory) !== expectedDirectory) throw new Error("Stored package path does not match its registered identity");
-      const manifest = await verifyStoredPluginDirectory({
-        packageDirectory: expectedDirectory,
-        publisherPublicKey: publicKey,
-        runtimeVersion: ctx.version
-      });
-      if (manifest.id !== item.pluginId || manifest.version !== item.version) throw new Error("Stored package manifest does not match its registry record");
-      for (const dependency of manifest.dependencies.filter(item => !item.optional)) {
-        if (CORE_RUNTIME_PLUGIN_IDS.has(dependency.pluginId)) {
-          const hostDependency = plugins.list().find(plugin => plugin.name === dependency.pluginId);
-          if (!hostDependency || hostDependency.status === "failed" || !satisfiesPluginVersion(hostDependency.version, dependency.versionRange)) {
-            throw new Error("Required Core runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
-          }
-          continue;
-        }
-        const installedDependency = await registry.findOne({ pluginId: dependency.pluginId, status: "installed" });
-        if (!installedDependency || !satisfiesPluginVersion(String(installedDependency.version ?? "0.0.0"), dependency.versionRange)) {
-          throw new Error("Required runtime dependency is missing or incompatible: " + dependency.pluginId + " " + dependency.versionRange);
-        }
-      }
-      const entrypoint = resolve(expectedDirectory, manifest.backend.entrypoint);
-      const relativeEntrypoint = relative(expectedDirectory, entrypoint);
-      if (!relativeEntrypoint || relativeEntrypoint.startsWith(".." + sep) || isAbsolute(relativeEntrypoint)) {
-        throw new Error("Backend entrypoint escaped the package directory");
-      }
-      const moduleUrl = pathToFileURL(entrypoint).href + "?bee-package-version=" + encodeURIComponent(manifest.version);
-      const loadedModule = await import(moduleUrl) as { default?: BeePlugin; plugin?: BeePlugin };
-      const plugin = loadedModule.default ?? loadedModule.plugin;
-      if (!plugin || !plugin.manifest || plugin.manifest.name !== manifest.id || plugin.manifest.version !== manifest.version) {
-        throw new Error("Backend module must export a default BeePlugin whose manifest ID and version match bee-plugin.json");
-      }
-      const requiredDependencies = manifest.dependencies.filter(dependency => !dependency.optional).map(dependency => dependency.pluginId).sort();
-      const runtimeDependencies = [...(plugin.manifest.dependencies ?? [])].sort();
-      if (JSON.stringify(requiredDependencies) !== JSON.stringify(runtimeDependencies)) {
-        throw new Error("Backend runtime dependencies do not match the signed package manifest");
-      }
-      const expectedMigrations = manifest.migrations.filter(migration => migration.phase !== "uninstall").map(migration => ({ id: migration.id, checksum: migration.checksum, phase: migration.phase })).sort((a,b) => a.id.localeCompare(b.id));
-      const runtimeMigrations = [...(plugin.tenantMigrations ?? [])].map(migration => ({ id: migration.id, checksum: migration.checksum, phase: migration.phase ?? "install" })).sort((a,b) => a.id.localeCompare(b.id));
-      if (JSON.stringify(expectedMigrations) !== JSON.stringify(runtimeMigrations)) {
-        throw new Error("Backend tenant migrations do not match the signed package manifest");
-      }
-      plugins.register(plugin);
-      registerRuntimePlugin(plugin);
-      ctx.logger.info("Signed external plugin registered for startup", { pluginId: manifest.id, version: manifest.version });
+      const plugin = await loadSignedZipPlugin(item);
+      preparedZipPlugins.set(plugin.manifest.name, plugin);
+      logger.info("Plugin runtime lifecycle: package verified and queued for mount", { pluginId: plugin.manifest.name, version: plugin.manifest.version, apiPrefixes: plugin.manifest.apiPrefixes ?? [] });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       failures.set(String(item.pluginId), message);
       await registry.updateOne({ pluginId: item.pluginId }, { $set: { runtimeState: "failed", runtimeError: message.slice(0, 500), updatedAt: new Date() } });
-      ctx.logger.error("External plugin failed signature validation or registration", { pluginId: item.pluginId, error: message });
+      logger.error("Plugin runtime lifecycle: package validation/import failed", { pluginId: item.pluginId, version: item.version, error: message });
     }
   }
   return failures;
 }
 
-async function persistZipPluginRuntimeState(failures: Map<string,string>): Promise<void> {
+async function persistZipPluginRuntimeState(failures: Map<string,string>, builtinFallbackIds: Set<string> = new Set()): Promise<void> {
   const db = mongoClient.db(environment.mongoDbName);
   const registry = db.collection("platform_plugin_packages");
   const versions = db.collection("platform_plugin_package_versions");
   const packageRows = await registry.find({ source: "zip", status: "installed" }).toArray();
-  const runtimePlugins = new Map(plugins.list().map(plugin => [plugin.name, plugin]));
+  const mountedIds = new Set((dynamicPluginRuntime?.list() ?? []).map(item => item.pluginId));
+  const hostPlugins = new Map(plugins.list().map(plugin => [plugin.name, plugin]));
   for (const item of packageRows) {
     const pluginId = String(item.pluginId);
-    const runtimePlugin = runtimePlugins.get(pluginId);
-    const failure = failures.get(pluginId) ?? (runtimePlugin?.status === "started" ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
-    const runtimeState = !failure && runtimePlugin?.status === "started" ? "loaded" : "failed";
+    const runtimePlugin = hostPlugins.get(pluginId);
+    const builtinFallbackActive = builtinFallbackIds.has(pluginId) && runtimePlugin?.status === "started";
+    const mounted = mountedIds.has(pluginId);
+    const failure = failures.get(pluginId) ?? (mounted || builtinFallbackActive ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
+    const runtimeState = mounted && !failure ? "loaded" : "failed";
     await registry.updateOne({ pluginId }, { $set: { runtimeState, runtimeError: failure || null, updatedAt: new Date() } });
     await versions.updateOne({ pluginId, version: item.version }, { $set: { runtimeState, runtimeError: failure || null, runtimeCheckedAt: new Date() } });
-    await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: runtimeState === "loaded", updatedAt: new Date() } });
-    if (runtimeState === "loaded") {
+    await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: runtimeState === "loaded" || Boolean(builtinFallbackActive), updatedAt: new Date() } });
+    if (runtimeState === "loaded" || builtinFallbackActive) {
       await syncAutomaticPluginProvisioning(db, pluginId);
       await syncPluginPackageVersionUpdates(db, pluginId);
     }
@@ -281,8 +323,46 @@ async function bootstrap(): Promise<void> {
   if (!uploadedIds.has("connected-devices")) plugins.register(connectedDevicesPlugin);
 
   const zipPluginFailures = await loadSignedZipPlugins();
+  const builtinFallbacks = new Map([
+    ["documents", documentsPlugin], ["connected-devices", connectedDevicesPlugin]
+  ]);
+  const builtinFallbackIds = new Set<string>();
+  for (const [pluginId, plugin] of builtinFallbacks) {
+    if (zipPluginFailures.has(pluginId) && !plugins.list().some(item => item.name === pluginId)) {
+      plugins.register(plugin);
+      builtinFallbackIds.add(pluginId);
+      logger.warn("Plugin runtime lifecycle: using built-in fallback after ZIP load failure", { pluginId, error: zipPluginFailures.get(pluginId) });
+    }
+  }
+
   await plugins.mountAll(ctx);
-  await persistZipPluginRuntimeState(zipPluginFailures);
+  for (const [pluginId, plugin] of preparedZipPlugins) {
+    try {
+      if (!dynamicPluginRuntime) throw new Error("Dynamic plugin runtime has not been initialized");
+      await dynamicPluginRuntime.mount(plugin);
+      replaceRuntimePlugin(plugin);
+      logger.info("Plugin runtime lifecycle: startup mount completed", { pluginId, version: plugin.manifest.version });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      zipPluginFailures.set(pluginId, message);
+      await platformPackages.updateOne({ pluginId, status: "installed" }, { $set: { runtimeState: "failed", runtimeError: message.slice(0, 500), updatedAt: new Date() } });
+      logger.error("Plugin runtime lifecycle: startup mount failed", { pluginId, version: plugin.manifest.version, error: message });
+      const fallback = builtinFallbacks.get(pluginId);
+      if (fallback && !builtinFallbackIds.has(pluginId)) {
+        try {
+          const fallbackPlugin = { ...fallback, manifest: { ...fallback.manifest, apiPrefixes: [...(plugin.manifest.apiPrefixes ?? [])] } };
+          if (!dynamicPluginRuntime) throw new Error("Dynamic plugin runtime has not been initialized");
+          await dynamicPluginRuntime.mount(fallbackPlugin);
+          replaceRuntimePlugin(fallbackPlugin);
+          builtinFallbackIds.add(pluginId);
+          logger.warn("Plugin runtime lifecycle: built-in implementation mounted as fallback", { pluginId });
+        } catch (fallbackError) {
+          logger.error("Plugin runtime lifecycle: built-in fallback mount also failed", { pluginId, error: fallbackError });
+        }
+      }
+    }
+  }
+  await persistZipPluginRuntimeState(zipPluginFailures, builtinFallbackIds);
   const db = mongoClient.db(environment.mongoDbName);
   const automaticPackages = await db.collection("plugin_catalog").find({ activationPolicy: "automatic", codeAvailable: true, status: "published" }).project<{id:string}>({ id: 1, _id: 0 }).toArray();
   for (const item of automaticPackages) await syncAutomaticPluginProvisioning(db, item.id);
@@ -299,6 +379,7 @@ const shutdown = async (signal: string): Promise<void> => {
   shuttingDown = true;
   logger.info(`Received ${signal}, shutting down`);
   try {
+    await dynamicPluginRuntime?.stopAll();
     await plugins.stopAll(ctx);
   } finally {
     await app.close();

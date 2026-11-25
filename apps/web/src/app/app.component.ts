@@ -6,7 +6,7 @@ import { BeeStudioPageComponent } from './templates/packages/studio/pages/public
 import { BeeMidnightPageComponent } from './templates/packages/midnight/pages/dashboard.component';
 import { BeePaperPageComponent } from './templates/packages/paper/pages/dashboard.component';
 import { BeeGlassPageComponent } from './templates/packages/glass/pages/dashboard.component';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateEngine } from './templates/template-engine.service';
@@ -15,17 +15,34 @@ import { BeeI18nService } from './i18n/bee-i18n.service';
 import { BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent } from './templates/packages';
 
 @Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], templateUrl: './app.component.html' })
-export class AppComponent implements OnInit {
-  constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService) {}
+export class AppComponent implements OnInit, OnDestroy {
+  constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService, private readonly zone: NgZone) {}
 
   ngOnInit(): void {
     this.syncActiveSectionFromPath();
     window.addEventListener('popstate', this.handlePublicPopState);
+    window.addEventListener('bee:plugins-changed', this.handlePluginsChanged);
     if (this.path === '/invite/accept') void this.loadInvitation();
     else if (this.dashboard) {
       if (this.auth?.accessToken) void this.validateDashboardSession();
       else void this.refreshDashboardSession();
     } else if (!['/login', '/register', '/forgot', '/invite/accept'].includes(this.path)) void this.loadPublicTenant();
+  }
+
+  private readonly handlePluginsChanged = (): void => {
+    void this.refreshTenantPlugins().then(() => {
+      // The settings component can dispatch this event from an async request.
+      // Re-enter Angular explicitly so the sidebar is rendered immediately.
+      this.zone.run(() => {
+        if (this.activeSection === 'documents' && !this.isPluginEnabled('documents')) this.navigateSection('dashboard');
+        else if (this.activeSection === 'connected-devices' && !this.isPluginEnabled('connected-devices')) this.navigateSection('dashboard');
+        else if (this.activeSection.startsWith('time-tracking') && !this.isPluginEnabled('time-tracking')) this.navigateSection('dashboard');
+      });
+    });
+  };
+  ngOnDestroy(): void {
+    window.removeEventListener('popstate', this.handlePublicPopState);
+    window.removeEventListener('bee:plugins-changed', this.handlePluginsChanged);
   }
 
   private readonly handlePublicPopState = (): void => {
@@ -91,7 +108,7 @@ export class AppComponent implements OnInit {
   private async refreshTenantPlugins(): Promise<void> {
     if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
     try {
-      const response = await fetch(this.api + '/marketplace/plugins', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
+      const response = await fetch(this.api + '/marketplace/plugins', { cache: 'no-store', credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not load enabled company plugins');
       const enabledIds = (Array.isArray(result.plugins) ? result.plugins : []).filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true).map((plugin: any) => String(plugin.pluginKey || plugin.id || '')).filter(Boolean);
