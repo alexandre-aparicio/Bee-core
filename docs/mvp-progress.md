@@ -61,12 +61,13 @@ Explicit transition paths from source review:
 
 | Item | Status | Scope |
 |---|---|---|
-| Public template tokenization | Not started | Explicitly out of scope until instructed. |
+| Public template tokenization | Source-reviewed; runtime NOT verified | Aurora: 21 hex / 1 RGB-HSL → 0 / 0; Editorial: 10 hex / 0 RGB-HSL → 0 / 0; Studio: 23 hex / 0 RGB-HSL → 0 / 0. All three public page components now consume package semantic tokens; inline CSS braces balanced (29/29, 29/29, 41/41). Used tokens exist in the contract and both modes of all six packages. |
 
 ## Step 7 — Stylelint / CI
 
 | Item | Status | Scope |
 |---|---|---|
+| Public package manifest checker | Implemented; source-reviewed, NOT executed | `check-template-tokens.mjs` excludes `shared`, reports each non-shared package directory without `manifest.ts` in the JSON `warnings` array, continues checking other packages, and sets exit code 1 when `errors` is non-empty. All six current package directories contain `manifest.ts` by repository tree inventory. |
 | Stylelint and CI policy | Not started | Explicitly out of scope until instructed. |
 
 ## Step 8 — Cleanup and documentation
