@@ -394,8 +394,23 @@ export const marketplacePlugin: BeePlugin = {
       if(!pluginId)return reply.code(404).send({error:"Resource not found"});
       const plugin=(await getTenantPluginCatalog(db,tenant.tenantId)).find(item=>item.id===pluginId);
       if(!plugin||!plugin.entitled||!plugin.installed||!plugin.enabled||!await isPlatformPluginEnabled(db,pluginId))return reply.code(403).send({error:"Plugin is not available for this company"});
-      const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed",source:"zip",runtimeState:"loaded"});
-      if(!globalPackage)return reply.code(404).send({error:"Plugin frontend package is not loaded"});
+      // Resolve the platform package independently from its in-memory runtime state.
+      // Filtering by runtimeState in Mongo made a missing/stale state indistinguishable
+      // from a package that was never installed, hiding the actual loader failure.
+      const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed",source:"zip"});
+      if(!globalPackage){
+        ctx.logger.warn("Marketplace runtime request has no installed ZIP package", {pluginId,tenantId:tenant.tenantId});
+        return reply.code(404).send({error:"Plugin package is not installed on the platform"});
+      }
+      if(globalPackage.runtimeState!=="loaded"){
+        ctx.logger.warn("Marketplace runtime package is not loaded", {
+          pluginId,
+          tenantId:tenant.tenantId,
+          runtimeState:String(globalPackage.runtimeState??"missing"),
+          version:String(globalPackage.version??"unknown")
+        });
+        return reply.code(503).send({error:"Plugin runtime is not loaded"});
+      }
       const version=String(globalPackage.version??"");
       const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId:plugin.id,version});
       const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
