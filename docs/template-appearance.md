@@ -1,52 +1,42 @@
 # Template appearance modes
 
-Bee-Core templates expose two appearance modes: `light` and `dark`. A template owns its visual identity and palette; users do not edit arbitrary colors.
+Every registered template supports `light` and `dark`. The package owns a fixed palette; users select a mode but cannot edit arbitrary colors.
 
-## Supported templates
-
-| Surface | Template | Default mode |
+| Target | Package | Default |
 |---|---|---|
-| Public landing | Aurora | Dark |
-| Public landing | Editorial | Light |
-| Public landing package | Studio | Light |
+| Public | Aurora | Dark |
+| Public | Editorial | Light |
+| Public | Studio | Light |
 | Dashboard | Midnight | Dark |
 | Dashboard | Paper | Light |
-| Dashboard package | Glass | Dark |
+| Dashboard | Glass | Dark |
 
-Both modes can be selected for every template, regardless of its default.
+## Controls and preference scope
 
-## Controls
+- Public layout exposes the public mode toggle.
+- Dashboard header exposes the dashboard mode toggle.
+- Appearance settings expose the same template/mode controls.
+- Each package retains its own saved mode; `defaultMode` is used when no preference exists.
+- Public mode is browser-local per hostname.
+- Dashboard mode is browser-local per active tenant/company and selected package.
+- Cross-browser/device synchronization is not implemented by this refactor.
 
-- The public landing header provides a mode toggle for the active public template.
-- The dashboard header provides a mode toggle for the active dashboard template.
-- Settings > Appearance exposes the same mode controls alongside the template manager.
-- Switching templates restores that template's own saved mode.
+## Active surface contract
 
-## Preference scope
+The runtime sets `data-bee-active-template` and `data-bee-active-mode` on `html`, and keeps independent public/dashboard metadata on `body`. Each package mode mirrors identical tokens to its host and matching active HTML surface. Mode changes update tokens without a full page reload. Public and dashboard changes must not affect each other.
 
-Preferences are currently browser-local:
-- Public mode is stored per hostname, so the corporate landing and each tenant hostname can differ.
-- Dashboard mode is stored per active company, so companies in the same browser can differ.
-- The selected template is part of the storage key, so each template retains its own Light/Dark choice.
+## Contrast
 
-Backend synchronization across browsers/devices is a follow-up task. This does not change the server-side template installation or selection model.
+Body text, surface text, muted text, accent text, status and link pairs target 4.5:1. Input placeholders and focus rings target 3:1. The checker composites supported alpha values over the actual backdrop and prints every skipped non-solid value.
 
-## Design rule
+Midnight Dark is the visual reference. Its `accent-text / accent` pair is the only documented exception (3.52:1); that pair is intentionally unchanged.
 
-Template packages define their own fixed palette and must support both modes. The mode switch changes semantic surfaces, text, borders and contrast without exposing arbitrary color controls. Plugin components should use the active template's semantic CSS tokens and inherit the current mode.
+## Source structure
 
+- `base/base.css`: shared structure and neutral primitives.
+- `base/tokens.contract.css`: authoritative 89-token contract.
+- `packages/<id>/tokens.css`: fixed Light/Dark palette values.
+- `packages/<id>/styles.css`: package layout/decoration, not a second palette.
+- Runtime and `core/appearance-modes.css`: lifecycle, registry, mode controls and active-surface synchronization.
 
-## Source package structure
-
-Each first-party template has a package directory under `apps/web/src/app/templates/packages/<template-id>/`:
-
-- `manifest.ts`: package identity, target, version, supported slots and registered Angular layout component.
-- `tokens.css`: fixed semantic palette for that template, scoped by package identity and appearance mode.
-- `components/layout.component.ts`: standalone Angular layout wrapper.
-- `styles.css`: template-specific layout rules.
-- `assets/`: package-owned preview and future images/fonts/illustrations.
-- `README.md`: package contract and ownership.
-
-The shared template core contains the registry/engine and `core/appearance-modes.css`. The shared application still owns page content, navigation and plugin-slot composition; each layout component currently wraps that shared page tree. This keeps behavior and tenant/plugin integration shared while separating the six visual style packages.
-
-Packages are trusted Angular code compiled with the application. The install/uninstall API controls tenant availability of registered packages; it does not download and execute arbitrary JavaScript at runtime.
+The device simulator under `src/assets/device-simulator/**` is a standalone preview asset with an intentionally independent palette, not a seventh template. The legacy backend `/templates/theme` endpoint remains for compatibility; the current client ignores legacy custom-token fields.

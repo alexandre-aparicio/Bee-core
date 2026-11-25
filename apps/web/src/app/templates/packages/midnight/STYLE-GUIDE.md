@@ -26,7 +26,7 @@ The package is registered as:
 
 The package currently contains `manifest.ts`, `tokens.css`, `styles.css`, layout component, pages/components and assets. Its semantic `tokens.css` defines the package palette for Light and Dark and scopes it to the Midnight host and the matching active html surface.
 
-This guide documents the existing palette and defines the intended complete semantic contract. Where a semantic role is not yet represented by a dedicated runtime token, treat it as a documented implementation gap: add it centrally to the Midnight token contract before using it in feature CSS. Do not fill the gap with an arbitrary local color.
+The 89-token contract is complete and authoritative in `templates/base/tokens.contract.css`. Midnight supplies all 89 values in both mode blocks. A genuinely new role must be added centrally and to all six packages in both modes before use.
 
 ## 3. Brand and visual character
 
@@ -72,7 +72,7 @@ The shared dashboard shell in `templates/base/base.css` now owns the `.panel`, `
 
 ### 4.2 Semantic token contract
 
-New feature code MUST consume semantic variables rather than literal colors. The following names are the intended semantic contract. If a variable is not yet supplied by the runtime, add it to the central semantic token contract and document it there before consuming it.
+New feature code MUST consume semantic variables rather than literal colors. The following names are examples from the implemented contract. The complete 89-token reference is in `docs/template-authoring.md` and `templates/base/tokens.contract.css`.
 
 | Semantic role | Intended variable |
 |---|---|
@@ -148,7 +148,7 @@ The Midnight dashboard must prioritize legibility and hierarchy.
 - Avoid excessive negative letter spacing, all-caps paragraphs and long lines.
 - Numeric values in KPI/data contexts should align consistently and remain readable.
 
-Exact type scale should be consolidated into shared typography tokens rather than invented per feature. If no shared token exists for a needed level, document and add it centrally.
+Use existing dashboard typography tokens where applicable. Do not invent per-feature scales; add a genuinely missing semantic role centrally and to all packages only after review.
 
 ## 7. Page layout in Midnight
 
@@ -349,9 +349,9 @@ Before a Midnight page is considered complete, verify:
 ## 19. Known gaps to close in implementation
 
 This guide intentionally distinguishes current code from the desired stable contract. The following should be consolidated centrally as the design-system implementation progresses:
-1. Expand the six existing Midnight tokens into semantic surface, text, border, control, overlay, focus and status tokens.
-2. Replace literal colors in Midnight package surface selectors with semantic tokens.
-3. Establish shared typography, spacing, radius, elevation and motion tokens.
+1. Keep all 89 semantic tokens complete in both Midnight modes.
+2. Preserve canonical Midnight Dark values as the visual reference.
+3. Keep package-specific layout styles separate from shared base structure.
 4. Build or consolidate shared PageLayout/PageHeader/PageSection and common controls where equivalent implementations currently live in feature components.
 5. Audit existing dashboard pages for local hard-coded colors, inconsistent cards/forms/tables and broad CSS selectors.
 6. Add automated or documented visual regression checks for Midnight at mobile/tablet/desktop breakpoints.
@@ -433,7 +433,7 @@ The System Roles tab MUST use the same collection composition as Organization â†
 - Cards and Table show the same filtered members and preserve all existing role assignment, restriction, status and overflow actions. Use Midnight semantic tokens so panels, controls, borders, text and selected states remain correct in Light and Dark.
 
 
-## Semantic token ownership (refactor in progress)
+## Semantic token ownership (current architecture)
 
 The package palette source is `tokens.css`, scoped to the package host and mirrored onto the active html surface:
 
@@ -444,4 +444,4 @@ The package palette source is `tokens.css`, scoped to the package host and mirro
 - Package `styles.css` is reserved for decoration/layout that cannot be expressed through tokens. Do not add palette declarations there or add `!important` overrides.
 - The base contract owns neutral fallback values only. Core appearance code owns mode controls and lifecycle, never a package palette.
 
-The six temporary legacy aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) have been removed from `templates/base/base.css`. Remaining feature consumers, including Organization Company and Teams Workspace, now use semantic `--bee-*` tokens. The client-side custom-palette persistence adapter has been removed; the server's legacy `/templates/theme` API remains unchanged for compatibility.
+The six legacy aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) are absent and must not be reintroduced. Feature consumers use semantic `--bee-*` tokens. The client custom-palette adapter is removed; the server's legacy `/templates/theme` API remains unchanged for compatibility.
