@@ -93,6 +93,11 @@ type PluginRecord = {
                 <div><dt>Access</dt><dd>{{plugin.accessSource || '—'}}</dd></div>
               </dl>
               <div *ngIf="plugin.dependencies?.length"><strong>Dependencies</strong><p>{{plugin.dependencies?.length}} required module(s)</p></div>
+              <div *ngIf="isPlatformAdmin && platformPackageFor(plugin)"><strong>Super Organization</strong><p>{{superOrganizationPluginFor(plugin)?.enabled ? "Enabled" : "Disabled"}} · managed independently from global availability and other tenants.</p></div>
+              <div *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" class="plugin-settings__global-control">
+                <div><strong>Super Organization availability</strong><p>{{superOrganizationPluginFor(plugin)?.enabled ? "This module is enabled for the platform organization only." : "This module is currently disabled for the platform organization. Other tenants are unaffected."}}</p></div>
+                <button type="button" class="plugin-settings__save" (click)="toggleSuperOrganizationActivation(plugin)" [disabled]="superOrganizationActivationBusyId===platformPackageFor(plugin)?.pluginKey">{{superOrganizationActivationBusyId===platformPackageFor(plugin)?.pluginKey ? "Saving…" : (superOrganizationPluginFor(plugin)?.enabled ? "Disable for Super Organization" : "Enable for Super Organization")}}</button>
+              </div>
               <div *ngIf="isPlatformAdmin && platformPackageFor(plugin) as platformPackage" class="plugin-settings__global-control">
                 <div><strong>Global availability</strong><p>{{platformPackage.globallyEnabled === false ? "Suspended for every tenant. Tenant installations and data are preserved." : "Available to tenants according to their own activation and plan."}}</p></div>
                 <button type="button" class="plugin-settings__save" (click)="toggleGlobalActivation(platformPackage)" [disabled]="globalActivationBusyId===platformPackage.pluginKey">{{globalActivationBusyId===platformPackage.pluginKey ? "Saving…" : (platformPackage.globallyEnabled === false ? "Enable globally" : "Disable globally")}}</button>
@@ -118,6 +123,7 @@ type PluginRecord = {
                 <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
+                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleSuperOrganizationActivation(plugin)">{{platformPackageFor(plugin)?.superOrganizationPluginFor(plugin)?.enabled ? "Disable for Super Organization" : "Enable for Super Organization"}}</button>
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                   <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">Install</button>
                   <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">Uninstall</button>
@@ -134,6 +140,7 @@ type PluginRecord = {
               <span>{{plugin.system ? 'System' : 'Extension'}}</span>
               <span class="plugin-settings__status" [class.is-installed]="plugin.installed" [class.bee-status--success]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span>
               <span *ngIf="plugin.packageSource" class="plugin-settings__status">{{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</span>
+               <span *ngIf="isPlatformAdmin && platformPackageFor(plugin)" class="plugin-settings__status">Super Org · {{superOrganizationPluginFor(plugin)?.enabled ? "Enabled" : "Disabled"}}</span>
             </div>
           </article>
         </div>
@@ -146,13 +153,14 @@ type PluginRecord = {
                 <td><button type="button" class="plugin-settings__table-module" (click)="openDetails(plugin)"><span class="plugin-settings__table-icon">{{plugin.system ? '◈' : '▣'}}</span><span><strong>{{plugin.name}}</strong><small>v{{plugin.version}} · {{plugin.description || 'No description'}}</small></span></button></td>
                 <td>{{plugin.system ? 'System' : 'Extension'}}</td>
                 <td>{{plugin.category || 'Uncategorized'}}</td>
-                <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed" [class.bee-status--success]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span><small *ngIf="plugin.packageSource"> {{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</small></td>
+                <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed" [class.bee-status--success]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span><small *ngIf="plugin.packageSource"> {{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</small><small *ngIf="isPlatformAdmin && platformPackageFor(plugin)"> · Super Org {{superOrganizationPluginFor(plugin)?.enabled ? "Enabled" : "Disabled"}}</small></td>
                 <td>
                   <div class="plugin-settings__menu-wrap">
                     <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
                     <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
                   <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
+                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleSuperOrganizationActivation(plugin)">{{platformPackageFor(plugin)?.superOrganizationPluginFor(plugin)?.enabled ? "Disable for Super Organization" : "Enable for Super Organization"}}</button>
                       <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
                       <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" role="menuitem" (click)="install(plugin)" [disabled]="busyId !== ''">Install</button>
                   <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" role="menuitem" (click)="uninstall(plugin)" [disabled]="busyId !== ''">Uninstall</button>
