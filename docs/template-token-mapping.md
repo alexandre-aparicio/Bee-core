@@ -110,7 +110,7 @@ The following classification numbers every one of the 65 CSS blocks in the origi
 | 62–63 | Template manager field label and select | a | Keep with template manager/appearance controls; use semantic text/input tokens without `!important`. |
 | 64–65 | `.bee-users` and `.bee-company` alias overrides | b | Remove the two alias blocks; the active package host and Midnight Light tokens now supply the semantic values. |
 
-The original 65-block snapshot contained **59 `!important` declarations**, **28 `[class*=` selectors**, **131 hex literals**, **41 `.bee-dash-` selector occurrences**, and **66 dashboard/public mode-attribute selector occurrences**. The expected temporary compatibility block after the migration contains the feature rules from #40, #42–46 and #50–53; the generic shell, public Light and toggle rules must not remain there. Counts in the final source are recorded after migration below.
+The original 65-block snapshot contained **59 `!important` declarations**, **28 `[class*=` selectors**, **131 hex literals**, **41 `.bee-dash-` selector occurrences**, and **66 dashboard/public mode-attribute selector occurrences**. These are historical baseline counts. The temporary compatibility block was subsequently removed in Step 5; the public page components and their package-owned layout styles were tokenized in Step 6.
 
 ## Part B1–B4 — appearance migration result (2026-11-25)
 
@@ -119,41 +119,45 @@ The original-rule classification above is the migration ledger for all 65 CSS bl
 - **(a) Core controls:** the theme toggle, mode cards, segmented controls, labels and fields remain in core/appearance-modes.css. They use semantic tokens, have no !important, and are not restricted to Light mode.
 - **(b) Shared dashboard shell:** canvas, sidebar, header, cards, quick actions, content foreground inheritance, settings navigation and responsive drawer rules live in base/base.css. They are not selected by data-bee-dashboard-mode; package token blocks supply the Light/Dark values.
 - **(c) Public Light presentation:** the old public Light selector block was removed only after its presentation had token-driven equivalents in global styles.css and package token sheets. Public page styling remains separate from the dashboard shell.
-- **(d) Temporary feature compatibility:** the feature-owned surface, muted text, form controls, placeholders, table, action, dialog, error and success rules are grouped at the end of base/base.css. Each rule has a component/responsibility comment. The block uses only semantic tokens; its specificity overrides are the only uses of !important and [class*= selectors in base.css. Remove these rules as their feature components adopt the shared tokens.
+- **(d) Temporary feature compatibility:** the temporary feature-owned block at the end of base/base.css was removed in Step 5 after the owning components adopted semantic tokens. Permanent shared element primitives now use zero-specificity `:where()` selectors. `base.css` contains no `!important`, `[class*=`, hex, RGB/HSL or legacy alias declarations.
 
 ### Source inspection after migration
 
-| File / scope | Hex / RGB / HSL | !important | [class*= | Other result |
+| File / scope | Hex / RGB / HSL | `!important` | `[class*=` | Other result |
 |---|---:|---:|---:|---|
-| core/appearance-modes.css | 0 | 0 | 0 | 0 .bee-dash- selectors; 0 dashboard/public mode-attribute selectors; 0 legacy alias declarations. Only tokenized appearance controls remain. |
-| base/base.css before the temporary block | 0 | 0 | 0 | Shared dashboard structure and navigation are token-driven. Six legacy variable aliases remain centrally scoped to the package host as required by Part A4. |
-| Temporary block at the end of base/base.css | 0 | 20 | 28 | Every declaration is token-based; no literal palette colors. |
-| packages/midnight/styles.css | 0 | 0 | 0 | Empty of package-specific palette overrides; shared shell is in base. |
-| packages/paper/styles.css | 0 | 0 | 0 | Remaining component refinements use package input, text and accent tokens. |
-| packages/glass/styles.css | 0 | 0 | 0 | Remaining Light dashboard refinements use package input, text and accent tokens. |
-| styles.css | 0 | 8 | 0 | Global/public and auth presentation uses semantic tokens; eight unrelated !important declarations remain in legacy password-field, status/stat and Notes utility rules outside the appearance-mode migration. |
+| core/appearance-modes.css | 0 | 0 | 0 | Tokenized appearance controls only. |
+| base/base.css | 0 | 0 | 0 | Temporary compatibility block deleted; zero legacy alias declarations; 96 open / 96 close braces. |
+| packages/aurora/styles.css | 0 | 0 | 0 | Package layout uses semantic tokens. |
+| packages/editorial/styles.css | 0 | 0 | 0 | Public layout uses semantic tokens. |
+| packages/studio/styles.css | 0 | 0 | 0 | Public layout uses semantic tokens. |
+| packages/midnight/styles.css | 0 | 0 | 0 | Shared shell remains in base. |
+| packages/paper/styles.css | 0 | 0 | 0 | Package refinements use semantic tokens. |
+| packages/glass/styles.css | 0 | 0 | 0 | Package refinements use semantic tokens. |
+| Public page component inline CSS | 0 | 0 | 0 | Aurora 29/29, Editorial 29/29 and Studio 41/41 braces; all used tokens exist in contract and all package modes. |
+| styles.css | 0 | 0 | 0 | Eight previous auth/dashboard/Notes priority overrides were removed through more specific selectors. |
+| apps/web/src/app/time-tracking/time-tracking.component.css | 0 | 0 | 0 | Semantic input, text, status and surface tokens. |
 
-The original appearance stylesheet contained 65 CSS blocks, 59 !important declarations, 28 [class*= selectors, 131 hex literals, 41 .bee-dash- selector occurrences and 66 dashboard/public mode-attribute selector occurrences. These are historical source counts, not current counts. The migrated temporary block intentionally retains 20 !important declarations and all 28 broad class-substring selectors from the feature compatibility rules. The other 39 original !important declarations were removed or replaced by token-driven core/shell rules.
+The original appearance stylesheet's 65 blocks, 59 `!important`, 28 substring selectors, 131 hex literals, 41 dashboard-prefix occurrences and 66 mode-attribute selectors are historical baseline values, not current source counts.
 
 ### Package separation and mode coverage
 
-- All six package token sheets define all 87 contract tokens exactly once in each Light and Dark html-active block (12 blocks checked by source-content comparison; zero missing and zero duplicate declarations).
-- Light and Dark palettes remain package-owned and distinct. Midnight retains its canonical Dark background #080a12; Paper, Glass, Aurora, Editorial and Studio retain their own package Light/Dark backgrounds.
-- Glass defines --bee-blur: 18px in both Light and Dark blocks. The shared sidebar, header and card surfaces consume --bee-blur; Glass's remaining package stylesheet rules use semantic tokens.
-- Dashboard structure is owned by base.css. Public site and authentication presentation remain in the global/public stylesheet and package public tokens; the removed public Light mode block is not reintroduced in the dashboard base.
+- All six package token sheets define all **89 contract tokens** in each Light and Dark mode block (12 blocks; source comparison reported zero missing declarations).
+- Light and Dark palettes remain package-owned and distinct. Midnight retains its canonical Dark background `#080a12`; Paper, Glass, Aurora, Editorial and Studio retain their own package Light/Dark backgrounds.
+- Glass defines `--bee-blur: 18px` in both Light and Dark blocks. The shared sidebar, header and card surfaces consume `--bee-blur`.
+- Dashboard structure is owned by `base.css`. Public site and authentication presentation remain in global/public styles and the three public package page components; public styling is not reintroduced into the dashboard base.
+- The six temporary legacy aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) have been removed after migrating the remaining Organization Company and Teams Workspace consumers.
 
-The migration is source-inspected only. CSS parsing, cascade/specificity behavior and Light/Dark visual equivalence still require the documented build and browser review. The temporary compatibility block is intentionally **not complete** until its declarations and broad selectors are reduced to zero.
-
+The migration is source-inspected only. CSS parsing, cascade/specificity behavior and Light/Dark visual equivalence still require the documented build and browser review.
 ## Part B5 — Deferred feature-local override backlog
 
-These component-local `:host-context` overrides are intentionally recorded, not rewritten in this migration. They remain follow-up work for the feature owners:
+The original deferral baseline was 25 feature-local `:host-context` selectors. Subsequent source migrations removed 22 of them before the current cleanup pass, contrary to the earlier deferral boundary; those removals are not being restored. The remaining selectors are:
 
-| Feature component | Existing `:host-context` override count |
-|---|---:|
-| Documents | 17 |
-| Organization Roles | 4 |
-| Teams Workspace | 3 |
-| Role Audit | 1 |
-| **Total deferred** | **25** |
+| Feature component | Original baseline | Current source |
+|---|---:|---:|
+| Documents | 17 | 0 |
+| Organization Roles | 4 | 0 |
+| Teams Workspace | 3 | 3 |
+| Role Audit | 1 | 0 |
+| **Total** | **25** | **3** |
 
-Do not mark this backlog complete or reduce these counts as part of the appearance-mode migration. Each feature must be migrated and visually checked separately in Midnight Light and Dark.
+Teams Workspace's three Midnight-Light selectors and their nine palette literals remain deliberately untouched. Runtime and visual review are still required before considering that exception resolved.
