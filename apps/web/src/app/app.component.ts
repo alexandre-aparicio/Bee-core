@@ -446,10 +446,9 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
     const nextSection = entry?.[0] || 'dashboard';
-    this.activeSection = (nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)) || (nextSection === 'documents' && !this.isPluginEnabled('documents')) || (nextSection === 'connected-devices' && !this.isPluginEnabled('connected-devices'))
-      ? 'dashboard'
-      : nextSection;
-    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : '');
+    const pluginId = this.pluginFrontends.getPluginIdForSection(nextSection, this.activePlugins);
+    this.activeSection = (nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)) || (pluginId && !this.isPluginEnabled(pluginId)) ? 'dashboard' : nextSection;
+    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : this.pluginFrontends.getParentMenuId(this.activeSection, this.activePlugins) ?? '');
   }
   get pluginDetailsId(): string { const match = this.path.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/); return match ? decodeURIComponent(match[1]) : ''; }
   get platformTenantId(): string {
