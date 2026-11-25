@@ -244,3 +244,77 @@ test("permanent retirement hides a replaced package while preserving tenant data
     await client.close();
   }
 });
+
+
+test("Connected Devices retires only the bundled fallback and preserves ZIP, tenant installs and device data", { skip: !mongoUri }, async () => {
+  const client = new MongoClient(mongoUri!);
+  await client.connect();
+  const db = client.db("bee_connected_devices_zip_only_" + Date.now());
+  const now = new Date();
+  try {
+    await ensurePlatformPluginRegistry(db);
+    await db.collection("tenant_plugin_installations").insertOne({
+      tenantId: "super-org",
+      pluginId: "connected-devices",
+      version: "0.1.0",
+      status: "installed"
+    });
+    await db.collection("plugin_catalog").insertOne({
+      id: "connected-devices",
+      name: "Connected Devices",
+      version: "0.1.0",
+      status: "published",
+      codeAvailable: true
+    });
+    await db.collection("connected_devices").insertOne({
+      id: "legacy-device",
+      tenantId: "tenant-legacy",
+      name: "Keep scanner",
+      status: "active",
+      credentialHash: "a".repeat(64)
+    });
+    await db.collection("connected_device_pairing_challenges").insertOne({
+      id: "legacy-challenge",
+      tenantId: "tenant-legacy",
+      status: "issued",
+      tokenHash: "b".repeat(64),
+      expiresAt: new Date(now.getTime() + 60_000)
+    });
+
+    assert.equal(await migrateLegacyPlatformPackageInstalls(db, "super-org"), 1);
+    await retireBundledPlatformPackage(db, "connected-devices", false);
+
+    const bundled = await db.collection("platform_plugin_packages").findOne({ pluginId: "connected-devices" });
+    assert.equal(bundled?.source, "bundled");
+    assert.equal(bundled?.status, "deprecated");
+    assert.equal(await migrateLegacyPlatformPackageInstalls(db, "super-org"), 0, "retired fallback must not be recreated at startup");
+    assert.equal((await listPlatformPluginPackages(db)).some(item => item.pluginId === "connected-devices"), false);
+    const catalog = await db.collection("plugin_catalog").findOne({ id: "connected-devices" });
+    assert.equal(catalog?.status, "deprecated");
+    assert.equal(catalog?.codeAvailable, false);
+
+    assert.equal(await db.collection("tenant_plugin_installations").countDocuments({ tenantId: "super-org", pluginId: "connected-devices" }), 1);
+    assert.ok(await db.collection("connected_devices").findOne({ tenantId: "tenant-legacy", id: "legacy-device" }));
+    assert.ok(await db.collection("connected_device_pairing_challenges").findOne({ tenantId: "tenant-legacy", id: "legacy-challenge" }));
+
+    await db.collection("platform_plugin_packages").updateOne(
+      { pluginId: "connected-devices" },
+      { $set: { source: "zip", status: "installed", runtimeState: "loaded", version: "0.1.0", updatedAt: new Date() } }
+    );
+    await db.collection("plugin_catalog").updateOne(
+      { id: "connected-devices" },
+      { $set: { status: "published", codeAvailable: true, updatedAt: new Date() } }
+    );
+    await retireBundledPlatformPackage(db, "connected-devices", false);
+    const signedZip = await db.collection("platform_plugin_packages").findOne({ pluginId: "connected-devices" });
+    assert.equal(signedZip?.source, "zip");
+    assert.equal(signedZip?.status, "installed");
+    assert.equal(signedZip?.runtimeState, "loaded");
+    const publishedCatalog = await db.collection("plugin_catalog").findOne({ id: "connected-devices" });
+    assert.equal(publishedCatalog?.status, "published");
+    assert.equal(publishedCatalog?.codeAvailable, true);
+  } finally {
+    await db.dropDatabase();
+    await client.close();
+  }
+});
