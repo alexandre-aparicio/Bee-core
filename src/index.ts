@@ -339,13 +339,12 @@ async function bootstrap(): Promise<void> {
       await platformPackages.updateOne({ pluginId, status: "installed" }, { $set: { runtimeState: "failed", runtimeError: message.slice(0, 500), updatedAt: new Date() } });
       logger.error("Plugin runtime lifecycle: startup mount failed", { pluginId, version: plugin.manifest.version, error: message });
       const fallback = builtinFallbacks.get(pluginId);
-      if (fallback && !builtinFallbackIds.has(pluginId)) {
+      if (fallback) {
         try {
           const fallbackPlugin = { ...fallback, manifest: { ...fallback.manifest, apiPrefixes: [...(plugin.manifest.apiPrefixes ?? [])] } };
           if (!dynamicPluginRuntime) throw new Error("Dynamic plugin runtime has not been initialized");
           await dynamicPluginRuntime.mount(fallbackPlugin);
           replaceRuntimePlugin(fallbackPlugin);
-          builtinFallbackIds.add(pluginId);
           logger.warn("Plugin runtime lifecycle: built-in implementation mounted as fallback", { pluginId });
         } catch (fallbackError) {
           logger.error("Plugin runtime lifecycle: built-in fallback mount also failed", { pluginId, error: fallbackError });
