@@ -1096,3 +1096,17 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - UI uses semantic theme tokens, Midnight Light overrides, inherited Midnight Dark behavior, responsive stacked metric cards/tables, per-table search and activity filters. Existing role authorization and role editor API contracts are preserved.
 - **CI validation passed (run 45466287794, commit cda2a86015067885e7239f1362c7e39581da5da7):** Angular dependency installation, production build and Playwright test discovery passed; API dependency installation, TypeScript build and test suite passed (95 passed, 20 skipped, 0 failed). The skipped tests are environment-dependent; MongoDB-backed integration coverage was not exercised without a configured test database.
 - **Still pending:** actual browser E2E (Playwright discovery is not execution), keyboard/accessibility interaction checks, responsive visual QA, Midnight Light/Dark screenshots and live MongoDB role-assignment/audit scenarios. No VPS deployment has been performed.
+
+
+## Connected Devices audit and cross-tenant route regression — 2026-11-25
+
+- Added tenant audit action types for Connected Devices pairing, approval, suspend/activate, unlink/delete/revoke/rename, credential rotation and membership-driven revocation.
+- Connected Devices dashboard routes now append successful lifecycle events and actor-tenant-only denial events when a device or pairing challenge is not found inside the active tenant.
+- Membership-driven device revocation from both pairing-status checks and capability checks appends a system-actor tenant audit event.
+- Added a route-level regression using a device owned by a different tenant. It exercises approve, suspend, activate, unlink, delete, revoke, rename and pairing cancellation; asserts 404 responses, no mutation of the foreign device and denial events written only to the requesting tenant.
+- Added a second route regression backed by a real MongoDB database and `ConnectedDevicesRepository`. It attempts the same eight operations against a foreign tenant's device/pairing challenge, verifies 404 responses, confirms the foreign records remain unchanged, and confirms all eight denial events exist only in the requesting tenant's audit collection.
+- **CI validation passed:** GitHub Actions run [45582869039](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45582869039) on commit `fca8e14782b2ffae94f0edfe2df813cfd8210010` passed backend build/tests (**120 passed, 0 failed, 0 skipped**) and Angular production build/test discovery. The new Mongo-backed test executed successfully. Playwright discovery is not browser E2E execution.
+- **Known limitation:** the route audit helper logs and continues if an append fails. This remains best-effort audit delivery rather than an atomic transaction between the business mutation and audit insert.
+
+
+- **CI validation passed:** GitHub Actions run [45576331382](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45576331382) on commit `2591c6ee350d357badfa3f99285b96ebb64d54bb` completed backend build/tests and Angular production build/test discovery successfully. Backend reported **119 passed, 0 failed, 0 skipped**. Angular test discovery is not browser E2E execution, and this run did not include a production dependency audit.

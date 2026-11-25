@@ -76,3 +76,15 @@ The following evidence must come from successful CI runs on the exact PR head:
 - Gitleaks scan of the full Git history and working tree.
 
 A CI pass proves only the scripted cases. It does not prove real TLS, secret-management practices, off-site backups, successful disaster recovery or resistance to an independent penetration test.
+
+
+## Connected Devices audit coverage proposal — 2026-11-25
+
+The current security branch adds tenant-scoped append events for Connected Devices lifecycle operations and denial events for cross-tenant/missing device or pairing references. Its route regression asserts that a foreign tenant's device is not mutated and that denial records are written only to the actor's active tenant.
+
+The branch now includes both a controlled route/repository regression and a MongoDB-backed route regression using the real `ConnectedDevicesRepository`. The MongoDB test exercises approve, suspend, activate, unlink, delete, revoke, rename and pairing cancellation against foreign tenant records; it verifies no foreign mutation and that denial events are appended only to the actor's tenant. It still does not cover every Connected Devices route or every asynchronous device path.
+
+Route-level audit append failures are currently logged and swallowed, so business changes and audit writes are not atomic. Do not treat this as complete audit coverage until that failure mode is resolved and a full route review is recorded.
+
+
+**CI evidence:** run [45582869039](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45582869039) on commit `fca8e14782b2ffae94f0edfe2df813cfd8210010` passed backend build/tests (**120 passed, 0 failed, 0 skipped**) and Angular build/test discovery. The MongoDB-backed cross-tenant route test executed successfully. This does not establish exhaustive audit coverage or atomic audit delivery.
