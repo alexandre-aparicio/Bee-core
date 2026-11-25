@@ -1,9 +1,9 @@
 import type { PluginPlan, PluginPackageDefinition } from "../core/plugin-entitlements.js";
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: null, storageMb: 10240 }
+  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents"], visiblePluginIds: ["files", "documents"], maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents"], visiblePluginIds: ["files", "documents"], maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents"], visiblePluginIds: ["files", "documents"], maxUsers: null, storageMb: 10240 }
 ];
 
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
@@ -30,16 +30,6 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
       { key: "documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
     ], codeAvailable: true, status: "published"
   },
-  {
-    id: "connected-devices", name: "Connected Devices", version: "0.1.0",
-    description: "Secure tenant-scoped device pairing, capability grants and revocation",
-    category: "platform", visibleInPlans: ["starter", "pro", "enterprise"],
-    includedInPlans: ["starter", "pro", "enterprise"], purchasable: false, system: false,
-    dependencies: [], activationPolicy: "manual", permissions: [
-      { key: "connected-devices.read", module: "connected-devices", resource: "devices", action: "read", label: "View connected devices", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
-      { key: "connected-devices.manage", module: "connected-devices", resource: "devices", action: "manage", label: "Manage connected devices", defaultGrants: { owner: true, admin: true, manager: false, member: false } }
-    ], codeAvailable: true, status: "published"
-  },
 
 ];
 
@@ -48,5 +38,6 @@ export const MIGRATABLE_BUILT_IN_PACKAGE_IDS = new Set(["connected-devices", "ti
 export const RETIRED_PACKAGE_POLICIES = [
   { id: "hello-world", retireSignedZip: false },
   { id: "time-tracking", retireSignedZip: false },
-  { id: "notes", retireSignedZip: true }
+  { id: "notes", retireSignedZip: true },
+  { id: "connected-devices", retireSignedZip: false }
 ] as const;
