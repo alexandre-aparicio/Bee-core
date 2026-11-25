@@ -19,8 +19,8 @@ Scope: `apps/web` template palettes, shared dashboard styles and feature CSS. No
 |---|---|---|
 | Six package palettes | Done by source comparison | 89 contract tokens compared against both mode blocks in all six packages; zero missing/duplicate in the source comparison after adding the QR contrast tokens. |
 | F2 missing control tokens | Done by source search | Replaced `--bee-control-bg` / `--bee-control-border` in time tracking with existing `--bee-input-bg` / `--bee-input-border`; updated Midnight STYLE-GUIDE. No new tokens required. |
-| F3 used-token checker | Implemented; NOT verified | Checker now scans `src/**/*.{css,ts,html}`, excluding contract/package token sheets, and reports every `var(--bee-*)` use absent from the contract. Re-read line by line. Script NOT executed. |
-| Package token checker | NOT verified | Existing package/mode coverage checker remains unexecuted. |
+| F3 used-token checker | Implemented; source-reviewed, NOT executed | Scans `src/**/*.{css,ts,html}` outside contract/package token sheets and reports every used `var(--bee-*)` absent from the contract. |
+| Package token checker | Implemented; source-reviewed, NOT executed | Validates manifest id/target/default mode, missing manifests as warnings, unique contract declarations, exactly one token block per declared mode, complete token coverage, and rejects duplicate or undeclared tokens/modes. Script NOT executed. |
 
 ## Step 3 — Active surface synchronization
 
@@ -67,7 +67,7 @@ Explicit transition paths from source review:
 
 | Item | Status | Scope |
 |---|---|---|
-| Package token and manifest checker | Implemented; source-reviewed, NOT executed | `check-template-tokens.mjs` scans CSS/TS/HTML token usages against the contract, checks every declared package mode, excludes `shared`, reports non-shared directories without `manifest.ts` as warnings, and exits 1 for errors. Six current package directories contain manifests by tree inventory. |
+| Package token and manifest checker | Implemented; source-reviewed, NOT executed | `check-template-tokens.mjs` scans CSS/TS/HTML token usages against the contract; validates manifest id/target/default mode, unique contract declarations, one block per declared mode, complete token coverage, and rejects duplicate/undeclared tokens or modes. It excludes `shared`, reports missing manifests as warnings, and exits 1 for errors. Six current package directories contain manifests by tree inventory. |
 | Stylelint and CI policy | Implemented in source; NOT executed | Added `stylelint.config.mjs`; `lint:styles` pins `stylelint@18.1.0` via `npx` and covers standalone `src/app/**/*.css`, `src/assets/**/*.css` and `src/styles.css`. Inline Angular CSS remains source-audited, not parsed by Stylelint. Device-simulator's local standalone palette is intentionally independent of the six app templates; its forced-priority utility was removed. CI runs token/manifest checks, style audit, Stylelint, production build and Playwright discovery; web Node is pinned to 22.22.2. Stylelint is not in package-lock; npm/CI NOT executed. |
 
 ## Step 8 — Cleanup and documentation
