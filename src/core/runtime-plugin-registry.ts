@@ -12,3 +12,14 @@ export function registerRuntimePlugin(plugin: BeePlugin): void {
 export function getRuntimePlugin(pluginId: string): BeePlugin | undefined {
   return runtimePlugins.get(pluginId);
 }
+
+export function replaceRuntimePlugin(plugin: BeePlugin): void {
+  const id = plugin.manifest?.name;
+  if (!id) throw new Error("Runtime plugin requires a stable manifest name");
+  runtimePlugins.set(id, plugin);
+}
+
+export function unregisterRuntimePlugin(pluginId: string): void {
+  const existing = [...runtimePlugins.keys()].find(id => id.toLowerCase() === pluginId.toLowerCase());
+  if (existing) runtimePlugins.delete(existing);
+}
