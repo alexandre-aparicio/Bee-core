@@ -9,7 +9,7 @@ type RealtimeTicket = { userId:string; tenantId:string; sessionId:string; ip:str
 type SocketClient = { socket:any; userId:string; tenantId:string; sessionId:string; release:()=>void };
 const safeRoute=(value:unknown)=>typeof value==="string"&&/^\/(?!\/)[^\\\s]*$/.test(value)&&!/%5c/i.test(value)?value:"";
 export const notificationsPlugin:BeePlugin={
- manifest:{name:"notifications",version:"0.1.0",description:"Tenant-safe notifications and realtime WebSocket delivery",dependencies:["auth"]},
+ manifest:{ requiredServices: ["mongo","session-resource-ids"],name:"notifications",version:"0.1.0",description:"Tenant-safe notifications and realtime WebSocket delivery",dependencies:["auth"]},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const collection:Collection<NotificationRecord>=db.collection("notifications");
