@@ -20,21 +20,21 @@ type ActivityRecord = { id:string; actor:string; target:string; action:string; s
     <div><span class="role-audit__eyebrow">ACCESS GOVERNANCE</span><h3>Role Audit</h3><p>Review permission exposure, policy overlaps and the history of access changes in this organization.</p></div>
     <button type="button" class="role-audit__refresh" (click)="load()" [disabled]="loading">↻ <span>Refresh</span></button>
    </header>
-   <div class="role-audit__error" *ngIf="error" role="alert">{{error}}</div>
+   <div class="role-audit__error bee-status--danger" *ngIf="error" role="alert">{{error}}</div>
    <div class="role-audit__metrics">
-    <article><span class="role-audit__metric-icon is-danger">⌁</span><div><strong>{{conflicts.length}}</strong><small>Policy reviews</small></div><em>Grant / restriction overlaps</em></article>
-    <article><span class="role-audit__metric-icon is-warning">◇</span><div><strong>{{sensitive.length}}</strong><small>Sensitive permissions</small></div><em>{{sensitiveUserCount}} users with access</em></article>
+    <article><span class="role-audit__metric-icon is-danger bee-status--danger">⌁</span><div><strong>{{conflicts.length}}</strong><small>Policy reviews</small></div><em>Grant / restriction overlaps</em></article>
+    <article><span class="role-audit__metric-icon is-warning bee-status--warning">◇</span><div><strong>{{sensitive.length}}</strong><small>Sensitive permissions</small></div><em>{{sensitiveUserCount}} users with access</em></article>
     <article><span class="role-audit__metric-icon is-accent">↗</span><div><strong>{{activity.length}}</strong><small>Recent access events</small></div><em>Latest {{events.length}} audit records checked</em></article>
    </div>
 
    <section class="role-audit__section">
-    <header class="role-audit__section-heading"><div><span class="role-audit__index">01 / POLICY</span><h4>Permission Conflicts</h4><p>Explicit overlaps between granted permissions and assigned restriction roles, plus unusually broad custom grant profiles.</p></div><span class="role-audit__count" [class.is-warning]="conflicts.length">{{conflicts.length}} reviews</span></header>
+    <header class="role-audit__section-heading"><div><span class="role-audit__index">01 / POLICY</span><h4>Permission Conflicts</h4><p>Explicit overlaps between granted permissions and assigned restriction roles, plus unusually broad custom grant profiles.</p></div><span class="role-audit__count" [class.is-warning]="conflicts.length" [class.bee-status--warning]="conflicts.length">{{conflicts.length}} reviews</span></header>
     <div class="role-audit__toolbar"><label class="role-audit__search"><span>⌕</span><input [(ngModel)]="conflictSearch" placeholder="Search member, role or permission…" aria-label="Search permission conflicts"></label><span class="role-audit__hint">Detected from current assignments</span></div>
     <div class="role-audit__table-wrap" *ngIf="filteredConflicts.length; else noConflicts">
      <table><thead><tr><th>Member / Role</th><th>Permission</th><th>Grant source</th><th>Restriction</th><th>Finding</th></tr></thead>
       <tbody><tr *ngFor="let item of filteredConflicts">
        <td><strong>{{item.member}}</strong></td><td><code>{{item.permission}}</code></td><td>{{item.grantRole}}</td><td>{{item.restrictionRole}}</td>
-       <td><span class="role-audit__status" [class.is-warning]="item.kind==='broad'">{{item.kind==='overlap'?'Explicit overlap':'Broad grant set'}}</span></td>
+       <td><span class="role-audit__status" [class.is-warning]="item.kind==='broad'" [class.bee-status--warning]="item.kind==='broad'">{{item.kind==='overlap'?'Explicit overlap':'Broad grant set'}}</span></td>
       </tr></tbody>
      </table>
     </div>
@@ -43,12 +43,12 @@ type ActivityRecord = { id:string; actor:string; target:string; action:string; s
    </section>
 
    <section class="role-audit__section">
-    <header class="role-audit__section-heading"><div><span class="role-audit__index">02 / EXPOSURE</span><h4>Sensitive Permissions</h4><p>People who currently receive sensitive permissions, including the role path that grants access.</p></div><span class="role-audit__count is-warning">{{sensitiveUserCount}} users</span></header>
+    <header class="role-audit__section-heading"><div><span class="role-audit__index">02 / EXPOSURE</span><h4>Sensitive Permissions</h4><p>People who currently receive sensitive permissions, including the role path that grants access.</p></div><span class="role-audit__count is-warning bee-status--warning">{{sensitiveUserCount}} users</span></header>
     <div class="role-audit__toolbar"><label class="role-audit__search"><span>⌕</span><input [(ngModel)]="sensitiveSearch" placeholder="Search permission or user…" aria-label="Search sensitive permissions"></label><span class="role-audit__hint">Effective access after restrictions</span></div>
     <div class="role-audit__table-wrap" *ngIf="filteredSensitive.length; else noSensitive">
      <table><thead><tr><th>Permission</th><th>Users with access</th><th>Granted through</th><th>Exposure</th></tr></thead>
       <tbody><tr *ngFor="let item of filteredSensitive">
-       <td><strong>{{item.label}}</strong><code>{{item.key}}</code></td><td><span class="role-audit__people">{{item.users.join(', ')}}</span></td><td>{{item.roles.join(', ')}}</td><td><span class="role-audit__status is-warning">Sensitive</span></td>
+       <td><strong>{{item.label}}</strong><code>{{item.key}}</code></td><td><span class="role-audit__people">{{item.users.join(', ')}}</span></td><td>{{item.roles.join(', ')}}</td><td><span class="role-audit__status is-warning bee-status--warning">Sensitive</span></td>
       </tr></tbody>
      </table>
     </div>
@@ -64,7 +64,7 @@ type ActivityRecord = { id:string; actor:string; target:string; action:string; s
     <div class="role-audit__table-wrap" *ngIf="filteredActivity.length; else noActivity">
      <table><thead><tr><th>Performed by</th><th>Target</th><th>Activity</th><th>Change details</th><th>Date</th></tr></thead>
       <tbody><tr *ngFor="let item of filteredActivity">
-       <td><strong>{{item.actor}}</strong></td><td>{{item.target}}</td><td><span class="role-audit__event" [class.is-denied]="item.outcome==='denied'">{{item.action}}</span></td><td class="role-audit__summary">{{item.summary}}</td><td class="role-audit__date">{{item.occurredAt | date:'medium'}}</td>
+       <td><strong>{{item.actor}}</strong></td><td>{{item.target}}</td><td><span class="role-audit__event" [class.is-denied]="item.outcome==='denied'" [class.bee-status--danger]="item.outcome==='denied'">{{item.action}}</span></td><td class="role-audit__summary">{{item.summary}}</td><td class="role-audit__date">{{item.occurredAt | date:'medium'}}</td>
       </tr></tbody>
      </table>
     </div>
