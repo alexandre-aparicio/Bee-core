@@ -522,6 +522,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   pluginIdsForSection(sectionId:string):string[] { const pluginId=this.pluginFrontends.pluginForSection(sectionId); return pluginId && this.isPluginEnabled(pluginId) ? [pluginId] : []; }
+  isNavigationItemActive(item:{id:string;children?:Array<{id:string}>}):boolean { return this.activeSection===item.id || Boolean(item.children?.some(child=>child.id===this.activeSection)); }
   navigateSection(id: string): void {
     const targetId = id === 'settings' ? (this.settingsNavigationItems.some(item => item.id === 'settings-general') ? 'settings-general' : this.settingsNavigationItems[0]?.id) : id === 'organization' ? 'organization-company' : id;
     if (!targetId) return;
