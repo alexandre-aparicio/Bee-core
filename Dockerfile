@@ -12,7 +12,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build --chown=node:node /app/dist ./dist
-COPY --chown=node:node scripts/cleanup-documents-test-data.mjs ./scripts/cleanup-documents-test-data.mjs
+COPY --chown=node:node scripts/cleanup-documents-test-data.mjs scripts/migrate-documents-files-to-owned-storage.mjs ./scripts/
 RUN mkdir -p /data/bee-files /data/bee-documents /data/bee-plugins && chown -R node:node /data
 USER node
 EXPOSE 3000
