@@ -4,7 +4,6 @@ import { createDocumentsHandlers } from "./documents.handlers.js";
 /** Thin module controller: mounts the endpoint handlers on the shared API runtime. */
 export function registerDocumentsRoutes(ctx:any,deps:any):void {
  const handlers=createDocumentsHandlers(deps);
- ctx.server.post(documentsRoutes.upload,handlers.uploadFile);
  ctx.server.get(documentsRoutes.shareTargets,handlers.shareTargets);
  ctx.server.get(documentsRoutes.folderShares,handlers.folderSharesGet);
  ctx.server.put(documentsRoutes.folderShares,handlers.folderSharesPut);
