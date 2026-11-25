@@ -14,6 +14,23 @@ const PACKAGES = [
   { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], requiredServices: [], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } }
 ];
 
+const PACKAGE_PERMISSIONS = {
+  "connected-devices": [
+    { key: "connected-devices.devices.read", module: "connected-devices", resource: "devices", action: "read", label: "View connected devices", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+    { key: "connected-devices.devices.manage", module: "connected-devices", resource: "devices", action: "manage", label: "Manage connected devices", defaultGrants: { owner: true, admin: true, manager: false, member: false } }
+  ],
+  "time-tracking": [
+    { key: "time-tracking.records.read", module: "time-tracking", resource: "records", action: "read", label: "View time records", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+    { key: "time-tracking.clock.create", module: "time-tracking", resource: "clock", action: "create", label: "Register working time", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+    { key: "time-tracking.records.manage", module: "time-tracking", resource: "records", action: "manage", label: "Manage time records", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
+  ],
+  documents: [
+    { key: "documents.documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+    { key: "documents.documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
+  ],
+  "hello-world": []
+};
+
 function crc32(buffer) {
   let crc = 0xffffffff;
   for (const byte of buffer) {
@@ -139,7 +156,7 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
       dependencies: definition.dependencies.map(pluginId => ({ pluginId, versionRange: "*" })),
       requiredServices: definition.requiredServices ?? [],
       tenantDependencies: definition.tenantDependencies,
-      permissions: [], backend: { entrypoint: wrapperPath }, frontend: definition.frontend ?? { routes: [] },
+      permissions: PACKAGE_PERMISSIONS[definition.id] ?? [], backend: { entrypoint: wrapperPath }, frontend: definition.frontend ?? { routes: [] },
       collections: [], migrations: definition.migrations ?? [], settingsSchema: { type: "object", properties: {} },
       package: { sha256: "", signature: "", storageKey: "packages/" + definition.id + "/" + definition.version }
     };
