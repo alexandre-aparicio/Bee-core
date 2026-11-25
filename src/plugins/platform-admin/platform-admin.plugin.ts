@@ -547,10 +547,10 @@ export const platformAdminPlugin:BeePlugin={
    const currentEnabled=!!installation&&installation.status==="installed"&&installation.enabled!==false;
    if(req.body.enabled===currentEnabled)return {success:true,tenantId:mask(req.platformSession!,company.id,"tenant"),pluginId:mask(req.platformSession!,plugin.id,"plugin"),installed:true,enabled:currentEnabled,unchanged:true};
    if(!req.body.enabled){
-    const dependents=TRUSTED_PLUGIN_PACKAGES.filter(candidate=>candidate.dependencies.includes(plugin.id));
-    for(const dependent of dependents){
-     const activeDependent=await installations.findOne({tenantId:company.id,pluginId:dependent.id,status:"installed",enabled:{$ne:false}});
-     if(activeDependent)return reply.code(409).send({error:"Cannot deactivate this plugin while the dependent plugin is enabled: "+dependent.name});
+    const activeInstallations=await installations.find({tenantId:company.id,status:"installed",enabled:{$ne:false},pluginId:{$ne:plugin.id}}).project<{pluginId:string}>({pluginId:1,_id:0}).toArray();
+    for(const active of activeInstallations){
+     const dependent=await getPlatformPluginDefinition(String(active.pluginId));
+     if(dependent?.dependencies.includes(plugin.id))return reply.code(409).send({error:"Cannot deactivate this plugin while the dependent plugin is enabled: "+dependent.name});
     }
     if(installation?.status==="installed"){
      const now=new Date();
