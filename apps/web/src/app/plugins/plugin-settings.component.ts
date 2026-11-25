@@ -436,6 +436,7 @@ export class PluginSettingsComponent implements OnInit {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not change Super Organization module availability');
       await this.load();
+      window.dispatchEvent(new CustomEvent('bee:plugins-changed'));
       this.message = plugin.name + (enabled ? ' enabled for Super Organization.' : ' disabled for Super Organization. Other tenants and their data were not changed.');
     } catch (error) { this.packageError = error instanceof Error ? error.message : 'Could not change Super Organization module availability'; }
     finally { this.superOrganizationActivationBusyId = ''; }
@@ -463,6 +464,7 @@ export class PluginSettingsComponent implements OnInit {
       plugin.globallyEnabled = enabled;
       this.message = plugin.name + (enabled ? " is available globally again." : " has been suspended globally. Tenant data and activation settings were preserved.");
       if (this.detail) this.detail = { ...this.detail, globallyEnabled: enabled };
+      window.dispatchEvent(new CustomEvent('bee:plugins-changed'));
     } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not change global plugin availability"; }
     finally { this.globalActivationBusyId = ""; }
   }
@@ -657,6 +659,7 @@ export class PluginSettingsComponent implements OnInit {
       const action = method === "POST" ? "install" : "uninstall";
       if (result.jobId) await this.waitForJob(String(result.jobId), plugin, action);
       await this.load();
+      window.dispatchEvent(new CustomEvent('bee:plugins-changed'));
       this.message = method === "POST"
         ? plugin.name + " installed successfully."
         : plugin.name + " uninstalled. Company data is preserved.";
