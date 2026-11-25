@@ -73,7 +73,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /clock-out/);
         assert.doesNotThrow(() => new Script(script), "the standalone Time Tracking frontend must be valid JavaScript");
       } else if (item.id === "documents") {
-        assert.equal(installed.manifest.version, "0.1.1", "Documents must publish the manual-activation package version");
+        assert.equal(installed.manifest.version, "0.1.2", "Documents must publish the decoupled manual-activation package version");
         assert.equal(installed.manifest.activationPolicy, "manual", "Documents must follow the same opt-in tenant activation policy as Hello Mundo");
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/public/documents"]);
@@ -114,17 +114,23 @@ test("four first-party modules build as independently signed ZIP packages", { sk
 
 
 
-test("Hello Mundo is not registered or advertised as a bundled plugin", async () => {
+test("Hello Mundo and Documents are not registered or advertised as bundled plugins", async () => {
   const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
   const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
   const registrySource = await readFile(join(process.cwd(), "src/core/platform-plugin-registry.ts"), "utf8");
   const platformAdminSource = await readFile(join(process.cwd(), "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
+  const pluginManagerSource = await readFile(join(process.cwd(), "src/core/plugin-manager.ts"), "utf8");
+  const frontendRegistrySource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
 
   assert.doesNotMatch(runtimeSource, /import\s*\{\s*helloWorldPlugin\s*\}/);
   assert.doesNotMatch(runtimeSource, /plugins\.register\(helloWorldPlugin\)/);
   assert.match(runtimeSource, /loadSignedZipPlugins\(\)/, "Hello Mundo remains loadable through the signed ZIP runtime");
   assert.doesNotMatch(entitlementSource, /hello-world/, "Hello Mundo must not be seeded as a built-in catalog item or included in built-in plans");
+  assert.doesNotMatch(runtimeSource, /documentsPlugin|documentsStoragePath/, "Documents backend and storage configuration must not be statically registered in Core");
+  assert.doesNotMatch(pluginManagerSource, /documentsStoragePath|documents:\s*\[/, "Core must not contain a Documents-specific configuration allowlist");
+  assert.doesNotMatch(frontendRegistrySource, /BeeDocumentsComponent|\["documents"/, "Documents must not be registered as a bundled Angular frontend");
   assert.match(registrySource, /retireBundledPlatformPackage/, "legacy bundled records must be retired");
   assert.match(registrySource, /status:\s*"deprecated"/, "retired package records must be hidden from active listings");
-  assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"hello-world"\)/, "platform startup must retire the old bundled record");
+  assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"hello-world"\)/, "platform startup must retire the old bundled Hello Mundo record");
+  assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"documents"\)/, "platform startup must retire the old bundled Documents record");
 });
