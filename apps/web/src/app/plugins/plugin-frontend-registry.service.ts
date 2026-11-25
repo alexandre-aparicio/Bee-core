@@ -8,7 +8,7 @@ export type BeePluginFrontendContext = {
   section: string;
 };
 
-export type BeePluginNavigationChild = { id: string; label: string; labelEs: string; route: string };
+export type BeePluginNavigationChild = { id: string; label: string; labelEs: string; route: string; visibleRoles?: string[]; labelsByRole?: Record<string,{en:string;es:string}> };
 export type BeePluginNavigation = {
   id: string;
   label: string;
@@ -82,11 +82,11 @@ export class BeePluginFrontendRegistry {
     return navigation?.children?.[0]?.id ?? navigation?.id;
   }
 
-  labelForSection(sectionId: string, language: "en" | "es"): string | undefined {
+  labelForSection(sectionId: string, language: "en" | "es", role = ""): string | undefined {
     for (const item of this.registrations.values()) {
       if (item.navigation.id === sectionId) return language === "es" ? item.navigation.labelEs : item.navigation.label;
       const child = item.navigation.children?.find(entry => entry.id === sectionId);
-      if (child) return language === "es" ? child.labelEs : child.label;
+      if (child) return child.labelsByRole?.[role]?.[language] ?? (language === "es" ? child.labelEs : child.label);
     }
     return undefined;
   }
