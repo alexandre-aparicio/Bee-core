@@ -4,6 +4,7 @@ import { TenantCollection } from "./tenant-collection.js";
 import type { TenantPluginMigration } from "./plugin-migrations.js";
 import { hasTenantPermission, type TenantContext } from "./tenant-context.js";
 import { enqueuePluginInstallJob, enqueuePluginUpdateJob, ensurePluginInstallJobIndexes } from "./plugin-install-jobs.js";
+import type { BeePluginPermission } from "./plugin-package.js";
 
 export type PluginPlan = Document & {
   id: string;
@@ -26,6 +27,7 @@ export type PluginPackageDefinition = Document & {
   system: boolean;
   dependencies: string[];
   activationPolicy?: "automatic" | "manual";
+  permissions?: BeePluginPermission[];
   migrations?: TenantPluginMigration[];
   codeAvailable: boolean;
   status: "published" | "draft" | "deprecated";
@@ -93,14 +95,20 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     id: "documents", name: "Documents", version: "0.1.0",
     description: "Shared document library with folder-level team access and controlled public delivery",
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"], includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false, system: true, dependencies: ["files"], activationPolicy: "automatic", codeAvailable: true, status: "published"
+    purchasable: false, system: true, dependencies: ["files"], activationPolicy: "automatic", permissions: [
+      { key: "documents.documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+      { key: "documents.documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
+    ], codeAvailable: true, status: "published"
   },
   {
     id: "connected-devices", name: "Connected Devices", version: "0.1.0",
     description: "Secure tenant-scoped device pairing, capability grants and revocation",
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"],
     includedInPlans: ["starter", "pro", "enterprise"], purchasable: false, system: false,
-    dependencies: [], activationPolicy: "manual", codeAvailable: true, status: "published"
+    dependencies: [], activationPolicy: "manual", permissions: [
+      { key: "connected-devices.devices.read", module: "connected-devices", resource: "devices", action: "read", label: "View connected devices", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+      { key: "connected-devices.devices.manage", module: "connected-devices", resource: "devices", action: "manage", label: "Manage connected devices", defaultGrants: { owner: true, admin: true, manager: false, member: false } }
+    ], codeAvailable: true, status: "published"
   },
 
 ];
