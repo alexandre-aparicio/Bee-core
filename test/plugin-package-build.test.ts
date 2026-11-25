@@ -121,6 +121,7 @@ test("Hello Mundo and Documents are not registered or advertised as bundled plug
   const platformAdminSource = await readFile(join(process.cwd(), "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
   const pluginManagerSource = await readFile(join(process.cwd(), "src/core/plugin-manager.ts"), "utf8");
   const frontendRegistrySource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
+  const appComponentSource = await readFile(join(process.cwd(), "apps/web/src/app/app.component.ts"), "utf8");
 
   assert.doesNotMatch(runtimeSource, /import\s*\{\s*helloWorldPlugin\s*\}/);
   assert.doesNotMatch(runtimeSource, /plugins\.register\(helloWorldPlugin\)/);
@@ -129,6 +130,7 @@ test("Hello Mundo and Documents are not registered or advertised as bundled plug
   assert.doesNotMatch(runtimeSource, /documentsPlugin|documentsStoragePath/, "Documents backend and storage configuration must not be statically registered in Core");
   assert.doesNotMatch(pluginManagerSource, /documentsStoragePath|documents:\s*\[/, "Core must not contain a Documents-specific configuration allowlist");
   assert.doesNotMatch(frontendRegistrySource, /BeeDocumentsComponent|\["documents"/, "Documents must not be registered as a bundled Angular frontend");
+  assert.doesNotMatch(appComponentSource, /documents/i, "the Angular shell must discover Documents through signed plugin routes, not hardcoded module wiring");
   assert.match(registrySource, /retireBundledPlatformPackage/, "legacy bundled records must be retired");
   assert.match(registrySource, /status:\s*"deprecated"/, "retired package records must be hidden from active listings");
   assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"hello-world"\)/, "platform startup must retire the old bundled Hello Mundo record");
