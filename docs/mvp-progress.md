@@ -94,6 +94,7 @@ Explicit transition paths from source review:
 | Messages Inbox | 14 hex / 14 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Thirteen used tokens have no missing contract/package-mode declarations; inline style braces: 59 / 59. | Replaced hard-coded gradients, translucent surfaces and warning/online states with semantic token color-mix and package tokens; generic overrides exclude `.mi *`. |
 | Template Manager | 13 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Five used tokens have no missing contract/package-mode declarations; inline style braces: 39 / 39. | Replaced legacy aliases; component is isolated under `.settings-workspace *`. |
 | Notification Center | 12 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Six used tokens have no missing contract/package-mode declarations; inline style braces: 20 / 20. | Replaced legacy palette fallbacks and shadow literal; error message carries explicit danger status class. It renders in the dashboard header, outside the temporary content overrides. |
+| Platform Roles | 11 hex / 17 RGB-HSL / 11 important / 0 palette host-context → 0 / 0 / 0 / 0. Nine used tokens have no missing contract/package-mode declarations; inline style braces: 69 / 69. | Replaced translucent palette literals and strengthened component selectors to remove important flags; generic compatibility rules exclude `.platform-roles *`. Error/success messages carry semantic status classes. |
 
 ## Current source audit metrics
 
