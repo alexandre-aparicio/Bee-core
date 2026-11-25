@@ -278,7 +278,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
     .sort({ name: 1 })
     .toArray();
   return catalog
-    .filter(plugin => packagesById.has(plugin.id) || plugin.codeAvailable === true)
+    .filter(plugin => TRUSTED_PLUGIN_PACKAGES.some(definition => definition.id === plugin.id) || plugin.codeAvailable === true)
     .map(plugin => {
       const planEntitled = effectivePlan.includedPluginIds.includes(plugin.id) || planAssignedIds.has(plugin.id);
       const purchased = purchasedIds.has(plugin.id);
@@ -342,7 +342,7 @@ export function requireInstalledPlugin(db: Db, pluginId: string) {
 }
 
 export function getTrustedPluginPackage(pluginId: string): PluginPackageDefinition | undefined {
-  return packagesById.get(pluginId);
+  return TRUSTED_PLUGIN_PACKAGES.find(plugin => plugin.id === pluginId);
 }
 
 export function getBuiltInPlan(planId: string): PluginPlan | undefined {
