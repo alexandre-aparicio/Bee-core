@@ -1,10 +1,10 @@
 import type { BeePlugin } from "../../core/types.js";
 import { type Collection, type Db } from "mongodb";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext, type TenantContext } from "../../core/tenant-context.js";
+import { COMPANY_ROLE_PERMISSIONS, resolveTenantContext, activeTenantPluginPermissionSources, type TenantContext } from "../../core/tenant-context.js";
 import { getTenantUserLimit } from "../../core/plugin-entitlements.js";
 import { normalizeCustomRoleName, normalizeTenantCustomRolePermissions, normalizeRestrictionPermissions, type CustomRolePolicy } from "../../core/role-policy.js";
-import { CORE_PERMISSION_CATALOG } from "../../core/permission-catalog.js";
+import { CORE_PERMISSION_CATALOG, composePermissionCatalog } from "../../core/permission-catalog.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, AUDIT_ACTIONS, type TenantAuditEvent } from "../../core/audit-log.js";
 import { normalizeTenantSlug, slugifyTenantName, tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, maskTenantId, unmaskResourceId, unmaskTenantId } from "../../core/session-id.js";
@@ -47,9 +47,12 @@ export const organizationsPlugin:BeePlugin={
   const invitations:Collection<Invitation>=db.collection("company_invitations");
   const customRoles:Collection<CustomRolePolicy>=db.collection("company_roles");
   const permissionPolicies=db.collection<{id:string;tenantAssignablePermissions:string[]}>("platform_permission_policies");
-  const getTenantAssignablePermissions=async():Promise<string[]>=>{
+  const getTenantPermissionCatalog=async(tenantId:string)=>composePermissionCatalog(await activeTenantPluginPermissionSources(db,tenantId));
+  const getTenantAssignablePermissions=async(tenantId:string):Promise<string[]>=>{
    const policy=await permissionPolicies.findOne({id:"global"},{projection:{tenantAssignablePermissions:1}});
-   return policy?.tenantAssignablePermissions??CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key);
+   const base=policy?.tenantAssignablePermissions??CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key);
+   const pluginPermissions=(await activeTenantPluginPermissionSources(db,tenantId)).flatMap(source=>(source.permissions??[]).map(permission=>permission.key));
+   return [...new Set([...base,...pluginPermissions])].sort();
   };
   // Backfill stable public subdomain slugs for tenants created before host routing existed.
   const usedTenantSlugs=new Set<string>();
@@ -155,14 +158,14 @@ export const organizationsPlugin:BeePlugin={
    const roleLabels:Record<string,string>={super_admin:"Super Admin",owner:"Owner",admin:"Admin",manager:"Manager",member:"Member",guest:"Guest"};
    const roleDescriptions:Record<string,string>={super_admin:"Protected global platform authority; cannot be restricted or delegated.",owner:"Full administration of this organization; protected against accidental lockout.",admin:"Delegated organization administration.",manager:"Operational management without ownership privileges.",member:"Standard organization access.",guest:"Minimal read-only access; default access is limited to viewing plugins."};
    const systemRoles=roleKeys.map(key=>({key,label:roleLabels[key],protected:key==="super_admin"||key==="owner",description:roleDescriptions[key],permissions:COMPANY_ROLE_PERMISSIONS[key]}));
-   return {roles:rows.map(({id,name,description,permissions,mode,createdAt,updatedAt})=>({id:mask(auth,id,"role"),name,description,permissions,mode:mode??"grant",createdAt,updatedAt})),systemRoles,permissionCatalog:CORE_PERMISSION_CATALOG,tenantAssignablePermissions:await getTenantAssignablePermissions()};
+   return {roles:rows.map(({id,name,description,permissions,mode,createdAt,updatedAt})=>({id:mask(auth,id,"role"),name,description,permissions,mode:mode??"grant",createdAt,updatedAt})),systemRoles,permissionCatalog:await getTenantPermissionCatalog(auth.tenantContext.tenantId),tenantAssignablePermissions:await getTenantAssignablePermissions(auth.tenantContext.tenantId)};
   });
   ctx.server.post<{Params:{companyId:string};Body:{name?:string;description?:string;permissions?:unknown;mode?:"grant"|"restriction"}}>("/companies/:companyId/roles",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
    const actor=await ownerOnly(auth,req.params.companyId,reply);if(!actor)return;
    let name:string,permissions:string[];
    const mode=req.body?.mode==="restriction"?"restriction":"grant";
-   try{name=normalizeCustomRoleName(req.body?.name);permissions=mode==="restriction"?normalizeRestrictionPermissions(req.body?.permissions):normalizeTenantCustomRolePermissions(req.body?.permissions,await getTenantAssignablePermissions());}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
+   try{name=normalizeCustomRoleName(req.body?.name);permissions=mode==="restriction"?normalizeRestrictionPermissions(req.body?.permissions):normalizeTenantCustomRolePermissions(req.body?.permissions,await getTenantAssignablePermissions(auth.tenantContext.tenantId));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid custom role"});}
    const description=String(req.body?.description??"").trim().slice(0,240);
    const now=new Date(),role:CustomRolePolicy={id:randomUUID(),tenantId:req.params.companyId,name,description,permissions,mode,createdBy:auth.user!.id,updatedBy:auth.user!.id,createdAt:now,updatedAt:now};
    try{await customRoles.insertOne(role);}catch{return reply.code(409).send({error:"A custom role with this name already exists"});}
