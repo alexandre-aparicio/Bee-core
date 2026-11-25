@@ -46,6 +46,8 @@
   --bee-input-bg: #ffffff;
   --bee-input-border: #cbd2dc;
   --bee-input-placeholder: #788291;
+  --bee-qr-dark: #111111;
+  --bee-qr-light: #ffffff;
   --bee-public-hero-grid-opacity: .35;
   --bee-public-preview-sidebar-background: var(--bee-surface-subtle);
   --bee-public-feature-card-background: var(--bee-surface);

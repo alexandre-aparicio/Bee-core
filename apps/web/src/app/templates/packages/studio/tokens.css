@@ -88,6 +88,8 @@ html[data-bee-active-template="studio"][data-bee-active-mode="light"] {
   --bee-input-bg: #fffaf2;
   --bee-input-border: #ded5c8;
   --bee-input-placeholder: #756e65;
+  --bee-qr-dark: #111111;
+  --bee-qr-light: #ffffff;
 
 }
 
@@ -181,5 +183,7 @@ html[data-bee-active-template="studio"][data-bee-active-mode="dark"] {
   --bee-input-bg: #302721;
   --bee-input-border: #59483c;
   --bee-input-placeholder: #c0aa98;
+  --bee-qr-dark: #111111;
+  --bee-qr-light: #ffffff;
 
 }
