@@ -495,13 +495,8 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
     this.expandedMenuId = menuId;
-    const defaults: Record<string, string> = {
-      settings: 'settings-general',
-      notifications: 'notifications',
-      organization: 'organization-company',
-      'time-tracking': 'time-tracking-day'
-    };
-    const target = defaults[menuId];
+    const defaults: Record<string, string> = { settings: 'settings-general', notifications: 'notifications', organization: 'organization-company' };
+    const target = defaults[menuId] ?? this.pluginFrontends.getDefaultSection(menuId, this.activePlugins);
     if (!target) return;
     if (menuId === 'settings' && !this.settingsNavigationItems.some(item => item.id === target)) {
       const firstAvailable = this.settingsNavigationItems[0];
@@ -535,9 +530,8 @@ export class AppComponent implements OnInit, OnDestroy {
     const targetId = id === 'settings' ? (this.settingsNavigationItems.some(item => item.id === 'settings-general') ? 'settings-general' : this.settingsNavigationItems[0]?.id) : id === 'organization' ? 'organization-company' : id;
     if (!targetId) return;
     if (targetId.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === targetId)) return;
-    if (targetId === 'documents' && !this.isPluginEnabled('documents')) { this.navigateSection('dashboard'); return; }
-    if (targetId === 'connected-devices' && !this.isPluginEnabled('connected-devices')) { this.navigateSection('dashboard'); return; }
-    if (targetId === 'time-tracking' && !this.isPluginEnabled('time-tracking')) { this.navigateSection('dashboard'); return; }
+    const pluginId = this.pluginFrontends.getPluginIdForSection(targetId, this.activePlugins);
+    if (pluginId && !this.isPluginEnabled(pluginId)) { this.navigateSection('dashboard'); return; }
     const route = this.sectionRoutes[targetId];
     if (!route) return;
     const targetPath = route.split('?')[0];
@@ -545,7 +539,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.path = targetPath;
     this.templates.syncActiveSurface();
     this.activeSection = targetId;
-    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : targetId.startsWith('time-tracking-') ? 'time-tracking' : '');
+    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : this.pluginFrontends.getParentMenuId(targetId, this.activePlugins) ?? '');
     this.menuOpen = false;
   }
 
