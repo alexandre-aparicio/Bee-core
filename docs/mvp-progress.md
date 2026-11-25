@@ -51,7 +51,7 @@ Explicit transition paths from source review:
 
 | Item | Status | Source evidence / remaining work |
 |---|---|---|
-| Temporary compatibility block | Pending | Current source count: 20 `!important` and 23 `[class*=` selectors after removing Company Members, Plugin Settings and Settings Workspace selectors. This block is still pending. Delete only as owning components are migrated. |
+| Temporary compatibility block | Pending | Current source count: 20 `!important` and 22 `[class*=` selectors after removing Company Members, Plugin Settings, Settings Workspace and Marketplace selectors. This block is still pending. Delete only as owning components are migrated. |
 | Component migration | Pending | Required order: Platform Admin, Company Members, Organization Roles, Role Audit, Plugin Settings, Settings Workspace, Marketplace, Audit Log, Documents, then remaining non-public feature components. |
 | Generic element rules | Pending | Graduate tokenized input/table/text/dialog/button rules into zero-specificity `:where(.bee-dash-content)` styles only after their hard-coded component owners are migrated. |
 | Deferred `:host-context` | Pending / intentionally deferred | Documents 17, Organization Roles 4, Teams Workspace 3, Role Audit 1 (25 total); do not rewrite in this pass. |
@@ -85,13 +85,14 @@ Explicit transition paths from source review:
 | Role Audit | 22 hex / 2 RGB-HSL / 5 important / 1 palette host-context → 0 / 0 / 0 / 0. Nine used semantic tokens have no missing contract or package-mode declarations; inline style braces: 60 open / 60 close. | Generic compatibility rules now exclude `.role-audit *`; error, warning and denied states carry explicit semantic status classes. |
 | Plugin Settings | 65 hex / 1 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Twelve used semantic tokens have no missing contract or package-mode declarations; inline style braces: 121 open / 121 close. | Removed its `[class*="plugin-settings"]` compatibility selector, excluded `.plugin-settings *` from remaining generic overrides, and added explicit danger/success/warning status classes. |
 | Settings Workspace | 19 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Six used semantic tokens have no missing contract or package-mode declarations; inline style braces: 63 open / 63 close. | Removed `[class*="settings-page"]` and `[class*="settings-workspace"]`; generic overrides now exclude `.settings-workspace *`. Language error/success messages carry explicit semantic status classes. |
+| Marketplace | 0 hex / 0 RGB-HSL / 0 important / 0 palette host-context before and after; global owner styles in `styles.css` already use semantic tokens. | Removed `[class*="marketplace"]`; generic compatibility selectors now exclude `.bee-marketplace *`. Added explicit danger/success status classes to error and installed states. |
 
 ## Current source audit metrics
 
 | Scope | Metric | Result |
 |---|---|---:|
 | `base.css` temporary compatibility block | `!important` | 20 (previously reviewed) |
-| `base.css` temporary compatibility block | `[class*=` | 23 after five selector removals (Company Members ×2; Plugin Settings ×1; Settings Workspace ×2) |
+| `base.css` temporary compatibility block | `[class*=` | 22 after six selector removals (Company Members ×2; Plugin Settings ×1; Settings Workspace ×2; Marketplace ×1) |
 | `core/appearance-modes.css` | palette literals / `!important` / `[class*=` | 0 / 0 / 0 (previously reviewed) |
 | Package styles | hex in Midnight / Paper / Glass | 0 / 0 / 0 (previously reviewed) |
 | Deferred feature overrides | `:host-context` | 25 total (task baseline) |
