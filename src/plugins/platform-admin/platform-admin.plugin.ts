@@ -293,6 +293,8 @@ export const platformAdminPlugin:BeePlugin={
      publisherPublicKey:String(ctx.config.pluginPublisherPublicKey??""),
      runtimeVersion:ctx.version,
      validateManifest:async manifest=>{
+      const hostFrontendContract=1;
+      if((manifest.frontendContract??1)!==hostFrontendContract)throw new Error("Plugin update required: this package targets frontend contract "+String(manifest.frontendContract)+" but this Bee Core host supports "+hostFrontendContract+".");
       const existing=await packages.findOne({pluginId:manifest.id});
       if(existing&&existing.source!=="zip"&&!MIGRATABLE_BUILTIN_PLUGIN_IDS.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
       if(existing?.version){
