@@ -29,6 +29,16 @@ Scope: `apps/web` template palettes, shared dashboard styles and feature CSS. No
 | Route transition audit | Source-reviewed | Public Home/Hello World links use client-side `pushState`; sign-in links are full page loads. Auth success/invitation/MFA use `location.assign('/dashboard')`. Dashboard logout/session failure use `location.assign/replace('/login')`. Dashboard brand returns to public via full-load `href="/"`. Auth shell links to Home/Login/Forgot use full-load anchors. |
 | Client navigation synchronization | Implemented; NOT runtime verified | Added `BeeTemplateEngine.syncActiveSurface()`; called after `navigatePublicPath`, `navigatePlatformManage`, `navigateSection` and `popstate`. Full-load transitions reinitialize through normal Angular startup. |
 
+Explicit transition paths from source review:
+- Public `/` and `/hello-world`: package Home/Hello World anchors call `navigatePublicPath` and use client-side `history.pushState`.
+- Public → auth: `/login` anchors (Sign in / Open dashboard) are ordinary anchors; full page load.
+- Auth → public: auth-shell Home links to `/`; full page load. Auth → auth: Login and Forgot links are ordinary anchors; full page load.
+- Auth → dashboard: successful sign-in, invitation acceptance and MFA completion call `location.assign('/dashboard')`; full page load.
+- Dashboard → auth: logout uses `location.assign('/login')`; refresh/session validation failure uses `location.replace('/login')`; full page load.
+- Dashboard → public: shared dashboard brand anchor uses `href="/"`; full page load.
+- Dashboard internal section/deep-link changes and Platform Admin tenant management use `history.pushState`; client-side. Browser back/forward uses `popstate` and now re-syncs the active html surface.
+
+
 ## Step 4 — Appearance-mode and package structure
 
 | Item | Status | Source evidence / remaining work |
@@ -64,6 +74,13 @@ Scope: `apps/web` template palettes, shared dashboard styles and feature CSS. No
 | Item | Status | Scope |
 |---|---|---|
 | Cleanup beyond this progress record | Not started | Explicitly out of scope until instructed. |
+
+## Step 5 — source batches completed
+
+| Component / owner | Before → after | Compatibility selectors removed |
+|---|---|---|
+| Platform Admin / Platform Company | Component TS: 0 hex, 0 RGB/HSL, 0 important, 0 palette host-context before and after. Existing global owner styles in styles.css already use semantic tokens (verified by source search). | Removed 5 explicit platform-admin/platform-company targets from action, modal-backdrop, error and success compatibility selectors. Shared substring selectors remain because they still serve other owners. |
+| Company Members | 0 hex, 0 RGB/HSL, 0 important, 0 palette host-context; 85 legacy alias var() references → 0. Replaced with --bee-* tokens. | Removed 2 broad class-substring selectors ([class*="company-members"], [class*="invitation"]); the latter owned the invitation list. Shared toolbar/detail/empty selectors remain pending other owners. |
 
 ## Current source audit metrics
 
