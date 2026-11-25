@@ -25,3 +25,4 @@
 | Midnight Dark visual equivalence | NOT verified | Screenshots and token behavior are not pixel comparison to the pre-refactor baseline. |
 | First paint before Angular boots | NOT verified | Neutral fallback is source-defined; no pre-Angular capture asserted. |
 | Human visual pass: Midnight Dark/Light, Paper, Glass | NOT verified | Required local visual review remains outstanding. |
+| Integration branch merge | Done | Dedicated branch `integration/template-refactor-into-main`; merge commit `8dd87e8` (first parent `main` `699f6d2`, second parent refactor `262eeab`). Preserved tenant activation, global package controls, manual grants, and install/uninstall lifecycle actions. Final CI #45639462591 at `daafd12`: Angular production build, backend build, 118/118 backend tests (0 skipped), 31/31 browser tests, style/token/extensibility checks; 42 screenshots artifact `15033522665`. `main` and `feature/documents-full-decoupling` were not modified. |
