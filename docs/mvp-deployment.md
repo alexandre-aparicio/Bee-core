@@ -83,6 +83,7 @@ The API health endpoint is available internally at `http://bee-core:3000/health`
 
 - MongoDB data: Docker volume `bee_core_mongodb_data`
 - Private file data: Docker volume `bee_core_files`
+- Uploaded trusted plugin packages: Docker volume `bee_core_plugins`
 
 List volumes:
 
@@ -92,34 +93,81 @@ docker volume ls | grep bee_core
 
 ## Backup
 
-Create a compressed logical backup using the official MongoDB Database Tools image. Run it on the private Compose network so MongoDB remains unpublished on the host:
+Load the protected deployment environment before using the database credentials:
 
 ```bash
+set -a
+. ./.env
+set +a
 mkdir -p backups
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
+mongodb_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)
+network=$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
 docker run --rm --network "$network" -v "$PWD/backups:/backup" \
   mongodb/mongodb-database-tools:100.12.2 \
-  mongodump --uri="mongodb://mongodb:27017/bee_core" \
+  mongodump --host mongodb:27017 \
+  --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" \
+  --authenticationDatabase admin --db "$MONGODB_DB" \
   --archive="/backup/bee_core-$(date +%F).archive" --gzip
 ```
 
-Copy backups off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery.
+Back up both persistent application volumes as well. The package volume contains uploaded trusted plugin packages; it is not replaceable by a MongoDB dump:
+
+```bash
+backend_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q bee-core)
+files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+plugins_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-plugins"}}{{.Name}}{{end}}{{end}}')
+test -n "$files_volume" && test -n "$plugins_volume"
+docker run --rm -v "$files_volume:/source:ro" -v "$PWD/backups:/backup" ubuntu:22.04 \
+  tar -czf "/backup/bee_core_files-$(date +%F).tar.gz" -C /source .
+docker run --rm -v "$plugins_volume:/source:ro" -v "$PWD/backups:/backup" ubuntu:22.04 \
+  tar -czf "/backup/bee_core_plugins-$(date +%F).tar.gz" -C /source .
+```
+
+Copy all three backup artifacts off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery. Keep the encryption keys needed for MFA, mail credentials and publisher verification backed up separately and securely.
 
 ## Restore drill
 
-Restore into a separate database first; never overwrite the live database during a drill:
+Restore MongoDB into a separate database first; never overwrite the live database during a drill:
 
 ```bash
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
+set -a
+. ./.env
+set +a
+mongodb_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q mongodb)
+network=$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
 docker run --rm --network "$network" -v "$PWD/backups:/backup" \
   mongodb/mongodb-database-tools:100.12.2 \
-  mongorestore --uri="mongodb://mongodb:27017/bee_core_restore" \
-  --archive="/backup/bee_core-YYYY-MM-DD.archive" --gzip \
-  --nsInclude='bee_core.*' --nsFrom='bee_core.*' --nsTo='bee_core_restore.*'
+  mongorestore --host mongodb:27017 \
+  --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" \
+  --authenticationDatabase admin --archive="/backup/bee_core-YYYY-MM-DD.archive" --gzip \
+  --nsInclude="$MONGODB_DB.*" --nsFrom="$MONGODB_DB.*" --nsTo="${MONGODB_DB}_restore.*"
 ```
 
-Verify application-critical collections and records in the restored database before considering the drill successful. The CI workflow exercises a sentinel-record round-trip; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
+Restore the file and plugin volumes into temporary volumes and compare their contents before any recovery cutover:
 
+```bash
+backend_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q bee-core)
+files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+plugins_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-plugins"}}{{.Name}}{{end}}{{end}}')
+docker volume create bee_core_files_restore >/dev/null
+docker volume create bee_core_plugins_restore >/dev/null
+docker run --rm -v bee_core_files_restore:/target -v "$PWD/backups:/backup:ro" ubuntu:22.04 \
+  tar -xzf /backup/bee_core_files-YYYY-MM-DD.tar.gz -C /target
+docker run --rm -v bee_core_plugins_restore:/target -v "$PWD/backups:/backup:ro" ubuntu:22.04 \
+  tar -xzf /backup/bee_core_plugins-YYYY-MM-DD.tar.gz -C /target
+docker run --rm -v "$files_volume:/source:ro" -v bee_core_files_restore:/restored:ro ubuntu:22.04 diff -r /source /restored
+docker run --rm -v "$plugins_volume:/source:ro" -v bee_core_plugins_restore:/restored:ro ubuntu:22.04 diff -r /source /restored
+docker volume rm bee_core_files_restore bee_core_plugins_restore
+```
+
+Verify application-critical collections and records in the restored database before considering the drill successful. The CI workflow exercises MongoDB, private-file and plugin-volume round-trips; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
+
+## Automated Compose acceptance
+
+The **Bee-Core production Compose profile** GitHub Actions workflow validates the exact production overlay on pull requests and pushes affecting Docker, runtime or frontend sources. It generates isolated credentials, checks that only the web service publishes a host port, builds and starts a clean stack, checks the web/API proxy, verifies login and refresh-cookie rotation across service restarts, and exercises authenticated MongoDB plus private-file/plugin-volume backup and restore round-trips.
+
+A successful workflow is evidence for those scripted CI cases only. It does not configure the VPS reverse proxy, TLS, firewall, secret manager, off-site backup schedule or production monitoring.
+ 
 ## Update
 
 ```bash
@@ -135,7 +183,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 - [ ] Keep Bee-Core web on a dedicated unused host port (default 3011), not 80/443
 - [ ] Use a strong generated JWT secret and unique bootstrap credentials
 - [ ] Keep `.env` out of Git and restrict its permissions (`chmod 600 .env`)
-- [ ] Configure encrypted, off-site backups and test restores
+- [ ] Configure encrypted, off-site backups for MongoDB, private files and plugin packages; test restores
+- [ ] Require a successful production Compose acceptance workflow on the release commit
 - [ ] Configure VPS monitoring, disk alerts and container log rotation
 - [ ] Review `docs/tenant-data-isolation.md` limitations and all plugin routes
 - [ ] Complete rate limiting, password reset, MFA, audit-route coverage, tenant-isolation review and vulnerability scanning before public production
