@@ -285,7 +285,7 @@ export const platformAdminPlugin:BeePlugin={
       const migratableBuiltIns=new Set(["connected-devices","time-tracking","documents","hello-world"]);
       if(existing&&existing.source!=="zip"&&!migratableBuiltIns.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
       if(existing?.version&&existing.version!==manifest.version){
-       const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
+       const current=existing.version.split(/[+-]/,1)[0]!.split(".").map(Number);
        const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const isUpgrade=incoming[0]!>current[0]!||(incoming[0]===current[0]&&incoming[1]!>current[1]!)||(incoming[0]===current[0]&&incoming[1]===current[1]&&incoming[2]!>current[2]!);
        if(!isUpgrade)throw new Error("Package version must be newer than the currently installed version");
