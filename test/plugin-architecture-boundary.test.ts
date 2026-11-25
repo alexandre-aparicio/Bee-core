@@ -9,6 +9,7 @@ const hostFiles = [
   "apps/web/src/app/app.component.ts",
   "apps/web/src/app/templates/packages/shared/dashboard-page.component.ts",
   "apps/web/src/app/plugins/plugin-frontend-registry.service.ts",
+  "apps/web/src/app/plugins/plugin-outlet.component.ts",
   "apps/web/src/app/i18n/catalogs/core.catalog.ts"
 ];
 
