@@ -1,5 +1,8 @@
 .bee-template-package-host[data-bee-template="glass"][data-bee-dashboard-mode="light"],
 html[data-bee-active-template="glass"][data-bee-active-mode="light"] {
+  --bee-public-hero-grid-opacity: .55;
+  --bee-public-preview-sidebar-background: var(--bee-surface-subtle);
+  --bee-public-feature-card-background: var(--bee-surface);
   color-scheme: light;
   --bee-dashboard-font-family: Inter, system-ui;
   --bee-dashboard-font-size: 14px;
@@ -90,6 +93,9 @@ html[data-bee-active-template="glass"][data-bee-active-mode="light"] {
 
 .bee-template-package-host[data-bee-template="glass"][data-bee-dashboard-mode="dark"],
 html[data-bee-active-template="glass"][data-bee-active-mode="dark"] {
+  --bee-public-hero-grid-opacity: .35;
+  --bee-public-preview-sidebar-background: var(--bee-surface-subtle);
+  --bee-public-feature-card-background: var(--bee-surface);
   color-scheme: dark;
   --bee-dashboard-font-family: Inter, system-ui;
   --bee-dashboard-font-size: 14px;
