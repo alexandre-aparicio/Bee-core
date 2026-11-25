@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, sign } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, sign, verify as verifySignature } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { deflateRawSync } from "node:zlib";
@@ -88,9 +88,24 @@ function exportName(id) {
   return { "connected-devices": "connectedDevicesPlugin", "time-tracking": "timeTrackingPlugin", documents: "documentsPlugin", "hello-world": "helloWorldPlugin" }[id];
 }
 
-export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, distDir = DIST, runtimeVersion = RUNTIME_VERSION }) {
+export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputDir = OUTPUT, distDir = DIST, runtimeVersion = RUNTIME_VERSION }) {
   if (!privateKeyPem?.trim()) throw new Error("BEE_PLUGIN_PUBLISHER_PRIVATE_KEY is required to sign release packages.");
-  const privateKey = createPrivateKey(privateKeyPem.replace(/\\n/g, "\n"));
+  if (!publicKeyPem?.trim()) throw new Error("BEE_PLUGIN_PUBLISHER_PUBLIC_KEY is required to verify release packages.");
+  let privateKey, publicKey;
+  try {
+    privateKey = createPrivateKey(privateKeyPem.replace(/\\n/g, "\n"));
+    publicKey = createPublicKey(publicKeyPem.replace(/\\n/g, "\n"));
+  } catch {
+    throw new Error("The configured plugin publisher key pair is invalid.");
+  }
+  if (privateKey.asymmetricKeyType !== "ed25519" || publicKey.asymmetricKeyType !== "ed25519") {
+    throw new Error("Plugin publisher keys must both use Ed25519.");
+  }
+  const derivedPublicKey = createPublicKey(privateKey).export({ type: "spki", format: "der" });
+  const configuredPublicKey = publicKey.export({ type: "spki", format: "der" });
+  if (!derivedPublicKey.equals(configuredPublicKey)) {
+    throw new Error("BEE_PLUGIN_PUBLISHER_PRIVATE_KEY does not match BEE_PLUGIN_PUBLISHER_PUBLIC_KEY.");
+  }
   const output = resolve(outputDir);
   await mkdir(output, { recursive: true });
   const results = [];
@@ -122,7 +137,18 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
       package: { sha256: "", signature: "", storageKey: "packages/" + definition.id + "/" + definition.version }
     };
     manifest.package.sha256 = digestPackage(files);
-    manifest.package.signature = sign(null, canonicalPayload(manifest), privateKey).toString("base64");
+    const signature = sign(null, canonicalPayload(manifest), privateKey);
+    if (!verifySignature(null, canonicalPayload(manifest), publicKey, signature)) {
+      throw new Error("Generated plugin publisher signature could not be verified.");
+    }
+    manifest.package.signature = signature.toString("base64");
+    for (const requiredPath of [
+      manifest.backend.entrypoint,
+      ...(manifest.frontend.entrypoint ? [manifest.frontend.entrypoint] : []),
+      ...(manifest.frontend.assets ?? [])
+    ]) {
+      if (!files.has(requiredPath)) throw new Error("Package " + definition.id + " is missing declared asset: " + requiredPath);
+    }
     files.set("bee-plugin.json", Buffer.from(JSON.stringify(manifest, null, 2) + "\n"));
     const archive = zip(files), target = join(output, definition.id + "-" + definition.version + ".zip");
     await writeFile(target, archive);
@@ -132,6 +158,6 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) {
-  const results = await buildPluginPackages({ privateKeyPem: process.env.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY ?? "" });
+  const results = await buildPluginPackages({ privateKeyPem: process.env.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY ?? "", publicKeyPem: process.env.BEE_PLUGIN_PUBLISHER_PUBLIC_KEY ?? "" });
   for (const result of results) process.stdout.write(JSON.stringify(result) + "\n");
 }
