@@ -115,7 +115,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
 
 
 
-test("Hello Mundo and Documents are not registered or advertised as bundled plugins", async () => {
+test("Hello Mundo stays external while Documents uses the native workspace with an external backend", async () => {
   const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
   const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
   assert.doesNotMatch(entitlementSource, /includedPluginIds:\s*\[[^\]]*"documents"|visiblePluginIds:\s*\[[^\]]*"documents"/, "Documents must not remain bundled in built-in plan entitlements");
