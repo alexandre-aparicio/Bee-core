@@ -318,8 +318,11 @@ export const platformAdminPlugin:BeePlugin={
      {$set:{name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),activationPolicy:manifest.activationPolicy??"manual",status:"installed",source:"zip",runtimeState:"stored_pending_runtime",publisher:manifest.publisher,digest,packageDirectory,backendEntrypoint:manifest.backend.entrypoint,frontendRoutes:manifest.frontend.routes,installedAt:now,installedBy:actor.id,updatedAt:now},$setOnInsert:{pluginId:manifest.id,createdAt:now}},
      {upsert:true}
     );
-    await recordPlatformAudit({actorId:actor.id,action:"plugin.package_uploaded",resourceType:"plugin_package",resourceId:manifest.id,metadata:{version:manifest.version,digest,publisher:manifest.publisher,extractedFiles,extractedBytes,runtimeState:"stored_pending_runtime"}});
-    return reply.code(201).send({success:true,package:{id:mask(req.platformSession!,manifest.id,"plugin"),pluginKey:manifest.id,name:manifest.name,version:manifest.version,status:"installed",runtimeState:"stored_pending_runtime",activationPolicy:manifest.activationPolicy??"manual",extractedFiles,extractedBytes,storageKey}});
+    logger.info("Platform package upload stored; mounting runtime without restarting Bee Core", { pluginId: manifest.id, version: manifest.version, actorId: actor.id });
+    const runtime = await ctx.pluginRuntime?.mountStoredPackage(manifest.id);
+    if (!runtime) throw new Error("Dynamic plugin runtime is not available");
+    await recordPlatformAudit({actorId:actor.id,action:"plugin.package_uploaded",resourceType:"plugin_package",resourceId:manifest.id,metadata:{version:manifest.version,digest,publisher:manifest.publisher,extractedFiles,extractedBytes,runtimeState:"loaded"}});
+    return reply.code(201).send({success:true,package:{id:mask(req.platformSession!,manifest.id,"plugin"),pluginKey:manifest.id,name:manifest.name,version:manifest.version,status:"installed",runtimeState:"loaded",activationPolicy:manifest.activationPolicy??"manual",extractedFiles,extractedBytes,storageKey}});
    }catch(error){
     const message=error instanceof Error?error.message:"Plugin package installation failed";
     const status=/not configured/.test(message)?503:/already stored|already being installed|reserved by a built-in|must be newer|dependency is not installed|dependency is not healthy/.test(message)?409:/signature|digest|manifest|ZIP|archive|path|entrypoint|compatible|storageKey|README|frontend|backend|publisher|version/i.test(message)?400:500;
@@ -391,6 +394,13 @@ export const platformAdminPlugin:BeePlugin={
      return reply.code(409).send({error:"Stored package version path does not match its registered identity"});
     }
    }
+   try {
+    await ctx.pluginRuntime?.unmount(pluginId);
+   } catch (error) {
+    await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
+    ctx.logger.error("Platform package removal aborted because its runtime could not be unloaded", { pluginId, error });
+    return reply.code(409).send({error:"Plugin runtime could not be safely unloaded; package files and registry entry were preserved"});
+   }
    try{
     const info=await lstat(pluginRoot);
     if(!info.isDirectory()||info.isSymbolicLink())throw new Error("Stored plugin package path is not a regular directory");
@@ -415,7 +425,7 @@ export const platformAdminPlugin:BeePlugin={
    ]);
    await db.collection("plugin_catalog").updateOne({id:pluginId},{$set:{status:"deprecated",codeAvailable:false,updatedAt:new Date()}});
    await recordPlatformAudit({actorId:actor.id,action:"plugin.package_removed",resourceType:"plugin_package",resourceId:pluginId,metadata:{version:packageRecord.version,activeTenantInstallations:0,inactiveTenantInstallationsRetired:inactiveInstallations.length,tenantDataPreserved:true}});
-   return {success:true,pluginId,restartRequired:true,tenantDataPreserved:true,message:"Package removed from the platform registry. Restart Bee Core to unload its runtime from the current process."};
+   return {success:true,pluginId,restartRequired:false,runtimeUnloaded:true,tenantDataPreserved:true,message:"Package removed from the platform registry and unloaded from the current Bee Core process."};
   });
   ctx.server.get("/platform/plugin-plans",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
@@ -477,8 +487,19 @@ export const platformAdminPlugin:BeePlugin={
    if(typeof current.globallyEnabled==="boolean")expectedState.globallyEnabled=current.globallyEnabled;else expectedState.globallyEnabled={$exists:false};
    const updated=await packages.updateOne(expectedState,{$set:{globallyEnabled:req.body.enabled,globallyEnabledAt:now,globallyEnabledBy:actor.id,updatedAt:now}});
    if(!updated.modifiedCount)return reply.code(409).send({error:"Platform package changed concurrently; refresh and retry"});
-   await recordPlatformAudit({actorId:actor.id,action:req.body.enabled?"plugin.globally_enabled":"plugin.globally_disabled",resourceType:"plugin_package",resourceId:pluginId,metadata:{globallyEnabled:req.body.enabled,tenantInstallationsPreserved:true}});
-   return {success:true,pluginId,globallyEnabled:req.body.enabled,tenantInstallationsPreserved:true};
+   try {
+    if (req.body.enabled) {
+     await ctx.pluginRuntime?.mountStoredPackage(pluginId);
+    } else {
+     await ctx.pluginRuntime?.unmount(pluginId);
+    }
+   } catch (error) {
+    await packages.updateOne({pluginId,status:"installed"},{$set:{globallyEnabled:!req.body.enabled,updatedAt:new Date()}});
+    ctx.logger.error("Global plugin activation runtime transition failed; persisted flag was rolled back", { pluginId, enabled: req.body.enabled, error });
+    return reply.code(500).send({error:"Plugin runtime could not complete the requested global activation change"});
+   }
+   await recordPlatformAudit({actorId:actor.id,action:req.body.enabled?"plugin.globally_enabled":"plugin.globally_disabled",resourceType:"plugin_package",resourceId:pluginId,metadata:{globallyEnabled:req.body.enabled,tenantInstallationsPreserved:true,runtimeChanged:true}});
+   return {success:true,pluginId,globallyEnabled:req.body.enabled,runtimeState:req.body.enabled?"loaded":"stored_pending_runtime",tenantInstallationsPreserved:true};
   });
   ctx.server.get("/platform/plugin-packages",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
