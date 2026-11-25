@@ -14,8 +14,8 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
   imports: [CommonModule, FormsModule, BeeIconComponent],
   template: `
     <section id="users" class="bee-users">
-      <div *ngIf="error" class="bee-users__notice bee-users__notice--error" role="alert">{{error}}</div>
-      <div *ngIf="message" class="bee-users__notice bee-users__notice--success" role="status">{{message}}</div>
+      <div *ngIf="error" class="bee-users__notice bee-users__notice--error bee-status--danger" role="alert">{{error}}</div>
+      <div *ngIf="message" class="bee-users__notice bee-users__notice--success bee-status--success" role="status">{{message}}</div>
 
       <ng-container *ngIf="canRead; else noAccess">
         <div class="bee-users__metrics" [attr.aria-label]="t('users.overview')">
