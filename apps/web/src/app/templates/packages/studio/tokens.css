@@ -3,6 +3,9 @@ html[data-bee-active-template="studio"][data-bee-active-mode="light"] {
   color-scheme: light;
   --bee-dashboard-font-family: Georgia, serif;
   --bee-dashboard-font-size: 15px;
+  --bee-dashboard-sidebar-heading-font-family: Arial, sans-serif;
+  --bee-dashboard-sidebar-heading-letter-spacing: .15em;
+  --bee-dashboard-welcome-font-weight: 400;
   --bee-dashboard-sidebar-width: 248px;
   --bee-dashboard-sidebar-padding: 24px 16px;
   --bee-dashboard-sidebar-gap: 11px;
@@ -32,6 +35,7 @@ html[data-bee-active-template="studio"][data-bee-active-mode="light"] {
   --bee-dashboard-quick-action-border: var(--bee-border);
   --bee-dashboard-quick-action-color: var(--bee-text);
   --bee-dashboard-quick-action-muted: var(--bee-text-muted);
+  --bee-dashboard-quick-action-radius: var(--bee-radius-sm);
   --bee-dashboard-quick-action-radius: var(--bee-radius-sm);
   --bee-dashboard-settings-active-background: color-mix(in srgb, var(--bee-accent) 10%, transparent);
   --bee-dashboard-settings-panel-border: color-mix(in srgb, var(--bee-border) 60%, transparent);
@@ -90,6 +94,9 @@ html[data-bee-active-template="studio"][data-bee-active-mode="dark"] {
   color-scheme: dark;
   --bee-dashboard-font-family: Georgia, serif;
   --bee-dashboard-font-size: 15px;
+  --bee-dashboard-sidebar-heading-font-family: Arial, sans-serif;
+  --bee-dashboard-sidebar-heading-letter-spacing: .15em;
+  --bee-dashboard-welcome-font-weight: 400;
   --bee-dashboard-sidebar-width: 248px;
   --bee-dashboard-sidebar-padding: 24px 16px;
   --bee-dashboard-sidebar-gap: 11px;
@@ -119,6 +126,7 @@ html[data-bee-active-template="studio"][data-bee-active-mode="dark"] {
   --bee-dashboard-quick-action-border: var(--bee-border);
   --bee-dashboard-quick-action-color: var(--bee-text);
   --bee-dashboard-quick-action-muted: var(--bee-text-muted);
+  --bee-dashboard-quick-action-radius: var(--bee-radius-sm);
   --bee-dashboard-quick-action-radius: var(--bee-radius-sm);
   --bee-dashboard-settings-active-background: color-mix(in srgb, var(--bee-accent) 10%, transparent);
   --bee-dashboard-settings-panel-border: color-mix(in srgb, var(--bee-border) 60%, transparent);
