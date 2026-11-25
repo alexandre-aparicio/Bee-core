@@ -84,7 +84,38 @@ export class AppComponent implements OnInit {
   companyError = '';
   companyBusy = false;
   activePlugins: string[] = [];
-  setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.i18n.setInstalledModules(this.activePlugins); }
+  pluginNavigationItems: Array<{id:string;label:string;path:string}> = [];
+  private pluginNavigationSequence = 0;
+  setActivePlugins(pluginIds: string[]): void {
+    this.activePlugins = [...new Set(pluginIds)];
+    this.i18n.setInstalledModules(this.activePlugins);
+    void this.refreshPluginNavigation();
+  }
+  private async refreshPluginNavigation(): Promise<void> {
+    const sequence = ++this.pluginNavigationSequence;
+    const token = String(this.auth?.accessToken ?? "");
+    const candidates = this.activePlugins.filter(id => !["connected-devices", "time-tracking"].includes(id));
+    if (!token || !candidates.length) { this.pluginNavigationItems = []; return; }
+    const items = await Promise.all(candidates.map(async id => {
+      try {
+        const response = await fetch(this.api + "/marketplace/plugins/" + encodeURIComponent(id) + "/runtime", {
+          method: "GET", credentials: "same-origin", headers: { authorization: "Bearer " + token }
+        });
+        if (!response.ok) return null;
+        const runtime = await response.json();
+        const route = Array.isArray(runtime.routes) ? runtime.routes.find((item: any) =>
+          typeof item?.path === "string" && item.path.startsWith("/dashboard/") &&
+          !item.path.startsWith("//") && !item.path.includes("..") &&
+          !item.path.includes("?") && !item.path.includes("#")) : null;
+        if (!route) return null;
+        const label = id.split(/[-.]/).filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+        return { id, label, path: route.path as string };
+      } catch { return null; }
+    }));
+    if (sequence !== this.pluginNavigationSequence) return;
+    this.pluginNavigationItems = items.filter((item): item is {id:string;label:string;path:string} => item !== null);
+    this.syncActiveSectionFromPath();
+  }
   isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
   private async refreshTenantPlugins(): Promise<void> {
     if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
@@ -374,7 +405,7 @@ export class AppComponent implements OnInit {
   activeSection = 'dashboard';
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
-    dashboard: '/dashboard', documents: '/dashboard/documents', 'connected-devices': '/dashboard/connected-devices', 'time-tracking': '/dashboard/time-tracking/my_jorney', 'time-tracking-day':'/dashboard/time-tracking/my_jorney', 'time-tracking-schedule':'/dashboard/time-tracking/schedule', 'time-tracking-history':'/dashboard/time-tracking/history', 'time-tracking-requests':'/dashboard/time-tracking/requests', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
+    dashboard: '/dashboard', 'connected-devices': '/dashboard/connected-devices', 'time-tracking': '/dashboard/time-tracking/my_jorney', 'time-tracking-day':'/dashboard/time-tracking/my_jorney', 'time-tracking-schedule':'/dashboard/time-tracking/schedule', 'time-tracking-history':'/dashboard/time-tracking/history', 'time-tracking-requests':'/dashboard/time-tracking/requests', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-plans': '/dashboard/settings/plans-licensing',
@@ -423,8 +454,9 @@ export class AppComponent implements OnInit {
       return;
     }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
-    const nextSection = entry?.[0] || 'dashboard';
-    this.activeSection = (nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)) || (nextSection === 'documents' && !this.isPluginEnabled('documents')) || (nextSection === 'connected-devices' && !this.isPluginEnabled('connected-devices'))
+    const dynamicPlugin = this.pluginNavigationItems.find(item => item.path === this.path);
+    const nextSection = entry?.[0] || dynamicPlugin?.id || 'dashboard';
+    this.activeSection = (nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)) || (nextSection === 'connected-devices' && !this.isPluginEnabled('connected-devices'))
       ? 'dashboard'
       : nextSection;
     this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : '');
@@ -498,7 +530,7 @@ export class AppComponent implements OnInit {
     // Privileged areas are restricted within Settings and by section access checks.
     const items = [
       {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
-      ...(this.isPluginEnabled('documents') ? [{id:'documents',label:'Documents',labelKey:'nav.documents',icon:'documentation',group:'WORKSPACE'}] : []),
+      ...this.pluginNavigationItems.map(item => ({id:item.id,label:item.label,labelKey:'nav.plugin.' + item.id,icon:'plugins',group:'WORKSPACE'})),
       ...(this.isPluginEnabled('connected-devices') ? [{id:'connected-devices',label:this.i18n.t('nav.connectedDevices'),labelKey:'nav.connectedDevices',icon:'infrastructure',group:'WORKSPACE'}] : []),
       ...(this.isPluginEnabled('time-tracking') ? [{id:'time-tracking',label:'Control Horario',labelKey:'nav.timeTracking',icon:'activity',group:'WORKSPACE'}] : []),
       {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
@@ -514,10 +546,9 @@ export class AppComponent implements OnInit {
     const targetId = id === 'settings' ? (this.settingsNavigationItems.some(item => item.id === 'settings-general') ? 'settings-general' : this.settingsNavigationItems[0]?.id) : id === 'organization' ? 'organization-company' : id;
     if (!targetId) return;
     if (targetId.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === targetId)) return;
-    if (targetId === 'documents' && !this.isPluginEnabled('documents')) { this.navigateSection('dashboard'); return; }
     if (targetId === 'connected-devices' && !this.isPluginEnabled('connected-devices')) { this.navigateSection('dashboard'); return; }
     if (targetId === 'time-tracking' && !this.isPluginEnabled('time-tracking')) { this.navigateSection('dashboard'); return; }
-    const route = this.sectionRoutes[targetId];
+    const route = this.sectionRoutes[targetId] || this.pluginNavigationItems.find(item => item.id === targetId)?.path;
     if (!route) return;
     const targetPath = route.split('?')[0];
     if (window.location.pathname + window.location.search !== route) window.history.pushState({}, '', route);
