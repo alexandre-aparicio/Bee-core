@@ -1,7 +1,7 @@
 import type { BeePlugin } from "../core/types.js";
 
 export const helloPlugin: BeePlugin = {
-  manifest: {
+  manifest: { requiredServices: [],
     name: "hello",
     version: "0.1.0",
     description: "Example plugin that demonstrates lifecycle hooks and event bus"
