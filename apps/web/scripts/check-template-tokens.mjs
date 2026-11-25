@@ -11,6 +11,39 @@ const errors = [];
 const warnings = [];
 const results = [];
 
+async function collectSourceFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await collectSourceFiles(path));
+    } else if (entry.isFile() && /\\.(?:css|ts|html)$/i.test(entry.name)) {
+      files.push(path);
+    }
+  }
+  return files;
+}
+
+const sourceFiles = await collectSourceFiles('src');
+const usedTokens = new Map();
+for (const file of sourceFiles) {
+  if (file === contractPath || /\\/tokens\\.css$/.test(file)) continue;
+  const source = await readFile(file, 'utf8');
+  for (const match of source.matchAll(/var\\(\\s*(--bee-[\\w-]+)/g)) {
+    const token = match[1];
+    if (!usedTokens.has(token)) usedTokens.set(token, new Set());
+    usedTokens.get(token).add(file);
+  }
+}
+const undefinedTokens = [...usedTokens.keys()]
+  .filter(token => !requiredTokens.includes(token))
+  .sort();
+for (const token of undefinedTokens) {
+  const files = [...usedTokens.get(token)].sort();
+  errors.push(`used token ${token} is not declared in tokens.contract.css (used in ${files.join(', ')})`);
+}
+
 for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !== 'shared')) {
   const id = entry.name;
   const manifestPath = join(packageRoot, id, 'manifest.ts');
