@@ -7,7 +7,7 @@ type RemoteFrame = { pluginId: string; apiPrefixes: string[] };
 @Component({
   selector: "bee-plugin-outlet",
   standalone: true,
-  template: `<div #remoteHost class="bee-plugin-remote-host"></div><ng-container #pluginHost></ng-container>`
+  template: `<div #remoteHost class="bee-plugin-remote-host">@if(runtimeError){<div class="bee-plugin-update-required" role="status">{{runtimeError}}</div>}</div><ng-container #pluginHost></ng-container>`
 })
 export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() pluginIds: string[] = [];
@@ -17,6 +17,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   @Input() section = "";
   @ViewChild("remoteHost", { read: ElementRef, static: true }) private remoteHost!: ElementRef<HTMLDivElement>;
   @ViewChild("pluginHost", { read: ViewContainerRef, static: true }) private host!: ViewContainerRef;
+  runtimeError = "";
   private viewReady = false;
   private renderSequence = 0;
   private readonly frames = new Map<Window, RemoteFrame>();
@@ -39,6 +40,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     window.removeEventListener("message", this.messageHandler);
     this.frames.clear();
     this.host.clear();
+    this.runtimeError = "";
     this.remoteHost.nativeElement.replaceChildren();
   }
 
@@ -89,8 +91,13 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
         credentials: "omit",
         headers: { authorization: "Bearer " + this.accessToken }
       });
+      const payload = await response.json().catch(() => ({})) as { code?: string; error?: string } & Partial<RemotePluginRuntime>;
+      if (response.status === 409 && payload.code === "PLUGIN_FRONTEND_CONTRACT_MISMATCH") {
+        this.runtimeError = payload.error || "Plugin update required. Ask your administrator to update this package.";
+        return null;
+      }
       if (!response.ok) return null;
-      const value = await response.json() as Partial<RemotePluginRuntime>;
+      const value = payload as Partial<RemotePluginRuntime>;
       if (value.pluginId !== pluginId || typeof value.version !== "string" || typeof value.entrypoint !== "string" ||
           !value.entrypoint.startsWith("frontend/") || !Array.isArray(value.apiPrefixes) ||
           value.apiPrefixes.some(prefix => typeof prefix !== "string")) return null;
