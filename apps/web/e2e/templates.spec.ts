@@ -145,7 +145,7 @@ async function assertNoUntokenedDefaults(page, mainSelector) {
 async function saveScreenshot(page, target, template, mode, screen) {
   await page.screenshot({
     path: 'test-results/template-screenshots/' + target + '-' + template + '-' + mode + '-' + screen + '.png',
-    fullPage: true,
+    fullPage: target === 'public',
     animations: 'disabled'
   });
 }
