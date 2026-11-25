@@ -17,7 +17,7 @@ Scope: `apps/web` template palettes, shared dashboard styles and feature CSS. No
 
 | Item | Status | Source evidence / remaining work |
 |---|---|---|
-| Six package palettes | Done by source comparison | 87 contract tokens compared against both mode blocks in all six packages; zero missing/duplicate in the earlier review. |
+| Six package palettes | Done by source comparison | 89 contract tokens compared against both mode blocks in all six packages; zero missing/duplicate in the source comparison after adding the QR contrast tokens. |
 | F2 missing control tokens | Done by source search | Replaced `--bee-control-bg` / `--bee-control-border` in time tracking with existing `--bee-input-bg` / `--bee-input-border`; updated Midnight STYLE-GUIDE. No new tokens required. |
 | F3 used-token checker | Implemented; NOT verified | Checker now scans `src/**/*.{css,ts,html}`, excluding contract/package token sheets, and reports every `var(--bee-*)` use absent from the contract. Re-read line by line. Script NOT executed. |
 | Package token checker | NOT verified | Existing package/mode coverage checker remains unexecuted. |
@@ -89,6 +89,7 @@ Explicit transition paths from source review:
 | Audit Log | 0 hex / 0 RGB-HSL / 0 important / 0 palette host-context before and after; global owner styles in `styles.css` already use semantic tokens. | Removed `[class*="audit-log"]`; generic compatibility selectors now exclude `.bee-audit-log *`. Error and denied/success outcomes carry explicit semantic status classes. |
 | Documents | 21 hex / 4 RGB-HSL / 6 important / 17 palette host-context → 0 / 0 / 0 / 0. Nine used semantic tokens have no missing contract or package-mode declarations; inline style braces: 153 open / 153 close. | Removed Midnight-Light host-context palette block; drag/drop selectors were raised in specificity to remove important flags. Generic compatibility selectors now exclude `.documents *`; error/success messages carry semantic status classes. |
 | Platform Identity | 26 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Eight used semantic tokens have no missing contract or package-mode declarations; inline style braces: 72 open / 72 close. | Replaced legacy palette fallbacks and named status colors; error/save feedback uses explicit semantic status classes. Already isolated under `.settings-workspace *`. |
+| Connected Devices | 25 hex / 1 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Added `--bee-qr-dark` and `--bee-qr-light` to contract and both modes of all six packages; QRCode reads computed token values. Inline style braces: 67 open / 67 close. | Replaced palette aliases, modal/device/status colors and shadows; generic compatibility selectors exclude `.cd-page *`. |
 
 ## Current source audit metrics
 
