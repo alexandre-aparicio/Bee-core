@@ -579,10 +579,25 @@ test("super organization migration: reserved membership retains mandatory MFA an
     assert.equal(globalAccess.statusCode,200);
     assert.equal(globalAccess.json().role,"super_admin");
 
+    const superTemplateInstall=await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+verifiedLogin.json().accessToken},payload:{templateId:"studio"}});
+    assert.equal(superTemplateInstall.statusCode,200,"a verified Super Admin must be able to install appearance packages in the Super Organization");
+    assert.ok(superTemplateInstall.json().installedTemplates.includes("studio"));
+    const superTemplateSelection=await app.inject({method:"PUT",url:"/templates/preferences",headers:{authorization:"Bearer "+verifiedLogin.json().accessToken},payload:{public:"studio"}});
+    assert.equal(superTemplateSelection.statusCode,200,"a verified Super Admin must be able to apply an installed appearance package");
+    assert.equal(superTemplateSelection.json().selection.public,"studio");
+    const superTemplateActiveUninstall=await app.inject({method:"DELETE",url:"/templates/install/studio",headers:{authorization:"Bearer "+verifiedLogin.json().accessToken}});
+    assert.equal(superTemplateActiveUninstall.statusCode,409,"an active appearance package must not be uninstalled");
+    const resetSuperTemplate=await app.inject({method:"PUT",url:"/templates/preferences",headers:{authorization:"Bearer "+verifiedLogin.json().accessToken},payload:{public:"aurora"}});
+    assert.equal(resetSuperTemplate.statusCode,200);
+    const superTemplateUninstall=await app.inject({method:"DELETE",url:"/templates/install/studio",headers:{authorization:"Bearer "+verifiedLogin.json().accessToken}});
+    assert.equal(superTemplateUninstall.statusCode,200,"a Super Admin must be able to uninstall an inactive appearance package");
+
     const ordinaryLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"owner@example.test",password:"Super-password-12345",client:"dashboard"}});
     assert.equal(ordinaryLogin.statusCode,200);
     const ordinaryGlobalAccess=await app.inject({method:"GET",url:"/platform/me",headers:{authorization:"Bearer "+ordinaryLogin.json().accessToken}});
     assert.equal(ordinaryGlobalAccess.statusCode,403,"Tenant owners must not receive global platform access");
+    const ordinaryTemplateInstall=await app.inject({method:"POST",url:"/templates/install",headers:{authorization:"Bearer "+ordinaryLogin.json().accessToken},payload:{templateId:"glass"}});
+    assert.equal(ordinaryTemplateInstall.statusCode,200,"ordinary tenant owners must retain appearance package management");
 
     const claims=JSON.parse(Buffer.from(verifiedLogin.json().accessToken.split(".")[1],"base64url").toString("utf8")) as {sid:string};
     await db.collection("refresh_sessions").updateOne({id:claims.sid},{$set:{mfaVerifiedAt:new Date(Date.now()-16*60*1000)}});
