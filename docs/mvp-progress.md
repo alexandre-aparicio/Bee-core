@@ -52,10 +52,10 @@ Explicit transition paths from source review:
 | Item | Status | Source evidence / remaining work |
 |---|---|---|
 | Temporary compatibility block | Done by source search | Deleted. `base.css`: 0 `!important`, 0 `[class*=`, 0 hex, 0 RGB/HSL; braces 96 / 96. |
-| Component migration | Done by source search, with deferred exception | Required owners and remaining non-public feature components have tokenized colors. The only remaining component palette literals found in this pass are Teams Workspace's three explicitly deferred Midnight-Light `:host-context` rules (9 hex values). |
+| Component migration | Done by source search | All required owners and remaining non-public feature components have 0 palette hex / RGB-HSL / `!important` / palette `:host-context` occurrences. Teams Workspace's final three Midnight-Light overrides were removed and now consume canonical package tokens. |
 | Generic element rules | Done by source review | Inputs, placeholders, tables, rows/cells, buttons, dialogs, menus, badges, tabs, empty states and toggles use token-only zero-specificity `:where()` primitives. Explicit `.bee-status--*` and `.bee-text-muted` classes replace broad substring color selectors. |
-| Deferred `:host-context` | Partial / discrepancy with prior edits | Current source: Teams Workspace 3 remain (9 hex values). Documents 0, Organization Roles 0 and Role Audit 0: their prior migrations already removed the 17 + 4 + 1 selectors despite the instruction to defer them. They are not being restored in this pass. |
-| Component counts | Source-reviewed | All migrated components recorded below now have 0 hex / 0 RGB-HSL / 0 `!important`; Documents, Organization Roles and Role Audit have 0 palette `:host-context`. Teams Workspace remains 9 hex / 3 palette `:host-context` by explicit deferral. Runtime visual result NOT verified. |
+| Palette `:host-context` | Done by source search | 0 remaining in feature components. Documents, Organization Roles and Role Audit had already been migrated; this pass removed the final 3 Teams Workspace Midnight-Light overrides (9 literals). |
+| Component counts | Source-reviewed | All migrated feature components now have 0 hex / 0 RGB-HSL / 0 `!important` / 0 palette `:host-context`. Runtime visual result NOT verified. |
 
 ## Step 6 — Public templates
 
@@ -67,15 +67,15 @@ Explicit transition paths from source review:
 
 | Item | Status | Scope |
 |---|---|---|
-| Public package manifest checker | Implemented; source-reviewed, NOT executed | `check-template-tokens.mjs` excludes `shared`, reports each non-shared package directory without `manifest.ts` in the JSON `warnings` array, continues checking other packages, and sets exit code 1 when `errors` is non-empty. All six current package directories contain `manifest.ts` by repository tree inventory. |
-| Stylelint and CI policy | Implemented in source; NOT executed | Added `stylelint.config.mjs` and pinned `stylelint@18.1.0` through the `lint:styles` npm script. The web CI now runs token/manifest checks, style audit, Stylelint, production build and Playwright discovery; web Node is pinned to 22.22.2. Stylelint covers standalone `src/app/**/*.css` and `src/styles.css`; inline Angular CSS remains source-audited, not parsed by Stylelint. Device-simulator CSS under `src/assets` is excluded. No workflow was run. The Stylelint CLI is fetched by `npx` and is intentionally not recorded in package-lock; converting it to a lockfile dependency requires a permitted package-manager install. |
+| Package token and manifest checker | Implemented; source-reviewed, NOT executed | `check-template-tokens.mjs` scans CSS/TS/HTML token usages against the contract, checks every declared package mode, excludes `shared`, reports non-shared directories without `manifest.ts` as warnings, and exits 1 for errors. Six current package directories contain manifests by tree inventory. |
+| Stylelint and CI policy | Implemented in source; NOT executed | Added `stylelint.config.mjs`; `lint:styles` pins `stylelint@18.1.0` via `npx` and covers standalone `src/app/**/*.css`, `src/assets/**/*.css` and `src/styles.css`. Inline Angular CSS remains source-audited, not parsed by Stylelint. Device-simulator's local standalone palette is intentionally independent of the six app templates; its forced-priority utility was removed. CI runs token/manifest checks, style audit, Stylelint, production build and Playwright discovery; web Node is pinned to 22.22.2. Stylelint is not in package-lock; npm/CI NOT executed. |
 
 ## Step 8 — Cleanup and documentation
 
 | Item | Status | Scope |
 |---|---|---|
-| Legacy palette aliases | Removed by source search | Migrated the remaining `organization-company` and `teams-workspace` consumers to `--bee-*` tokens, then removed all six temporary aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) from the package host. The three explicitly deferred Teams Workspace Midnight-Light `:host-context` rules remain unchanged. |
-| Cleanup and documentation reconciliation | Done by source review (scope-limited) | Reconciled `mvp-progress.md`, `template-token-mapping.md` and Midnight STYLE-GUIDE with current source. Remaining exception is the explicitly deferred Teams Workspace palette block; runtime and visual validation remain NOT verified. |
+| Legacy palette aliases | Removed by source search | Migrated the remaining `organization-company` and `teams-workspace` consumers to `--bee-*` tokens, then removed all six temporary aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) from the package host. |
+| Cleanup and documentation reconciliation | Done by source review | Reconciled `mvp-progress.md`, `template-token-mapping.md` and Midnight STYLE-GUIDE with current source. No feature palette host-context exception remains; runtime and visual validation remain NOT verified. |
 
 ## Step 5 — source batches completed
 
@@ -101,7 +101,7 @@ Explicit transition paths from source review:
 | Mail Workspace | 11 hex / 18 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Twelve used tokens have no missing contract/package-mode declarations; inline style braces: 79 / 79. | Replaced gradients, translucent surfaces, modal backdrop, controls, toast and text colors with package semantic tokens; modal elevation uses `--bee-shadow-raised`. |
 | Time Tracking | 3 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Replaced five legacy aliases with semantic palette tokens. | Tokenized controls, status, tabs, table, modal backdrop and elevation without changing component markup or behavior. |
 | Auth MFA QR | 2 hex / 0 RGB-HSL / 0 important / 0 palette host-context → 0 / 0 / 0 / 0. Uses the already declared `--bee-qr-dark` / `--bee-qr-light` package tokens. | QR contrast now reads from the active root theme; no API or authentication flow changes. |
-| Teams Workspace | 9 hex / 0 RGB-HSL / 0 important / 3 palette host-context remain. | Deliberately left untouched per the deferred host-context instruction; all nine literals are inside those three Midnight-Light selectors. |
+| Teams Workspace | 9 hex / 0 RGB-HSL / 0 important / 3 palette host-context → 0 / 0 / 0 / 0. Inline style braces: 363 / 363. | Removed the deferred Midnight-Light overrides; the component now inherits the canonical status, action-text, text and shadow tokens from the Midnight package. |
 
 ## Current source audit metrics
 
@@ -113,7 +113,7 @@ Explicit transition paths from source review:
 | `core/appearance-modes.css` | palette literals / `!important` / `[class*=` | 0 / 0 / 0 (previously reviewed) |
 | `apps/web/src/styles.css` | `!important` | 0 after removing eight auth, dashboard and Notes overrides by increasing selector specificity |
 | Package styles | hex in Midnight / Paper / Glass | 0 / 0 / 0 (previously reviewed) |
-| Deferred feature overrides | `:host-context` | 3 in Teams Workspace; 22 other selectors had already been removed in prior changes (scope discrepancy recorded above) |
+| Feature components | palette `:host-context` | 0 remaining in all migrated feature owners |
 | F2 source references | `--bee-control-(bg|border|placeholder)` in time tracking and STYLE-GUIDE | 0; uses `--bee-input-*` equivalents |
 | F3 checker | source review / execution | Re-read; scans CSS/TS/HTML `var(--bee-*)` uses outside token files and reports contract misses. NOT executed. |
 
@@ -135,4 +135,4 @@ Then visually review Midnight Dark and Light, Paper and Glass on Platform Admin,
 
 ## Validation boundary
 
-No repository code or GitHub workflow was executed by this work. The token checker, style audit, Stylelint, Angular build, Playwright tests, route runtime behavior, cascade behavior, responsive behavior and all visual comparisons are **NOT verified**. Do not mark Steps 1–5 complete until their remaining source work and human validation are complete.
+No repository code or GitHub workflow was executed by this work. Source-level work for Steps 1–8 is integrated, but the token checker, style audit, Stylelint, Angular build, Playwright tests, route runtime behavior, cascade behavior, responsive behavior and all visual comparisons are **NOT verified**. Do not describe runtime or visual acceptance as complete until those checks have been run.
