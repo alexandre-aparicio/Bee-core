@@ -193,7 +193,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(betaPluginList.statusCode, 200);
     assert.equal(betaPluginList.json().plugins.some((plugin: any) => plugin.pluginKey === "connected-devices"), false, "a tenant without a grant must not discover the package");
     const betaRuntime = await app.inject({ method: "GET", url: "/marketplace/plugins/connected-devices/runtime", headers: { authorization: "Bearer " + betaToken } });
-    assert.equal(betaRuntime.statusCode, 403, "a tenant without a grant must not load the package frontend");
+    assert.equal(betaRuntime.statusCode, 404, "a tenant without a grant must not load the package frontend");
     const betaInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/connected-devices/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaInstall.statusCode, 404, "a tenant without a grant must not invoke the package install action");
 
