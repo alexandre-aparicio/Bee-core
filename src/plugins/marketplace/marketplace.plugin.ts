@@ -403,6 +403,7 @@ export const marketplacePlugin: BeePlugin = {
       // Filtering by runtimeState in Mongo made a missing/stale state indistinguishable
       // from a package that was never installed, hiding the actual loader failure.
       const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed",source:"zip"});
+      if(!globalPackage)return reply.code(404).send({error:"Plugin does not have an external ZIP runtime"});
       if(!isExternalRuntimePackage(pluginId,globalPackage,Boolean(getTrustedPluginPackage(pluginId)))){
         return reply.code(404).send({error:"Plugin does not have an external ZIP runtime"});
       }
