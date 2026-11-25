@@ -21,8 +21,9 @@ export class BeePluginManager {
     const allowedServices = new Set(["mongoDbName","defaultTenantId","authAdminEmail","authAdminPassword","authMfaEncryptionKey","publicBaseDomain","fileStoragePath","billingWebhookSecret","pluginPackagePath","pluginPublisherPublicKey","sessionIdSecret"]);
     const requiredServices = plugin.manifest.requiredServices ?? [];
     const optionalServices = plugin.manifest.optionalServices ?? [];
+    if (!Array.isArray(requiredServices) || !Array.isArray(optionalServices)) throw new Error("Plugin '" + name + "' must declare requiredServices and optionalServices as arrays");
     const declaredServices = [...requiredServices, ...optionalServices];
-    if (!Array.isArray(requiredServices) || !Array.isArray(optionalServices) || declaredServices.some(service => typeof service !== "string" || !allowedServices.has(service))) {
+    if (declaredServices.some(service => typeof service !== "string" || !allowedServices.has(service))) {
       const invalid = declaredServices.filter(service => typeof service !== "string" || !allowedServices.has(service)).join(", ") || "invalid value";
       throw new Error("Plugin '" + name + "' declares unsupported service(s): " + invalid);
     }
@@ -40,7 +41,7 @@ export class BeePluginManager {
     // Resource references use a dedicated key derived from JWT_SECRET. Plugins
     // that serialize IDs never receive the JWT signing secret itself.
     if (requestedServices.includes("sessionIdSecret")) {
-      scopedConfig.sessionIdSecret = createHmac("sha256", jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
+      if (jwtSecret.length >= 32) scopedConfig.sessionIdSecret = createHmac("sha256", jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
     }
     return Object.freeze({
       ...ctx,
