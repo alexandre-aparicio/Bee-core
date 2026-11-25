@@ -36,7 +36,7 @@ const decryptMfaSecret=(value:string,key:Buffer):string=>{const [iv,tag,data]=va
 
 
 export const authPlugin:BeePlugin={
- manifest:{name:"auth",version:"0.3.0",description:"Persistent authentication for backend, dashboard and public frontend clients"},
+ manifest:{ requiredServices: ["mongoDbName","defaultTenantId","authAdminEmail","authAdminPassword","authMfaEncryptionKey","publicBaseDomain","sessionIdSecret"],name:"auth",version:"0.3.0",description:"Persistent authentication for backend, dashboard and public frontend clients"},
  async initialize(ctx){
   const dbName=String(ctx.config.mongoDbName??"bee_core");
   const db:Db=ctx.mongoClient.db(dbName);
