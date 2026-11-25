@@ -90,10 +90,10 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     status: "published"
   },
   {
-    id: "documents", name: "Documents", version: "0.1.0",
-    description: "Shared document library with folder-level team access and controlled public delivery",
+    id: "documents", name: "Documents", version: "0.1.1",
+    description: "Tenant document library with independent storage, folder ACLs and controlled public delivery",
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"], includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false, system: true, dependencies: ["files"], activationPolicy: "automatic", codeAvailable: true, status: "published"
+    purchasable: false, system: false, dependencies: [], activationPolicy: "manual", codeAvailable: true, status: "published"
   },
   {
     id: "connected-devices", name: "Connected Devices", version: "0.1.0",
@@ -267,12 +267,6 @@ export async function getTenantSubscription(db: Db, tenantId: string): Promise<T
     } catch (error) {
       if ((error as { code?: number }).code !== 11000) throw error;
     }
-  }
-  const documentsInstalled = await installations.findOne({ pluginId: "documents", status: "installed" });
-  if (!documentsInstalled) {
-    const now = new Date();
-    try { await installations.insertOne({ id: randomUUID(), pluginId: "documents", version: packagesById.get("documents")!.version, status: "installed", installedAt: now, updatedAt: now }); }
-    catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
   }
   return subscription;
 }
