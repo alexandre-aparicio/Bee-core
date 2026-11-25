@@ -51,38 +51,39 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     this.remoteHost.nativeElement.replaceChildren();
 
     for (const pluginId of this.pluginIds) {
-      // Prefer the signed package frontend. Legacy Angular registrations remain
-      // available only for modules that have not completed their ZIP migration.
-      const runtime = await this.loadRemoteRuntime(pluginId);
-      if (sequence !== this.renderSequence) return;
-      if (runtime) {
-        const frame = document.createElement("iframe");
-        frame.title = pluginId + " plugin";
-        frame.setAttribute("sandbox", "allow-scripts");
-        frame.referrerPolicy = "no-referrer";
-        frame.loading = "lazy";
-        frame.style.width = "100%";
-        frame.style.minHeight = "280px";
-        frame.style.border = "0";
-        frame.style.display = "block";
-        const entrypoint = runtime.entrypoint.split("/").map(encodeURIComponent).join("/");
-        frame.src = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" + encodeURIComponent(runtime.version) + "/assets/" + entrypoint;
-        this.remoteHost.nativeElement.appendChild(frame);
-        const frameWindow = frame.contentWindow;
-        if (frameWindow) this.frames.set(frameWindow, { pluginId, apiPrefixes: runtime.apiPrefixes });
+      // Native host components render directly in the Bee-Core workspace.
+      // Remote signed frontends are reserved for plugins without a host view.
+      const registration = this.registry.resolve(pluginId);
+      if (registration) {
+        if (registration.translations) {
+          this.i18n.registerCatalog(pluginId, "en", registration.translations.en);
+          this.i18n.registerCatalog(pluginId, "es", registration.translations.es);
+        }
+        const component = this.host.createComponent(registration.component);
+        for (const [name, value] of Object.entries(registration.inputs({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section }))) {
+          component.setInput(name, value);
+        }
         continue;
       }
 
-      const registration = this.registry.resolve(pluginId);
-      if (!registration) continue;
-      if (registration.translations) {
-        this.i18n.registerCatalog(pluginId, "en", registration.translations.en);
-        this.i18n.registerCatalog(pluginId, "es", registration.translations.es);
-      }
-      const component = this.host.createComponent(registration.component);
-      for (const [name, value] of Object.entries(registration.inputs({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section }))) {
-        component.setInput(name, value);
-      }
+      const runtime = await this.loadRemoteRuntime(pluginId);
+      if (sequence !== this.renderSequence) return;
+      if (!runtime) continue;
+      const frame = document.createElement("iframe");
+      frame.title = pluginId + " plugin";
+      frame.setAttribute("sandbox", "allow-scripts");
+      frame.referrerPolicy = "no-referrer";
+      frame.loading = "lazy";
+      frame.style.width = "100%";
+      frame.style.minHeight = "280px";
+      frame.style.border = "0";
+      frame.style.display = "block";
+      const entrypoint = runtime.entrypoint.split("/").map(encodeURIComponent).join("/");
+      frame.src = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" + encodeURIComponent(runtime.version) + "/assets/" + entrypoint;
+      this.remoteHost.nativeElement.appendChild(frame);
+      const frameWindow = frame.contentWindow;
+      if (frameWindow) this.frames.set(frameWindow, { pluginId, apiPrefixes: runtime.apiPrefixes });
+
     }
   }
 
