@@ -82,8 +82,8 @@ jobs:
         run: npm ci
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run template browser tests and capture screenshots
-        run: npm run test:e2e -- e2e/templates.spec.ts
+      - name: Run smoke and template browser tests; capture template screenshots
+        run: npm run test:e2e -- e2e/smoke.spec.ts e2e/templates.spec.ts
       - name: Upload template screenshots
         if: always()
         uses: actions/upload-artifact@v4
