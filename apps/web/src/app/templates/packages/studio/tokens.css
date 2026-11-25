@@ -58,11 +58,11 @@ html[data-bee-active-template="studio"][data-bee-active-mode="light"] {
   --bee-text-muted: #756e65;
   --bee-text-subtle: #8791a3;
   --bee-text-inverse: #ffffff;
-  --bee-link: #b85d3b;
+  --bee-link: #a34b2e;
   --bee-border: #ded5c8;
   --bee-border-strong: #b9c3d2;
   --bee-focus-ring: #b85d3b;
-  --bee-accent: #b85d3b;
+  --bee-accent: #ad5335;
   --bee-accent-strong: #91452c;
   --bee-accent-hover: #5142ae;
   --bee-accent-soft: #6654c81a;
@@ -161,7 +161,7 @@ html[data-bee-active-template="studio"][data-bee-active-mode="dark"] {
   --bee-accent-strong: #a65d42;
   --bee-accent-hover: #b2a5ff;
   --bee-accent-soft: #8c72ff24;
-  --bee-accent-text: #ffffff;
+  --bee-accent-text: #211b18;
   --bee-secondary: #78b7a7;
   --bee-action-text: #211b18;
   --bee-status-success: #55c99a;

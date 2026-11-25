@@ -1,3 +1,10 @@
 {
-  "exceptions": []
+  "exceptions": [
+    {
+      "package": "midnight",
+      "mode": "dark",
+      "pair": "accent-text / accent",
+      "reason": "Canonical Midnight Dark is the visual reference and must remain unchanged. Preserve its existing white action foreground and violet accent; the measured 3.52:1 pair is an explicit, isolated exception pending a design-approved palette revision."
+    }
+  ]
 }

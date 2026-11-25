@@ -55,14 +55,14 @@ html[data-bee-active-template="glass"][data-bee-active-mode="light"] {
   --bee-surface-hover: #e8ebf2;
   --bee-surface-active: #dfe4ed;
   --bee-text: #28344d;
-  --bee-text-muted: #68748d;
+  --bee-text-muted: #626f89;
   --bee-text-subtle: #8791a3;
   --bee-text-inverse: #ffffff;
-  --bee-link: #657ee8;
+  --bee-link: #4d62c7;
   --bee-border: #ffffffb5;
   --bee-border-strong: #b9c3d2;
   --bee-focus-ring: #657ee8;
-  --bee-accent: #657ee8;
+  --bee-accent: #4d62c7;
   --bee-accent-strong: #4e65c9;
   --bee-accent-hover: #5142ae;
   --bee-accent-soft: #6654c81a;
@@ -161,7 +161,7 @@ html[data-bee-active-template="glass"][data-bee-active-mode="dark"] {
   --bee-accent-strong: #5364c4;
   --bee-accent-hover: #b2a5ff;
   --bee-accent-soft: #8c72ff24;
-  --bee-accent-text: #ffffff;
+  --bee-accent-text: #101827;
   --bee-secondary: #69d9e8;
   --bee-action-text: #101827;
   --bee-status-success: #55c99a;
