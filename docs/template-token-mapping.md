@@ -148,16 +148,18 @@ The original appearance stylesheet's 65 blocks, 59 `!important`, 28 substring se
 - The six temporary legacy aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) have been removed after migrating the remaining Organization Company and Teams Workspace consumers.
 
 The migration is source-inspected only. CSS parsing, cascade/specificity behavior and Light/Dark visual equivalence still require the documented build and browser review.
-## Part B5 — Deferred feature-local override backlog
+## Part B5 — Feature-local override closure
 
-The original deferral baseline was 25 feature-local `:host-context` selectors. Subsequent source migrations removed 22 of them before the current cleanup pass, contrary to the earlier deferral boundary; those removals are not being restored. The remaining selectors are:
+The original deferral baseline was 25 feature-local `:host-context` selectors. Earlier migrations had already removed 22 selectors; this final source pass removed the remaining three Midnight-Light selectors in Teams Workspace and their nine palette literals.
 
 | Feature component | Original baseline | Current source |
 |---|---:|---:|
 | Documents | 17 | 0 |
 | Organization Roles | 4 | 0 |
-| Teams Workspace | 3 | 3 |
+| Teams Workspace | 3 | 0 |
 | Role Audit | 1 | 0 |
-| **Total** | **25** | **3** |
+| **Total** | **25** | **0** |
 
-Teams Workspace's three Midnight-Light selectors and their nine palette literals remain deliberately untouched. Runtime and visual review are still required before considering that exception resolved.
+Teams Workspace now inherits status, action-text, text and shadow values from the canonical Midnight package tokens. The standalone device simulator under `src/assets/device-simulator` remains a deliberately independent static page with its own local palette; it is included in the standalone CSS lint glob. Its `.hidden` utility no longer requires `!important`.
+
+Runtime and visual review are still required; source tokenization does not prove visual equivalence.
