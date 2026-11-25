@@ -21,7 +21,7 @@ type AuditEvent = { id:string; actorId:string; action:string; outcome:"success"|
         </div>
       </div>
       <div *ngIf="loading" class="bee-audit-log__state">Loading activity…</div>
-      <div *ngIf="error" class="bee-audit-log__error" role="alert">{{error}}</div>
+      <div *ngIf="error" class="bee-audit-log__error bee-status--danger" role="alert">{{error}}</div>
       <div *ngIf="!loading && !events.length && !error" class="bee-audit-log__state">No activity matches this filter.</div>
       <div class="bee-audit-log__table-wrap" *ngIf="events.length">
         <table class="bee-audit-log__table">
@@ -30,7 +30,7 @@ type AuditEvent = { id:string; actorId:string; action:string; outcome:"success"|
             <tr *ngFor="let event of events; trackBy: trackEvent">
               <td><strong>{{label(event.action)}}</strong><small>{{event.resourceType || "workspace"}}</small></td>
               <td><code>{{event.actorId}}</code></td>
-              <td><span class="bee-audit-log__outcome" [class.is-denied]="event.outcome === 'denied'">{{event.outcome}}</span></td>
+              <td><span class="bee-audit-log__outcome" [class.is-denied]="event.outcome === 'denied'" [class.bee-status--danger]="event.outcome === 'denied'" [class.bee-status--success]="event.outcome === 'success'">{{event.outcome}}</span></td>
               <td>{{event.occurredAt | date:"medium"}}</td>
               <td><small>{{details(event)}}</small></td>
             </tr>

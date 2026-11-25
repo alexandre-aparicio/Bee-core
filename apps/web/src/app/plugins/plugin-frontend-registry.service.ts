@@ -32,7 +32,8 @@ export class BeePluginFrontendRegistry {
       component: BeeNotesComponent,
       inputs: context => ({
         tenantId: context.tenantId,
-        canWrite: ["owner", "admin", "manager"].includes(context.role)
+        canWrite: ["owner", "admin", "manager"].includes(context.role),
+        accessToken: context.accessToken
       }),
       translations: { en: NOTES_EN, es: NOTES_ES }
     }],

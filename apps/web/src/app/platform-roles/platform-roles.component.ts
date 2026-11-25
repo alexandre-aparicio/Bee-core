@@ -14,8 +14,8 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
    <div class="platform-roles__heading-copy"><span class="platform-roles__eyebrow">GLOBAL PLATFORM</span><h1>Roles &amp; Permissions</h1><p>Manage system-role boundaries and the Core capabilities that tenants may delegate to their custom roles.</p></div>
    <div class="platform-roles__header-actions"><span class="platform-roles__scope">Platform-wide</span><button type="button" (click)="load()" [disabled]="loading||saving">Refresh</button></div>
   </header>
-  <p *ngIf="error" class="platform-roles__error" role="alert">{{error}}</p>
-  <p *ngIf="message" class="platform-roles__success" role="status">{{message}}</p>
+  <p *ngIf="error" class="platform-roles__error bee-status--danger" role="alert">{{error}}</p>
+  <p *ngIf="message" class="platform-roles__success bee-status--success" role="status">{{message}}</p>
   <section class="platform-roles__panel">
    <div class="platform-roles__panel-head"><div><h3>System roles and boundaries</h3><p>Reserved roles are managed by Core and cannot be recreated or elevated by a tenant.</p></div><span class="platform-roles__tag">Protected by Core</span></div>
    <div class="platform-roles__role-grid">
@@ -53,14 +53,14 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
  </section>`,
  styles:[`
  .platform-roles{display:grid;gap:18px;min-width:0;color:inherit}
- .platform-roles__modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:rgba(8,12,22,.62);backdrop-filter:blur(7px);animation:platformRoleFade .16s ease-out}
- .platform-roles__modal{width:min(1100px,100%);max-height:min(90vh,900px);overflow:auto;border:1px solid var(--border,rgba(130,145,170,.3));border-radius:18px;padding:22px;background:var(--surface-raised,var(--panel,#171a24));box-shadow:0 24px 80px rgba(0,0,0,.3);animation:platformRoleRise .2s ease-out}
+ .platform-roles__modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:var(--bee-overlay);backdrop-filter:blur(7px);animation:platformRoleFade .16s ease-out}
+ .platform-roles__modal{width:min(1100px,100%);max-height:min(90vh,900px);overflow:auto;border:1px solid var(--bee-border);border-radius:18px;padding:22px;background:var(--bee-surface-raised);box-shadow:0 24px 80px var(--bee-shadow-raised);animation:platformRoleRise .2s ease-out}
  .platform-roles__modal-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
  .platform-roles__modal-top h2{font-size:22px;margin:6px 0}.platform-roles__modal-top p{font-size:12px;max-width:760px}
- .platform-roles__close{width:36px;height:36px;padding:0!important;font-size:22px;line-height:1;border-radius:50%!important}
- .platform-roles__manage,.platform-roles__details{background:var(--purple,#8c72ff)!important;color:#fff!important;border-color:var(--purple,#8c72ff)!important}
- .platform-roles__details{font-size:10px!important;padding:6px 9px!important;margin-top:10px}
- .platform-roles__role-permissions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.platform-roles__role-permissions code{font-size:10px;padding:6px 8px;border-radius:7px;background:var(--panel,rgba(130,145,170,.1));overflow-wrap:anywhere}
+ .platform-roles .platform-roles__close{width:36px;height:36px;padding:0;font-size:22px;line-height:1;border-radius:50%}
+ .platform-roles .platform-roles__manage,.platform-roles .platform-roles .platform-roles__details{background:var(--bee-accent);color:var(--bee-accent-text);border-color:var(--bee-accent)}
+ .platform-roles__details{font-size:10px;padding:6px 9px;margin-top:10px}
+ .platform-roles__role-permissions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.platform-roles__role-permissions code{font-size:10px;padding:6px 8px;border-radius:7px;background:var(--bee-surface-subtle);overflow-wrap:anywhere}
  @keyframes platformRoleFade{from{opacity:0}to{opacity:1}}@keyframes platformRoleRise{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
  @media(prefers-reduced-motion:reduce){.platform-roles__modal-backdrop,.platform-roles__modal{animation:none}}
  .platform-roles__header,.platform-roles__panel-head,.platform-roles__footer{display:flex;align-items:center;justify-content:space-between;gap:18px}
@@ -71,21 +71,21 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
  .platform-roles h3,.platform-roles h4{margin:0 0 6px}
  .platform-roles p{margin:0;color:inherit;opacity:.68;line-height:1.55}
  .platform-roles__header-actions{display:flex;align-items:center;gap:10px;flex:none}
- .platform-roles button{border:1px solid rgba(130,145,170,.3);border-radius:9px;padding:10px 14px;background:rgba(130,145,170,.07);color:inherit;cursor:pointer}
+ .platform-roles button{border:1px solid color-mix(in srgb,var(--bee-border) 30%,transparent);border-radius:9px;padding:10px 14px;background:color-mix(in srgb,var(--bee-surface-subtle) 7%,transparent);color:inherit;cursor:pointer}
  .platform-roles button:disabled{opacity:.5;cursor:not-allowed}
- .platform-roles__scope,.platform-roles__tag,.platform-roles__count{font-size:11px;border:1px solid rgba(130,145,170,.3);border-radius:999px;padding:7px 11px;white-space:nowrap;opacity:.78}
- .platform-roles__panel{border:1px solid rgba(130,145,170,.25);border-radius:16px;padding:20px;background:rgba(130,145,170,.06);min-width:0}
+ .platform-roles__scope,.platform-roles__tag,.platform-roles__count{font-size:11px;border:1px solid color-mix(in srgb,var(--bee-border) 30%,transparent);border-radius:999px;padding:7px 11px;white-space:nowrap;opacity:.78}
+ .platform-roles__panel{border:1px solid color-mix(in srgb,var(--bee-border) 25%,transparent);border-radius:16px;padding:20px;background:color-mix(in srgb,var(--bee-surface-subtle) 6%,transparent);min-width:0}
  .platform-roles__panel-head{margin-bottom:15px}
  .platform-roles__role-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
- .platform-roles__role{padding:13px;border:1px solid rgba(130,145,170,.22);border-radius:11px;background:rgba(130,145,170,.035);min-width:0}
+ .platform-roles__role{padding:13px;border:1px solid color-mix(in srgb,var(--bee-border) 22%,transparent);border-radius:11px;background:color-mix(in srgb,var(--bee-surface-subtle) 4%,transparent);min-width:0}
  .platform-roles__role strong,.platform-roles__role small{display:block}
  .platform-roles__role small,.platform-roles__permission small,.platform-roles__permission code{font-size:11px;opacity:.68}
  .platform-roles__role p{font-size:12px;margin-top:8px}
  .platform-roles__permission-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
- .platform-roles__permission-tags code{font-size:9px;padding:4px 6px;border-radius:5px;background:rgba(130,145,170,.1);color:inherit}
- .platform-roles__group{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;border-top:1px solid rgba(130,145,170,.2);padding-top:14px;margin-top:14px}
+ .platform-roles__permission-tags code{font-size:9px;padding:4px 6px;border-radius:5px;background:color-mix(in srgb,var(--bee-surface-subtle) 10%,transparent);color:inherit}
+ .platform-roles__group{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;border-top:1px solid color-mix(in srgb,var(--bee-border) 20%,transparent);padding-top:14px;margin-top:14px}
  .platform-roles__group h4{text-transform:capitalize;grid-column:1/-1;margin:0 0 2px}
- .platform-roles__permission{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;padding:13px;border:1px solid rgba(130,145,170,.2);border-radius:11px;background:rgba(130,145,170,.035);min-width:0;min-height:100%}
+ .platform-roles__permission{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;padding:13px;border:1px solid color-mix(in srgb,var(--bee-border) 20%,transparent);border-radius:11px;background:color-mix(in srgb,var(--bee-surface-subtle) 4%,transparent);min-width:0;min-height:100%}
  .platform-roles__permission-copy{flex:1;min-width:0}
  .platform-roles__permission-copy strong,.platform-roles__permission-copy small,.platform-roles__permission-copy code{display:block}
  .platform-roles__permission-copy small{margin:3px 0}
@@ -93,15 +93,15 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
  .platform-roles__permission-state{font-size:10px;opacity:.68;white-space:nowrap}
  .platform-roles__toggle{position:relative;display:inline-flex;flex:none}
  .platform-roles__toggle input{position:absolute;opacity:0;width:1px;height:1px}
- .platform-roles__toggle span{width:38px;height:22px;border-radius:99px;background:rgba(130,145,170,.48);transition:background .15s;cursor:pointer}
- .platform-roles__toggle span:after{content:"";display:block;width:16px;height:16px;border-radius:50%;background:#fff;margin:3px;transition:transform .15s}
- .platform-roles__toggle input:checked+span{background:var(--purple,#8c72ff)}
+ .platform-roles__toggle span{width:38px;height:22px;border-radius:99px;background:color-mix(in srgb,var(--bee-surface-subtle) 48%,transparent);transition:background .15s;cursor:pointer}
+ .platform-roles__toggle span:after{content:"";display:block;width:16px;height:16px;border-radius:50%;background:var(--bee-accent-text);margin:3px;transition:transform .15s}
+ .platform-roles__toggle input:checked+span{background:var(--bee-accent)}
  .platform-roles__toggle input:checked+span:after{transform:translateX(16px)}
- .platform-roles__footer{border-top:1px solid rgba(130,145,170,.2);padding-top:15px;margin-top:15px}
+ .platform-roles__footer{border-top:1px solid color-mix(in srgb,var(--bee-border) 20%,transparent);padding-top:15px;margin-top:15px}
  .platform-roles__footer p{font-size:11px;max-width:680px}
- .platform-roles__footer button{background:var(--purple,#8c72ff);color:#fff;border-color:var(--purple,#8c72ff)}
- .platform-roles__error{color:#e36b6b!important;opacity:1!important}
- .platform-roles__success{color:#2ca879!important;opacity:1!important}
+ .platform-roles__footer button{background:var(--bee-accent);color:var(--bee-accent-text);border-color:var(--bee-accent)}
+ .platform-roles .platform-roles__error{color:var(--bee-status-danger);opacity:1}
+ .platform-roles .platform-roles__success{color:var(--bee-status-success);opacity:1}
  .platform-roles__empty{padding:16px;color:inherit;opacity:.65}
  @media(max-width:980px){.platform-roles__group{grid-template-columns:repeat(2,minmax(0,1fr))}}
  @media(max-width:760px){.platform-roles__role-grid{grid-template-columns:1fr}.platform-roles__header,.platform-roles__panel-head,.platform-roles__footer{align-items:flex-start;flex-direction:column}}

@@ -11,7 +11,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  template:`
  <section class="org-roles">
   <header class="org-roles__header org-roles__header--actions"><button type="button" (click)="load()" [disabled]="loading||busy">Refresh</button></header>
-  <p class="org-roles__error" *ngIf="error" role="alert">{{error}}</p><p class="org-roles__success" *ngIf="message" role="status">{{message}}</p>
+  <p class="org-roles__error bee-status--danger" *ngIf="error" role="alert">{{error}}</p><p class="org-roles__success bee-status--success" *ngIf="message" role="status">{{message}}</p>
   <p class="org-roles__notice" *ngIf="!canManage">You can view roles. Only the organization owner or Super Admin can create, edit or delete custom roles.</p>
   <nav class="org-roles__tabs" aria-label="Roles and permissions sections">
    <button type="button" [class.is-active]="activeTab==='system'" [attr.aria-selected]="activeTab==='system'" (click)="activeTab='system'"><span>01</span>System Roles <small>{{systemRoles.length}}</small></button>
@@ -82,7 +82,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
       <article class="org-roles__permission-tile" *ngFor="let item of permissionPageItems(group);trackBy:trackPermission">
        <div class="org-roles__permission-tile-top">
         <span class="org-roles__permission-action">{{item.action}}</span>
-        <span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable':'Protected'}}</span>
+        <span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)" [class.bee-status--warning]="!canGrant(item)" [class.bee-status--success]="canGrant(item)">{{canGrant(item)?'Grantable':'Protected'}}</span>
        </div>
        <strong>{{item.label}}</strong>
        <p>{{item.description}}</p>
@@ -127,7 +127,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
    <div class="org-roles__modal-backdrop" *ngIf="modalOpen" (click)="closeModal()">
     <div class="org-roles__modal" role="dialog" aria-modal="true" aria-labelledby="org-role-modal-title" (click)="$event.stopPropagation()">
      <div class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">ORGANIZATION ACCESS</span><h2 id="org-role-modal-title">{{editingId?'Edit custom role':'Create custom role'}}</h2><p>Define the role identity and choose its permission behavior.</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeModal()">×</button></div>
-     <p class="org-roles__error" *ngIf="error" role="alert">{{error}}</p>
+     <p class="org-roles__error bee-status--danger" *ngIf="error" role="alert">{{error}}</p>
      <div class="org-roles__editor org-roles__editor--modal">
      <div class="org-roles__editor-heading"><div><h3>{{editingId?'Edit custom role':'Create custom role'}}</h3><p>Define the role identity and choose its permission behavior.</p></div><span class="org-roles__section-tag">{{mode==='restriction'?'Deny overlay':'Permission grants'}}</span></div>
      <form (submit)="save($event)">
@@ -187,185 +187,181 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  .org-roles p{margin:0;color:inherit;opacity:.68;line-height:1.55}
  .org-roles__header>div p{max-width:760px}
  .org-roles button,.org-roles input,.org-roles select{font:inherit}
- .org-roles button{border:1px solid var(--border,#8885);border-radius:9px;padding:9px 13px;background:var(--panel,#8881);color:inherit;cursor:pointer}
+ .org-roles button{border:1px solid var(--bee-border);border-radius:9px;padding:9px 13px;background:var(--bee-surface);color:inherit;cursor:pointer}
  .org-roles button:disabled{opacity:.5;cursor:not-allowed}
- .org-roles__tabs{display:flex;gap:4px;padding:0 14px;margin:2px 0 0;border-bottom:1px solid var(--border,#8885);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--purple,#8c72ff) transparent;scrollbar-gutter:stable}
- .org-roles__tabs::-webkit-scrollbar{height:3px}.org-roles__tabs::-webkit-scrollbar-thumb{background:var(--purple,#8c72ff);border-radius:999px}
+ .org-roles__tabs{display:flex;gap:4px;padding:0 14px;margin:2px 0 0;border-bottom:1px solid var(--bee-border);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--bee-accent) transparent;scrollbar-gutter:stable}
+ .org-roles__tabs::-webkit-scrollbar{height:3px}.org-roles__tabs::-webkit-scrollbar-thumb{background:var(--bee-accent);border-radius:999px}
  .org-roles__tabs button{flex:1;min-width:max-content;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 12px;border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:inherit;font-size:11px;font-weight:600;opacity:.64;white-space:nowrap}
- .org-roles__tabs button>span{font-size:9px;opacity:.55}.org-roles__tabs button small{font-size:10px;border:1px solid var(--border,#8885);border-radius:20px;padding:2px 6px;opacity:.75}
- .org-roles__tabs button.is-active{border-bottom-color:var(--purple,#8c72ff);color:var(--purple,#8c72ff);opacity:1}
- .org-roles__tab-panel{min-width:0;border:1px solid var(--border,#8885);border-radius:15px;padding:20px;background:var(--panel,rgba(130,145,170,.045))}
+ .org-roles__tabs button>span{font-size:9px;opacity:.55}.org-roles__tabs button small{font-size:10px;border:1px solid var(--bee-border);border-radius:20px;padding:2px 6px;opacity:.75}
+ .org-roles__tabs button.is-active{border-bottom-color:var(--bee-accent);color:var(--bee-accent);opacity:1}
+ .org-roles__tab-panel{min-width:0;border:1px solid var(--bee-border);border-radius:15px;padding:20px;background:var(--bee-surface)}
  .org-roles__section-heading{align-items:center;margin-bottom:16px}.org-roles__section-heading p,.org-roles__editor-heading p{font-size:12px;max-width:780px}
- .org-roles__section-tag,.org-roles__permission-count,.org-roles__list-heading>span{font-size:10px;border:1px solid var(--border,#8885);border-radius:30px;padding:6px 9px;white-space:nowrap;opacity:.75}
+ .org-roles__section-tag,.org-roles__permission-count,.org-roles__list-heading>span{font-size:10px;border:1px solid var(--bee-border);border-radius:30px;padding:6px 9px;white-space:nowrap;opacity:.75}
  .org-roles .teams-workspace__view-toggle{display:flex;align-items:center;gap:5px;padding:5px;border:0;border-radius:10px;background:transparent}
- .org-roles .teams-workspace__view-toggle button{display:grid;place-items:center;justify-items:center;align-items:center;width:34px;height:32px;padding:0;line-height:1;border:1px solid var(--border,#8885);border-radius:7px;background:transparent;color:var(--muted,inherit);font:inherit;font-size:17px;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,color .16s ease}.org-roles .teams-workspace__view-toggle button>span{display:block;margin:0;padding:0;line-height:1;text-align:center}
- .org-roles .teams-workspace__view-toggle button:hover{border-color:var(--purple,#8c72ff);color:inherit}
- .org-roles .teams-workspace__view-toggle button.is-active{border-color:var(--purple,#8c72ff);background:var(--purple,#8c72ff);color:var(--bg,#fff)}
- .org-roles .teams-workspace__view-toggle button:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:2px}
- .org-roles .documents__button{display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:8px;padding:8px 13px;border:1px solid var(--border,#8885);border-radius:9px;background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,transform .16s ease}
- .org-roles .documents__button:hover:not(:disabled){background:color-mix(in srgb,var(--purple,#8c72ff) 10%,transparent);border-color:color-mix(in srgb,var(--purple,#8c72ff) 55%,var(--border,#8885))}
- .org-roles .documents__button:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:2px}
+ .org-roles .teams-workspace__view-toggle button{display:grid;place-items:center;justify-items:center;align-items:center;width:34px;height:32px;padding:0;line-height:1;border:1px solid var(--bee-border);border-radius:7px;background:transparent;color:var(--bee-text-muted);font:inherit;font-size:17px;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,color .16s ease}.org-roles .teams-workspace__view-toggle button>span{display:block;margin:0;padding:0;line-height:1;text-align:center}
+ .org-roles .teams-workspace__view-toggle button:hover{border-color:var(--bee-accent);color:inherit}
+ .org-roles .teams-workspace__view-toggle button.is-active{border-color:var(--bee-accent);background:var(--bee-accent);color:var(--bee-accent-text)}
+ .org-roles .teams-workspace__view-toggle button:focus-visible{outline:2px solid var(--bee-secondary);outline-offset:2px}
+ .org-roles .documents__button{display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:8px;padding:8px 13px;border:1px solid var(--bee-border);border-radius:9px;background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:600;line-height:1.2;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,transform .16s ease}
+ .org-roles .documents__button:hover:not(:disabled){background:color-mix(in srgb,var(--bee-accent) 10%,transparent);border-color:color-mix(in srgb,var(--bee-accent) 55%,var(--bee-border))}
+ .org-roles .documents__button:focus-visible{outline:2px solid var(--bee-secondary);outline-offset:2px}
  .org-roles .documents__button:active:not(:disabled){transform:translateY(1px)}
  .org-roles .documents__button:disabled{cursor:not-allowed;opacity:.48}
  .org-roles__toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:14px;margin:0 0 18px;min-width:0}
  .org-roles__toolbar-filters{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,3fr) minmax(0,3fr);align-items:center;gap:8px;min-width:0}
  .org-roles__toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
- .org-roles__source-filter{width:100%;min-width:0;height:36px;padding:0 10px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.035));color:inherit;font-size:11px}
+ .org-roles__source-filter{width:100%;min-width:0;height:36px;padding:0 10px;border:1px solid var(--bee-border);border-radius:8px;background:var(--bee-surface-subtle);color:inherit;font-size:11px}
  .org-roles__filter-spacer{min-width:0}
- .org-roles__search{display:flex;align-items:center;gap:8px;width:100%;min-width:0;height:36px;padding:0 10px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.035));color:var(--muted,inherit)}
+ .org-roles__search{display:flex;align-items:center;gap:8px;width:100%;min-width:0;height:36px;padding:0 10px;border:1px solid var(--bee-border);border-radius:8px;background:var(--bee-surface-subtle);color:var(--bee-text-muted)}
  .org-roles__search>span{font-size:20px}.org-roles__search input{border:0;outline:0;min-width:0;flex:1;background:transparent;color:inherit;font-size:12px}
- .org-roles__search input::placeholder{color:var(--muted,inherit)}.org-roles__search:focus-within{border-color:var(--purple,#8c72ff);box-shadow:0 0 0 2px color-mix(in srgb,var(--purple,#8c72ff) 20%,transparent)}
+ .org-roles__search input::placeholder{color:var(--bee-text-muted)}.org-roles__search:focus-within{border-color:var(--bee-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--bee-accent) 20%,transparent)}
  .org-roles__search button{border:0;background:transparent;color:inherit;font-size:16px;padding:0 4px}
- .org-roles__result-count{font-size:10px;color:var(--muted,inherit);white-space:nowrap}
+ .org-roles__result-count{font-size:10px;color:var(--bee-text-muted);white-space:nowrap}
  .org-roles .teams-workspace__view-toggle{flex:0 0 auto}
  @media(max-width:760px){.org-roles__toolbar{grid-template-columns:1fr;gap:10px}.org-roles__toolbar-actions{justify-content:flex-end}.org-roles__toolbar-filters{grid-template-columns:minmax(0,4fr) minmax(0,3fr) minmax(0,3fr)}}
  .org-roles__permission-preview{display:flex;align-items:center;gap:7px;min-width:0;min-height:26px}
- .org-roles__permission-circle{position:relative;width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border:1px solid var(--border,#8885);border-radius:50%;background:var(--surface-raised,var(--panel));color:var(--purple,#8c72ff);font-size:9px;font-weight:750;letter-spacing:.02em;cursor:help;transition:border-color .16s ease,background-color .16s ease}
- .org-roles__permission-circle:hover,.org-roles__permission-circle:focus-visible{border-color:var(--purple,#8c72ff);background:color-mix(in srgb,var(--purple,#8c72ff) 12%,var(--surface-raised,var(--panel)))}
- .org-roles__permission-circle::after{content:attr(data-tooltip);position:absolute;z-index:20;inset-block-end:calc(100% + 8px);inset-inline-start:50%;transform:translate(-50%,4px);padding:6px 9px;border:1px solid var(--border,#8885);border-radius:7px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow);color:inherit;font-size:10px;font-weight:600;white-space:nowrap;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
+ .org-roles__permission-circle{position:relative;width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border:1px solid var(--bee-border);border-radius:50%;background:var(--bee-surface-raised);color:var(--bee-accent);font-size:9px;font-weight:750;letter-spacing:.02em;cursor:help;transition:border-color .16s ease,background-color .16s ease}
+ .org-roles__permission-circle:hover,.org-roles__permission-circle:focus-visible{border-color:var(--bee-accent);background:color-mix(in srgb,var(--bee-accent) 12%,var(--bee-surface-raised))}
+ .org-roles__permission-circle::after{content:attr(data-tooltip);position:absolute;z-index:20;inset-block-end:calc(100% + 8px);inset-inline-start:50%;transform:translate(-50%,4px);padding:6px 9px;border:1px solid var(--bee-border);border-radius:7px;background:var(--bee-surface-raised);box-shadow:var(--bee-shadow);color:inherit;font-size:10px;font-weight:600;white-space:nowrap;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
  .org-roles__permission-circle:hover::after,.org-roles__permission-circle:focus-visible::after{opacity:1;visibility:visible;transform:translate(-50%,0)}
- .org-roles__permission-more{margin-inline-start:3px;font-size:10px;color:var(--muted,inherit);white-space:nowrap}
- .org-roles__table-wrap{width:100%;overflow-x:auto;border:1px solid var(--border,#8885);border-radius:10px}
+ .org-roles__permission-more{margin-inline-start:3px;font-size:10px;color:var(--bee-text-muted);white-space:nowrap}
+ .org-roles__table-wrap{width:100%;overflow-x:auto;border:1px solid var(--bee-border);border-radius:10px}
  .org-roles__table-wrap table{width:100%;border-collapse:collapse;min-width:680px}
- .org-roles__table-wrap th{text-align:start;color:var(--muted,inherit);font-size:10px;font-weight:650;background:color-mix(in srgb,var(--muted,#888) 6%,var(--surface,transparent));padding:10px 12px}
- .org-roles__table-wrap td{padding:9px 12px;border-top:1px solid var(--border,#8885);font-size:11px}
- .org-roles__table-wrap tbody tr{transition:background-color .16s ease}.org-roles__table-wrap tbody tr:hover{background:color-mix(in srgb,var(--purple,#8c72ff) 5%,transparent)}
+ .org-roles__table-wrap th{text-align:start;color:var(--bee-text-muted);font-size:10px;font-weight:650;background:color-mix(in srgb,var(--bee-text-muted) 6%,var(--bee-surface-subtle));padding:10px 12px}
+ .org-roles__table-wrap td{padding:9px 12px;border-top:1px solid var(--bee-border);font-size:11px}
+ .org-roles__table-wrap tbody tr{transition:background-color .16s ease}.org-roles__table-wrap tbody tr:hover{background:color-mix(in srgb,var(--bee-accent) 5%,transparent)}
  .org-roles__table-role{display:flex;align-items:center;gap:9px;white-space:nowrap}.org-roles__table-role strong{font-size:11px}
- .org-roles__table-description{max-width:320px;color:var(--muted,inherit)}
- .org-roles__table-permission-count{font-size:9px;color:var(--muted,inherit);margin-inline-start:3px}
- .org-roles__table-menu{position:relative}.org-roles__table-menu summary{list-style:none;cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:7px;color:var(--muted,inherit);font-size:21px;line-height:1}
- .org-roles__table-menu summary::-webkit-details-marker{display:none}.org-roles__table-menu summary:hover{background:color-mix(in srgb,var(--muted,#888) 12%,transparent)}
+ .org-roles__table-description{max-width:320px;color:var(--bee-text-muted)}
+ .org-roles__table-permission-count{font-size:9px;color:var(--bee-text-muted);margin-inline-start:3px}
+ .org-roles__table-menu{position:relative}.org-roles__table-menu summary{list-style:none;cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:7px;color:var(--bee-text-muted);font-size:21px;line-height:1}
+ .org-roles__table-menu summary::-webkit-details-marker{display:none}.org-roles__table-menu summary:hover{background:color-mix(in srgb,var(--bee-text-muted) 12%,transparent)}
  .org-roles__sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
  .org-roles__system-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,245px),1fr));grid-auto-rows:1fr;gap:12px}
- .org-roles__system-card{position:relative;min-width:0;min-height:188px;border:1px solid var(--border,#8885);border-radius:11px;background:var(--surface,rgba(130,145,170,.035));padding:13px;display:grid;grid-template-rows:auto minmax(48px,1fr) auto auto;gap:10px;transition:border-color .16s ease,background-color .16s ease}
- .org-roles__system-card:hover{border-color:color-mix(in srgb,var(--purple,#8c72ff) 48%,var(--border,#8885));background:color-mix(in srgb,var(--surface,rgba(130,145,170,.035)) 92%,var(--purple,#8c72ff))}
+ .org-roles__system-card{position:relative;min-width:0;min-height:188px;border:1px solid var(--bee-border);border-radius:11px;background:var(--bee-surface-subtle);padding:13px;display:grid;grid-template-rows:auto minmax(48px,1fr) auto auto;gap:10px;transition:border-color .16s ease,background-color .16s ease}
+ .org-roles__system-card:hover{border-color:color-mix(in srgb,var(--bee-accent) 48%,var(--bee-border));background:color-mix(in srgb,var(--bee-surface-subtle) 92%,var(--bee-accent))}
  .org-roles__card-top{display:flex;justify-content:space-between;align-items:center}
- .org-roles__role-mark{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:9px;background:color-mix(in srgb,var(--purple,#8c72ff) 13%,var(--panel,#8882));color:var(--purple,#8c72ff);font-weight:750;font-size:14px}
+ .org-roles__role-mark{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:9px;background:color-mix(in srgb,var(--bee-accent) 13%,var(--bee-surface));color:var(--bee-accent);font-weight:750;font-size:14px}
  .org-roles__card-menu,.org-roles__card-menu details{position:relative}
- .org-roles__card-menu summary{list-style:none;cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:7px;color:var(--muted,inherit);font-size:21px;line-height:1}
- .org-roles__card-menu summary::-webkit-details-marker{display:none}.org-roles__card-menu summary:hover{background:color-mix(in srgb,var(--muted,#888) 12%,transparent);color:inherit}
- .org-roles__menu{position:absolute;z-index:5;inset-block-start:30px;inset-inline-end:0;width:190px;padding:5px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow);display:grid;gap:2px}
+ .org-roles__card-menu summary{list-style:none;cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:7px;color:var(--bee-text-muted);font-size:21px;line-height:1}
+ .org-roles__card-menu summary::-webkit-details-marker{display:none}.org-roles__card-menu summary:hover{background:color-mix(in srgb,var(--bee-text-muted) 12%,transparent);color:inherit}
+ .org-roles__menu{position:absolute;z-index:5;inset-block-start:30px;inset-inline-end:0;width:190px;padding:5px;border:1px solid var(--bee-border);border-radius:9px;background:var(--bee-surface-raised);box-shadow:var(--bee-shadow);display:grid;gap:2px}
  .org-roles__menu button{display:flex;justify-content:space-between;align-items:center;gap:8px;border:0;border-radius:6px;background:transparent;color:inherit;text-align:start;padding:8px;font-size:11px}
- .org-roles__menu button:hover:not(:disabled){background:color-mix(in srgb,var(--muted,#888) 12%,transparent)}
- .org-roles__menu button:disabled{opacity:.42;cursor:not-allowed}.org-roles__menu button small{font-size:9px;color:var(--muted);white-space:nowrap}
+ .org-roles__menu button:hover:not(:disabled){background:color-mix(in srgb,var(--bee-text-muted) 12%,transparent)}
+ .org-roles__menu button:disabled{opacity:.42;cursor:not-allowed}.org-roles__menu button small{font-size:9px;color:var(--bee-text-muted);white-space:nowrap}
  .org-roles__card-copy{display:grid;align-content:start;gap:5px;min-width:0}.org-roles__card-copy>strong{font-size:14px;overflow-wrap:anywhere}
  .org-roles__card-copy p{font-size:11px;line-height:1.4;min-height:31px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
- .org-roles__card-meta{display:flex;align-items:center;gap:8px;border-top:1px solid var(--border,#8885);padding-top:9px}
- .org-roles__permission-count{font-size:10px;color:var(--muted,inherit);border:1px solid var(--border,#8885);border-radius:5px;padding:4px 6px}
- .org-roles__status{margin-inline-start:auto;display:inline-flex;align-items:center;border-radius:20px;padding:4px 7px;background:color-mix(in srgb,var(--bee-status-success,#299d70) 12%,transparent);color:var(--bee-status-success,#299d70);font-size:9px;text-transform:capitalize;white-space:nowrap}
- .org-roles__status.is-inactive{background:color-mix(in srgb,var(--muted,#888) 14%,transparent);color:var(--muted,#888)}
- .org-roles__permission-preview{display:flex;align-items:center;min-width:0;min-height:28px;padding-inline-start:0;gap:0}.org-roles__permission-preview .org-roles__permission-circle{position:relative;border:2px solid var(--surface,var(--panel));margin-inline-start:-8px}.org-roles__permission-preview .org-roles__permission-circle:first-child{margin-inline-start:0}.org-roles__permission-preview .org-roles__permission-circle:nth-child(1){z-index:3}.org-roles__permission-preview .org-roles__permission-circle:nth-child(2){z-index:2}.org-roles__permission-preview .org-roles__permission-circle:nth-child(3){z-index:1}.org-roles__permission-preview .org-roles__permission-more{position:relative;z-index:4;margin-inline-start:10px}
- .org-roles__permission-more{position:relative;z-index:4;margin-inline-start:auto;padding-inline-start:5px;font-size:10px;color:var(--muted,inherit);white-space:nowrap}
- .org-roles__details-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px;border:1px solid var(--border,#8885);border-radius:10px;background:var(--surface,transparent)}
- .org-roles__details-summary>div{display:grid;gap:6px;align-content:start}.org-roles__detail-label{font-size:10px;color:var(--muted,inherit)}
- .org-roles__details-permissions{margin-top:18px}.org-roles__details-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.org-roles__details-heading h3{font-size:14px}.org-roles__details-heading>span{font-size:10px;color:var(--muted,inherit)}
+ .org-roles__card-meta{display:flex;align-items:center;gap:8px;border-top:1px solid var(--bee-border);padding-top:9px}
+ .org-roles__permission-count{font-size:10px;color:var(--bee-text-muted);border:1px solid var(--bee-border);border-radius:5px;padding:4px 6px}
+ .org-roles__status{margin-inline-start:auto;display:inline-flex;align-items:center;border-radius:20px;padding:4px 7px;background:color-mix(in srgb,var(--bee-status-success) 12%,transparent);color:var(--bee-status-success);font-size:9px;text-transform:capitalize;white-space:nowrap}
+ .org-roles__status.is-inactive{background:color-mix(in srgb,var(--bee-text-muted) 14%,transparent);color:var(--bee-text-muted)}
+ .org-roles__permission-preview{display:flex;align-items:center;min-width:0;min-height:28px;padding-inline-start:0;gap:0}.org-roles__permission-preview .org-roles__permission-circle{position:relative;border:2px solid var(--bee-surface-subtle);margin-inline-start:-8px}.org-roles__permission-preview .org-roles__permission-circle:first-child{margin-inline-start:0}.org-roles__permission-preview .org-roles__permission-circle:nth-child(1){z-index:3}.org-roles__permission-preview .org-roles__permission-circle:nth-child(2){z-index:2}.org-roles__permission-preview .org-roles__permission-circle:nth-child(3){z-index:1}.org-roles__permission-preview .org-roles__permission-more{position:relative;z-index:4;margin-inline-start:10px}
+ .org-roles__permission-more{position:relative;z-index:4;margin-inline-start:auto;padding-inline-start:5px;font-size:10px;color:var(--bee-text-muted);white-space:nowrap}
+ .org-roles__details-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px;border:1px solid var(--bee-border);border-radius:10px;background:var(--bee-surface-subtle)}
+ .org-roles__details-summary>div{display:grid;gap:6px;align-content:start}.org-roles__detail-label{font-size:10px;color:var(--bee-text-muted)}
+ .org-roles__details-permissions{margin-top:18px}.org-roles__details-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.org-roles__details-heading h3{font-size:14px}.org-roles__details-heading>span{font-size:10px;color:var(--bee-text-muted)}
  .org-roles__detail-badges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
- .org-roles__detail-badges>span{display:grid;gap:4px;min-width:0;padding:9px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,transparent)}
- .org-roles__detail-badges strong{font-size:11px}.org-roles__detail-badges code{font-size:9px;color:var(--muted,inherit);overflow-wrap:anywhere}
+ .org-roles__detail-badges>span{display:grid;gap:4px;min-width:0;padding:9px;border:1px solid var(--bee-border);border-radius:8px;background:var(--bee-surface-subtle)}
+ .org-roles__detail-badges strong{font-size:11px}.org-roles__detail-badges code{font-size:9px;color:var(--bee-text-muted);overflow-wrap:anywhere}
  .org-roles__permissions-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px}
- .org-roles__permissions-toolbar .org-roles__result-count{font-size:10px;color:var(--muted,inherit)}
+ .org-roles__permissions-toolbar .org-roles__result-count{font-size:10px;color:var(--bee-text-muted)}
  .org-roles__permission-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:14px}
- .org-roles__permission-group{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;min-width:0;min-height:250px;padding:13px;border:1px solid var(--border,#8885);border-radius:12px;background:var(--surface,rgba(130,145,170,.035));overflow:hidden}
+ .org-roles__permission-group{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;min-width:0;min-height:250px;padding:13px;border:1px solid var(--bee-border);border-radius:12px;background:var(--bee-surface-subtle);overflow:hidden}
  .org-roles__permission-group{transition:border-color .16s ease,background-color .16s ease}
- .org-roles__permission-group:hover{border-color:color-mix(in srgb,var(--purple,#8c72ff) 48%,var(--border,#8885));background:color-mix(in srgb,var(--surface,rgba(130,145,170,.035)) 92%,var(--purple,#8c72ff))}
- .org-roles__permission-group-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:9px;border-bottom:1px solid var(--border,#8885)}
+ .org-roles__permission-group:hover{border-color:color-mix(in srgb,var(--bee-accent) 48%,var(--bee-border));background:color-mix(in srgb,var(--bee-surface-subtle) 92%,var(--bee-accent))}
+ .org-roles__permission-group-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:9px;border-bottom:1px solid var(--bee-border)}
  .org-roles__permission-group-heading h4{text-transform:capitalize;font-size:13px;margin:0}
- .org-roles__permission-group-heading span{font-size:9px;color:var(--muted,inherit);white-space:nowrap}
+ .org-roles__permission-group-heading span{font-size:9px;color:var(--bee-text-muted);white-space:nowrap}
  .org-roles__permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(94px,1fr));gap:8px;min-width:0}
- .org-roles__permission-tile{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;min-height:94px;padding:9px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface-raised,var(--panel));animation:orgPermissionEnter .28s cubic-bezier(.2,.75,.25,1) both}
+ .org-roles__permission-tile{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;min-height:94px;padding:9px;border:1px solid var(--bee-border);border-radius:9px;background:var(--bee-surface-raised);animation:orgPermissionEnter .28s cubic-bezier(.2,.75,.25,1) both}
  .org-roles__permission-tile{transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
- .org-roles__permission-tile:hover{border-color:color-mix(in srgb,var(--cyan,#00f5d4) 48%,var(--border,#8885));background:color-mix(in srgb,var(--surface-raised,var(--panel)) 91%,var(--cyan,#00f5d4));transform:translateY(-1px)}
+ .org-roles__permission-tile:hover{border-color:color-mix(in srgb,var(--bee-secondary) 48%,var(--bee-border));background:color-mix(in srgb,var(--bee-surface-raised) 91%,var(--bee-secondary));transform:translateY(-1px)}
  .org-roles__permission-grid.is-previous .org-roles__permission-tile{animation-name:orgPermissionReturn}
  .org-roles__permission-tile-top{display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;min-width:0}
- .org-roles__permission-action{display:inline-flex;align-items:center;max-width:100%;padding:3px 6px;border:1px solid color-mix(in srgb,var(--purple,#8c72ff) 30%,var(--border,#8885));border-radius:5px;background:color-mix(in srgb,var(--purple,#8c72ff) 9%,transparent);color:var(--purple,#8c72ff);font-size:8px;font-weight:750;letter-spacing:.045em;text-transform:uppercase;overflow-wrap:anywhere}
+ .org-roles__permission-action{display:inline-flex;align-items:center;max-width:100%;padding:3px 6px;border:1px solid color-mix(in srgb,var(--bee-accent) 30%,var(--bee-border));border-radius:5px;background:color-mix(in srgb,var(--bee-accent) 9%,transparent);color:var(--bee-accent);font-size:8px;font-weight:750;letter-spacing:.045em;text-transform:uppercase;overflow-wrap:anywhere}
  .org-roles__permission-tile strong{font-size:10px;line-height:1.3;overflow-wrap:anywhere}
  .org-roles__permission-tile p{font-size:9px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
- .org-roles__permission-tile code{margin-top:auto;max-width:100%;font-size:8px;color:var(--muted,inherit);overflow-wrap:anywhere}
- .org-roles__permission-state{font-size:8px;line-height:1.2;color:var(--bee-status-success,#299d70);white-space:nowrap}
- .org-roles__permission-state.is-protected{color:var(--warning,#c58a35);opacity:1}
+ .org-roles__permission-tile code{margin-top:auto;max-width:100%;font-size:8px;color:var(--bee-text-muted);overflow-wrap:anywhere}
+ .org-roles__permission-state{font-size:8px;line-height:1.2;color:var(--bee-status-success);white-space:nowrap}
+ .org-roles__permission-state.is-protected{color:var(--bee-status-warning);opacity:1}
  .org-roles__permission-pagination{display:flex;align-items:center;justify-content:center;gap:10px;min-height:27px}
- .org-roles__permission-pagination button{display:grid;place-items:center;width:27px;height:27px;padding:0;border:1px solid var(--border,#8885);border-radius:7px;background:var(--surface-raised,var(--panel));color:inherit;font-size:15px;line-height:1;transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
- .org-roles__permission-pagination button:hover{border-color:var(--purple,#8c72ff);background:color-mix(in srgb,var(--purple,#8c72ff) 9%,var(--surface-raised,var(--panel)))}
+ .org-roles__permission-pagination button{display:grid;place-items:center;width:27px;height:27px;padding:0;border:1px solid var(--bee-border);border-radius:7px;background:var(--bee-surface-raised);color:inherit;font-size:15px;line-height:1;transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
+ .org-roles__permission-pagination button:hover{border-color:var(--bee-accent);background:color-mix(in srgb,var(--bee-accent) 9%,var(--bee-surface-raised))}
  .org-roles__permission-pagination button:active{transform:translateX(1px)}
- .org-roles__permission-pagination button:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:2px}
- .org-roles__permission-page-count{font-size:9px;color:var(--muted,inherit);font-variant-numeric:tabular-nums}
+ .org-roles__permission-pagination button:focus-visible{outline:2px solid var(--bee-secondary);outline-offset:2px}
+ .org-roles__permission-page-count{font-size:9px;color:var(--bee-text-muted);font-variant-numeric:tabular-nums}
  .org-roles__permission-accordions{display:grid;gap:9px}
- .org-roles__permission-accordion{min-width:0;border:1px solid var(--border,#8885);border-radius:10px;background:var(--surface,rgba(130,145,170,.035));overflow:hidden;transition:border-color .16s ease,background-color .16s ease}
- .org-roles__permission-accordion:hover{border-color:color-mix(in srgb,var(--purple,#8c72ff) 38%,var(--border,#8885))}
+ .org-roles__permission-accordion{min-width:0;border:1px solid var(--bee-border);border-radius:10px;background:var(--bee-surface-subtle);overflow:hidden;transition:border-color .16s ease,background-color .16s ease}
+ .org-roles__permission-accordion:hover{border-color:color-mix(in srgb,var(--bee-accent) 38%,var(--bee-border))}
  .org-roles__permission-accordion-heading{margin:0}
  .org-roles__permission-accordion-trigger{display:flex;align-items:center;gap:9px;width:100%;min-height:48px;padding:10px 13px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:background-color .16s ease}
- .org-roles__permission-accordion-trigger:hover{background:color-mix(in srgb,var(--surface,transparent) 88%,var(--purple,#8c72ff))}
- .org-roles__permission-accordion-trigger:focus-visible{outline:2px solid var(--cyan,#00f5d4);outline-offset:-2px}
- .org-roles__permission-accordion-symbol{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px;border:1px solid color-mix(in srgb,var(--purple,#8c72ff) 35%,var(--border,#8885));border-radius:6px;color:var(--purple,#8c72ff);font-size:16px;line-height:1}
+ .org-roles__permission-accordion-trigger:hover{background:color-mix(in srgb,var(--bee-surface-subtle) 88%,var(--bee-accent))}
+ .org-roles__permission-accordion-trigger:focus-visible{outline:2px solid var(--bee-secondary);outline-offset:-2px}
+ .org-roles__permission-accordion-symbol{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px;border:1px solid color-mix(in srgb,var(--bee-accent) 35%,var(--bee-border));border-radius:6px;color:var(--bee-accent);font-size:16px;line-height:1}
  .org-roles__permission-accordion-name{text-transform:capitalize;font-size:12px;font-weight:700}
- .org-roles__permission-accordion-count{font-size:10px;color:var(--muted,inherit);font-variant-numeric:tabular-nums}
+ .org-roles__permission-accordion-count{font-size:10px;color:var(--bee-text-muted);font-variant-numeric:tabular-nums}
  .org-roles__permission-accordion-content{padding:0 10px 10px;animation:orgPermissionEnter .2s ease-out}
  .org-roles__permission-accordion-content .org-roles__permission-table-wrap{border-radius:8px}
- .org-roles__permission-table-wrap{width:100%;overflow-x:auto;border:1px solid var(--border,#8885);border-radius:10px}
+ .org-roles__permission-table-wrap{width:100%;overflow-x:auto;border:1px solid var(--bee-border);border-radius:10px}
  .org-roles__permission-table-wrap table{width:100%;min-width:720px;border-collapse:collapse}
- .org-roles__permission-table-wrap th{padding:10px 12px;background:color-mix(in srgb,var(--muted,#888) 6%,var(--surface,transparent));color:var(--muted,inherit);font-size:10px;font-weight:650;text-align:start}
- .org-roles__permission-table-wrap td{padding:10px 12px;border-top:1px solid var(--border,#8885);font-size:10px;vertical-align:middle}
+ .org-roles__permission-table-wrap th{padding:10px 12px;background:color-mix(in srgb,var(--bee-text-muted) 6%,var(--bee-surface-subtle));color:var(--bee-text-muted);font-size:10px;font-weight:650;text-align:start}
+ .org-roles__permission-table-wrap td{padding:10px 12px;border-top:1px solid var(--bee-border);font-size:10px;vertical-align:middle}
  .org-roles__permission-table-wrap td:first-child{min-width:190px}
  .org-roles__permission-table-wrap td strong,.org-roles__permission-table-wrap td small{display:block}
- .org-roles__permission-table-wrap td small{margin-top:3px;color:var(--muted,inherit);font-size:9px}
- .org-roles__permission-table-wrap code{font-size:9px;color:var(--muted,inherit);overflow-wrap:anywhere}
- .org-roles__footnote{font-size:11px;margin-top:14px!important}
+ .org-roles__permission-table-wrap td small{margin-top:3px;color:var(--bee-text-muted);font-size:9px}
+ .org-roles__permission-table-wrap code{font-size:9px;color:var(--bee-text-muted);overflow-wrap:anywhere}
+ .org-roles .org-roles__footnote{font-size:11px;margin-top:14px}
  @keyframes orgPermissionEnter{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
  @keyframes orgPermissionReturn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
  .org-roles__modal-backdrop{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:var(--bee-overlay);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:orgRoleFade .16s ease-out}
- .org-roles__modal{width:min(900px,100%);max-height:min(84vh,820px);overflow:auto;border:1px solid var(--border,#8885);border-radius:16px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow);padding:20px;display:grid;gap:16px;animation:orgRoleRise .2s ease-out}
+ .org-roles__modal{width:min(900px,100%);max-height:min(84vh,820px);overflow:auto;border:1px solid var(--bee-border);border-radius:16px;background:var(--bee-surface-raised);box-shadow:var(--bee-shadow);padding:20px;display:grid;gap:16px;animation:orgRoleRise .2s ease-out}
  .org-roles__modal-top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin:0}
  .org-roles__modal-top h2{font-size:15px;line-height:1.3;margin:3px 0 0}.org-roles__modal-top p{font-size:11px}.org-roles__modal-eyebrow{font-size:9px;letter-spacing:.15em;font-weight:700;opacity:.55}
- .org-roles__modal-close{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;padding:0!important;font-size:18px;line-height:1;border:1px solid var(--border,#8885);border-radius:8px!important;background:var(--surface,transparent)}
+ .org-roles .org-roles__modal-close{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;padding:0;font-size:18px;line-height:1;border:1px solid var(--bee-border);border-radius:8px;background:var(--bee-surface-subtle)}
  .org-roles__editor--modal{border:0;padding:0;background:transparent}.org-roles__editor--modal .org-roles__editor-heading{display:none}
  @keyframes orgRoleFade{from{opacity:0}to{opacity:1}}@keyframes orgRoleRise{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
- @media(prefers-reduced-motion:reduce){.org-roles__modal-backdrop,.org-roles__modal,.org-roles__permission-tile{animation:none!important;transition:none!important}}
+ @media(prefers-reduced-motion:reduce){.org-roles__modal-backdrop,.org-roles__modal,.org-roles__permission-tile{animation:none;transition:none}}
  .org-roles__custom-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
  .org-roles__list-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.org-roles__list-heading strong{font-size:12px}
- .org-roles__role-card{display:grid;width:100%;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;text-align:left;margin-top:8px;padding:11px!important}
- .org-roles__role-card.active{border-color:var(--purple,#8c72ff);background:var(--surface-raised,#8882)}
+ .org-roles .org-roles__role-card{display:grid;width:100%;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;text-align:left;margin-top:8px;padding:11px}
+ .org-roles__role-card.active{border-color:var(--bee-accent);background:var(--bee-surface-raised)}
  .org-roles__role-card>span{min-width:0}.org-roles__role-card strong,.org-roles__role-card small{display:block}.org-roles__role-card strong{font-size:12px}.org-roles__role-card small{font-size:10px;opacity:.62;margin-top:3px;overflow-wrap:anywhere}
- .org-roles__role-card em{font-size:9px;font-style:normal;border:1px solid var(--border,#8885);border-radius:20px;padding:4px 7px;align-self:start}.org-roles__role-card em.is-restriction{color:var(--warning,#c58a35)}
+ .org-roles__role-card em{font-size:9px;font-style:normal;border:1px solid var(--bee-border);border-radius:20px;padding:4px 7px;align-self:start}.org-roles__role-card em.is-restriction{color:var(--bee-status-warning)}
  .org-roles__role-card .org-roles__role-meta{grid-column:1/-1}
  .org-roles__editor-heading{margin-bottom:12px}.org-roles__form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
  .org-roles__editor form>label,.org-roles__form-grid label{display:grid;gap:6px;margin:12px 0;font-size:11px;font-weight:700}
- .org-roles__editor input:not([type=checkbox]),.org-roles__editor select{width:100%;box-sizing:border-box;padding:10px 11px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.05));color:inherit;font-size:12px}
- .org-roles__mode-hint{font-size:11px!important;margin:7px 0 12px!important}
+ .org-roles__editor input:not([type=checkbox]),.org-roles__editor select{width:100%;box-sizing:border-box;padding:10px 11px;border:1px solid var(--bee-border);border-radius:8px;background:var(--bee-surface-subtle);color:inherit;font-size:12px}
+ .org-roles .org-roles__mode-hint{font-size:11px;margin:7px 0 12px}
  .org-roles__module-builder{display:grid;gap:13px;margin:16px 0}
  .org-roles__module-search-wrap{position:relative;display:grid;gap:6px}
  .org-roles__module-search-label,.org-roles__assigned-heading{font-size:11px;font-weight:700}
- .org-roles__module-search{height:38px;display:flex;align-items:center;gap:9px;padding:0 11px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface,rgba(130,145,170,.05));color:inherit}
- .org-roles__module-search>span{font-size:18px;opacity:.6}.org-roles__module-search input{flex:1;min-width:0;border:0!important;outline:0;background:transparent!important;padding:0!important;color:inherit;font-size:12px}.org-roles__module-search button{padding:0 4px;border:0;background:transparent;font-size:17px}
- .org-roles__module-suggestions{position:absolute;z-index:5;top:100%;left:0;right:0;max-height:220px;overflow:auto;margin-top:4px;padding:5px;border:1px solid var(--border,#8885);border-radius:10px;background:var(--surface-raised,var(--panel));box-shadow:var(--bee-shadow)}
- .org-roles__module-suggestions button{width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:0;border-radius:7px;background:transparent;text-align:left}.org-roles__module-suggestions button:hover{background:var(--surface,rgba(130,145,170,.08))}.org-roles__module-suggestions button span:first-child{display:grid;gap:2px}.org-roles__module-suggestions strong{font-size:11px}.org-roles__module-suggestions small,.org-roles__module-suggestions p{font-size:9px;opacity:.65}
- .org-roles__module-permission-card{border:1px solid var(--purple,#8c72ff);border-radius:12px;padding:13px;background:var(--surface,rgba(130,145,170,.045));box-shadow:0 0 0 1px color-mix(in srgb,var(--purple,#8c72ff) 10%,transparent)}
- .org-roles__module-permission-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}.org-roles__module-permission-card>header h4{font-size:13px;margin:2px 0}.org-roles__module-permission-card>header p{font-size:10px}.org-roles__module-eyebrow{font-size:8px;letter-spacing:.13em;font-weight:700;color:var(--purple,#8c72ff)}
- .org-roles__module-close{width:27px;height:27px;padding:0!important;display:grid;place-items:center;border-radius:50%!important}
+ .org-roles__module-search{height:38px;display:flex;align-items:center;gap:9px;padding:0 11px;border:1px solid var(--bee-border);border-radius:9px;background:var(--bee-surface-subtle);color:inherit}
+ .org-roles__module-search>span{font-size:18px;opacity:.6}.org-roles__module-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;padding:0;color:inherit;font-size:12px}.org-roles__module-search button{padding:0 4px;border:0;background:transparent;font-size:17px}
+ .org-roles__module-suggestions{position:absolute;z-index:5;top:100%;left:0;right:0;max-height:220px;overflow:auto;margin-top:4px;padding:5px;border:1px solid var(--bee-border);border-radius:10px;background:var(--bee-surface-raised);box-shadow:var(--bee-shadow)}
+ .org-roles__module-suggestions button{width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:0;border-radius:7px;background:transparent;text-align:left}.org-roles__module-suggestions button:hover{background:var(--bee-surface-hover)}.org-roles__module-suggestions button span:first-child{display:grid;gap:2px}.org-roles__module-suggestions strong{font-size:11px}.org-roles__module-suggestions small,.org-roles__module-suggestions p{font-size:9px;opacity:.65}
+ .org-roles__module-permission-card{border:1px solid var(--bee-accent);border-radius:12px;padding:13px;background:var(--bee-surface-subtle);box-shadow:0 0 0 1px color-mix(in srgb,var(--bee-accent) 10%,transparent)}
+ .org-roles__module-permission-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}.org-roles__module-permission-card>header h4{font-size:13px;margin:2px 0}.org-roles__module-permission-card>header p{font-size:10px}.org-roles__module-eyebrow{font-size:8px;letter-spacing:.13em;font-weight:700;color:var(--bee-accent)}
+ .org-roles .org-roles__module-close{width:27px;height:27px;padding:0;display:grid;place-items:center;border-radius:50%}
  .org-roles__module-permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
- .org-roles__module-permission{display:flex;align-items:flex-start;gap:8px;min-width:0;padding:9px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--panel,rgba(130,145,170,.035));cursor:pointer}
- .org-roles__module-permission input{margin:2px 0 0;accent-color:var(--purple,#8c72ff)}.org-roles__module-permission>span{flex:1;min-width:0}.org-roles__module-permission strong,.org-roles__module-permission small,.org-roles__module-permission code{display:block}.org-roles__module-permission strong{font-size:10px}.org-roles__module-permission small,.org-roles__module-permission code{margin-top:3px;font-size:9px;opacity:.65}.org-roles__module-permission code{overflow-wrap:anywhere}.org-roles__module-permission em{font-size:8px;color:var(--warning,#c58a35);font-style:normal;white-space:nowrap}
- .org-roles__module-permission-card>footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;padding-top:10px;border-top:1px solid var(--border,#8885);font-size:10px;opacity:.8}.org-roles__module-permission-card>footer button{font-size:10px;padding:7px 12px}
+ .org-roles__module-permission{display:flex;align-items:flex-start;gap:8px;min-width:0;padding:9px;border:1px solid var(--bee-border);border-radius:8px;background:var(--bee-surface);cursor:pointer}
+ .org-roles__module-permission input{margin:2px 0 0;accent-color:var(--bee-accent)}.org-roles__module-permission>span{flex:1;min-width:0}.org-roles__module-permission strong,.org-roles__module-permission small,.org-roles__module-permission code{display:block}.org-roles__module-permission strong{font-size:10px}.org-roles__module-permission small,.org-roles__module-permission code{margin-top:3px;font-size:9px;opacity:.65}.org-roles__module-permission code{overflow-wrap:anywhere}.org-roles__module-permission em{font-size:8px;color:var(--bee-status-warning);font-style:normal;white-space:nowrap}
+ .org-roles__module-permission-card>footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;padding-top:10px;border-top:1px solid var(--bee-border);font-size:10px;opacity:.8}.org-roles__module-permission-card>footer button{font-size:10px;padding:7px 12px}
  .org-roles__assigned-modules{display:grid;gap:8px}.org-roles__assigned-heading{display:flex;justify-content:space-between;align-items:center}.org-roles__assigned-heading span{font-size:9px;opacity:.6;font-weight:500}
  .org-roles__module-chip-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
- .org-roles__module-chip{height:34px;min-width:0;display:flex;align-items:center;gap:5px;padding:0 6px;border:1px solid var(--border,#8885);border-radius:8px;background:var(--surface,rgba(130,145,170,.045));transition:border-color .16s ease,background .16s ease}
- .org-roles__module-chip:hover{border-color:var(--purple,#8c72ff);background:color-mix(in srgb,var(--purple,#8c72ff) 8%,var(--surface,transparent))}
- .org-roles__module-chip button{width:21px;height:21px;flex:0 0 21px;display:grid;place-items:center;padding:0;border:0;border-radius:6px;background:transparent;font-size:13px;line-height:1}.org-roles__module-chip button:hover{background:var(--panel,rgba(130,145,170,.12));color:var(--purple,#8c72ff)}.org-roles__module-chip .org-roles__module-chip-remove:hover{color:var(--danger,#d65b5b)}
- .org-roles__module-chip-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:650}.org-roles__module-chip-count{font-size:9px;opacity:.6;font-variant-numeric:tabular-nums}.org-roles__module-empty{padding:10px;border:1px dashed var(--border,#8885);border-radius:8px;font-size:10px!important}
- .org-roles__permission{display:flex;align-items:flex-start;gap:9px;padding:10px 0;border-top:1px solid var(--border,#8884);font-size:11px}
- .org-roles__permission input{margin-top:3px;accent-color:var(--purple,#8c72ff)}.org-roles__permission span{flex:1;min-width:0}
+ .org-roles__module-chip{height:34px;min-width:0;display:flex;align-items:center;gap:5px;padding:0 6px;border:1px solid var(--bee-border);border-radius:8px;background:var(--bee-surface-subtle);transition:border-color .16s ease,background .16s ease}
+ .org-roles__module-chip:hover{border-color:var(--bee-accent);background:color-mix(in srgb,var(--bee-accent) 8%,var(--bee-surface-subtle))}
+ .org-roles__module-chip button{width:21px;height:21px;flex:0 0 21px;display:grid;place-items:center;padding:0;border:0;border-radius:6px;background:transparent;font-size:13px;line-height:1}.org-roles__module-chip button:hover{background:var(--bee-surface-hover);color:var(--bee-accent)}.org-roles__module-chip .org-roles__module-chip-remove:hover{color:var(--bee-status-danger)}
+ .org-roles__module-chip-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:650}.org-roles__module-chip-count{font-size:9px;opacity:.6;font-variant-numeric:tabular-nums}.org-roles__module-empty{padding:10px;border:1px dashed var(--bee-border);border-radius:8px;font-size:10px}
+ .org-roles__permission{display:flex;align-items:flex-start;gap:9px;padding:10px 0;border-top:1px solid var(--bee-border);font-size:11px}
+ .org-roles__permission input{margin-top:3px;accent-color:var(--bee-accent)}.org-roles__permission span{flex:1;min-width:0}
  .org-roles__permission strong,.org-roles__permission small,.org-roles__permission code{display:block}.org-roles__permission small,.org-roles__permission code{font-size:9px;opacity:.65;margin-top:3px}.org-roles__permission code{overflow-wrap:anywhere}
- .org-roles__permission em{font-size:9px;color:var(--warning,#c58a35);font-style:normal;white-space:nowrap}
- .org-roles__actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border,#8885)}
- .org-roles__primary{background:var(--purple,#8c72ff)!important;color:#fff!important;border-color:var(--purple,#8c72ff)!important}
- .org-roles__error{color:#d65b5b!important;opacity:1!important}.org-roles__success{color:#269b70!important;opacity:1!important}
- .org-roles__notice,.org-roles__empty{padding:12px;border:1px solid var(--border,#8885);border-radius:9px;background:var(--surface,rgba(130,145,170,.04));font-size:11px}
+ .org-roles__permission em{font-size:9px;color:var(--bee-status-warning);font-style:normal;white-space:nowrap}
+ .org-roles__actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--bee-border)}
+ .org-roles .org-roles__primary{background:var(--bee-accent);color:var(--bee-accent-text);border-color:var(--bee-accent)}
+ .org-roles .org-roles__error{color:var(--bee-status-danger);opacity:1}.org-roles .org-roles__success{color:var(--bee-status-success);opacity:1}
+ .org-roles__notice,.org-roles__empty{padding:12px;border:1px solid var(--bee-border);border-radius:9px;background:var(--bee-surface-subtle);font-size:11px}
  @media(max-width:760px){.org-roles__header,.org-roles__section-heading,.org-roles__editor-heading{align-items:flex-start;flex-direction:column}.org-roles__permission-groups,.org-roles__module-permission-grid,.org-roles__form-grid,.org-roles__detail-badges{grid-template-columns:1fr}.org-roles__module-chip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.org-roles__permission-group{min-height:230px}.org-roles__details-summary{grid-template-columns:1fr}}
  @media(max-width:600px){.org-roles__toolbar{align-items:stretch}.org-roles__search{width:auto;flex:1;min-width:0}.org-roles__collection-header{justify-content:space-between}.org-roles__table-wrap table{min-width:620px}}
  @media(max-width:520px){.org-roles__tab-panel{padding:13px}.org-roles__tabs{padding:0 4px}.org-roles__tabs button{padding:12px 8px}.org-roles__modal-backdrop{padding:12px}.org-roles__modal{max-height:min(90vh,820px)}.org-roles__permission-group{padding:10px}.org-roles__permission-tile{padding:8px}}
- :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles{--bg:#f4f6fb;--panel:#fff;--surface:#fff;--surface-raised:#fff;--muted:#68758b;--border:#dfe5ef;--purple:#5542bd;--cyan:#0891b2;--bee-status-success:#167447;--bee-status-warning:#946200;--bee-status-danger:#b42318;--warning:#946200;--bee-shadow:0 12px 32px #25385818;color:#263248}
- :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles .teams-workspace__view-toggle button.is-active{color:#fff}
- :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles .documents__button{color:#263248}
- :host-context(.bee-template-package-host--midnight[data-bee-dashboard-mode="light"]) .org-roles .org-roles__primary{color:#fff!important}
  `]
 
 })

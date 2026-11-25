@@ -24,9 +24,9 @@ The package is registered as:
 - Layout key: `dashboard.midnight`
 - Slots: sidebar, topbar, content and widgets.
 
-The package currently contains `manifest.ts`, `theme-tokens.ts`, `styles.css`, layout component, pages/components and assets. Its current token object defines six tokens; the package stylesheet applies them to the Midnight host and styles selected dashboard content surfaces.
+The package currently contains `manifest.ts`, `tokens.css`, `styles.css`, layout component, pages/components and assets. Its semantic `tokens.css` defines the package palette for Light and Dark and scopes it to the Midnight host and the matching active html surface.
 
-This guide documents the existing palette and defines the intended complete semantic contract. Where a semantic role is not yet represented by a dedicated runtime token, treat it as a documented implementation gap: add it centrally to the Midnight token contract before using it in feature CSS. Do not fill the gap with an arbitrary local color.
+The 89-token contract is complete and authoritative in `templates/base/tokens.contract.css`. Midnight supplies all 89 values in both mode blocks. A genuinely new role must be added centrally and to all six packages in both modes before use.
 
 ## 3. Brand and visual character
 
@@ -57,47 +57,47 @@ This guide documents the existing palette and defines the intended complete sema
 
 ### 4.1 Existing canonical values
 
-These are the values currently present in `theme-tokens.ts`; do not silently change them in a feature PR.
+The canonical Midnight Dark palette is defined in the Dark block of `tokens.css`; preserve its semantic mapping when changing dashboard surfaces.
 
 | Token | Value | Intended role |
 |---|---|---|
-| `--bg` | `#080a12` | Main dashboard background |
-| `--panel` | `#10131e` | Default panel/surface base |
-| `--muted` | `#8991a4` | Muted text and secondary metadata |
-| `--border` | `#303447` | Default subtle border |
-| `--purple` | `#8c72ff` | Primary accent, focus and primary action |
-| `--cyan` | `#69e5d4` | Secondary accent and selective highlights |
+| `--bee-bg` | `#080a12` | Main dashboard background |
+| `--bee-surface` | `#10131e` | Default panel/surface base |
+| `--bee-text-muted` | `#8991a4` | Muted text and secondary metadata |
+| `--bee-border` | `#303447` | Default subtle border |
+| `--bee-accent` | `#8c72ff` | Primary accent, focus and primary action |
+| `--bee-secondary` | `#69e5d4` | Secondary accent and selective highlights |
 
-The dashboard package stylesheet currently also declares content surface colors for selected legacy selectors (`.panel`, `.dash-stat`, `.quick-action`, `.bee-dashboard-card`): `#101827` background, `#25324a` border and `#e5ecf8` foreground. These are current implementation values, not permission for feature components to copy them. Consolidate them behind semantic tokens as the shared theme contract evolves.
+The shared dashboard shell in `templates/base/base.css` now owns the `.panel`, `.dash-stat`, `.quick-action` and `.bee-dashboard-card` surface rules. Their backgrounds, borders, foregrounds, shadows and Glass blur resolve through the active package's semantic tokens; package stylesheets no longer define these wrapper surfaces.
 
 ### 4.2 Semantic token contract
 
-New feature code MUST consume semantic variables rather than literal colors. The following names are the intended semantic contract. If a variable is not yet supplied by the runtime, add it to the central Midnight theme-token implementation and document it there before consuming it.
+New feature code MUST consume semantic variables rather than literal colors. The following names are examples from the implemented contract. The complete 89-token reference is in `docs/template-authoring.md` and `templates/base/tokens.contract.css`.
 
 | Semantic role | Intended variable |
 |---|---|
-| Main page background | `--bg` |
-| Default surface | `--panel` |
+| Main page background | `--bee-bg` |
+| Default surface | `--bee-surface` |
 | Raised/alternate surface | `--bee-surface-raised` |
 | Subtle surface | `--bee-surface-subtle` |
 | Primary text | `--bee-text` |
-| Secondary text | `--muted` |
+| Secondary text | `--bee-text-muted` |
 | Disabled text | `--bee-text-disabled` |
-| Default border | `--border` |
+| Default border | `--bee-border` |
 | Strong border | `--bee-border-strong` |
-| Primary accent | `--purple` |
-| Secondary accent | `--cyan` |
+| Primary accent | `--bee-accent` |
+| Secondary accent | `--bee-secondary` |
 | Focus ring | `--bee-focus-ring` |
 | Success | `--bee-status-success` |
 | Warning | `--bee-status-warning` |
 | Danger | `--bee-status-danger` |
 | Informational | `--bee-status-info` |
 | Overlay | `--bee-overlay` |
-| Control background | `--bee-control-bg` |
-| Control border | `--bee-control-border` |
-| Control placeholder | `--bee-control-placeholder` |
+| Control background | `--bee-input-bg` |
+| Control border | `--bee-input-border` |
+| Control placeholder | `--bee-input-placeholder` |
 
-The semantic names above are a contract to implement centrally, not a claim that every property currently exists. Do not use a CSS fallback such as `var(--bee-surface-raised, #121827)` in a feature component; missing tokens must be fixed at the theme layer.
+The semantic names above are supplied by the central contract and package mode blocks. Do not use a CSS fallback such as `var(--bee-surface-raised, #121827)` in a feature component; if a token is missing, fix the contract and all six package modes.
 
 ### 4.3 Accent usage
 
@@ -112,8 +112,8 @@ The semantic names above are a contract to implement centrally, not a claim that
 ### 5.1 Background hierarchy
 
 Use a consistent hierarchy:
-1. Main canvas: deepest background (`--bg`).
-2. Standard work surface: `--panel`.
+1. Main canvas: deepest background (`--bee-bg`).
+2. Standard work surface: `--bee-surface`.
 3. Raised/interactive surface: semantic raised-surface token.
 4. Hover/selected surface: semantic state token, subtle and consistent.
 
@@ -148,7 +148,7 @@ The Midnight dashboard must prioritize legibility and hierarchy.
 - Avoid excessive negative letter spacing, all-caps paragraphs and long lines.
 - Numeric values in KPI/data contexts should align consistently and remain readable.
 
-Exact type scale should be consolidated into shared typography tokens rather than invented per feature. If no shared token exists for a needed level, document and add it centrally.
+Use existing dashboard typography tokens where applicable. Do not invent per-feature scales; add a genuinely missing semantic role centrally and to all packages only after review.
 
 ## 7. Page layout in Midnight
 
@@ -307,8 +307,8 @@ Organization → Teams and Documents are the canonical cross-feature comparison 
 
 ## 17. CSS ownership and implementation rules
 
-- The package stylesheet owns Midnight shell-level and theme-specific styles.
-- The central theme-token file owns palette/token values.
+- The shared `base.css` owns dashboard shell structure and responsive behavior. The Midnight package stylesheet is reserved for Midnight-specific decoration that cannot be expressed through semantic tokens.
+- The central `tokens.contract.css` defines the semantic contract; Midnight `tokens.css` supplies its Light and Dark values.
 - Shared UI components own reusable component structure and base behavior.
 - Feature components own only unique content layout and must consume semantic tokens.
 - Scope Midnight-specific styles under `.bee-template-package-host--midnight` or the established host scope.
@@ -346,32 +346,24 @@ Before a Midnight page is considered complete, verify:
 - [ ] No shell/navigation styles are duplicated by the feature.
 - [ ] Global Bee-Core Design System guide is followed.
 
-## 19. Known gaps to close in implementation
+## 19. Validation boundary
 
-This guide intentionally distinguishes current code from the desired stable contract. The following should be consolidated centrally as the design-system implementation progresses:
-1. Expand the six existing Midnight tokens into semantic surface, text, border, control, overlay, focus and status tokens.
-2. Replace literal colors in Midnight package surface selectors with semantic tokens.
-3. Establish shared typography, spacing, radius, elevation and motion tokens.
-4. Build or consolidate shared PageLayout/PageHeader/PageSection and common controls where equivalent implementations currently live in feature components.
-5. Audit existing dashboard pages for local hard-coded colors, inconsistent cards/forms/tables and broad CSS selectors.
-6. Add automated or documented visual regression checks for Midnight at mobile/tablet/desktop breakpoints.
+The source-level contract is implemented: all 89 tokens exist in both Midnight modes, the strict style guard is active, the WCAG checker is blocking, and the template browser matrix exercises both modes. CI also captures full-page screenshots of the key dashboard screens.
 
-Do not mark these gaps complete merely because this guide documents them. Update this document when the implementation contract changes.
+The automated screenshot suite does not compare pixels with the pre-refactor baseline. Human visual equivalence for Midnight Dark/Light, Paper and Glass remains NOT verified. First paint before Angular boots also remains NOT verified.
 
 ### Light appearance refinements for shared workspace pages
 
 - Shared components MUST adapt to the active appearance mode through semantic tokens; the Midnight package must not force its dark surface palette into light mode.
 - Modal overlays should remain neutral dark translucent layers in both modes; dialogs and menus use the active panel/background tokens, while dialog shadows remain neutral dark.
-- Validate the collection toolbar, active/inactive view control, cards, table row hover, overflow menus, forms, empty states and modal details in both light and dark appearance. Violet/cyan accents are preserved as functional states, not decorative gradients or glow.
+- Validate the collection toolbar, active/inactive view control, cards, table row hover, overflow menus, forms, empty states and modal details in both light and dark appearance. The active package accent tokens are preserved as functional states, not decorative gradients or glow.
 
 
-### Documents light-mode surface audit (2026-11-23)
+### Documents active dashboard token contract
 
-- Documents responds to the Midnight dashboard host's `data-bee-dashboard-mode="light"` state with component-local semantic surface/text/accent tokens so `--panel`, `--bg`, `--muted` and `--border` no longer resolve to dark-only values in Light mode.
-- Folder/document cards, card hover, overflow menus, share/detail dialogs, share tabs, suggestions, chips, hint panels, empty state and table surface are explicitly reviewed for Light contrast.
-- Primary buttons and selected view controls use a contrast-safe white foreground over the violet action/selection surface in Light mode.
-- This component-scoped treatment MUST NOT bleed into other features or alter Midnight Dark. Confirm visually in browser in both modes before marking verified.
+Documents consumes the active dashboard package tokens in both modes. Cards, card hover, menus, dialogs, tabs, suggestions, chips, hint panels, empty states and tables must use semantic tokens. Component-local Midnight-Light palette overrides are not permitted.
 
+The template runtime owns the active HTML mode attributes. Browser tests capture Documents under Midnight, Paper and Glass in Light and Dark, but those screenshots are not pixel assertions against a pre-refactor baseline.
 
 ## 20. Toast notifications and full-viewport modal overlays
 
@@ -392,14 +384,14 @@ Do not mark these gaps complete merely because this guide documents them. Update
 - The dialog itself uses the active Midnight panel/surface, foreground, border and shadow tokens. Light appearance must use a light dialog surface with dark readable text; Dark appearance retains the deep Midnight surface.
 - Keep the backdrop separate from the dialog scroll container so blur/dimming remain fixed while long dialog content scrolls.
 
-The shared `--bee-overlay` token is defined in the Midnight theme-token contract and remains neutral-dark in both appearance modes.
+The shared `--bee-overlay` token is defined in the Midnight `tokens.css` mode blocks and remains neutral-dark in both appearance modes.
 
 ## Collection hover behavior
 
 Use the Documents collection hover as the canonical Midnight reference for cards and tables:
 
-- Cards receive a subtle violet surface shift by blending 92% of the current panel surface with 8% `--purple` and a border blended 48% toward `--purple`.
-- Table rows receive a restrained 5% `--purple` tint over transparency.
+- Cards receive a subtle violet surface shift by blending 92% of the current panel surface with 8% `--bee-accent` and a border blended 48% toward `--bee-accent`.
+- Table rows receive a restrained 5% `--bee-accent` tint over transparency.
 - Keep the transition to background and border colors only (approximately 160ms). Do not add glow, scale, elevation, opacity changes or movement to ordinary collection hover.
 - Apply semantic tokens rather than fixed colors. The same rules must remain legible in Midnight Light and Dark; the active surface and accent tokens supply the mode-specific values.
 - Keep hover separate from selected, focus-visible, drag-over and disabled states. Keyboard focus continues to use the documented focus outline.
@@ -410,7 +402,7 @@ In Midnight, the System Roles catalog uses the same card geometry and subtle hov
 
 ### System Roles collection controls and permission markers
 
-The System Roles tab MUST use the same collection composition as Organization → Teams: a Cards/Table segmented view control in the collection header, the primary Create role action at the far edge, and a search field below the header. Cards and table rows MUST share the same content, filtering and restrained hover behavior. Permission previews use compact circular initials (for example, View members → VM, View plugins → VP, View files → VF); each circle exposes the complete permission label through a hover/focus tooltip and accessible name. Keep the marker surface, border, accent and tooltip theme-token based in Light and Dark. The Create role action opens the existing Custom Roles creation flow; built-in Core roles remain immutable.
+The System Roles tab MUST use the same collection composition as Organization → Teams: a Cards/Table segmented view control in the collection header, the primary Create role action at the far edge, and a search field below the header. Cards and table rows MUST share the same content, filtering and restrained hover behavior. Permission previews use compact circular initials (for example, View members → VM, View plugins → VP, View files → VF); each circle exposes the complete permission label through a hover/focus tooltip and accessible name. Keep the marker surface, border, accent and tooltip semantic-token based in Light and Dark. The Create role action opens the existing Custom Roles creation flow; built-in Core roles remain immutable.
 
 
 ### System Roles permission-circle overlap and view-toggle alignment
@@ -420,7 +412,7 @@ The System Roles tab MUST use the same collection composition as Organization �
 
 
 ### Organization Roles — Midnight Light parity
-- Organization → Roles & Permissions uses the same explicit Midnight Light host-context token mapping as Organization → Teams. The override is scoped to the Midnight package in Light mode and remaps local surfaces, foreground, muted text, borders, accent, semantic status colors and shadow; it must not affect Midnight Dark, Glass or Paper.
+- Organization → Roles & Permissions and Organization → Teams consume the canonical Midnight package tokens directly; neither component carries a local Midnight-Light `:host-context` palette override. Light and Dark differences come only from the package's active mode token blocks, so Glass and Paper remain isolated.
 - System-role cards, tabs, search, table, overflow menus, permission circles/tooltips and role dialogs must use the mapped semantic tokens. Selected Cards/Table controls and primary actions keep a white foreground over violet for contrast, matching Teams.
 - Any new Roles surface or control must be checked in both Midnight Light and Midnight Dark; a light dashboard canvas alone does not count as Light-mode support.
 
@@ -428,6 +420,20 @@ The System Roles tab MUST use the same collection composition as Organization �
 ### Organization → Users collection (Midnight)
 
 - Match Documents' collection toolbar: two equal 50% zones, with search/status filters on the left and the Cards/Table selector right-aligned in the right zone with a small right inset. Stack the zones cleanly on mobile.
-- Reuse Documents' view selector exactly: 34×32px buttons, 5px gap, 7px radius, 17px centered glyph, zero padding, semantic border and violet selected state. Keep keyboard focus and aria-pressed behavior.
-- Users cards use three columns on desktop, two on tablet and one on mobile; equal-height cards per row, 12px gap, 12px radius, 16px padding and the Documents restrained violet hover tint. Table rows use the matching 5% violet hover tint.
+- Reuse Documents' view selector exactly: 34×32px buttons, 5px gap, 7px radius, 17px centered glyph, zero padding, semantic border and active package accent selected state. Keep keyboard focus and aria-pressed behavior.
+- Users cards use three columns on desktop, two on tablet and one on mobile; equal-height cards per row, 12px gap, 12px radius, 16px padding and the Documents restrained violet hover tint. Table rows use the matching 5% active-package accent hover tint.
 - Cards and Table show the same filtered members and preserve all existing role assignment, restriction, status and overflow actions. Use Midnight semantic tokens so panels, controls, borders, text and selected states remain correct in Light and Dark.
+
+
+## Semantic token ownership (current architecture)
+
+The package palette source is `tokens.css`, scoped to the package host and mirrored onto the active html surface:
+
+- Dashboard selectors use `data-bee-template="<id>"` and `data-bee-dashboard-mode="light|dark"`.
+- Public selectors use `data-bee-template="<id>"` and `data-bee-public-mode="light|dark"`.
+- Every package must define the full `--bee-*` contract in both modes, including surfaces, text, borders, accent, statuses, effects, shape and inputs.
+- Midnight is a normal package, not the global base. Its dark token values are the source for the established Midnight dark palette; its light palette is independently defined.
+- Package `styles.css` is reserved for decoration/layout that cannot be expressed through tokens. Do not add palette declarations there or add `!important` overrides.
+- The base contract owns neutral fallback values only. Core appearance code owns mode controls and lifecycle, never a package palette.
+
+The six legacy aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) are absent and must not be reintroduced. Feature consumers use semantic `--bee-*` tokens. The client custom-palette adapter is removed; the server's legacy `/templates/theme` API remains unchanged for compatibility.
