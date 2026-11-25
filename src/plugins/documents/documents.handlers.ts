@@ -13,8 +13,8 @@ export function createDocumentsHandlers(deps:any) {
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
    if(!Buffer.isBuffer(req.body))return reply.code(400).send({error:"A binary document upload is required"});
-   const originalName=String(req.headers["x-document-name"]??"").slice(0,180);
-   const contentType=String(req.headers["x-document-content-type"]??"").split(";")[0].trim().toLowerCase();
+   const originalName=String(req.headers["x-file-name"]??"").slice(0,180);
+   const contentType=String(req.headers["x-file-content-type"]??"").split(";")[0].trim().toLowerCase();
    try{
     const file=await storage.store(tenant.tenantId,req.body,originalName,contentType,tenant.userId);
     const id=maskResourceId(file.id,"document-file",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);
