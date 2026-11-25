@@ -68,11 +68,11 @@ The canonical Midnight Dark palette is defined in the Dark block of `tokens.css`
 | `--bee-accent` | `#8c72ff` | Primary accent, focus and primary action |
 | `--bee-secondary` | `#69e5d4` | Secondary accent and selective highlights |
 
-The dashboard package stylesheet currently also declares content surface colors for selected legacy selectors (`.panel`, `.dash-stat`, `.quick-action`, `.bee-dashboard-card`): `#101827` background, `#25324a` border and `#e5ecf8` foreground. These are current implementation values, not permission for feature components to copy them. Consolidate them behind semantic tokens as the shared theme contract evolves.
+The shared dashboard shell in `templates/base/base.css` now owns the `.panel`, `.dash-stat`, `.quick-action` and `.bee-dashboard-card` surface rules. Their backgrounds, borders, foregrounds, shadows and Glass blur resolve through the active package's semantic tokens; package stylesheets no longer define these wrapper surfaces.
 
 ### 4.2 Semantic token contract
 
-New feature code MUST consume semantic variables rather than literal colors. The following names are the intended semantic contract. If a variable is not yet supplied by the runtime, add it to the central Midnight theme-token implementation and document it there before consuming it.
+New feature code MUST consume semantic variables rather than literal colors. The following names are the intended semantic contract. If a variable is not yet supplied by the runtime, add it to the central semantic token contract and document it there before consuming it.
 
 | Semantic role | Intended variable |
 |---|---|
@@ -410,7 +410,7 @@ In Midnight, the System Roles catalog uses the same card geometry and subtle hov
 
 ### System Roles collection controls and permission markers
 
-The System Roles tab MUST use the same collection composition as Organization → Teams: a Cards/Table segmented view control in the collection header, the primary Create role action at the far edge, and a search field below the header. Cards and table rows MUST share the same content, filtering and restrained hover behavior. Permission previews use compact circular initials (for example, View members → VM, View plugins → VP, View files → VF); each circle exposes the complete permission label through a hover/focus tooltip and accessible name. Keep the marker surface, border, accent and tooltip theme-token based in Light and Dark. The Create role action opens the existing Custom Roles creation flow; built-in Core roles remain immutable.
+The System Roles tab MUST use the same collection composition as Organization → Teams: a Cards/Table segmented view control in the collection header, the primary Create role action at the far edge, and a search field below the header. Cards and table rows MUST share the same content, filtering and restrained hover behavior. Permission previews use compact circular initials (for example, View members → VM, View plugins → VP, View files → VF); each circle exposes the complete permission label through a hover/focus tooltip and accessible name. Keep the marker surface, border, accent and tooltip semantic-token based in Light and Dark. The Create role action opens the existing Custom Roles creation flow; built-in Core roles remain immutable.
 
 
 ### System Roles permission-circle overlap and view-toggle alignment
