@@ -340,18 +340,18 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const auditMutation=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/audit-events",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
     assert.equal(auditMutation.statusCode,404,"tenant audit history exposes no mutation route");
     // Custom company role CRUD, assignment, tenant isolation and safe deletion.
-    const createCustomRole=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Document reader",description:"Read-only document access",permissions:["documents.read"]}});
+    const createCustomRole=await app.inject({method:"POST",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"File reader",description:"Read-only file access",permissions:["files.read"]}});
     assert.equal(createCustomRole.statusCode,201);
     const customRoleId=createCustomRole.json().role.id as string;
     const customRoleInternalId=await resolveReference(activateCompany.json().accessToken,customRoleId,"role");
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"role.created",resourceId:customRoleInternalId}),"custom role creation should be audited");
     const companyRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
-    assert.ok(companyRoles.json().roles.some((role:{id:string;name:string})=>role.id===customRoleId&&role.name==="Document reader"));
+    assert.ok(companyRoles.json().roles.some((role:{id:string;name:string})=>role.id===customRoleId&&role.name==="File reader"));
     const betaFreshLogin=await app.inject({method:"POST",url:"/auth/login",payload:{email:"beta@example.com",password:"Test-password-12345",client:"dashboard"}});
     assert.equal(betaFreshLogin.statusCode,200,"the cross-session replay check requires a valid, non-revoked session");
     const crossTenantCustomRoles=await app.inject({method:"GET",url:"/companies/"+secondCompanyId+"/roles",headers:{authorization:"Bearer "+betaFreshLogin.json().accessToken}});
     assert.equal(crossTenantCustomRoles.statusCode,404,"company references cannot be replayed across sessions");
-    const customRoleUpdate=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"Document reader updated",description:"Updated",permissions:["documents.read","files.read"]}});
+    const customRoleUpdate=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{name:"File reader updated",description:"Updated",permissions:["files.read"]}});
     assert.equal(customRoleUpdate.statusCode,200);
     assert.ok(await db.collection("tenant_audit_events").findOne({tenantId:secondCompanyInternalId,actorId:"test-user",action:"role.updated",resourceId:customRoleInternalId}),"custom role update should be audited");
     const assignCustomRole=await app.inject({method:"PUT",url:"/companies/"+secondCompanyId+"/memberships/"+encodeURIComponent(betaUserRef),headers:{authorization:"Bearer "+activateCompany.json().accessToken},payload:{customRoleId}});
