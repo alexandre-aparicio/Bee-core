@@ -133,7 +133,7 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
   {
     id: "time-tracking",
     name: "Control Horario",
-    version: "0.1.0",
+    version: "0.2.0",
     description: "Tenant-scoped employee time clock, breaks and work-session history",
     category: "productivity",
     visibleInPlans: ["starter", "pro", "enterprise"],
