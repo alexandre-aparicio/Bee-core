@@ -54,6 +54,8 @@ export interface BeePluginManifest {
   description?: string;
   /** Runtime dependencies, resolved before this plugin is initialized. */
   dependencies?: string[];
+  /** Explicit allowlist of host configuration services required by this plugin. */
+  requiredServices?: string[];
   /** Tenant-facing plugins default to manual activation unless explicitly configured. */
   activationPolicy?: BeePluginActivationPolicy;
   /** All three business modules are tenant-scoped; platform services use platform. */
