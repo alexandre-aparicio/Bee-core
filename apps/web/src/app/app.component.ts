@@ -131,7 +131,7 @@ export class AppComponent implements OnInit {
       if (!response.ok) throw new Error(result.error || 'Could not load enabled company plugins');
       const tenantPlugins = Array.isArray(result.plugins) ? result.plugins : [];
       this.pluginResourceIds = Object.fromEntries(tenantPlugins
-        .filter((plugin: any) => plugin?.pluginKey && plugin?.id)
+        .filter((plugin: any) => plugin?.externalRuntime === true && plugin?.pluginKey && plugin?.id)
         .map((plugin: any) => [String(plugin.pluginKey), String(plugin.id)]));
       const enabledIds = tenantPlugins.filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true).map((plugin: any) => String(plugin.pluginKey || plugin.id || '')).filter(Boolean);
       this.setActivePlugins(enabledIds);
