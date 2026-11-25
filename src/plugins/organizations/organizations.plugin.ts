@@ -17,7 +17,7 @@ type CreateCompanyBody = { name?:string; slug?:string };
 type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; restrictionRoleIds?:string[]; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
 
 export const organizationsPlugin:BeePlugin={
- manifest:{ requiredServices: ["mongoDbName","publicBaseDomain","sessionIdSecret"],name:"organizations",version:"0.1.0",description:"Company records, user memberships and active-company session context",dependencies:["auth"]},
+ manifest:{ requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: ["publicBaseDomain"],name:"organizations",version:"0.1.0",description:"Company records, user memberships and active-company session context",dependencies:["auth"]},
  async initialize(ctx){
   const dbName=String(ctx.config.mongoDbName??"bee_core");
   const db:Db=ctx.mongoClient.db(dbName);
