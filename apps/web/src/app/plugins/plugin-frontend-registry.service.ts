@@ -21,7 +21,7 @@ export type BeePluginNavigation = {
 
 export type BeePluginFrontendRegistration = {
   pluginId: string;
-  component: Type<unknown>;
+  loadComponent: () => Promise<Type<unknown>>;
   inputs: (context: BeePluginFrontendContext) => Record<string, unknown>;
   navigation: BeePluginNavigation;
   translations?: { en: Record<string, string>; es: Record<string, string> };
