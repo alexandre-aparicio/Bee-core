@@ -1,17 +1,6 @@
 /* Paper package-owned dashboard layout styles. */
-.bee-template-package-host--paper{display:block;min-height:100vh}
-.bee-template-package-host--paper .bee-dash-dashboard{background:#f3f5fa;color:#20283a}
-.bee-template-package-host--paper .bee-dash-sidebar{background:#fffdf9;border-color:#e2e6ef}
-.bee-template-package-host--paper .bee-dash-main>header{background:#fff;border-color:#e2e6ef;color:#68738a}
-.bee-template-package-host--paper .bee-dash-workspace{background:#f7f8fc;border-color:#e2e6ef}
-.bee-template-package-host--paper .bee-dash-sidebar button{color:#68738a}
-.bee-template-package-host--paper .bee-dash-sidebar button.active{background:#eeeaff;color:#6550c8}
-.bee-template-package-host--paper .bee-dash-content .panel,.bee-template-package-host--paper .bee-dash-content .dash-stat,.bee-template-package-host--paper .bee-dash-content .bee-template-manager{background:#fffdf9;border:1px solid #e3dfd7;color:#292825;box-shadow:0 6px 22px #30251b08}
-.bee-template-package-host--paper .bee-dash-content .quick-action{background:#fff;border:1px solid #e4dfd6;color:#51483f;border-radius:6px}
-.bee-template-package-host--paper .bee-dash-content .quick-action b,.bee-template-package-host--paper .bee-dash-content .panel-heading h2{color:#292825}
 .bee-template-package-host--paper .bee-template-manager__fields select{background:#f7f8fc;color:#20283a;border-color:#dce1eb}
 
-.bee-template-package-host--paper .bee-dash-content .bee-dashboard-card{background:#fffdf9;border:1px solid #e3dfd7;color:#292825;box-shadow:0 6px 22px #30251b08}
 
 .bee-template-package-host--paper .bee-company-members__table select option,
 .bee-template-package-host--paper .bee-company-members__invite select option{background:#fff;color:#292825}
