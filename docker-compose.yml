@@ -36,10 +36,12 @@ services:
       BEE_MAIL_ENCRYPTION_KEY: ${BEE_MAIL_ENCRYPTION_KEY:?Set BEE_MAIL_ENCRYPTION_KEY in .env}
       BEE_MAIL_SYNC_INTERVAL_SECONDS: ${BEE_MAIL_SYNC_INTERVAL_SECONDS:-300}
       BEE_FILES_DIR: /data/bee-files
+      BEE_DOCUMENTS_DIR: /data/bee-documents
       BEE_PLUGIN_PACKAGES_DIR: /data/bee-plugins
       BEE_PLUGIN_PUBLISHER_PUBLIC_KEY: ${BEE_PLUGIN_PUBLISHER_PUBLIC_KEY:-}
     volumes:
       - bee_core_files:/data/bee-files
+      - bee_core_documents:/data/bee-documents
       - bee_core_plugins:/data/bee-plugins
     depends_on:
       mongodb:
@@ -68,4 +70,5 @@ services:
 volumes:
   bee_core_mongodb_data:
   bee_core_files:
+  bee_core_documents:
   bee_core_plugins:
