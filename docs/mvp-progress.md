@@ -75,7 +75,7 @@ Explicit transition paths from source review:
 | Item | Status | Scope |
 |---|---|---|
 | Legacy palette aliases | Removed by source search | Migrated the remaining `organization-company` and `teams-workspace` consumers to `--bee-*` tokens, then removed all six temporary aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) from the package host. The three explicitly deferred Teams Workspace Midnight-Light `:host-context` rules remain unchanged. |
-| Cleanup and documentation reconciliation | Source-reviewed | Progress record updated to reflect Steps 6–8 and validation boundaries. Remaining exception is the explicitly deferred Teams Workspace palette block; runtime and visual validation remain NOT verified. |
+| Cleanup and documentation reconciliation | Done by source review (scope-limited) | Reconciled `mvp-progress.md`, `template-token-mapping.md` and Midnight STYLE-GUIDE with current source. Remaining exception is the explicitly deferred Teams Workspace palette block; runtime and visual validation remain NOT verified. |
 
 ## Step 5 — source batches completed
 
