@@ -34,3 +34,10 @@ The dependency migration and lockfile regeneration require executing the Angular
 - Do not weaken tests, compiler checks, lint rules or audit severity.
 - Do not use `--force` or `--legacy-peer-deps` to bypass dependency conflicts.
 - Do not claim a clean audit, successful build or browser verification without captured command output.
+
+
+## Audit evidence added — 2026-11-25
+
+The production dependency audit was added to the release CI gate. On PR #205 commit `aa04fdb10e595d64ebde3b8ac2dbb76a802e1658`, `npm run audit:production` failed with **6 production vulnerabilities (2 moderate, 4 high)**. The affected Angular packages include `@angular/common`, `@angular/compiler` and `@angular/core`, with advisories covering XSS/sanitization bypass, HTTP transfer-cache information leakage and denial of service. The audit output says affected Angular 19 packages are at or below 19.2.25 and proposes Angular 22.3.0 as the forced fix.
+
+Do not use `npm audit fix --force`. The migration rehearsal in this branch attempts the documented sequential Angular 19 → 20 → 21 → 22 CLI/CDK migrations, regenerates the lockfile through npm, then audits and builds the resulting workspace. Generated changes are uploaded as a patch artifact for review; this GitHub-only workflow does not run npm locally or hand-edit the lockfile.
