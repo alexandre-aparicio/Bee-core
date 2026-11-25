@@ -10,7 +10,7 @@ Bee-Core keeps the trusted plugin catalogue centrally and seeds its metadata int
 - `tenant_plugin_installations`: installation state per company and plugin;
 - `plugin_install_jobs`: durable, tenant-scoped installation jobs with active-job deduplication, attempts, worker lease, status, result and error metadata.
 
-Each company receives its own filtered catalogue. Starter includes Private Files and can see Team Notes as a purchasable add-on, but cannot install or use Notes until an active purchase or an eligible plan is recorded. Pro and Enterprise include both Files and Notes. Other packages can be hidden from Starter entirely by leaving them out of its `visiblePluginIds`.
+Each company receives its own filtered catalogue. Starter includes Private Files; Documents is provisioned with its Files dependency. Other packages are visible only when listed in the effective plan or granted through an active purchase/manual entitlement. Team Notes has been retired: it is excluded from all plans and catalogues, and its previous tenant data and installation/migration history are retained without restoring runtime access.
 
 Companies without a subscription record receive a 14-day Starter trial on first marketplace access. Current plan definitions are code-managed defaults seeded into MongoDB, not yet editable through an administration UI.
 
