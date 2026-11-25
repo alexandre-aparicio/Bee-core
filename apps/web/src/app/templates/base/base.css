@@ -3,6 +3,8 @@
  * Package palettes and dashboard variants are expressed by semantic tokens.
  */
 .bee-template-package-host {
+  display: block;
+  min-height: 100vh;
   /* TEMPORARY legacy aliases – remove in Step 8 */
   --bg: var(--bee-bg);
   --panel: var(--bee-surface);
@@ -14,7 +16,6 @@
 
 .bee-dash-shell {
   display: grid;
-  grid-template-columns: var(--bee-dashboard-sidebar-width, 256px) minmax(0, 1fr);
   min-height: 100vh;
   color: var(--bee-text);
   background: var(--bee-bg);
@@ -39,6 +40,7 @@
   color: var(--bee-text);
   background: var(--bee-dashboard-sidebar-background, var(--bee-surface));
   border-inline-end: 1px solid var(--bee-dashboard-sidebar-border, var(--bee-border));
+  backdrop-filter: blur(var(--bee-blur, 0px));
 }
 
 .bee-dash-brand {
@@ -105,6 +107,7 @@
   color: var(--bee-dashboard-header-color, var(--bee-text-muted));
   background: var(--bee-dashboard-header-background, var(--bee-surface));
   border-block-end: 1px solid var(--bee-dashboard-header-border, var(--bee-border));
+  backdrop-filter: blur(var(--bee-blur, 0px));
 }
 
 .bee-dash-main > header button {
@@ -141,6 +144,7 @@
   background: var(--bee-dashboard-card-background, var(--bee-surface));
   border: 1px solid var(--bee-dashboard-card-border, var(--bee-border));
   box-shadow: var(--bee-dashboard-card-shadow, var(--bee-shadow));
+  backdrop-filter: blur(var(--bee-blur, 0px));
 }
 
 .bee-dash-content .quick-action {
