@@ -9,7 +9,7 @@ export const documentsRoutes = Object.freeze({
   folders: "/documents/folders",
   documentFolderLocation: "/documents/:documentId/location",
   folderLocation: "/documents/folders/:folderId/location",
-  documents: "/documents",
+  documents: "/documents",\n  upload: "/documents/files",
   publication: "/documents/:documentId/publication",
   download: "/documents/:documentId/download",
   publicDownload: "/public/documents/:publicId"
