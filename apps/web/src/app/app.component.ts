@@ -12,11 +12,12 @@ import { FormsModule } from '@angular/forms';
 import { BeeTemplateEngine } from './templates/template-engine.service';
 import type { BeeThemeMode } from './templates/template-engine.service';
 import { BeeI18nService } from './i18n/bee-i18n.service';
+import { BeePluginFrontendRegistry } from './plugins/plugin-frontend-registry.service';
 import { BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent } from './templates/packages';
 
 @Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], templateUrl: './app.component.html' })
 export class AppComponent implements OnInit, OnDestroy {
-  constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService, private readonly zone: NgZone) {}
+  constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService, private readonly zone: NgZone, private readonly pluginFrontends: BeePluginFrontendRegistry) {}
 
   ngOnInit(): void {
     this.syncActiveSectionFromPath();
@@ -34,9 +35,8 @@ export class AppComponent implements OnInit, OnDestroy {
       // The settings component can dispatch this event from an async request.
       // Re-enter Angular explicitly so the sidebar is rendered immediately.
       this.zone.run(() => {
-        if (this.activeSection === 'documents' && !this.isPluginEnabled('documents')) this.navigateSection('dashboard');
-        else if (this.activeSection === 'connected-devices' && !this.isPluginEnabled('connected-devices')) this.navigateSection('dashboard');
-        else if (this.activeSection.startsWith('time-tracking') && !this.isPluginEnabled('time-tracking')) this.navigateSection('dashboard');
+        const pluginId = this.pluginFrontends.pluginForSection(this.activeSection);
+        if (pluginId && !this.isPluginEnabled(pluginId)) this.navigateSection('dashboard');
       });
     });
   };
@@ -103,7 +103,7 @@ export class AppComponent implements OnInit, OnDestroy {
   companyError = '';
   companyBusy = false;
   activePlugins: string[] = [];
-  setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.i18n.setInstalledModules(this.activePlugins); }
+  setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.i18n.setInstalledModules(this.activePlugins); for (const id of this.activePlugins) { const translations=this.pluginFrontends.resolve(id)?.translations; if (translations) { this.i18n.registerCatalog(id, "en", translations.en); this.i18n.registerCatalog(id, "es", translations.es); } } }
   isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
   private async refreshTenantPlugins(): Promise<void> {
     if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
@@ -394,7 +394,7 @@ export class AppComponent implements OnInit, OnDestroy {
   activeSection = 'dashboard';
   expandedMenuId = '';
   private readonly sectionRoutes: Record<string, string> = {
-    dashboard: '/dashboard', documents: '/dashboard/documents', 'connected-devices': '/dashboard/connected-devices', 'time-tracking': '/dashboard/time-tracking/my_jorney', 'time-tracking-day':'/dashboard/time-tracking/my_jorney', 'time-tracking-schedule':'/dashboard/time-tracking/schedule', 'time-tracking-history':'/dashboard/time-tracking/history', 'time-tracking-requests':'/dashboard/time-tracking/requests', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
+    dashboard: '/dashboard', plugins: '/dashboard/plugins', organization: '/dashboard/organization', 'organization-company':'/dashboard/organization/company', 'organization-users':'/dashboard/organization/users', 'organization-teams':'/dashboard/organization/teams', 'organization-roles':'/dashboard/organization/roles',
     activity: '/dashboard/activity', mail: '/dashboard/mail', notifications: '/dashboard/notifications', messages: '/dashboard/messages', 'settings-general': '/dashboard/settings/general',
     'settings-tenants': '/dashboard/settings/tenants', 'settings-users': '/dashboard/settings/users', 'settings-roles': '/dashboard/settings/roles-permissions', 'settings-plugins': '/dashboard/settings/plugins',
     'settings-plans': '/dashboard/settings/plans-licensing',
@@ -444,9 +444,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     const entry = Object.entries(this.sectionRoutes).find(([, route]) => route === this.path);
     const nextSection = entry?.[0] || 'dashboard';
-    this.activeSection = (nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)) || (nextSection === 'documents' && !this.isPluginEnabled('documents')) || (nextSection === 'connected-devices' && !this.isPluginEnabled('connected-devices'))
-      ? 'dashboard'
-      : nextSection;
+    this.activeSection = nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection) ? 'dashboard' : nextSection;
     this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : '');
   }
   get pluginDetailsId(): string { const match = this.path.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/); return match ? decodeURIComponent(match[1]) : ''; }
@@ -468,7 +466,7 @@ export class AppComponent implements OnInit, OnDestroy {
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManagePlugins(): boolean { return this.isPlatformAdmin || ['super_admin','owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
-  get sectionTitle(): string { const organizationTitles: Record<string,string> = {'organization-company':'nav.organization.company','organization-users':'nav.organization.users','organization-teams':'nav.organization.teams','organization-roles':'nav.organization.roles'}; const timeTrackingTitles: Record<string,string> = {'time-tracking-day':'nav.timeTracking','time-tracking-schedule':'nav.timeTracking','time-tracking-history':'nav.timeTracking','time-tracking-requests':'nav.timeTracking'}; const key=timeTrackingTitles[this.activeSection] || organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'nav.notifications' : this.activeSection === 'messages' ? 'nav.notifications.chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.labelKey || this.navigationItems.find(item => item.id === this.activeSection)?.labelKey || 'nav.dashboard'); return this.i18n.t(key); }
+  get sectionTitle(): string { const pluginLabel=this.pluginFrontends.labelForSection(this.activeSection,this.i18n.locale); if(pluginLabel)return pluginLabel; const organizationTitles: Record<string,string> = {'organization-company':'nav.organization.company','organization-users':'nav.organization.users','organization-teams':'nav.organization.teams','organization-roles':'nav.organization.roles'}; const key=organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'nav.notifications' : this.activeSection === 'messages' ? 'nav.notifications.chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.labelKey || this.navigationItems.find(item => item.id === this.activeSection)?.labelKey || 'nav.dashboard'); return this.i18n.t(key); }
   get settingsNavigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;description:string}> {
     const role = (this.activeCompanyRole || '').toLowerCase();
     const allowed = this.isPlatformAdmin
@@ -494,13 +492,8 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
     this.expandedMenuId = menuId;
-    const defaults: Record<string, string> = {
-      settings: 'settings-general',
-      notifications: 'notifications',
-      organization: 'organization-company',
-      'time-tracking': 'time-tracking-day'
-    };
-    const target = defaults[menuId];
+    const defaults: Record<string, string> = { settings: 'settings-general', notifications: 'notifications', organization: 'organization-company' };
+    const target = defaults[menuId] ?? this.pluginFrontends.defaultSection(menuId);
     if (!target) return;
     if (menuId === 'settings' && !this.settingsNavigationItems.some(item => item.id === target)) {
       const firstAvailable = this.settingsNavigationItems[0];
@@ -509,19 +502,18 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.navigateSection(target);
   }
-  get canManageTimeTracking(): boolean { return ['owner','admin','manager','super_admin','superadmin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get canReadActivity(): boolean {
     // Keep navigation visibility aligned with AuditLogComponent.canRead.
     return ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase());
   }
-  get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string}> {
-    // One shared navigation structure for platform and tenant administrators.
-    // Privileged areas are restricted within Settings and by section access checks.
+  get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string;children?:Array<{id:string;label:string;route:string}>}> {
+    const pluginItems=this.pluginFrontends.navigation(this.activePlugins).map(item=>({
+      id:item.id,label:this.i18n.locale==="es"?item.labelEs:item.label,labelKey:"",icon:item.icon,group:item.group,
+      ...(item.children?{children:item.children.map(child=>({id:child.id,label:this.i18n.locale==="es"?child.labelEs:child.label,route:child.route}))}:{})
+    }));
     const items = [
       {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
-      ...(this.isPluginEnabled('documents') ? [{id:'documents',label:'Documents',labelKey:'nav.documents',icon:'documentation',group:'WORKSPACE'}] : []),
-      ...(this.isPluginEnabled('connected-devices') ? [{id:'connected-devices',label:this.i18n.t('nav.connectedDevices'),labelKey:'nav.connectedDevices',icon:'infrastructure',group:'WORKSPACE'}] : []),
-      ...(this.isPluginEnabled('time-tracking') ? [{id:'time-tracking',label:'Control Horario',labelKey:'nav.timeTracking',icon:'activity',group:'WORKSPACE'}] : []),
+      ...pluginItems,
       {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
       {id:'activity',label:this.i18n.t('nav.activity'),labelKey:'nav.activity',icon:'activity',group:'WORKSPACE'},
       {id:'mail',label:this.i18n.t('nav.mail'),labelKey:'nav.mail',icon:'mail',group:'WORKSPACE'},
@@ -531,21 +523,21 @@ export class AppComponent implements OnInit, OnDestroy {
     return items.filter(item => item.id !== 'activity' || this.canReadActivity);
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
+  pluginIdsForSection(sectionId:string):string[] { const pluginId=this.pluginFrontends.pluginForSection(sectionId); return pluginId && this.isPluginEnabled(pluginId) ? [pluginId] : []; }
   navigateSection(id: string): void {
     const targetId = id === 'settings' ? (this.settingsNavigationItems.some(item => item.id === 'settings-general') ? 'settings-general' : this.settingsNavigationItems[0]?.id) : id === 'organization' ? 'organization-company' : id;
     if (!targetId) return;
     if (targetId.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === targetId)) return;
-    if (targetId === 'documents' && !this.isPluginEnabled('documents')) { this.navigateSection('dashboard'); return; }
-    if (targetId === 'connected-devices' && !this.isPluginEnabled('connected-devices')) { this.navigateSection('dashboard'); return; }
-    if (targetId === 'time-tracking' && !this.isPluginEnabled('time-tracking')) { this.navigateSection('dashboard'); return; }
-    const route = this.sectionRoutes[targetId];
+    const pluginId = this.pluginFrontends.pluginForSection(targetId);
+    if (pluginId && !this.isPluginEnabled(pluginId)) { this.navigateSection('dashboard'); return; }
+    const route = this.sectionRoutes[targetId] ?? this.pluginFrontends.routeForSection(targetId);
     if (!route) return;
     const targetPath = route.split('?')[0];
     if (window.location.pathname + window.location.search !== route) window.history.pushState({}, '', route);
     this.path = targetPath;
     this.templates.syncActiveSurface();
     this.activeSection = targetId;
-    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : targetId.startsWith('time-tracking-') ? 'time-tracking' : '');
+    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : this.pluginFrontends.navigationGroupForSection(targetId) ?? '');
     this.menuOpen = false;
   }
 
