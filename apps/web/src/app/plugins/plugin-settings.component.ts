@@ -19,6 +19,8 @@ type PlatformPackage = {
 
 type PackageTenantUsage = { pluginId: string; canRemove: boolean; installedCount: number; inactiveCount: number; pendingJobCount: number; tenants: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; inactiveTenants?: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; pendingJobs: Array<{tenantName:string;action:string;status:string}>; };
 
+type SuperOrganizationPlugin = { id: string; name: string; installed: boolean; enabled: boolean; status: string; };
+
 type PlatformPlan = {
   id: string;
   name: string;
