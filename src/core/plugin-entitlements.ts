@@ -72,12 +72,6 @@ type TenantPluginPurchase = Document & {
   expiresAt: Date | null;
 };
 
-export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "connected-devices"], maxUsers: null, storageMb: 10240 }
-];
-
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
   {
     id: "files",
@@ -108,6 +102,28 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
   },
 
 ];
+
+
+/** One catalogue is authoritative for built-in package visibility, plan grants and migration policy. */
+const BUILT_IN_PLAN_TIERS = [
+  { id: "starter", name: "Starter", maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", maxUsers: null, storageMb: 10240 }
+] as const;
+
+export const BUILT_IN_PLANS: PluginPlan[] = BUILT_IN_PLAN_TIERS.map(plan => ({
+  ...plan,
+  includedPluginIds: TRUSTED_PLUGIN_PACKAGES.filter(plugin => plugin.includedInPlans.includes(plan.id)).map(plugin => plugin.id),
+  visiblePluginIds: TRUSTED_PLUGIN_PACKAGES.filter(plugin => plugin.visibleInPlans.includes(plan.id)).map(plugin => plugin.id)
+}));
+
+export const MIGRATABLE_BUILTIN_PLUGIN_IDS = new Set(["connected-devices", "documents", "hello-world", "time-tracking"]);
+export const RETIRED_BUNDLED_PLUGIN_PACKAGES = [
+  { id: "hello-world", retireSignedZip: false },
+  { id: "time-tracking", retireSignedZip: false },
+  { id: "notes", retireSignedZip: true }
+] as const;
+
 
 
 /**
