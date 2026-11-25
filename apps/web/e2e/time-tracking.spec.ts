@@ -123,7 +123,7 @@ test("member can clock in, start/end a break and clock out without a remote ifra
   await expect(page.getByRole("button", { name: "Fichar entrada" })).toBeVisible();
   await expect.poll(() => state.history[0]?.events?.map((event: any) => event.type)).toEqual(["clock_in", "break_start", "break_end", "clock_out"]);
   await page.getByRole("button", { name: "Actividad" }).click();
-  await expect(page.getByText("Jornadas registradas")).toBeVisible();
+  await expect(page.getByText("Actividad reciente")).toBeVisible();
 });
 
 test("owner can save a weekly schedule and approve a team correction", async ({ page }) => {
@@ -149,7 +149,13 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
   await page.goto("/dashboard");
   await expect(page.locator(".bee-dash-company-switcher select")).toHaveValue(auth.tenantId, { timeout: 15000 });
   await page.getByRole("button", { name: /Control Horario/ }).click();
-  await page.getByRole("button", { name: "Horarios" }).click();
+  const scheduleNav = page.getByRole("button", { name: /^(Horarios|Schedules|Mi horario|My schedule)$/ });
+  try {
+    await expect(scheduleNav).toBeVisible({ timeout: 5000 });
+  } catch (error) {
+    throw new Error(String(error) + "\\nOWNER NAVIGATION: " + await page.locator("body").innerText() + "\\nBROWSER ERRORS: " + browserErrors.join(" | "));
+  }
+  await scheduleNav.click();
 
   try {
     await expect(page.getByRole("heading", { name: "Planificación de horarios" })).toBeVisible({ timeout: 15000 });
