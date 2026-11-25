@@ -1,90 +1,61 @@
-# Documents: full external-plugin decoupling
+# Documents: external signed-plugin architecture
 
-## Goal
+## Objective
 
-Make Documents a self-contained, signed ZIP plugin that can be installed, activated,
-disabled, upgraded and removed through the platform package lifecycle without a
-built-in Documents implementation in Bee-core.
+Documents is distributed and executed only as a signed ZIP plugin. Bee-core must not
+ship a built-in backend implementation, Angular component, Documents API client,
+Documents-specific configuration allowlist, or Files dependency.
 
-Documents owns its upload, metadata, binary storage, download and public-delivery
-lifecycle. It must not require Files to be installed or enabled.
+The platform shell may provide a generic navigation entry and generic plugin outlet;
+the actual Documents UI and backend are owned by the signed package.
 
-## Data cleanup scope (approved)
+## Current implementation on this branch
 
-The user has authorized deleting all existing test data and files belonging to
-Documents. The cleanup is limited to Documents-owned records and binaries.
+- `src/index.ts` does not import or register `documentsPlugin`.
+- Startup retires the legacy bundled platform-package record without deleting tenant
+  installation history, metadata, or files.
+- `TRUSTED_PLUGIN_PACKAGES` no longer treats Documents as a built-in package.
+- The package builder creates Documents ZIP version `0.1.2`, including its backend
+  module graph and the package-owned `frontend/index.html` and `frontend/main.js`.
+- Documents declares only the Core runtime dependencies `auth` and `organizations`.
+  It does not declare or call the Files plugin.
+- Uploads, file metadata, integrity checks, downloads and public delivery are owned
+  by Documents through `tenant_document_files` and its private storage adapter.
+- The storage directory is selected by `BEE_DOCUMENTS_DIR`, defaulting to
+  `/data/bee-documents`. This preserves the existing persistent storage location.
+- The Angular Documents component, API service and module-specific Angular
+  translation catalog have been removed.
+- The Angular registry no longer registers Documents. The generic plugin outlet
+  loads the signed package frontend in a sandboxed iframe and proxies only the API
+  prefixes declared by its verified manifest. The bearer token remains in the host.
+- The Core plugin manager exposes common non-secret runtime capabilities to plugins
+  and no longer contains a Documents-specific configuration entry.
+- Legacy bundled package retirement and ZIP replacement do not delete Documents
+  collections or files.
 
-- Delete Documents folders, document records, folder/resource ACLs and Documents-owned
-  file metadata/blobs, including any test-only references to legacy Files objects.
-- Do not delete the Files plugin, its collections, shared storage root, or files owned
-  by other modules or tenants.
-- A legacy Files blob may be deleted only when a reliable ownership/reference check
-  proves it is exclusively associated with a Documents test record and no other
-  consumer references it. Otherwise leave it untouched and report it as an orphan
-  candidate for manual review.
-- Implement cleanup as an explicit, tenant-scoped, auditable operation with a dry-run
-  report before destructive execution. Never run it automatically during plugin
-  startup, install, upgrade or ordinary deployment.
-- Do not connect to or mutate a live VPS database from this GitHub change. The cleanup
-  operation must be reviewed and deliberately executed in the target environment.
+## Data preservation
 
-## Current coupling confirmed in main
+No cleanup or migration that deletes existing data is part of this branch. Existing
+Documents collections, metadata and the `/data/bee-documents` volume must remain
+untouched. Platform package removal may remove signed package code only after tenant
+installations and pending lifecycle jobs have been cleared; it must preserve tenant
+business data.
 
-- `src/index.ts` imports `documentsPlugin` and registers it as a built-in fallback
-  whenever no installed ZIP package with ID `documents` exists.
-- `documents.plugin.ts` declares runtime dependency `files`.
-- The package builder declares both runtime and tenant dependency `files`.
-- `FilesStorageAdapter` reads metadata from `tenant_files` and binary content from
-  the Files storage root.
-- Documents create/download/public-download handlers resolve file IDs as Files
-  resources and evaluate Files ACLs.
-- Documents therefore depends on Files metadata, file ID semantics and access policy.
+## Required verification before user testing
 
-## Target architecture
+1. Build the Core backend and Angular frontend.
+2. Build and sign Documents ZIP `0.1.2`; inspect its manifest, backend graph and
+   frontend assets.
+3. Install ZIP over the legacy Documents registry entry and confirm automatic restart.
+4. Confirm runtime state is `loaded` and the package frontend opens in the iframe.
+5. Install, activate, disable, re-enable and uninstall it for a tenant.
+6. Confirm platform disable/re-enable does not remove tenant data.
+7. Remove the platform ZIP only when no real tenant installation or pending lifecycle
+   job blocks removal; reinstall it and confirm previous tenant data is still present.
+8. Verify upload, listing, folder ACLs, sharing, download and public delivery with Files
+   disabled or unavailable.
+9. Run regression tests for tenant isolation, resource references, package lifecycle,
+   restart persistence and data preservation.
 
-- Documents owns a dedicated metadata collection (for example
-  `tenant_document_files`) and a dedicated storage root (for example
-  `BEE_DOCUMENTS_DIR`, default `/data/bee-documents`).
-- Documents exposes its own authenticated upload endpoint. The frontend uploads
-  content directly to Documents and then creates/updates the document record using
-  a Documents-owned file reference.
-- Documents validates file size, MIME type and file signatures, computes a SHA-256
-  checksum, enforces tenant isolation and writes files atomically with restrictive
-  permissions.
-- Documents enforces its own document/folder ACLs. It must not call Files ACL checks
-  for its own resources.
-- The package manifest and runtime manifest list only genuine host dependencies.
-  Files is not a runtime or tenant dependency.
-- The signed ZIP contains the complete backend module graph and all frontend assets.
-- Bee-core loads Documents only from its verified ZIP package. No static import,
-  registration fallback or bundled Documents UI remains in the host.
-
-## Implementation sequence
-
-1. Audit every backend, frontend, package-builder, installer and test reference to Files.
-2. Add Documents-owned storage, metadata repository, upload/download handlers and
-   validation tests.
-3. Update the Documents frontend to use its own upload endpoint; remove Files ACL and
-   metadata calls from Documents request paths.
-4. Remove `files` from Documents runtime and tenant dependency declarations.
-5. Update the ZIP builder and verify the signed package includes all backend and
-   frontend assets with matching manifest/runtime dependencies.
-6. Remove the static Documents import and fallback registration from `src/index.ts`.
-7. Add scoped cleanup tooling with dry-run, explicit execute mode, tenant boundaries,
-   audit output and conservative legacy-blob ownership checks.
-8. Add integration coverage for ZIP install, startup, tenant install/activation,
-   upload, download, public links, ACLs, tenant isolation, disable/re-enable,
-   restart persistence and uninstall safety.
-
-## Acceptance criteria
-
-- Documents installs and starts from the signed ZIP with Files unavailable.
-- No source/runtime dependency from Documents to Files remains.
-- All Documents test records and exclusively Documents-owned test blobs can be
-  removed through the explicit cleanup operation.
-- Files data belonging to other modules or tenants remains untouched.
-- New uploads are stored and served entirely by Documents.
-- Tenant boundaries, ACLs, public-link controls and file validation remain enforced.
-- The package can be disabled/re-enabled and Bee-core restarted without losing data.
-- Static Documents code is no longer imported or registered by the host.
-- CI passes; no changes are merged to main until review and verification are complete.
+No claim of full completion is made until these checks pass. Do not merge this branch
+into `main` or run destructive data cleanup as part of this work.
