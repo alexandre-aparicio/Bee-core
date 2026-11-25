@@ -179,6 +179,7 @@ test('dashboard template can be selected without changing public theme', async (
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
   await manager.getByLabel('Dashboard template').selectOption('paper');
   await manager.getByRole('button', { name: 'Apply template' }).click();
+  await page.goto('/dashboard');
   await expect(page.locator('[data-bee-slot="sidebar"]')).toHaveCount(1);
   await expect(page.locator('[data-bee-slot="widgets"]')).toHaveCount(1);
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'aurora');
@@ -226,7 +227,7 @@ test('tenant admin can install and activate a trusted dashboard template package
   await expect(manager.getByText('Template installed for this company.')).toBeVisible();
   await manager.getByLabel('Dashboard template').selectOption('glass');
   await expect(page.locator('.bee-template-package-host--glass')).toBeVisible();
-  await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
+  await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bee-bg').trim())).toBe('#eaf1fc');
   await manager.getByRole('button', { name: 'Discard' }).click();
   await expect(page.locator('.bee-template-package-host--midnight')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--midnight').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
@@ -599,7 +600,7 @@ test('Settings > Tenants supports card/list views, tenant management and create 
   await page.getByRole('button', { name: /new tenant/i }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Create a tenant' })).toBeVisible();
-  await dialog.getByPlaceholder('Dragchart').fill('New Tenant');
+  await dialog.locator('input[name="companyName"]').fill('New Tenant');
   await dialog.locator('input[name="companySlug"]').fill('new-tenant');
   await dialog.getByPlaceholder('owner@company.com').fill('owner@new-tenant.test');
   await dialog.getByRole('button', { name: 'Create tenant' }).click();
