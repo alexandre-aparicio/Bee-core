@@ -1,6 +1,6 @@
 import type { BeePlugin } from "../../core/types.js";
 import type { PlatformIdentityDocument } from "../../core/platform-identity.js";
-import { CORE_PERMISSION_CATALOG } from "../../core/permission-catalog.js";
+import { CORE_PERMISSION_CATALOG, composePermissionCatalog } from "../../core/permission-catalog.js";
 import { COMPANY_ROLE_PERMISSIONS } from "../../core/tenant-context.js";
 
 declare module "fastify" {
@@ -150,15 +150,19 @@ export const platformAdminPlugin:BeePlugin={
   };
   const permissionPolicyCollection=db.collection<{id:string;tenantAssignablePermissions:string[];updatedAt:Date;updatedBy:string}>("platform_permission_policies");
   await permissionPolicyCollection.createIndex({id:1},{unique:true,name:"platform_permission_policy_id_unique"});
-  const defaultTenantAssignablePermissions=CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key);
+  const getPermissionCatalog=async()=>{
+   const packages=await db.collection<{id:string;permissions?:Array<{key:string;module:string;resource:string;action:string;label:string;defaultGrants:{owner:boolean;admin:boolean;manager:boolean;member:boolean}}>}>("plugin_catalog").find({status:"published",permissions:{$exists:true}}).project<{id:string;permissions?:Array<{key:string;module:string;resource:string;action:string;label:string;defaultGrants:{owner:boolean;admin:boolean;manager:boolean;member:boolean}}>}>({id:1,permissions:1,_id:0}).toArray();
+   return composePermissionCatalog(packages);
+  };
   const readPermissionPolicy=async()=>{
-   const saved=await permissionPolicyCollection.findOne({id:"global"},{projection:{_id:0}});
-   return {tenantAssignablePermissions:saved?.tenantAssignablePermissions??defaultTenantAssignablePermissions};
+   const [saved,catalog]=await Promise.all([permissionPolicyCollection.findOne({id:"global"},{projection:{_id:0}}),getPermissionCatalog()]);
+   const defaultPermissions=catalog.filter(item=>item.customRoleAssignable).map(item=>item.key);
+   return {tenantAssignablePermissions:saved?.tenantAssignablePermissions??defaultPermissions};
   };
   ctx.server.get("/platform/permissions",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const policy=await readPermissionPolicy();
-   return {catalog:CORE_PERMISSION_CATALOG,tenantAssignablePermissions:policy.tenantAssignablePermissions,systemRoles:[
+   return {catalog:await getPermissionCatalog(),tenantAssignablePermissions:policy.tenantAssignablePermissions,systemRoles:[
     {key:"super_admin",label:"Super Admin",scope:"platform",protected:true,description:"Full platform administration; assigned only through the Super Organization.",permissions:COMPANY_ROLE_PERMISSIONS.super_admin},
     {key:"owner",label:"Tenant Owner",scope:"tenant",protected:true,description:"Owns one tenant and administers its users, roles and organization settings.",permissions:COMPANY_ROLE_PERMISSIONS.owner},
     {key:"admin",label:"Tenant Admin",scope:"tenant",protected:true,description:"Administers tenant operations within the permissions enforced by Core.",permissions:COMPANY_ROLE_PERMISSIONS.admin},
@@ -171,7 +175,7 @@ export const platformAdminPlugin:BeePlugin={
    const actor=await guard(req,reply);if(!actor)return;
    const requested=req.body?.tenantAssignablePermissions;
    if(!Array.isArray(requested)||requested.length>100||requested.some(item=>typeof item!=="string"))return reply.code(400).send({error:"tenantAssignablePermissions must be an array of permission keys"});
-   const allowedCatalog=new Set(CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key));
+   const allowedCatalog=new Set((await getPermissionCatalog()).filter(item=>item.customRoleAssignable).map(item=>item.key));
    const tenantAssignablePermissions=[...new Set((requested as string[]).map(item=>item.trim()))].sort();
    const unsupported=tenantAssignablePermissions.filter(key=>!allowedCatalog.has(key));
    if(unsupported.length)return reply.code(400).send({error:"Protected or unknown permissions cannot be delegated to tenants: "+unsupported.join(", ")});
