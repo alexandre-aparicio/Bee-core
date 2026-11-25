@@ -34,7 +34,7 @@ const connectedDevicesRuntimeFixture = {
     frontend: {
       entrypoint: "frontend/index.html",
       apiPrefixes: ["/connected-devices"],
-      routes: [{ path: "/dashboard/connected-devices", component: "ConnectedDevices" }]
+      routes: [{ path: "/dashboard/connected-devices", component: "connected-devices" }]
     }
   },
   tenantMigrations: []
@@ -108,7 +108,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     await db.collection("plugin_plans").updateOne({ id: "pro" }, { $addToSet: { visiblePluginIds: "workspace", includedPluginIds: "workspace" } });
     await db.collection("plugin_plans").updateOne({ id: "enterprise" }, { $addToSet: { visiblePluginIds: "workspace", includedPluginIds: "workspace" } });
     await workspacePlugin.initialize?.(ctx);
-    const connectedDevicesRoutes = [{ path: "/dashboard/connected-devices", component: "ConnectedDevices" }];
+    const connectedDevicesRoutes = [{ path: "/dashboard/connected-devices", component: "connected-devices" }];
     await db.collection("plugin_catalog").insertOne({
       id: "connected-devices",
       name: "Connected Devices",
