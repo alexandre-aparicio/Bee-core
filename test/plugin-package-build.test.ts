@@ -73,6 +73,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /clock-out/);
         assert.doesNotThrow(() => new Script(script), "the standalone Time Tracking frontend must be valid JavaScript");
       } else if (item.id === "documents") {
+        assert.equal(installed.manifest.version, "0.1.1", "Documents must publish the manual-activation package version");
+        assert.equal(installed.manifest.activationPolicy, "manual", "Documents must follow the same opt-in tenant activation policy as Hello Mundo");
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/public/documents"]);
         assert.deepEqual(installed.manifest.dependencies.map((dependency: { pluginId: string }) => dependency.pluginId), ["auth", "organizations"]);
