@@ -325,7 +325,7 @@ export const platformAdminPlugin:BeePlugin={
      {id:manifest.id},
      {$set:{
       name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,
-      dependencies:manifest.tenantDependencies??[],
+      dependencies:manifest.tenantDependencies??[],permissions:manifest.permissions??[],
       activationPolicy:manifest.activationPolicy??"manual",codeAvailable:false,status:"published"
      },$setOnInsert:{createdAt:now,visibleInPlans:[],includedInPlans:[],purchasable:false,system:false}},
      {upsert:true}
