@@ -24,7 +24,7 @@ export const COMPANY_ROLE_PERMISSIONS: Record<CompanyRole, readonly string[]> = 
 };
 
 
-async function activeTenantPluginPermissionSources(db: Db, tenantId: string): Promise<PluginPermissionSource[]> {
+export async function activeTenantPluginPermissionSources(db: Db, tenantId: string): Promise<PluginPermissionSource[]> {
   const tenant = await db.collection<{id:string;kind?:string}>("tenants").findOne({id:tenantId},{projection:{id:1,kind:1}});
   const installations = await db.collection<{pluginId:string}>("tenant_plugin_installations")
     .find({tenantId,status:"installed",enabled:{$ne:false}}).project<{pluginId:string}>({pluginId:1,_id:0}).toArray();
