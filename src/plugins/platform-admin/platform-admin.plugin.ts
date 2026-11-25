@@ -32,6 +32,8 @@ export const platformAdminPlugin:BeePlugin={
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
+  // The default tenant is a legacy authentication fallback, not a customer tenant.
+  const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
   const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Platform admin: JWT_SECRET must contain at least 32 characters.");
   const platformAudit=db.collection("platform_audit_events");
@@ -334,9 +336,9 @@ export const platformAdminPlugin:BeePlugin={
    if(!packageRecord)return reply.code(404).send({error:"Platform package not found"});
    if(packageRecord.source!=="zip")return reply.code(409).send({error:"Only externally uploaded ZIP packages can be removed"});
    const [activeInstallations,inactiveInstallations,pendingJobs]=await Promise.all([
-    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"},enabled:{$ne:false}}).project<{tenantId:string;status:string;version?:string;updatedAt?:Date}>({tenantId:1,status:1,version:1,updatedAt:1,_id:0}).toArray(),
-    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"},enabled:false}).project<{tenantId:string;status:string;version?:string;updatedAt?:Date}>({tenantId:1,status:1,version:1,updatedAt:1,_id:0}).toArray(),
-    db.collection("plugin_install_jobs").find({pluginId,status:{$in:["queued","running"]}}).project<{tenantId:string;action:string;status:string}>({tenantId:1,action:1,status:1,_id:0}).toArray()
+    db.collection("tenant_plugin_installations").find({pluginId,tenantId:{$ne:defaultTenantId},status:{$ne:"uninstalled"},enabled:{$ne:false}}).project<{tenantId:string;status:string;version?:string;updatedAt?:Date}>({tenantId:1,status:1,version:1,updatedAt:1,_id:0}).toArray(),
+    db.collection("tenant_plugin_installations").find({pluginId,tenantId:{$ne:defaultTenantId},status:{$ne:"uninstalled"},enabled:false}).project<{tenantId:string;status:string;version?:string;updatedAt?:Date}>({tenantId:1,status:1,version:1,updatedAt:1,_id:0}).toArray(),
+    db.collection("plugin_install_jobs").find({pluginId,tenantId:{$ne:defaultTenantId},status:{$in:["queued","running"]}}).project<{tenantId:string;action:string;status:string}>({tenantId:1,action:1,status:1,_id:0}).toArray()
    ]);
    const tenantIds=[...new Set([...activeInstallations,...inactiveInstallations,...pendingJobs].map(item=>item.tenantId))];
    const tenantRows=tenantIds.length?await companies.find({id:{$in:tenantIds}}).project<{id:string;name:string;slug?:string;kind?:string;status:string}>({id:1,name:1,slug:1,kind:1,status:1,_id:0}).toArray():[];
@@ -369,9 +371,9 @@ export const platformAdminPlugin:BeePlugin={
    const claimed=await packages.updateOne({pluginId,status:"installed",source:"zip"},{$set:{status:"removing",updatedAt:new Date()}});
    if(claimed.modifiedCount!==1)return reply.code(409).send({error:"Package lifecycle changed; refresh and try again"});
    const [activeInstallations,inactiveInstallations,pendingJobs,versions]=await Promise.all([
-    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"},enabled:{$ne:false}}).toArray(),
-    db.collection("tenant_plugin_installations").find({pluginId,status:{$ne:"uninstalled"},enabled:false}).toArray(),
-    db.collection("plugin_install_jobs").find({pluginId,status:{$in:["queued","running"]}}).toArray(),
+    db.collection("tenant_plugin_installations").find({pluginId,tenantId:{$ne:defaultTenantId},status:{$ne:"uninstalled"},enabled:{$ne:false}}).toArray(),
+    db.collection("tenant_plugin_installations").find({pluginId,tenantId:{$ne:defaultTenantId},status:{$ne:"uninstalled"},enabled:false}).toArray(),
+    db.collection("plugin_install_jobs").find({pluginId,tenantId:{$ne:defaultTenantId},status:{$in:["queued","running"]}}).toArray(),
     db.collection("platform_plugin_package_versions").find({pluginId}).project<{version:string;packageDirectory?:string}>({version:1,packageDirectory:1,_id:0}).toArray()
    ]);
    if(activeInstallations.length||pendingJobs.length){
@@ -403,7 +405,7 @@ export const platformAdminPlugin:BeePlugin={
    }
    if(inactiveInstallations.length){
     await db.collection("tenant_plugin_installations").updateMany(
-     {pluginId,status:{$ne:"uninstalled"},enabled:false},
+     {pluginId,tenantId:{$ne:defaultTenantId},status:{$ne:"uninstalled"},enabled:false},
      {$set:{status:"uninstalled",updatedAt:new Date(),packageRemovedAt:new Date(),packageRemovedBy:actor.id}}
     );
    }
