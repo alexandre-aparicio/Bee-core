@@ -84,3 +84,61 @@ jobs:
         run: npm run build
       - name: Validate Playwright test discovery
         run: npm run test:e2e -- --list
+  angular-migration:
+    name: Sequential Angular 19 to 22 migration rehearsal
+    if: github.event_name == 'pull_request' && github.event.action == 'opened' && github.head_ref == 'security/angular-22-migration-runner'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install current lockfile
+        run: npm ci
+      - name: Migrate Angular core and CLI 19 to 20
+        run: npx ng update @angular/core@20 @angular/cli@20
+      - name: Migrate Angular CDK 19 to 20
+        run: npx ng update @angular/cdk@20
+      - name: Migrate Angular core and CLI 20 to 21
+        run: npx ng update @angular/core@21 @angular/cli@21
+      - name: Migrate Angular CDK 20 to 21
+        run: npx ng update @angular/cdk@21
+      - name: Migrate Angular core and CLI 21 to 22
+        run: npx ng update @angular/core@22 @angular/cli@22
+      - name: Migrate Angular CDK 21 to 22
+        run: npx ng update @angular/cdk@22
+      - name: Verify regenerated lockfile
+        run: npm ci
+      - name: Audit production dependencies
+        run: npm run audit:production
+      - name: Angular production build
+        run: npm run build
+      - name: Validate Playwright test discovery
+        run: npm run test:e2e -- --list
+      - name: Create migration patch artifact
+        if: always()
+        working-directory: .
+        run: |
+          set -euo pipefail
+          git add -N apps/web || true
+          git diff --binary HEAD -- apps/web > "$RUNNER_TEMP/angular-migration.patch"
+          git diff --stat HEAD -- apps/web
+          test -s "$RUNNER_TEMP/angular-migration.patch" || printf 'No Angular migration changes were produced.\n' > "$RUNNER_TEMP/angular-migration.patch"
+      - name: Upload generated migration patch
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-22-migration-patch
+          path: ${{ runner.temp }}/angular-migration.patch
+          retention-days: 7
