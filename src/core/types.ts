@@ -56,6 +56,8 @@ export interface BeePluginManifest {
   dependencies?: string[];
   /** Tenant-facing plugins default to manual activation unless explicitly configured. */
   activationPolicy?: BeePluginActivationPolicy;
+  /** Explicit allowlist of host capabilities/configuration exposed to this plugin. */
+  requiredServices?: string[];
   /** All three business modules are tenant-scoped; platform services use platform. */
   scope?: "platform" | "tenant";
   frontend?: { routes: Array<{ path: string; component: string }> };
