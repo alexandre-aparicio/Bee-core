@@ -34,8 +34,9 @@ export const platformAdminPlugin:BeePlugin={
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
   // The default tenant is a legacy authentication fallback, not a customer tenant.
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
-  // Signed ZIP runtimes are loaded during bootstrap. Restart only after the
-  // HTTP response is delivered; debounce bursts into a single restart.
+  // Signed ZIP runtimes are loaded during bootstrap. Give the HTTP client
+  // enough time to consume the response and finish its UI transition before
+  // restarting. Debounce multiple package changes into one restart.
   let runtimeRestartTimer:ReturnType<typeof setTimeout>|undefined;
   const scheduleRuntimeRestart=(reply:import("fastify").FastifyReply,reason:string):void=>{
    reply.raw.once("finish",()=>{
@@ -43,7 +44,7 @@ export const platformAdminPlugin:BeePlugin={
     runtimeRestartTimer=setTimeout(()=>{
      ctx.logger.warn("Scheduling graceful Bee Core restart for plugin runtime change",{reason});
      process.kill(process.pid,"SIGTERM");
-    },3000);
+    },12000);
     runtimeRestartTimer.unref();
    });
   };
