@@ -10,6 +10,7 @@ import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, setPlatformPackageAvailable, setPlatformPackageInstalled } from "../../core/platform-plugin-registry.js";
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
+import { isExternalRuntimePackage } from "../../core/plugin-runtime-classification.js";
 import {
   getBuiltInPlan,
   getTenantPluginCatalog,
@@ -56,7 +57,11 @@ export const marketplacePlugin: BeePlugin = {
     if(sessionIdSecret.length<32)throw new Error("Marketplace: JWT_SECRET must contain at least 32 characters.");
     const sessionOf=(tenant:import("../../core/tenant-context.js").TenantContext)=>({sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt});
     const mask=(tenant:import("../../core/tenant-context.js").TenantContext,id:string,type:import("../../core/session-id.js").SessionResourceType)=>maskResourceId(id,type,sessionOf(tenant),sessionIdSecret);
-    const publicPlugin=(tenant:import("../../core/tenant-context.js").TenantContext,plugin:any)=>({...plugin,pluginKey:String(plugin.id),id:mask(tenant,String(plugin.id),"plugin"),externalRuntime:!getTrustedPluginPackage(String(plugin.id))&&Boolean(getRuntimePlugin(String(plugin.id)) ),...(Array.isArray(plugin.dependencies)?{dependencies:plugin.dependencies.map((id:string)=>mask(tenant,id,"plugin"))}:{})});
+    const publicPlugin=async(tenant:import("../../core/tenant-context.js").TenantContext,plugin:any)=>{
+      const pluginId=String(plugin.id);
+      const packageRecord=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed",source:"zip"});
+      return {...plugin,pluginKey:pluginId,id:mask(tenant,pluginId,"plugin"),externalRuntime:isExternalRuntimePackage(pluginId,packageRecord,Boolean(getTrustedPluginPackage(pluginId))),...(Array.isArray(plugin.dependencies)?{dependencies:plugin.dependencies.map((id:string)=>mask(tenant,id,"plugin"))}:{})};
+    };
     const publicJob=(tenant:import("../../core/tenant-context.js").TenantContext,job:any)=>({id:mask(tenant,String(job.id),"job"),pluginId:mask(tenant,String(job.pluginId),"plugin"),action:job.action,status:job.status,attempts:job.attempts,maxAttempts:job.maxAttempts,createdAt:job.createdAt,updatedAt:job.updatedAt,startedAt:job.startedAt??null,finishedAt:job.finishedAt??null});
     const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
     const installJobs:Collection<PluginInstallJob>=db.collection<PluginInstallJob>("plugin_install_jobs");
@@ -319,7 +324,7 @@ export const marketplacePlugin: BeePlugin = {
     ctx.server.get("/marketplace/plugins", async (request: any, reply: any) => {
       const tenant = await authenticate(request, reply);
       if (!tenant) return;
-      return { tenantId: mask(tenant,tenant.tenantId,"tenant"), plugins: (await getTenantPluginCatalog(db, tenant.tenantId)).map(plugin=>publicPlugin(tenant,plugin)) };
+      return { tenantId: mask(tenant,tenant.tenantId,"tenant"), plugins: await Promise.all((await getTenantPluginCatalog(db, tenant.tenantId)).map(plugin=>publicPlugin(tenant,plugin))) };
     });
     ctx.server.put<{Params:{pluginId:string};Body:{enabled?:boolean}}>("/marketplace/plugins/:pluginId/activation",async(request:any,reply:any)=>{
       const tenant=await authenticate(request,reply);if(!tenant)return;
@@ -398,9 +403,8 @@ export const marketplacePlugin: BeePlugin = {
       // Filtering by runtimeState in Mongo made a missing/stale state indistinguishable
       // from a package that was never installed, hiding the actual loader failure.
       const globalPackage=await db.collection("platform_plugin_packages").findOne({pluginId,status:"installed",source:"zip"});
-      if(!globalPackage){
-        ctx.logger.warn("Marketplace runtime request has no installed ZIP package", {pluginId,tenantId:tenant.tenantId});
-        return reply.code(404).send({error:"Plugin package is not installed on the platform"});
+      if(!isExternalRuntimePackage(pluginId,globalPackage,Boolean(getTrustedPluginPackage(pluginId)))){
+        return reply.code(404).send({error:"Plugin does not have an external ZIP runtime"});
       }
       if(globalPackage.runtimeState!=="loaded"){
         ctx.logger.warn("Marketplace runtime package is not loaded", {
@@ -434,7 +438,7 @@ export const marketplacePlugin: BeePlugin = {
       if (!tenant) return;
       const plugin = (await getTenantPluginCatalog(db, tenant.tenantId)).find(item => item.id === request.params.pluginId);
       if (!plugin) return reply.code(404).send({ error: "Plugin not visible to this company" });
-      return { plugin: publicPlugin(tenant,plugin) };
+      return { plugin: await publicPlugin(tenant,plugin) };
     });
 
     ctx.server.get<{ Params: { pluginId: string } }>("/marketplace/plugins/:pluginId/versions", async (request: any, reply: any) => {
