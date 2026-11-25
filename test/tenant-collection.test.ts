@@ -29,6 +29,16 @@ test("tenant collection scopes every query and mutation to one company", { skip:
     assert.equal(crossTenantDelete.deletedCount, 0);
     assert.equal((await beta.findOne({ id: "beta-contact" }))?.label, "Beta record");
 
+    await alpha.updateOne(
+      { id: "alpha-upsert" },
+      { $set: { email: "upsert@example.test", label: "Alpha upsert" } },
+      { upsert: true }
+    );
+    const upserted = await alpha.findOne({ id: "alpha-upsert" });
+    assert.equal(upserted?.tenantId, "company-alpha");
+    assert.equal(upserted?.label, "Alpha upsert");
+    assert.equal(await beta.countDocuments({ id: "alpha-upsert" }), 0);
+
     assert.throws(
       () => alpha.insertOne({ id: "bad-contact", email: "bad@example.test", label: "Bad", tenantId: "company-beta" }),
       /does not match/
