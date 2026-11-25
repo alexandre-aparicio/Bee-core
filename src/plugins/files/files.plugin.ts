@@ -43,7 +43,7 @@ function matchesContentType(contentType: string, data: Buffer): boolean {
   return false;
 }
 export const filesPlugin: BeePlugin = {
-  manifest: { requiredServices: ["mongoDbName","fileStoragePath","sessionIdSecret"],
+  manifest: { requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: ["fileStoragePath"],
     name: "files",
     version: "0.1.0",
     description: "Tenant-isolated private file and image storage",
