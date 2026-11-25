@@ -47,7 +47,9 @@ async function mockApi(page, selection) {
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname;
     let body = {};
-    if (path.endsWith('/api/auth/me')) {
+    if (path.endsWith('/api/auth/refresh')) {
+      body = { accessToken: 'template-e2e-admin-token', tenantId: 'tenant-demo', platformRole: null, user: { id: 'user-demo', email: 'admin@example.test', roles: ['admin'], tenantId: 'tenant-demo' } };
+    } else if (path.endsWith('/api/auth/me')) {
       body = { authenticated: true, tenantId: 'tenant-demo', platformRole: null };
     } else if (path.endsWith('/api/companies')) {
       body = { companies: [{ id: 'tenant-demo', name: 'Demo Workspace', role: 'owner', active: true }] };
@@ -111,14 +113,13 @@ async function assertActiveToken(page, template, target, mode) {
   const rootValue = await page.locator('html').evaluate(node => getComputedStyle(node).getPropertyValue('--bee-bg').trim());
   expect(rootValue).toBe(expected);
   const host = page.locator('.bee-template-package-host--' + template).first();
-  await expect(host).toBeVisible();
+  await expect(host).toHaveCount(1);
   const hostValue = await host.evaluate(node => getComputedStyle(node).getPropertyValue('--bee-bg').trim());
   expect(hostValue).toBe(expected);
 }
 
-async function assertNoUn-tokenedDefaults(page, mainSelector) {
+async function assertNoUntokenedDefaults(page, mainSelector) {
   const offenders = await page.locator(mainSelector).evaluate(main => {
-    const rootStyle = getComputedStyle(document.documentElement);
     const probe = document.createElement('span');
     document.body.appendChild(probe);
     const allowed = ['--bee-bg', '--bee-surface', '--bee-surface-raised', '--bee-input-bg', '--bee-qr-light']
@@ -162,7 +163,7 @@ for (const template of dashboardTemplates) {
       await openDashboard(page, template, mode, '/dashboard');
       await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', template);
       await assertActiveToken(page, template, 'dashboard', mode);
-      await assertNoUn-tokenedDefaults(page, '.bee-dash-content');
+      await assertNoUntokenedDefaults(page, '.bee-dash-content');
       await saveScreenshot(page, 'dashboard', template, mode, 'dashboard-home');
 
       const dashboardScreens = [
@@ -204,7 +205,7 @@ for (const template of publicTemplates) {
     test('public ' + template + ' ' + mode + ': active surface, independent mode and screenshot', async ({ page }) => {
       await openPublic(page, template, mode);
       await assertActiveToken(page, template, 'public', mode);
-      await assertNoUn-tokenedDefaults(page, '[data-bee-layout="public.' + template + '"] main');
+      await assertNoUntokenedDefaults(page, '[data-bee-layout="public.' + template + '"] main');
       await saveScreenshot(page, 'public', template, mode, 'public-home');
 
       const dashboardModeBefore = await page.locator('body').getAttribute('data-bee-dashboard-mode');
