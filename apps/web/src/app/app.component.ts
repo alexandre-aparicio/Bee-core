@@ -464,7 +464,7 @@ export class AppComponent implements OnInit, OnDestroy {
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManagePlugins(): boolean { return this.isPlatformAdmin || ['super_admin','owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
-  get sectionTitle(): string { const pluginLabel=this.pluginFrontends.labelForSection(this.activeSection,this.i18n.locale); if(pluginLabel)return pluginLabel; const organizationTitles: Record<string,string> = {'organization-company':'nav.organization.company','organization-users':'nav.organization.users','organization-teams':'nav.organization.teams','organization-roles':'nav.organization.roles'}; const key=organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'nav.notifications' : this.activeSection === 'messages' ? 'nav.notifications.chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.labelKey || this.navigationItems.find(item => item.id === this.activeSection)?.labelKey || 'nav.dashboard'); return this.i18n.t(key); }
+  get sectionTitle(): string { const pluginLabel=this.pluginFrontends.labelForSection(this.activeSection,this.i18n.locale,(this.activeCompanyRole||"").toLowerCase()); if(pluginLabel)return pluginLabel; const organizationTitles: Record<string,string> = {'organization-company':'nav.organization.company','organization-users':'nav.organization.users','organization-teams':'nav.organization.teams','organization-roles':'nav.organization.roles'}; const key=organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'nav.notifications' : this.activeSection === 'messages' ? 'nav.notifications.chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.labelKey || this.navigationItems.find(item => item.id === this.activeSection)?.labelKey || 'nav.dashboard'); return this.i18n.t(key); }
   get settingsNavigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;description:string}> {
     const role = (this.activeCompanyRole || '').toLowerCase();
     const allowed = this.isPlatformAdmin
@@ -507,7 +507,7 @@ export class AppComponent implements OnInit, OnDestroy {
   get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string;children:Array<{id:string;label:string;route:string}>}> {
     const pluginItems=this.pluginFrontends.navigation(this.activePlugins).map(item=>({
       id:item.id,label:this.i18n.locale==="es"?item.labelEs:item.label,labelKey:"",icon:item.icon,group:item.group,
-      children:item.children?.map(child=>({id:child.id,label:this.i18n.locale==="es"?child.labelEs:child.label,route:child.route})) ?? []
+      children:item.children?.filter(child=>!child.visibleRoles||child.visibleRoles.includes((this.activeCompanyRole||"").toLowerCase())).map(child=>({id:child.id,label:child.labelsByRole?.[(this.activeCompanyRole||"").toLowerCase()]?.[this.i18n.locale] ?? (this.i18n.locale==="es"?child.labelEs:child.label),route:child.route})) ?? []
     }));
     const items = [
       {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE',children:[]},
