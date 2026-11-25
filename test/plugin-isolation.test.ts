@@ -71,7 +71,7 @@ test("plugin Fastify decorators are isolated from sibling plugin scopes", async 
 test("plugin config is frozen and secrets outside allowlist are omitted", async () => {
   const server = Fastify(), manager = new BeePluginManager();
   let config: Readonly<Record<string, unknown>> | undefined;
-  manager.register({ manifest: { name: "files", version: "1" }, initialize(ctx) { config = ctx.config; } });
+  manager.register({ manifest: { name: "files", version: "1", requiredServices: ["mongoDbName"], optionalServices: ["fileStoragePath"] }, initialize(ctx) { config = ctx.config; } });
   await manager.mountAll(makeContext(server));
   assert.equal(Object.isFrozen(config), true);
   assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName"]);
@@ -129,7 +129,7 @@ test("scoped logger prefixes warn and error and scoped config cannot be mutated"
   logs.length = 0;
   const server = Fastify(), manager = new BeePluginManager();
   let mutationRejected = false;
-  manager.register({ manifest: { name: "files", version: "1" }, initialize(ctx) {
+  manager.register({ manifest: { name: "files", version: "1", requiredServices: ["mongoDbName"], optionalServices: ["fileStoragePath"] }, initialize(ctx) {
     ctx.logger.warn("warning");
     ctx.logger.error("error");
     try { (ctx.config as Record<string, unknown>).mongoUri = "changed"; } catch { mutationRejected = true; }
@@ -173,7 +173,7 @@ test("plugins stop in reverse dependency startup order, not registration order",
 test("plugin config allowlists are matched case-insensitively", async () => {
   const server = Fastify(), manager = new BeePluginManager();
   let config: Readonly<Record<string, unknown>> | undefined;
-  manager.register({ manifest: { name: "FILES", version: "1" }, initialize(ctx) { config = ctx.config; } });
+  manager.register({ manifest: { name: "FILES", version: "1", requiredServices: ["mongoDbName"], optionalServices: ["fileStoragePath"] }, initialize(ctx) { config = ctx.config; } });
   await manager.mountAll(makeContext(server));
   assert.deepEqual(Object.keys(config ?? {}).sort(), ["fileStoragePath", "mongoDbName"]);
   await server.close();
