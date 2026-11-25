@@ -21,7 +21,7 @@ The publisher refuses to generate packages when either key is absent, malformed,
 
 ## Control Horario package contents
 
-The `time-tracking-0.2.0.zip` package is the only runtime source for Control Horario: the static backend registration in `src/index.ts` and the Angular frontend registry entry are removed. The generic plugin outlet loads the package-owned frontend in its sandboxed iframe.\n\nThe package includes:
+The `time-tracking-0.2.0.zip` package is the only runtime source for the Control Horario backend: the static backend registration in `src/index.ts` is removed. Its frontend is mounted through the same native Angular plugin registry used by the working Documents frontend; Control Horario does not use an iframe.\n\nThe package includes:
 
 - The compiled backend entrypoint and its complete relative-import module graph.
 - The exact `src/plugins/time-tracking/frontend/index.html` and `main.js` files, copied into `frontend/` without rewriting.
@@ -32,4 +32,4 @@ The package test installs the generated ZIP through the same signed ZIP installe
 
 ## Verification boundary
 
-Repository tests and CI can validate package construction logic using ephemeral test keys. They cannot prove that the VPS secrets are configured correctly or that a ZIP has actually been produced and installed on the VPS. That final check must be performed on the VPS without printing either key. Until the ZIP has been installed, Control Horario will not be available because there is deliberately no bundled backend or Angular fallback.
+Repository tests and CI can validate package construction logic using ephemeral test keys. They cannot prove that the VPS secrets are configured correctly or that a ZIP has actually been produced and installed on the VPS. That final check must be performed on the VPS without printing either key. Until the ZIP has been installed, the backend will not be available because there is deliberately no bundled backend fallback. The native Angular frontend registration remains available, matching the current Documents frontend integration.
