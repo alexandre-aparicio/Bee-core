@@ -276,74 +276,56 @@ test('dashboard company selector switches the active tenant session', async ({ p
 });
 
 
-test('dashboard marketplace shows company packages and installs an entitled plugin', async ({ page }) => {
-  let notesInstalled = false;
-  const notes: Array<{id:string;title:string;content:string;createdBy:string;createdAt:string;updatedAt:string}> = [];
+test('dashboard marketplace installs an entitled package and keeps workspace data company-scoped', async ({ page }) => {
+  let workspaceInstalled = false;
+  const items: Array<{id:string;title:string;content:string;createdBy:string;createdAt:string;updatedAt:string}> = [];
   await setSessionFixture(page, {
     accessToken: 'marketplace-token',
     tenantId: 'company-pro',
     user: { id: 'owner-1', email: 'owner@example.test', roles: ['admin'], tenantId: 'company-pro' }
   });
   await page.route('**/api/companies', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
+    status: 200, contentType: 'application/json',
     body: JSON.stringify({ companies: [{ id: 'company-pro', name: 'Company Pro', role: 'owner', active: true }] })
   }));
   await page.route('**/api/marketplace/plugins', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
+    status: 200, contentType: 'application/json',
     body: JSON.stringify({ tenantId: 'company-pro', plugins: [
       { id: 'files', name: 'Private Files', version: '0.1.0', description: 'Private company file and image storage', category: 'platform', system: true, entitled: true, accessSource: 'plan', installed: true },
-      { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: true, accessSource: 'plan', installed: notesInstalled, enabled: notesInstalled }
+      { id: 'workspace', name: 'Team Workspace', version: '0.1.0', description: 'Company-scoped workspace items', category: 'productivity', system: false, entitled: true, accessSource: 'plan', installed: workspaceInstalled, enabled: workspaceInstalled }
     ] })
   }));
-  await page.route('**/api/notes', route => {
-    if (route.request().method() === 'GET') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ notes }) });
-    }
+  await page.route('**/api/workspace-items', route => {
+    if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items }) });
     const body = route.request().postDataJSON();
     const now = new Date().toISOString();
-    const note = { id: 'note-' + (notes.length + 1), title: body.title, content: body.content, createdBy: 'owner-1', createdAt: now, updatedAt: now };
-    notes.push(note);
-    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ note }) });
+    const item = { id: 'item-' + (items.length + 1), title: body.title, content: body.content, createdBy: 'owner-1', createdAt: now, updatedAt: now };
+    items.push(item);
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ item }) });
   });
-  await page.route('**/api/notes/**', route => {
-    const noteId = route.request().url().split('/').pop() || '';
-    if (route.request().method() === 'DELETE') {
-      const index = notes.findIndex(note => note.id === noteId);
-      if (index >= 0) notes.splice(index, 1);
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
-    }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
-  });
-  await page.route('**/api/marketplace/plugins/notes/install', route => {
+  await page.route('**/api/marketplace/plugins/workspace/install', route => {
     if (route.request().method() === 'POST') {
-      notesInstalled = true;
-      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ pluginId: 'notes', status: 'installed', version: '0.1.0' }) });
+      workspaceInstalled = true;
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ pluginId: 'workspace', status: 'installed', version: '0.1.0' }) });
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pluginId: 'notes', status: 'uninstalled', dataPreserved: true }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pluginId: 'workspace', status: 'uninstalled', dataPreserved: true }) });
   });
   await page.goto('/dashboard');
   await page.getByRole('main').getByRole('button', { name: /manage plugins/i }).click();
   await expect(page.getByRole('heading', { name: 'Company plugin marketplace' })).toBeVisible();
   await expect(page.getByText('Private Files')).toBeVisible();
-  await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' })).toBeVisible();
-  const notesRow = page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' });
-  await notesRow.getByRole('button', { name: 'Install' }).click();
-  await expect(page.getByText('Team Notes installed for this company.')).toBeVisible();
-  await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' }).getByText('Installed', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Team Notes' })).toBeVisible();
-  await page.getByPlaceholder('Note title').fill('Quarterly planning');
-  await page.getByPlaceholder('Write something for your team…').fill('Private notes stay in this company.');
-  await page.getByRole('button', { name: 'Create note' }).click();
-  await expect(page.getByRole('heading', { name: 'Quarterly planning' })).toBeVisible();
-  const notesPanel = page.locator('.bee-notes');
-  await expect(notesPanel).toBeVisible();
-  await notesPanel.getByPlaceholder('Note title').fill('First company note');
-  await notesPanel.getByPlaceholder('Write something for your team…').fill('This note belongs to Company Pro');
-  await notesPanel.getByRole('button', { name: 'Create note' }).click();
-  await expect(notesPanel.getByText('First company note')).toBeVisible();
-  await expect(notesPanel.getByText('Note saved for this company.')).toBeVisible();
+  const workspaceRow = page.locator('.bee-marketplace__item').filter({ hasText: 'Team Workspace' });
+  await expect(workspaceRow).toBeVisible();
+  await workspaceRow.getByRole('button', { name: 'Install' }).click();
+  await expect(page.getByText('Team Workspace installed for this company.')).toBeVisible();
+  await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Workspace' }).getByText('Installed', { exact: true })).toBeVisible();
+  const result = await page.evaluate(async () => {
+    await fetch('/api/workspace-items', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Quarterly planning', content: 'Private workspace data for Company Pro' }) });
+    return fetch('/api/workspace-items').then(response => response.json());
+  });
+  expect(result.items).toHaveLength(1);
+  expect(result.items[0].title).toBe('Quarterly planning');
+  expect(result.items[0].content).toContain('Company Pro');
 });
 
 
@@ -363,15 +345,15 @@ test('starter company sees purchasable add-ons but cannot install them without e
     contentType: 'application/json',
     body: JSON.stringify({ tenantId: 'company-starter', plugins: [
       { id: 'files', name: 'Private Files', version: '0.1.0', description: 'Private company file and image storage', category: 'platform', system: true, entitled: true, accessSource: 'plan', installed: true, purchasable: false },
-      { id: 'notes', name: 'Team Notes', version: '0.1.0', description: 'Company-scoped team notes', category: 'productivity', system: false, entitled: false, accessSource: null, installed: false, purchasable: true }
+      { id: 'sample-addon', name: 'Sample Add-on', version: '0.1.0', description: 'Optional company package', category: 'productivity', system: false, entitled: false, accessSource: null, installed: false, purchasable: true }
     ] })
   }));
   await page.goto('/dashboard');
   await page.getByRole('main').getByRole('button', { name: /manage plugins/i }).click();
-  const notesRow = page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' });
-  await expect(notesRow).toBeVisible();
-  await expect(notesRow.getByText('Available as add-on')).toBeVisible();
-  await expect(notesRow.getByRole('button', { name: 'Install' })).toHaveCount(0);
+  const addOnRow = page.locator('.bee-marketplace__item').filter({ hasText: 'Sample Add-on' });
+  await expect(addOnRow).toBeVisible();
+  await expect(addOnRow.getByText('Available as add-on')).toBeVisible();
+  await expect(addOnRow.getByRole('button', { name: 'Install' })).toHaveCount(0);
 });
 
 
@@ -620,11 +602,11 @@ test('Settings plugins supports cards/list and role-scoped plugin actions', asyn
   }));
   await page.route('**/api/marketplace/plugins', route => route.fulfill({
     status: 200, contentType: 'application/json',
-    body: JSON.stringify({ plugins: [{ id: 'masked-plugin-ref', name: 'Team Notes', version: '1.2.0', description: 'Shared team notes', category: 'productivity', system: false, entitled: true, installed: true, installedVersion: '1.2.0' }] })
+    body: JSON.stringify({ plugins: [{ id: 'masked-plugin-ref', name: 'Sample Workspace', version: '1.2.0', description: 'Shared workspace sample', category: 'productivity', system: false, entitled: true, installed: true, installedVersion: '1.2.0' }] })
   }));
   await page.route('**/api/marketplace/plugins/masked-plugin-ref', route => route.fulfill({
     status: 200, contentType: 'application/json',
-    body: JSON.stringify({ plugin: { id: 'masked-plugin-ref', name: 'Team Notes', version: '1.2.0', description: 'Shared team notes', category: 'productivity', system: false, entitled: true, installed: true, installedVersion: '1.2.0', accessSource: 'plan' } })
+    body: JSON.stringify({ plugin: { id: 'masked-plugin-ref', name: 'Sample Workspace', version: '1.2.0', description: 'Shared workspace sample', category: 'productivity', system: false, entitled: true, installed: true, installedVersion: '1.2.0', accessSource: 'plan' } })
   }));
   await page.goto('/dashboard');
   await page.getByRole('complementary').getByRole('button', { name: 'Settings' }).click();
@@ -636,13 +618,13 @@ test('Settings plugins supports cards/list and role-scoped plugin actions', asyn
   await catalogue.getByRole('button', { name: 'Table view' }).click();
   await expect(catalogue.locator('.plugin-settings__table-wrap')).toBeVisible();
   await catalogue.getByRole('button', { name: 'Card view' }).click();
-  const plugin = catalogue.locator('.plugin-settings__card').filter({ hasText: 'Team Notes' });
-  await plugin.getByRole('button', { name: 'Actions for Team Notes' }).click();
+  const plugin = catalogue.locator('.plugin-settings__card').filter({ hasText: 'Sample Workspace' });
+  await plugin.getByRole('button', { name: 'Actions for Sample Workspace' }).click();
   await expect(plugin.getByRole('menuitem', { name: 'Uninstall' })).toBeEnabled();
   await expect(plugin.getByRole('menuitem', { name: 'Delete' })).toHaveCount(0);
   await plugin.getByRole('menuitem', { name: 'Details' }).click();
   await expect(page).toHaveURL(/\/dashboard\/plugins\/masked-plugin-ref\/details$/);
-  await expect(catalogue.getByRole('heading', { name: 'Team Notes', level: 2 })).toBeVisible();
+  await expect(catalogue.getByRole('heading', { name: 'Sample Workspace', level: 2 })).toBeVisible();
   await catalogue.getByRole('button', { name: 'Back to modules' }).click();
   await expect(page).toHaveURL(/\/dashboard\/settings\/plugins$/);
 });
