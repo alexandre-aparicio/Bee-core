@@ -1108,3 +1108,11 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Deployment documentation now uses MongoDB root authentication for backup/restore and includes the third persistent volume, `bee_core_plugins`, alongside MongoDB and private files.
 - No local Docker, build, npm or test command was run by this GitHub-only workflow. The new production Compose workflow must complete on the PR head before Docker installation can be called CI-verified.
 - Release remains blocked on successful production Compose CI, a complete route-by-route tenant isolation review, the outstanding security limitations in `docs/tenant-data-isolation.md` and `docs/security-mvp-status.md`, and dependency vulnerability triage.
+
+
+## Production Compose and dependency audit evidence — 2026-11-25
+
+- PR #205's initial CI run [45575968435](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45575968435) on commit `9cb0420f0723c4b161cd76660d86f0854429a3d4` passed backend (118/118, 0 skipped), Angular build/test discovery and the production Compose clean-install job. The Compose job verified no host-published MongoDB/API ports, clean image build/start, web and API-proxy health, login/refresh rotation across MongoDB/API restarts, authenticated MongoDB dump/restore, and private-file plus plugin-package volume backup/restore.
+- After adding explicit production dependency audit steps, PR #205 run [45576502545](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45576502545) on commit `aa04fdb10e595d64ebde3b8ac2dbb76a802e1658` completed backend and Compose successfully. Backend production audit reported **0 vulnerabilities** and backend tests reported **118 passed, 0 failed, 0 skipped**. The production Compose job passed all clean-install, persistence and restore steps.
+- The same run's Angular production audit **failed** with **6 production vulnerabilities (2 moderate, 4 high)** in the Angular 19.2.15 dependency line. The Angular production build and Playwright test discovery were skipped after the audit failure. Do not report the latest PR #205 head as green.
+- A separate sequential Angular 19 → 20 → 21 → 22 migration rehearsal is open in PR #207. Its migration workflow must complete and the generated package/lockfile/source patch must be reviewed and applied before the Angular audit gate can pass.
