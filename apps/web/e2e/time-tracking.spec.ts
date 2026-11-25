@@ -91,8 +91,10 @@ test("member can clock in, start/end a break and clock out without a remote ifra
   await authenticate(page, auth);
   await installApiMocks(page, auth, state);
   await page.goto("/dashboard/time-tracking/my_jorney");
+  await expect(page.locator(".bee-dash-company-switcher select")).toHaveValue(auth.tenantId, { timeout: 15000 });
+  await expect(page.getByRole("button", { name: /Control Horario/ })).toBeVisible({ timeout: 15000 });
 
-  await expect(page.getByRole("heading", { name: "Mi jornada" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mi jornada" })).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: "Fichar entrada" })).toBeVisible();
   await expect(page.locator('iframe[title="time-tracking plugin"]')).toHaveCount(0);
 
@@ -132,8 +134,10 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
   await authenticate(page, auth);
   await installApiMocks(page, auth, state);
   await page.goto("/dashboard/time-tracking/schedule");
+  await expect(page.locator(".bee-dash-company-switcher select")).toHaveValue(auth.tenantId, { timeout: 15000 });
+  await expect(page.getByRole("button", { name: /Control Horario/ })).toBeVisible({ timeout: 15000 });
 
-  await expect(page.getByRole("heading", { name: "Planificación de horarios" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Planificación de horarios" })).toBeVisible({ timeout: 15000 });
   await page.getByRole("checkbox", { name: "Activar lunes" }).check();
   await page.locator('input[type="time"]').nth(1).fill("08:30");
   await page.locator('input[type="time"]').nth(2).fill("16:30");
