@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ChangeDetectionStrategy } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
 import { BeeIconComponent } from "../core/icons/bee-icon.component";
@@ -14,10 +14,14 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
   imports: [CommonModule, FormsModule, BeeIconComponent],
   template: `
     <section id="users" class="bee-users">
-      <div *ngIf="error" class="bee-users__notice bee-users__notice--error" role="alert">{{error}}</div>
-      <div *ngIf="message" class="bee-users__notice bee-users__notice--success" role="status">{{message}}</div>
-
-      <ng-container *ngIf="canRead; else noAccess">
+      @if (error) {
+        <div class="bee-users__notice bee-users__notice--error" role="alert">{{error}}</div>
+      }
+      @if (message) {
+        <div class="bee-users__notice bee-users__notice--success" role="status">{{message}}</div>
+      }
+    
+      @if (canRead) {
         <div class="bee-users__metrics" [attr.aria-label]="t('users.overview')">
           <article class="bee-users__metric">
             <span>{{t('users.totalMembers')}}</span><strong>{{members.length}}</strong><small>{{t('users.inOrganization')}}</small>
@@ -28,11 +32,12 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
           <article class="bee-users__metric">
             <span>{{t('users.suspendedMembers')}}</span><strong>{{suspendedMemberCount}}</strong><small>{{t('users.accessPaused')}}</small>
           </article>
-          <article class="bee-users__metric" *ngIf="canInvite">
-            <span>{{t('users.pendingInvitations')}}</span><strong>{{pendingInvitationCount}}</strong><small>{{t('users.awaitingAcceptance')}}</small>
-          </article>
+          @if (canInvite) {
+            <article class="bee-users__metric">
+              <span>{{t('users.pendingInvitations')}}</span><strong>{{pendingInvitationCount}}</strong><small>{{t('users.awaitingAcceptance')}}</small>
+            </article>
+          }
         </div>
-
         <div class="bee-users__workspace">
           <section class="bee-users__directory">
             <div class="bee-users__section-head">
@@ -58,122 +63,210 @@ type CompanyInvitation = { id: string; email: string; role: string; customRoleId
                 </div>
               </div>
             </div>
-
-            <div *ngIf="loading" class="bee-users__state" role="status"><span class="bee-users__spinner"></span>{{t('users.loadingMembers')}}</div>
-            <div *ngIf="!loading && filteredMembers.length && viewMode==='cards'" class="bee-users__cards">
-              <article class="bee-users__card" *ngFor="let member of filteredMembers; trackBy: trackMember">
-                <div class="bee-users__card-top">
-                  <div class="bee-users__identity">
-                    <span class="bee-users__avatar" aria-hidden="true">{{memberInitials(member.email)}}</span>
-                    <span class="bee-users__identity-copy"><strong>{{member.email || t('users.unnamedMember')}}</strong><small>{{member.role === 'owner' ? t('users.organizationOwner') : t('users.organizationMember')}}</small></span>
-                  </div>
-                  <div class="bee-users__menu-wrap" *ngIf="canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')">
-                    <button type="button" class="bee-users__icon-button" [attr.aria-label]="t('users.memberOptions') + ' ' + (member.email || t('users.unnamedMember'))" [attr.aria-expanded]="openMemberMenuId === member.userId" (click)="toggleMemberMenu(member.userId)">⋮</button>
-                    <div *ngIf="openMemberMenuId === member.userId" class="bee-users__menu">
-                      <button type="button" *ngIf="member.status === 'active'" (click)="requestMemberStatus(member,'suspended')" [disabled]="busyId === member.userId">{{t('users.suspendAccess')}}</button>
-                      <button type="button" *ngIf="member.status === 'suspended'" (click)="requestMemberStatus(member,'active')" [disabled]="busyId === member.userId">{{t('users.restoreAccess')}}</button>
-                      <div *ngIf="pendingMemberStatus?.userId === member.userId" class="bee-users__confirm"><p>{{pendingMemberStatus?.status === 'suspended' ? t('users.confirmSuspend') : t('users.confirmRestore')}}</p><div><button type="button" (click)="pendingMemberStatus=null">{{t('users.cancel')}}</button><button type="button" (click)="confirmMemberStatus(member)" [disabled]="busyId === member.userId">{{t('users.confirm')}}</button></div></div>
+            @if (loading) {
+              <div class="bee-users__state" role="status"><span class="bee-users__spinner"></span>{{t('users.loadingMembers')}}</div>
+            }
+            @if (!loading && filteredMembers.length && viewMode==='cards') {
+              <div class="bee-users__cards">
+                @for (member of filteredMembers; track trackMember($index, member)) {
+                  <article class="bee-users__card">
+                    <div class="bee-users__card-top">
+                      <div class="bee-users__identity">
+                        <span class="bee-users__avatar" aria-hidden="true">{{memberInitials(member.email)}}</span>
+                        <span class="bee-users__identity-copy"><strong>{{member.email || t('users.unnamedMember')}}</strong><small>{{member.role === 'owner' ? t('users.organizationOwner') : t('users.organizationMember')}}</small></span>
+                      </div>
+                      @if (canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')) {
+                        <div class="bee-users__menu-wrap">
+                          <button type="button" class="bee-users__icon-button" [attr.aria-label]="t('users.memberOptions') + ' ' + (member.email || t('users.unnamedMember'))" [attr.aria-expanded]="openMemberMenuId === member.userId" (click)="toggleMemberMenu(member.userId)">⋮</button>
+                          @if (openMemberMenuId === member.userId) {
+                            <div class="bee-users__menu">
+                              @if (member.status === 'active') {
+                                <button type="button" (click)="requestMemberStatus(member,'suspended')" [disabled]="busyId === member.userId">{{t('users.suspendAccess')}}</button>
+                              }
+                              @if (member.status === 'suspended') {
+                                <button type="button" (click)="requestMemberStatus(member,'active')" [disabled]="busyId === member.userId">{{t('users.restoreAccess')}}</button>
+                              }
+                              @if (pendingMemberStatus?.userId === member.userId) {
+                                <div class="bee-users__confirm"><p>{{pendingMemberStatus?.status === 'suspended' ? t('users.confirmSuspend') : t('users.confirmRestore')}}</p><div><button type="button" (click)="pendingMemberStatus=null">{{t('users.cancel')}}</button><button type="button" (click)="confirmMemberStatus(member)" [disabled]="busyId === member.userId">{{t('users.confirm')}}</button></div></div>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
                     </div>
+                    <div class="bee-users__card-field">
+                      <span>{{t('users.role')}}</span>
+                      @if (canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')) {
+                        <select [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member,$any($event.target).value)" [disabled]="busyId === member.userId" [attr.aria-label]="t('users.changeRoleFor') + ' ' + (member.email || t('users.unnamedMember'))">
+                          <option value="guest">{{t('users.guest')}}</option><option value="member">{{t('users.memberRole')}}</option><option value="manager">{{t('users.manager')}}</option>@if (canAssignOwner) {
+                          <option value="owner">{{t('users.owner')}}</option>
+                          }@if (role === 'owner' || role === 'super_admin') {
+                          <option value="admin">{{t('users.admin')}}</option>
+                          }@for (customRole of grantRoles; track customRole) {
+                          <option [value]="'custom:' + customRole.id">{{customRole.name}}</option>
+                        }
+                      </select>
+                    }
+                    @if (!canManage || member.role === 'owner' || member.role === 'super_admin' || (member.role === 'admin' && role !== 'owner' && role !== 'super_admin')) {
+                      <strong class="bee-users__role-label">{{displayRole(member.role,member.customRoleId)}}</strong>
+                    }
                   </div>
-                </div>
-                <div class="bee-users__card-field">
-                  <span>{{t('users.role')}}</span>
-                  <select *ngIf="canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member,$any($event.target).value)" [disabled]="busyId === member.userId" [attr.aria-label]="t('users.changeRoleFor') + ' ' + (member.email || t('users.unnamedMember'))">
-                    <option value="guest">{{t('users.guest')}}</option><option value="member">{{t('users.memberRole')}}</option><option value="manager">{{t('users.manager')}}</option><option *ngIf="canAssignOwner" value="owner">{{t('users.owner')}}</option><option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">{{t('users.admin')}}</option><option *ngFor="let customRole of grantRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
-                  </select>
-                  <strong *ngIf="!canManage || member.role === 'owner' || member.role === 'super_admin' || (member.role === 'admin' && role !== 'owner' && role !== 'super_admin')" class="bee-users__role-label">{{displayRole(member.role,member.customRoleId)}}</strong>
-                </div>
-                <div class="bee-users__card-meta">
-                  <span class="bee-users__status" [class.is-active]="member.status === 'active'" [class.is-suspended]="member.status !== 'active'"><span></span>{{member.status === 'active' ? t('users.active') : t('users.suspended')}}</span>
-                  <small>{{t('users.joined')}} · {{member.createdAt | date:'mediumDate'}}</small>
-                </div>
-                <div *ngIf="canManageCustomRoles && member.role !== 'owner' && member.role !== 'super_admin' && restrictionRoles.length" class="bee-users__restrictions">
-                  <span>{{t('users.restrictions')}}</span>
-                  <label *ngFor="let restriction of restrictionRoles"><input type="checkbox" [checked]="(member.restrictionRoleIds || []).includes(restriction.id)" (change)="toggleRestriction(member,restriction.id,$any($event.target).checked)" [disabled]="busyId === member.userId"><span>{{restriction.name}}</span></label>
-                </div>
-              </article>
+                  <div class="bee-users__card-meta">
+                    <span class="bee-users__status" [class.is-active]="member.status === 'active'" [class.is-suspended]="member.status !== 'active'"><span></span>{{member.status === 'active' ? t('users.active') : t('users.suspended')}}</span>
+                    <small>{{t('users.joined')}} · {{member.createdAt | date:'mediumDate'}}</small>
+                  </div>
+                  @if (canManageCustomRoles && member.role !== 'owner' && member.role !== 'super_admin' && restrictionRoles.length) {
+                    <div class="bee-users__restrictions">
+                      <span>{{t('users.restrictions')}}</span>
+                      @for (restriction of restrictionRoles; track restriction) {
+                        <label><input type="checkbox" [checked]="(member.restrictionRoleIds || []).includes(restriction.id)" (change)="toggleRestriction(member,restriction.id,$any($event.target).checked)" [disabled]="busyId === member.userId"><span>{{restriction.name}}</span></label>
+                      }
+                    </div>
+                  }
+                </article>
+              }
             </div>
-
-            <div *ngIf="!loading && filteredMembers.length && viewMode==='table'" class="bee-users__table-wrap">
+          }
+          @if (!loading && filteredMembers.length && viewMode==='table') {
+            <div class="bee-users__table-wrap">
               <table class="bee-users__table">
-                <thead><tr><th scope="col">{{t('users.member')}}</th><th scope="col">{{t('users.role')}}</th><th scope="col">{{t('users.status')}}</th><th scope="col">{{t('users.joined')}}</th><th scope="col" *ngIf="canManage"><span class="bee-users__sr-only">{{t('users.actions')}}</span></th></tr></thead>
-                <tbody>
-                  <tr *ngFor="let member of filteredMembers; trackBy: trackMember">
+                <thead><tr><th scope="col">{{t('users.member')}}</th><th scope="col">{{t('users.role')}}</th><th scope="col">{{t('users.status')}}</th><th scope="col">{{t('users.joined')}}</th>@if (canManage) {
+                <th scope="col"><span class="bee-users__sr-only">{{t('users.actions')}}</span></th>
+              }</tr></thead>
+              <tbody>
+                @for (member of filteredMembers; track trackMember($index, member)) {
+                  <tr>
                     <td>
                       <div class="bee-users__identity">
                         <span class="bee-users__avatar" aria-hidden="true">{{memberInitials(member.email)}}</span>
                         <span class="bee-users__identity-copy"><strong>{{member.email || t('users.unnamedMember')}}</strong><small>{{member.role === 'owner' ? t('users.organizationOwner') : t('users.organizationMember')}}</small></span>
                       </div>
-                      <div *ngIf="canManageCustomRoles && member.role !== 'owner' && member.role !== 'super_admin' && restrictionRoles.length" class="bee-users__restrictions">
-                        <span>{{t('users.restrictions')}}</span>
-                        <label *ngFor="let restriction of restrictionRoles"><input type="checkbox" [checked]="(member.restrictionRoleIds || []).includes(restriction.id)" (change)="toggleRestriction(member,restriction.id,$any($event.target).checked)" [disabled]="busyId === member.userId"><span>{{restriction.name}}</span></label>
-                      </div>
+                      @if (canManageCustomRoles && member.role !== 'owner' && member.role !== 'super_admin' && restrictionRoles.length) {
+                        <div class="bee-users__restrictions">
+                          <span>{{t('users.restrictions')}}</span>
+                          @for (restriction of restrictionRoles; track restriction) {
+                            <label><input type="checkbox" [checked]="(member.restrictionRoleIds || []).includes(restriction.id)" (change)="toggleRestriction(member,restriction.id,$any($event.target).checked)" [disabled]="busyId === member.userId"><span>{{restriction.name}}</span></label>
+                          }
+                        </div>
+                      }
                     </td>
                     <td>
-                      <select *ngIf="canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')" [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member,$any($event.target).value)" [disabled]="busyId === member.userId" [attr.aria-label]="t('users.changeRoleFor') + ' ' + (member.email || t('users.unnamedMember'))">
-                        <option value="guest">{{t('users.guest')}}</option><option value="member">{{t('users.memberRole')}}</option><option value="manager">{{t('users.manager')}}</option><option *ngIf="canAssignOwner" value="owner">{{t('users.owner')}}</option><option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">{{t('users.admin')}}</option><option *ngFor="let customRole of grantRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option>
+                      @if (canManage && member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')) {
+                        <select [value]="member.role === 'custom' ? 'custom:' + member.customRoleId : member.role" (change)="changeRole(member,$any($event.target).value)" [disabled]="busyId === member.userId" [attr.aria-label]="t('users.changeRoleFor') + ' ' + (member.email || t('users.unnamedMember'))">
+                          <option value="guest">{{t('users.guest')}}</option><option value="member">{{t('users.memberRole')}}</option><option value="manager">{{t('users.manager')}}</option>@if (canAssignOwner) {
+                          <option value="owner">{{t('users.owner')}}</option>
+                          }@if (role === 'owner' || role === 'super_admin') {
+                          <option value="admin">{{t('users.admin')}}</option>
+                          }@for (customRole of grantRoles; track customRole) {
+                          <option [value]="'custom:' + customRole.id">{{customRole.name}}</option>
+                        }
                       </select>
-                      <span *ngIf="!canManage || member.role === 'owner' || member.role === 'super_admin' || (member.role === 'admin' && role !== 'owner' && role !== 'super_admin')" class="bee-users__role-label">{{displayRole(member.role,member.customRoleId)}}</span>
-                    </td>
-                    <td><span class="bee-users__status" [class.is-active]="member.status === 'active'" [class.is-suspended]="member.status !== 'active'"><span></span>{{member.status === 'active' ? t('users.active') : t('users.suspended')}}</span></td>
-                    <td class="bee-users__date">{{member.createdAt | date:'mediumDate'}}</td>
-                    <td *ngIf="canManage" class="bee-users__actions-cell">
-                      <div class="bee-users__menu-wrap" *ngIf="member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')">
-                        <button type="button" class="bee-users__icon-button" [attr.aria-label]="t('users.memberOptions') + ' ' + (member.email || t('users.unnamedMember'))" [attr.aria-expanded]="openMemberMenuId === member.userId" (click)="toggleMemberMenu(member.userId)">⋮</button>
-                        <div *ngIf="openMemberMenuId === member.userId" class="bee-users__menu">
-                          <button type="button" *ngIf="member.status === 'active'" (click)="requestMemberStatus(member,'suspended')" [disabled]="busyId === member.userId">{{t('users.suspendAccess')}}</button>
-                          <button type="button" *ngIf="member.status === 'suspended'" (click)="requestMemberStatus(member,'active')" [disabled]="busyId === member.userId">{{t('users.restoreAccess')}}</button>
-                          <div *ngIf="pendingMemberStatus?.userId === member.userId" class="bee-users__confirm"><p>{{pendingMemberStatus?.status === 'suspended' ? t('users.confirmSuspend') : t('users.confirmRestore')}}</p><div><button type="button" (click)="pendingMemberStatus=null">{{t('users.cancel')}}</button><button type="button" (click)="confirmMemberStatus(member)" [disabled]="busyId === member.userId">{{t('users.confirm')}}</button></div></div>
+                    }
+                    @if (!canManage || member.role === 'owner' || member.role === 'super_admin' || (member.role === 'admin' && role !== 'owner' && role !== 'super_admin')) {
+                      <span class="bee-users__role-label">{{displayRole(member.role,member.customRoleId)}}</span>
+                    }
+                  </td>
+                  <td><span class="bee-users__status" [class.is-active]="member.status === 'active'" [class.is-suspended]="member.status !== 'active'"><span></span>{{member.status === 'active' ? t('users.active') : t('users.suspended')}}</span></td>
+                  <td class="bee-users__date">{{member.createdAt | date:'mediumDate'}}</td>
+                  @if (canManage) {
+                    <td class="bee-users__actions-cell">
+                      @if (member.role !== 'owner' && member.role !== 'super_admin' && (role === 'owner' || role === 'super_admin' || member.role !== 'admin')) {
+                        <div class="bee-users__menu-wrap">
+                          <button type="button" class="bee-users__icon-button" [attr.aria-label]="t('users.memberOptions') + ' ' + (member.email || t('users.unnamedMember'))" [attr.aria-expanded]="openMemberMenuId === member.userId" (click)="toggleMemberMenu(member.userId)">⋮</button>
+                          @if (openMemberMenuId === member.userId) {
+                            <div class="bee-users__menu">
+                              @if (member.status === 'active') {
+                                <button type="button" (click)="requestMemberStatus(member,'suspended')" [disabled]="busyId === member.userId">{{t('users.suspendAccess')}}</button>
+                              }
+                              @if (member.status === 'suspended') {
+                                <button type="button" (click)="requestMemberStatus(member,'active')" [disabled]="busyId === member.userId">{{t('users.restoreAccess')}}</button>
+                              }
+                              @if (pendingMemberStatus?.userId === member.userId) {
+                                <div class="bee-users__confirm"><p>{{pendingMemberStatus?.status === 'suspended' ? t('users.confirmSuspend') : t('users.confirmRestore')}}</p><div><button type="button" (click)="pendingMemberStatus=null">{{t('users.cancel')}}</button><button type="button" (click)="confirmMemberStatus(member)" [disabled]="busyId === member.userId">{{t('users.confirm')}}</button></div></div>
+                              }
+                            </div>
+                          }
                         </div>
-                      </div>
+                      }
                     </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div *ngIf="!loading && !filteredMembers.length" class="bee-users__empty">
-              <span class="bee-users__empty-icon" aria-hidden="true"><bee-icon name="users" size="22px"></bee-icon></span>
-              <strong>{{members.length ? t('users.noMatches') : t('users.noMembers')}}</strong>
-              <p>{{members.length ? t('users.adjustSearch') : t('users.noMembersDescription')}}</p>
-              <button *ngIf="members.length" type="button" class="bee-users__text-button" (click)="memberSearch='';memberStatusFilter='all'">{{t('users.clearFilters')}}</button>
-            </div>
-          </section>
-
-          <aside class="bee-users__invite-panel" *ngIf="canInvite">
-            <div class="bee-users__invite-heading"><span class="bee-users__invite-icon" aria-hidden="true"><bee-icon name="plus" size="17px"></bee-icon></span><div><h3>{{t('users.inviteTitle')}}</h3><p>{{t('users.inviteDescription')}}</p></div></div>
-            <form class="bee-users__invite-form" (submit)="invite($event)">
-              <label>{{t('users.emailAddress')}}<input type="email" name="inviteEmail" [(ngModel)]="inviteEmail" [placeholder]="t('users.emailPlaceholder')" autocomplete="email" required></label>
-              <label>{{t('users.assignRole')}}<select name="inviteRole" [(ngModel)]="inviteRole"><option value="guest">{{t('users.guest')}}</option><option value="member">{{t('users.memberRole')}}</option><option value="manager">{{t('users.manager')}}</option><option *ngIf="role === 'owner' || role === 'super_admin'" value="admin">{{t('users.admin')}}</option><option *ngFor="let customRole of grantRoles" [value]="'custom:' + customRole.id">{{customRole.name}}</option></select></label>
-              <fieldset *ngIf="canManageCustomRoles && restrictionRoles.length" class="bee-users__restriction-fieldset"><legend>{{t('users.additionalRestrictions')}}</legend><label *ngFor="let restriction of restrictionRoles"><input type="checkbox" [checked]="inviteRestrictionRoleIds.includes(restriction.id)" (change)="toggleInviteRestriction(restriction.id,$any($event.target).checked)"><span>{{restriction.name}}</span></label></fieldset>
-              <button class="bee-users__button bee-users__button--primary" type="submit" [disabled]="busyId === 'invite' || !inviteEmail.trim()">{{busyId === 'invite' ? t('users.creating') : t('users.createInvitation')}}</button>
-            </form>
-            <div *ngIf="acceptanceLink" class="bee-users__share-link">
-              <strong>{{t('users.invitationReady')}}</strong><p>{{t('users.invitationReadyDescription')}}</p>
-              <div><input type="url" [value]="acceptanceLink" readonly [attr.aria-label]="t('users.invitationLink')"><button type="button" class="bee-users__button bee-users__button--secondary" (click)="copyLink()">{{t('users.copyLink')}}</button></div>
-              <small>{{t('users.invitationExpiry')}}</small>
-            </div>
-          </aside>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
-
-        <section class="bee-users__invitations" *ngIf="canInvite">
-          <div class="bee-users__section-head"><div><h3>{{t('users.invitations')}}</h3><p>{{t('users.invitationsDescription')}}</p></div><span class="bee-users__count">{{invitations.length}}</span></div>
-          <div *ngIf="invitations.length" class="bee-users__invitation-list">
-            <article class="bee-users__invitation" *ngFor="let invitation of invitations; trackBy: trackInvitation">
-              <span class="bee-users__invitation-icon" aria-hidden="true"><bee-icon name="mail" size="15px"></bee-icon></span>
-              <div class="bee-users__invitation-copy"><strong>{{invitation.email}}</strong><small>{{displayRole(invitation.role,invitation.customRoleId)}} · {{t('users.expires')}} {{invitation.expiresAt | date:'mediumDate'}}</small></div>
-              <span class="bee-users__status" [class.is-pending]="invitationState(invitation) === 'pending'" [class.is-accepted]="invitationState(invitation) === 'accepted'" [class.is-expired]="invitationState(invitation) === 'expired'" [class.is-revoked]="invitationState(invitation) === 'revoked'"><span></span>{{invitationState(invitation) === 'pending' ? t('users.pending') : invitationState(invitation) === 'accepted' ? t('users.accepted') : invitationState(invitation) === 'expired' ? t('users.expired') : t('users.revoked')}}</span>
-              <div class="bee-users__menu-wrap">
-                <button type="button" class="bee-users__icon-button" [attr.aria-label]="t('users.invitationOptions') + ' ' + invitation.email" [attr.aria-expanded]="openInvitationMenuId === invitation.id" (click)="toggleInvitationMenu(invitation.id)">⋮</button>
-                <div *ngIf="openInvitationMenuId === invitation.id" class="bee-users__menu"><button type="button" class="is-danger" (click)="confirmInvitationRevoke(invitation.id)" [disabled]="busyId === invitation.id || invitation.acceptedAt || invitation.cancelledAt || invitation.status === 'expired'">{{t('users.revokeInvitation')}}</button><div *ngIf="confirmInvitationId === invitation.id" class="bee-users__confirm"><p>{{t('users.confirmRevoke')}}</p><div><button type="button" (click)="confirmInvitationId=''">{{t('users.cancel')}}</button><button type="button" (click)="cancelInvitation(invitation)" [disabled]="busyId === invitation.id">{{t('users.confirm')}}</button></div></div></div>
+      }
+      @if (!loading && !filteredMembers.length) {
+        <div class="bee-users__empty">
+          <span class="bee-users__empty-icon" aria-hidden="true"><bee-icon name="users" size="22px"></bee-icon></span>
+          <strong>{{members.length ? t('users.noMatches') : t('users.noMembers')}}</strong>
+          <p>{{members.length ? t('users.adjustSearch') : t('users.noMembersDescription')}}</p>
+          @if (members.length) {
+            <button type="button" class="bee-users__text-button" (click)="memberSearch='';memberStatusFilter='all'">{{t('users.clearFilters')}}</button>
+          }
+        </div>
+      }
+    </section>
+    @if (canInvite) {
+      <aside class="bee-users__invite-panel">
+        <div class="bee-users__invite-heading"><span class="bee-users__invite-icon" aria-hidden="true"><bee-icon name="plus" size="17px"></bee-icon></span><div><h3>{{t('users.inviteTitle')}}</h3><p>{{t('users.inviteDescription')}}</p></div></div>
+        <form class="bee-users__invite-form" (submit)="invite($event)">
+          <label>{{t('users.emailAddress')}}<input type="email" name="inviteEmail" [(ngModel)]="inviteEmail" [placeholder]="t('users.emailPlaceholder')" autocomplete="email" required></label>
+          <label>{{t('users.assignRole')}}<select name="inviteRole" [(ngModel)]="inviteRole"><option value="guest">{{t('users.guest')}}</option><option value="member">{{t('users.memberRole')}}</option><option value="manager">{{t('users.manager')}}</option>@if (role === 'owner' || role === 'super_admin') {
+          <option value="admin">{{t('users.admin')}}</option>
+          }@for (customRole of grantRoles; track customRole) {
+          <option [value]="'custom:' + customRole.id">{{customRole.name}}</option>
+        }</select></label>
+        @if (canManageCustomRoles && restrictionRoles.length) {
+          <fieldset class="bee-users__restriction-fieldset"><legend>{{t('users.additionalRestrictions')}}</legend>@for (restriction of restrictionRoles; track restriction) {
+          <label><input type="checkbox" [checked]="inviteRestrictionRoleIds.includes(restriction.id)" (change)="toggleInviteRestriction(restriction.id,$any($event.target).checked)"><span>{{restriction.name}}</span></label>
+        }</fieldset>
+      }
+      <button class="bee-users__button bee-users__button--primary" type="submit" [disabled]="busyId === 'invite' || !inviteEmail.trim()">{{busyId === 'invite' ? t('users.creating') : t('users.createInvitation')}}</button>
+    </form>
+    @if (acceptanceLink) {
+      <div class="bee-users__share-link">
+        <strong>{{t('users.invitationReady')}}</strong><p>{{t('users.invitationReadyDescription')}}</p>
+        <div><input type="url" [value]="acceptanceLink" readonly [attr.aria-label]="t('users.invitationLink')"><button type="button" class="bee-users__button bee-users__button--secondary" (click)="copyLink()">{{t('users.copyLink')}}</button></div>
+        <small>{{t('users.invitationExpiry')}}</small>
+      </div>
+    }
+    </aside>
+    }
+    </div>
+    @if (canInvite) {
+      <section class="bee-users__invitations">
+        <div class="bee-users__section-head"><div><h3>{{t('users.invitations')}}</h3><p>{{t('users.invitationsDescription')}}</p></div><span class="bee-users__count">{{invitations.length}}</span></div>
+        @if (invitations.length) {
+          <div class="bee-users__invitation-list">
+            @for (invitation of invitations; track trackInvitation($index, invitation)) {
+              <article class="bee-users__invitation">
+                <span class="bee-users__invitation-icon" aria-hidden="true"><bee-icon name="mail" size="15px"></bee-icon></span>
+                <div class="bee-users__invitation-copy"><strong>{{invitation.email}}</strong><small>{{displayRole(invitation.role,invitation.customRoleId)}} · {{t('users.expires')}} {{invitation.expiresAt | date:'mediumDate'}}</small></div>
+                <span class="bee-users__status" [class.is-pending]="invitationState(invitation) === 'pending'" [class.is-accepted]="invitationState(invitation) === 'accepted'" [class.is-expired]="invitationState(invitation) === 'expired'" [class.is-revoked]="invitationState(invitation) === 'revoked'"><span></span>{{invitationState(invitation) === 'pending' ? t('users.pending') : invitationState(invitation) === 'accepted' ? t('users.accepted') : invitationState(invitation) === 'expired' ? t('users.expired') : t('users.revoked')}}</span>
+                <div class="bee-users__menu-wrap">
+                  <button type="button" class="bee-users__icon-button" [attr.aria-label]="t('users.invitationOptions') + ' ' + invitation.email" [attr.aria-expanded]="openInvitationMenuId === invitation.id" (click)="toggleInvitationMenu(invitation.id)">⋮</button>
+                  @if (openInvitationMenuId === invitation.id) {
+                    <div class="bee-users__menu"><button type="button" class="is-danger" (click)="confirmInvitationRevoke(invitation.id)" [disabled]="busyId === invitation.id || invitation.acceptedAt || invitation.cancelledAt || invitation.status === 'expired'">{{t('users.revokeInvitation')}}</button>@if (confirmInvitationId === invitation.id) {
+                    <div class="bee-users__confirm"><p>{{t('users.confirmRevoke')}}</p><div><button type="button" (click)="confirmInvitationId=''">{{t('users.cancel')}}</button><button type="button" (click)="cancelInvitation(invitation)" [disabled]="busyId === invitation.id">{{t('users.confirm')}}</button></div></div>
+                  }</div>
+                }
               </div>
             </article>
-          </div>
-          <div *ngIf="!invitations.length" class="bee-users__empty bee-users__empty--compact"><strong>{{t('users.noInvitations')}}</strong><p>{{t('users.noInvitationsDescription')}}</p></div>
-        </section>
-      </ng-container>
-      <ng-template #noAccess><div class="bee-users__empty"><strong>{{t('users.noAccessTitle')}}</strong><p>{{t('users.noAccessDescription')}}</p></div></ng-template>
+          }
+        </div>
+      }
+      @if (!invitations.length) {
+        <div class="bee-users__empty bee-users__empty--compact"><strong>{{t('users.noInvitations')}}</strong><p>{{t('users.noInvitationsDescription')}}</p></div>
+      }
     </section>
-  `,
+    }
+    } @else {
+      <div class="bee-users__empty"><strong>{{t('users.noAccessTitle')}}</strong><p>{{t('users.noAccessDescription')}}</p></div>
+    }
+    </section>
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host{display:block;min-width:0;width:100%;color:inherit}
     .bee-users{display:grid;gap:20px;min-width:0;color:inherit}

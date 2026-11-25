@@ -1,10 +1,10 @@
-import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'bee-platform-users',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <section class="platform-users">
       <header class="platform-users__header">
@@ -27,6 +27,7 @@ import { Component } from '@angular/core';
       <p class="platform-users__note">These panels document the planned flows only. They do not create users, send email, issue credentials or register invitations yet.</p>
     </section>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .platform-users{display:grid;gap:20px;color:inherit}
     .platform-users__header h2{margin:6px 0;font-size:26px}

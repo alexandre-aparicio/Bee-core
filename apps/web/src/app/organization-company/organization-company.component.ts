@@ -1,5 +1,5 @@
-import { Component, Input, OnChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, OnChanges, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { BeeI18nService } from '../i18n/bee-i18n.service';
 import { BeeIconComponent } from '../core/icons/bee-icon.component';
@@ -18,7 +18,7 @@ const EMPTY_PROFILE: CompanyProfile = {
 @Component({
   selector: 'bee-company-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, BeeIconComponent],
+  imports: [FormsModule, BeeIconComponent],
   template: `
     <section class="bee-company">
       @if (loading) {
@@ -153,6 +153,7 @@ const EMPTY_PROFILE: CompanyProfile = {
       }
     </section>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host{display:block;width:100%;min-width:0;color:inherit}
     .bee-company{display:grid;gap:16px;min-width:0;color:inherit}

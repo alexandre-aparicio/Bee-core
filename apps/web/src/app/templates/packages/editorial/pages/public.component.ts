@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BeeTemplateSlotComponent } from '../../../template-slot.component';
 import type { AppComponent } from '../../../../app.component';
@@ -23,6 +23,7 @@ import type { AppComponent } from '../../../../app.component';
   } @else {
     <div class="bee-layout" [ngClass]="vm.layoutClass('public')" [attr.data-bee-layout]="vm.layoutId('public')"><bee-template-slot name="header"></bee-template-slot><header class="site-header"><a class="brand" href="/">Bee-Core</a><nav class="nav-links"><a href="#features">Platform</a><a href="#plugins">Plugins</a></nav><button (click)="vm.togglePublicThemeMode()">{{vm.publicThemeMode()==='dark'?'Light':'Dark'}} mode</button><a href="/login">Sign in</a></header><main><section class="hero"><h1>Build less core.<br>Plugin everything.</h1><p>A modular foundation for products that grow with you.</p><a href="/login">Open dashboard</a></section><section id="features"><h2>Composable plugins</h2><p>Extend capabilities without bloating the core.</section><bee-template-slot name="content"></bee-template-slot></main><footer><bee-template-slot name="footer"></bee-template-slot><span>Bee-Core</span></footer></div>
   }`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
   .tenant-editorial{--e-bg:#f3efe6;--e-text:#26251f;--e-muted:#6c685f;--e-line:#d8d1c4;min-height:100vh;background:var(--e-bg);color:var(--e-text);padding:0 clamp(20px,7vw,120px);font-family:Georgia,'Times New Roman',serif}
   .ed-nav{max-width:1240px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:30px;padding:28px 0;border-bottom:1px solid var(--e-line)}.ed-wordmark{font-size:21px;font-weight:bold;color:inherit;text-decoration:none}.ed-wordmark span{display:block;font:10px Arial,sans-serif;letter-spacing:.16em;color:var(--e-muted);margin-top:5px}.ed-nav nav{display:flex;gap:25px}.ed-nav nav a{font:13px Arial,sans-serif;color:var(--e-muted);text-decoration:none}.ed-nav button{background:transparent;border:1px solid var(--e-line);padding:10px 14px;color:inherit;font:12px Arial,sans-serif;cursor:pointer}

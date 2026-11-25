@@ -1,69 +1,71 @@
 @if (path === '/invite/accept') {
   <div class="auth-page"><div class="auth-background"></div><div class="auth-shell">
-    <div class="auth-top"><a class="brand" href="/"><span class="brand-mark">✦</span><span>bee<span class="brand-muted">-core</span></span></a><a href="/login">Sign in</a></div>
-    <div class="auth-card">
-      <div class="auth-icon">✉</div><div class="eyebrow">BEE-CORE INVITATION</div>
-      <h1>Join your organization</h1>
-      @if (invitationLoading) { <p>Validating your invitation link…</p> }
-      @else if (invitationPreview) {
-        <p>You have been invited to join <strong>{{invitationPreview.companyName}}</strong>.</p>
-        <div class="auth-options"><span>Email</span><strong>{{invitationPreview.email}}</strong></div>
-        <div class="auth-options"><span>Assigned role</span><strong>{{invitationPreview.role}}</strong></div>
-        @if (invitationPreview.restrictions.length) { <p>Additional access restrictions: {{invitationPreview.restrictions.join(', ')}}</p> }
-        <p><small>This invitation expires {{invitationPreview.expiresAt | date:'medium'}} and can only be used once.</small></p>
-        <div class="auth-options"><label><input type="checkbox" name="existingAccount" [(ngModel)]="invitationExistingAccount"> I already have a Bee-Core account</label></div>
-        <form (submit)="completeInvitation($event)">
-          @if (invitationExistingAccount) {
-            <label>Account password</label><input type="password" name="invitationPassword" [(ngModel)]="invitationPassword" autocomplete="current-password" required>
-            @if (invitationMfaRequired) { <label>Authenticator or recovery code</label><input name="invitationMfaCode" [(ngModel)]="invitationMfaCode" autocomplete="one-time-code" required> }
-          } @else {
-            <label>Create a password</label><input type="password" name="invitationPassword" [(ngModel)]="invitationPassword" autocomplete="new-password" minlength="12" required>
-            <small>Use at least 12 characters.</small>
-            <label>Confirm password</label><input type="password" name="invitationPasswordConfirm" [(ngModel)]="invitationPasswordConfirm" autocomplete="new-password" minlength="12" required>
-          }
-          @if (invitationError) { <div class="auth-error" role="alert">{{invitationError}}</div> }
-          <button class="auth-submit" type="submit" [disabled]="invitationBusy">{{invitationBusy ? 'Please wait…' : invitationExistingAccount ? 'Sign in and accept invitation' : 'Create account and join'}}</button>
-        </form>
+  <div class="auth-top"><a class="brand" href="/"><span class="brand-mark">✦</span><span>bee<span class="brand-muted">-core</span></span></a><a href="/login">Sign in</a></div>
+  <div class="auth-card">
+    <div class="auth-icon">✉</div><div class="eyebrow">BEE-CORE INVITATION</div>
+    <h1>Join your organization</h1>
+    @if (invitationLoading) { <p>Validating your invitation link…</p> }
+    @else if (invitationPreview) {
+    <p>You have been invited to join <strong>{{invitationPreview.companyName}}</strong>.</p>
+    <div class="auth-options"><span>Email</span><strong>{{invitationPreview.email}}</strong></div>
+    <div class="auth-options"><span>Assigned role</span><strong>{{invitationPreview.role}}</strong></div>
+    @if (invitationPreview.restrictions.length) { <p>Additional access restrictions: {{invitationPreview.restrictions.join(', ')}}</p> }
+    <p><small>This invitation expires {{invitationPreview.expiresAt | date:'medium'}} and can only be used once.</small></p>
+    <div class="auth-options"><label><input type="checkbox" name="existingAccount" [(ngModel)]="invitationExistingAccount"> I already have a Bee-Core account</label></div>
+    <form (submit)="completeInvitation($event)">
+      @if (invitationExistingAccount) {
+        <label>Account password</label><input type="password" name="invitationPassword" [(ngModel)]="invitationPassword" autocomplete="current-password" required>
+        @if (invitationMfaRequired) { <label>Authenticator or recovery code</label><input name="invitationMfaCode" [(ngModel)]="invitationMfaCode" autocomplete="one-time-code" required> }
       } @else {
-        <div class="auth-error" role="alert">{{invitationError}}</div>
-        <p>Ask the organization administrator to create a new invitation link.</p>
-        <a class="auth-submit" href="/login">Go to sign in</a>
+        <label>Create a password</label><input type="password" name="invitationPassword" [(ngModel)]="invitationPassword" autocomplete="new-password" minlength="12" required>
+        <small>Use at least 12 characters.</small>
+        <label>Confirm password</label><input type="password" name="invitationPasswordConfirm" [(ngModel)]="invitationPasswordConfirm" autocomplete="new-password" minlength="12" required>
       }
-      <div class="auth-divider"><span>SECURE INVITATION</span></div><div class="secure-note">✓ Invitation bound to your email and organization</div>
-    </div><div class="auth-footer">© Bee-Core · All is a plugin</div>
-  </div></div>
+      @if (invitationError) { <div class="auth-error" role="alert">{{invitationError}}</div> }
+      <button class="auth-submit" type="submit" [disabled]="invitationBusy">{{invitationBusy ? 'Please wait…' : invitationExistingAccount ? 'Sign in and accept invitation' : 'Create account and join'}}</button>
+    </form>
+  } @else {
+    <div class="auth-error" role="alert">{{invitationError}}</div>
+    <p>Ask the organization administrator to create a new invitation link.</p>
+    <a class="auth-submit" href="/login">Go to sign in</a>
+  }
+  <div class="auth-divider"><span>SECURE INVITATION</span></div><div class="secure-note">✓ Invitation bound to your email and organization</div>
+  </div><div class="auth-footer">© Bee-Core · All is a plugin</div>
+</div></div>
 } @else if (path === '/login' || path === '/register' || path === '/forgot') {
   <div class="auth-page"><div class="auth-background"></div><div class="auth-shell"><div class="auth-top"><a class="brand" href="/"><span class="brand-mark">✦</span><span>bee<span class="brand-muted">-core</span></span></a><a href="/">← {{t('auth.back')}}</a></div><div class="auth-card"><div class="auth-icon">🔐</div><div class="eyebrow">BEE-CORE WORKSPACE</div><h1>{{ mode === 'register' ? t('auth.requestAccess') : mode === 'forgot' ? t('auth.resetPassword') : t('auth.welcome') }}</h1><p>{{ mode === 'register' ? 'Self-service access is not enabled. Request an account from your workspace administrator.' : mode === 'forgot' ? 'Password recovery is not configured yet. Contact your workspace administrator.' : t('auth.signInIntro') }}</p><form (submit)="signIn($event)"><label>{{t('auth.email')}}</label><input type="email" name="email" [(ngModel)]="email" placeholder="you@example.com" autocomplete="email" required>
-    @if (mode !== 'forgot') { <label>{{t('auth.password')}}</label><div class="password-field"><input [type]="reveal ? 'text' : 'password'" name="password" [(ngModel)]="password" placeholder="Your password" autocomplete="current-password" required><button type="button" (click)="reveal = !reveal">{{reveal ? t('auth.hide') : t('auth.show')}}</button></div> }
-    @if (mode === 'login') { <div class="auth-options"><small>Session refreshes securely for up to 7 days.</small><a href="/forgot">{{t('auth.forgot')}}</a></div> }
-    @if (mfaRecoveryCodes.length) {
-      <div class="auth-options"><strong>Save your recovery codes</strong></div>
-      <p>Store these codes somewhere safe. Each code can only be used once. They will not be shown again.</p>
-      <code>{{mfaRecoveryCodes.join(' · ')}}</code>
-      <button type="button" class="auth-submit" (click)="finishMfaSetup()">I have saved my codes</button>
-    } @else if (mfaSetupMode) {
-      <div class="auth-options"><strong>Configure authenticator MFA</strong></div>
-      <p>Save this secret in an authenticator app, then enter the six-digit code it generates.</p>
-      <code>{{mfaSetupSecret}}</code>
-      <div class="mfa-qr" style="display:flex;justify-content:center;margin:18px 0;padding:16px;background:#fff;border-radius:12px;"><img *ngIf="mfaQrDataUrl" [src]="mfaQrDataUrl" width="240" height="240" alt="MFA setup QR code"></div>
-      <small>Scan this QR code with your authenticator app. The QR is generated locally in your browser.</small>
-      <label>Authenticator code</label><input inputmode="numeric" autocomplete="one-time-code" name="mfaCode" [(ngModel)]="mfaCode" maxlength="6" pattern="[0-9]{6}" required>
-    } @else if (mfaRequired) {
-      <label>Authenticator or recovery code</label><input inputmode="text" autocomplete="one-time-code" name="mfaCode" [(ngModel)]="mfaCode" maxlength="12" placeholder="6-digit code or recovery code" required>
-    }
-    @if (error) { <div class="auth-error">{{error}}</div> }
-    @if (!mfaRecoveryCodes.length) { <button class="auth-submit" type="submit" [disabled]="busy">{{busy ? 'Please wait…' : mfaSetupMode ? 'Confirm MFA' : mfaRequired ? 'Verify and sign in' : mode === 'forgot' ? 'Continue' : mode === 'register' ? 'Request access' : 'Sign in'}} ↗</button> }</form><div class="auth-divider"><span>{{t('auth.protected')}}</span></div><div class="secure-note">✓ Secure authentication with Bee-Core</div></div><div class="auth-footer">© Bee-Core · All is a plugin</div></div></div>
-} @else if (dashboard) {@if (auth) {
-    @if (layoutId('dashboard') === 'dashboard.midnight') {
-      <bee-template-midnight-layout><bee-template-midnight-page [vm]="this"></bee-template-midnight-page></bee-template-midnight-layout>
-    } @else if (layoutId('dashboard') === 'dashboard.glass') {
-      <bee-template-glass-layout><bee-template-glass-page [vm]="this"></bee-template-glass-page></bee-template-glass-layout>
-    } @else {
-      <bee-template-paper-layout><bee-template-paper-page [vm]="this"></bee-template-paper-page></bee-template-paper-layout>
-    }
-  } @else {
-    <div class="auth-page"><div class="auth-shell"><div class="auth-card"><h1>Session required</h1><p>{{t('auth.signInIntro')}}</p><a class="auth-submit" href="/login">{{t('auth.signIn')}}</a></div></div></div>
+  @if (mode !== 'forgot') { <label>{{t('auth.password')}}</label><div class="password-field"><input [type]="reveal ? 'text' : 'password'" name="password" [(ngModel)]="password" placeholder="Your password" autocomplete="current-password" required><button type="button" (click)="reveal = !reveal">{{reveal ? t('auth.hide') : t('auth.show')}}</button></div> }
+  @if (mode === 'login') { <div class="auth-options"><small>Session refreshes securely for up to 7 days.</small><a href="/forgot">{{t('auth.forgot')}}</a></div> }
+  @if (mfaRecoveryCodes.length) {
+    <div class="auth-options"><strong>Save your recovery codes</strong></div>
+    <p>Store these codes somewhere safe. Each code can only be used once. They will not be shown again.</p>
+    <code>{{mfaRecoveryCodes.join(' · ')}}</code>
+    <button type="button" class="auth-submit" (click)="finishMfaSetup()">I have saved my codes</button>
+  } @else if (mfaSetupMode) {
+    <div class="auth-options"><strong>Configure authenticator MFA</strong></div>
+    <p>Save this secret in an authenticator app, then enter the six-digit code it generates.</p>
+    <code>{{mfaSetupSecret}}</code>
+    <div class="mfa-qr" style="display:flex;justify-content:center;margin:18px 0;padding:16px;background:#fff;border-radius:12px;">@if (mfaQrDataUrl) {
+      <img [src]="mfaQrDataUrl" width="240" height="240" alt="MFA setup QR code">
+    }</div>
+    <small>Scan this QR code with your authenticator app. The QR is generated locally in your browser.</small>
+    <label>Authenticator code</label><input inputmode="numeric" autocomplete="one-time-code" name="mfaCode" [(ngModel)]="mfaCode" maxlength="6" pattern="[0-9]{6}" required>
+  } @else if (mfaRequired) {
+    <label>Authenticator or recovery code</label><input inputmode="text" autocomplete="one-time-code" name="mfaCode" [(ngModel)]="mfaCode" maxlength="12" placeholder="6-digit code or recovery code" required>
   }
+  @if (error) { <div class="auth-error">{{error}}</div> }
+  @if (!mfaRecoveryCodes.length) { <button class="auth-submit" type="submit" [disabled]="busy">{{busy ? 'Please wait…' : mfaSetupMode ? 'Confirm MFA' : mfaRequired ? 'Verify and sign in' : mode === 'forgot' ? 'Continue' : mode === 'register' ? 'Request access' : 'Sign in'}} ↗</button> }</form><div class="auth-divider"><span>{{t('auth.protected')}}</span></div><div class="secure-note">✓ Secure authentication with Bee-Core</div></div><div class="auth-footer">© Bee-Core · All is a plugin</div></div></div>
+} @else if (dashboard) {@if (auth) {
+  @if (layoutId('dashboard') === 'dashboard.midnight') {
+    <bee-template-midnight-layout><bee-template-midnight-page [vm]="this"></bee-template-midnight-page></bee-template-midnight-layout>
+  } @else if (layoutId('dashboard') === 'dashboard.glass') {
+    <bee-template-glass-layout><bee-template-glass-page [vm]="this"></bee-template-glass-page></bee-template-glass-layout>
+  } @else {
+    <bee-template-paper-layout><bee-template-paper-page [vm]="this"></bee-template-paper-page></bee-template-paper-layout>
+  }
+} @else {
+  <div class="auth-page"><div class="auth-shell"><div class="auth-card"><h1>Session required</h1><p>{{t('auth.signInIntro')}}</p><a class="auth-submit" href="/login">{{t('auth.signIn')}}</a></div></div></div>
+}
 } @else if (publicTenantLoading) {
   <div class="auth-page"><div class="auth-shell"><div class="auth-card"><div class="eyebrow">BEE-CORE</div><h1>Loading website…</h1><p>Resolving this tenant's public website.</p></div></div></div>
 } @else if (publicTenantNotFound) {

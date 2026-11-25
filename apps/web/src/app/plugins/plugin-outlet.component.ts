@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, ViewContainerRef } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, ViewContainerRef, ChangeDetectionStrategy } from "@angular/core";
 import { BeePluginFrontendRegistry } from "./plugin-frontend-registry.service";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
 
@@ -8,6 +8,7 @@ type RemoteFrame = { pluginId: string; apiPrefixes: string[] };
 @Component({
   selector: "bee-plugin-outlet",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `<div #remoteHost class="bee-plugin-remote-host"></div><ng-container #pluginHost></ng-container>`
 })
 export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDestroy {

@@ -1,6 +1,6 @@
-import { Component, Input, OnChanges } from "@angular/core";
+import { Component, Input, OnChanges, ChangeDetectionStrategy } from "@angular/core";
 import { DocumentsApiService, type DocumentsFolder as Folder, type DocumentsShareTeam as ShareTeam, type DocumentsShareUser as ShareUser, type DocumentsItem as Doc } from "./documents-api.service";
-import { CommonModule } from "@angular/common";
+
 import { FormsModule } from "@angular/forms";
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList } from "@angular/cdk/drag-drop";
 
@@ -10,7 +10,7 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
  selector:"bee-documents-workspace",
  providers:[DocumentsApiService],
  standalone:true,
- imports:[CommonModule,FormsModule,CdkDrag,CdkDragHandle,CdkDropList],
+ imports: [FormsModule, CdkDrag, CdkDragHandle, CdkDropList],
  template:`
 <section class="documents bee-page">
   <header class="documents__header bee-page__header">
@@ -28,10 +28,10 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
   <nav class="documents__toolbar bee-page__toolbar" aria-label="Document location and actions">
     <div class="documents__breadcrumbs" aria-label="Folder path">
       <button type="button" class="documents__breadcrumb-root" cdkDropList [cdkDropListSortingDisabled]="true" id="documents-root-drop" [cdkDropListConnectedTo]="rootDropListIds" [cdkDropListData]="null" (cdkDropListDropped)="dropToRoot($event)" [class.is-current]="!currentFolderId" (click)="openFolder(null)" [attr.aria-current]="!currentFolderId ? 'page' : null">All documents</button>
-      <ng-container *ngFor="let folder of breadcrumbs;let i=index">
+      @for (folder of breadcrumbs; track folder; let i = $index) {
         <span class="documents__breadcrumb-separator" aria-hidden="true">/</span>
         <button type="button" class="documents__breadcrumb" [class.is-current]="i===breadcrumbs.length-1" (click)="openFolder(folder.id)" [attr.aria-current]="i===breadcrumbs.length-1 ? 'page' : null">{{folder.name}}</button>
-      </ng-container>
+      }
     </div>
     <div class="documents__toolbar-actions">
       <div class="documents__view-toggle" role="group" aria-label="Document view">
@@ -43,199 +43,277 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
     </div>
   </nav>
 
-  <form *ngIf="showCreateFolder" class="documents__create bee-panel" (ngSubmit)="createFolder()">
-    <div class="documents__create-copy">
-      <h2>Create a folder</h2>
-      <p>Create a folder in {{currentFolderId ? 'the current location' : 'All documents'}}.</p>
-    </div>
-    <label class="documents__field">
-      <span>Folder name</span>
-      <input name="folderName" [(ngModel)]="folderName" placeholder="e.g. Contracts" maxlength="120" required autocomplete="off">
-    </label>
-    <div class="documents__form-actions">
-      <button class="documents__button documents__button--secondary" type="button" (click)="showCreateFolder=false">Cancel</button>
-      <button class="documents__button documents__button--primary" type="submit" [disabled]="busy || !folderName.trim()">{{busy ? "Creating…" : "Create folder"}}</button>
-    </div>
-  </form>
+  @if (showCreateFolder) {
+    <form class="documents__create bee-panel" (ngSubmit)="createFolder()">
+      <div class="documents__create-copy">
+        <h2>Create a folder</h2>
+        <p>Create a folder in {{currentFolderId ? 'the current location' : 'All documents'}}.</p>
+      </div>
+      <label class="documents__field">
+        <span>Folder name</span>
+        <input name="folderName" [(ngModel)]="folderName" placeholder="e.g. Contracts" maxlength="120" required autocomplete="off">
+      </label>
+      <div class="documents__form-actions">
+        <button class="documents__button documents__button--secondary" type="button" (click)="showCreateFolder=false">Cancel</button>
+        <button class="documents__button documents__button--primary" type="submit" [disabled]="busy || !folderName.trim()">{{busy ? "Creating…" : "Create folder"}}</button>
+      </div>
+    </form>
+  }
 
   <div class="documents__feedback" aria-live="polite" aria-atomic="true">
-    <p *ngIf="error" class="documents__notice documents__notice--error" role="alert">{{error}}</p>
-    <p *ngIf="uploadMessage" class="documents__notice documents__notice--success" role="status">{{uploadMessage}}</p>
+    @if (error) {
+      <p class="documents__notice documents__notice--error" role="alert">{{error}}</p>
+    }
+    @if (uploadMessage) {
+      <p class="documents__notice documents__notice--success" role="status">{{uploadMessage}}</p>
+    }
   </div>
 
   <section class="documents__content bee-page__content" aria-label="Documents and folders">
-    <div *ngIf="loading" class="documents__loading bee-panel" role="status">
-      <span class="documents__spinner" aria-hidden="true"></span>
-      <span>Loading documents…</span>
-    </div>
-
-    <div class="documents__grid" *ngIf="!loading && viewMode==='cards' && (visibleFolders.length || documents.length)" cdkDropList id="documents-cards-source" [cdkDropListSortingDisabled]="true" [cdkDropListConnectedTo]="sourceDropListIds('documents-cards-source')" (cdkDropListDropped)="dropOnSource($event)">
-      <article class="documents__item documents__item--folder" *ngFor="let folder of visibleFolders" cdkDropList [cdkDropListSortingDisabled]="true" [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="folderDropListIds(folder.id)" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
-        <button class="documents__folder-open" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)" [attr.aria-label]="'Open folder ' + folder.name">
-          <span class="documents__item-copy">
-            <strong>{{folder.name}}</strong>
-            <small>Folder · {{folder.documentCount || 0}} documents</small>
-            <small>Created by {{folder.uploadedBy?.email || 'Unknown user'}} · {{formatDate(folder.createdAt)}}</small>
-            <span class="documents__folder-count" [attr.aria-label]="(folder.documentCount || 0) + ' documents'">{{folder.documentCount || 0}}</span>
-          </span>
-        </button>
-        <div class="documents__folder-actions" *ngIf="folder.canManageShares || folder.canMove">
-          <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
-          <div class="documents__menu" *ngIf="folderMenuId===folder.id">
-            <button type="button" *ngIf="folder.canManageShares" (click)="openShareDialog(folder,'groups')">Share with group</button>
-            <button type="button" *ngIf="folder.canManageShares" (click)="openShareDialog(folder,'users')">Share with user</button>
-            <button type="button" *ngIf="folder.canMove && folder.parentId" (click)="moveFolderOut(folder)">Move out of this folder</button>
-          </div>
-        </div>
-      </article>
-
-      <article class="documents__item documents__item--document" *ngFor="let doc of documents" cdkDrag [cdkDragData]="{kind:'document',item:doc}" [cdkDragDisabled]="!doc.canMove">
-        <div class="documents__document-actions">
-          <button type="button" class="documents__icon-button" aria-label="Document options" title="Document options" [attr.aria-expanded]="documentMenuId===doc.id" (click)="toggleDocumentMenu(doc.id,$event)"><span aria-hidden="true">⋮</span></button>
-          <div class="documents__menu" *ngIf="documentMenuId===doc.id">
-            <button type="button" (click)="openDocumentDetails(doc)">Document details</button>
-            <button type="button" (click)="downloadDocument(doc)">Download</button>
-            <button type="button" *ngIf="doc.canMove && doc.folderId" (click)="moveDocumentOut(doc)">Move out of this folder</button>
-          </div>
-        </div>
-        <div class="documents__item-main" cdkDragHandle>
-          <div class="documents__item-copy">
-            <strong [title]="doc.title">{{doc.title}}</strong>
-            <small>{{doc.description || 'Document'}}</small>
-            <small>Uploaded by {{doc.uploadedBy?.email || 'Unknown user'}} · {{formatDate(doc.uploadedAt)}}</small>
-          </div>
-        </div>
-        <div class="documents__meta">
-          <span class="documents__visibility" [class.is-public]="doc.visibility==='public'">{{doc.visibility==='public'?'Public':'Private'}}</span>
-          <button type="button" class="documents__text-action" (click)="downloadDocument(doc)">Download <span aria-hidden="true">↗</span></button>
-        </div>
-      </article>
-    </div>
-
-    
-    <div class="documents__table-wrap" *ngIf="!loading && viewMode==='table' && (visibleFolders.length || documents.length)">
-      <table class="documents__table">
-        <thead><tr><th scope="col">Title / original file</th><th scope="col">Type</th><th scope="col">Uploaded by</th><th scope="col">Uploaded</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
-        <tbody cdkDropList id="documents-table-source" [cdkDropListSortingDisabled]="true" [cdkDropListConnectedTo]="sourceDropListIds('documents-table-source')" (cdkDropListDropped)="dropOnSource($event)">
-          <tr *ngFor="let folder of visibleFolders" cdkDropList [cdkDropListSortingDisabled]="true" [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="folderDropListIds(folder.id)" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
-            <td><button class="documents__table-name" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)">{{folder.name}} <span class="documents__folder-count documents__folder-count--table">{{folder.documentCount || 0}}</span></button><small class="documents__table-description">Folder · {{folder.documentCount || 0}} documents</small></td>
-            <td>Folder</td>
-            <td>{{folder.uploadedBy?.email || 'Unknown user'}}</td>
-            <td>{{formatDate(folder.createdAt)}}</td>
-            <td><span class="documents__visibility" [class.is-public]="folder.access==='shared'">{{folder.access==='shared'?'Shared':'Private'}}</span></td>
-            <td>
-              <div class="documents__table-actions" *ngIf="folder.canManageShares || folder.canMove">
-                <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
-                <div class="documents__menu" *ngIf="folderMenuId===folder.id">
-                  <button type="button" *ngIf="folder.canManageShares" (click)="openShareDialog(folder,'groups')">Share with group</button>
-                  <button type="button" *ngIf="folder.canManageShares" (click)="openShareDialog(folder,'users')">Share with user</button>
-                  <button type="button" *ngIf="folder.canMove && folder.parentId" (click)="moveFolderOut(folder)">Move out of this folder</button>
-                </div>
-              </div>
-              <span *ngIf="!folder.canManageShares && !folder.canMove">—</span>
-            </td>
-          </tr>
-          <tr *ngFor="let doc of documents" cdkDrag [cdkDragData]="{kind:'document',item:doc}" [cdkDragDisabled]="!doc.canMove">
-            <td cdkDragHandle><strong class="documents__table-name-text">{{doc.title}}</strong><small class="documents__table-description">Original: {{doc.originalName}}</small></td>
-            <td>{{doc.fileContentType}}</td>
-            <td>{{doc.uploadedBy?.email || 'Unknown user'}}</td>
-            <td>{{formatDate(doc.uploadedAt)}}</td>
-            <td><span class="documents__visibility" [class.is-public]="doc.visibility==='public'">{{doc.visibility==='public'?'Public':'Private'}}</span></td>
-            <td><div class="documents__table-actions">
-              <button type="button" class="documents__icon-button" aria-label="Document options" title="Document options" [attr.aria-expanded]="documentMenuId===doc.id" (click)="toggleDocumentMenu(doc.id,$event)"><span aria-hidden="true">⋮</span></button>
-              <div class="documents__menu" *ngIf="documentMenuId===doc.id">
-                <button type="button" (click)="openDocumentDetails(doc)">Document details</button>
-                <button type="button" (click)="downloadDocument(doc)">Download</button>
-                <button type="button" *ngIf="doc.canMove && doc.folderId" (click)="moveDocumentOut(doc)">Move out of this folder</button>
-              </div>
-            </div></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="documents__empty bee-panel" *ngIf="!loading && !visibleFolders.length && !documents.length">
-      <h2>{{currentFolderId ? 'This folder is empty' : 'No documents yet'}}</h2>
-      <p>{{currentFolderId ? 'Add a text document or create a subfolder to organize this location.' : 'Start by creating a folder or uploading a plain text document.'}}</p>
-      <div class="documents__empty-actions">
-        <button type="button" class="documents__button documents__button--secondary" (click)="textFileInput.click()" [disabled]="uploading">{{uploading ? 'Uploading…' : 'Upload text file'}}</button>
-        <button type="button" class="documents__button documents__button--primary" (click)="showCreateFolder=true">New folder</button>
+    @if (loading) {
+      <div class="documents__loading bee-panel" role="status">
+        <span class="documents__spinner" aria-hidden="true"></span>
+        <span>Loading documents…</span>
       </div>
-    </div>
+    }
+
+    @if (!loading && viewMode==='cards' && (visibleFolders.length || documents.length)) {
+      <div class="documents__grid" cdkDropList id="documents-cards-source" [cdkDropListSortingDisabled]="true" [cdkDropListConnectedTo]="sourceDropListIds('documents-cards-source')" (cdkDropListDropped)="dropOnSource($event)">
+        @for (folder of visibleFolders; track folder) {
+          <article class="documents__item documents__item--folder" cdkDropList [cdkDropListSortingDisabled]="true" [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="folderDropListIds(folder.id)" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
+            <button class="documents__folder-open" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)" [attr.aria-label]="'Open folder ' + folder.name">
+              <span class="documents__item-copy">
+                <strong>{{folder.name}}</strong>
+                <small>Folder · {{folder.documentCount || 0}} documents</small>
+                <small>Created by {{folder.uploadedBy?.email || 'Unknown user'}} · {{formatDate(folder.createdAt)}}</small>
+                <span class="documents__folder-count" [attr.aria-label]="(folder.documentCount || 0) + ' documents'">{{folder.documentCount || 0}}</span>
+              </span>
+            </button>
+            @if (folder.canManageShares || folder.canMove) {
+              <div class="documents__folder-actions">
+                <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
+                @if (folderMenuId===folder.id) {
+                  <div class="documents__menu">
+                    @if (folder.canManageShares) {
+                      <button type="button" (click)="openShareDialog(folder,'groups')">Share with group</button>
+                    }
+                    @if (folder.canManageShares) {
+                      <button type="button" (click)="openShareDialog(folder,'users')">Share with user</button>
+                    }
+                    @if (folder.canMove && folder.parentId) {
+                      <button type="button" (click)="moveFolderOut(folder)">Move out of this folder</button>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </article>
+        }
+        @for (doc of documents; track doc) {
+          <article class="documents__item documents__item--document" cdkDrag [cdkDragData]="{kind:'document',item:doc}" [cdkDragDisabled]="!doc.canMove">
+            <div class="documents__document-actions">
+              <button type="button" class="documents__icon-button" aria-label="Document options" title="Document options" [attr.aria-expanded]="documentMenuId===doc.id" (click)="toggleDocumentMenu(doc.id,$event)"><span aria-hidden="true">⋮</span></button>
+              @if (documentMenuId===doc.id) {
+                <div class="documents__menu">
+                  <button type="button" (click)="openDocumentDetails(doc)">Document details</button>
+                  <button type="button" (click)="downloadDocument(doc)">Download</button>
+                  @if (doc.canMove && doc.folderId) {
+                    <button type="button" (click)="moveDocumentOut(doc)">Move out of this folder</button>
+                  }
+                </div>
+              }
+            </div>
+            <div class="documents__item-main" cdkDragHandle>
+              <div class="documents__item-copy">
+                <strong [title]="doc.title">{{doc.title}}</strong>
+                <small>{{doc.description || 'Document'}}</small>
+                <small>Uploaded by {{doc.uploadedBy?.email || 'Unknown user'}} · {{formatDate(doc.uploadedAt)}}</small>
+              </div>
+            </div>
+            <div class="documents__meta">
+              <span class="documents__visibility" [class.is-public]="doc.visibility==='public'">{{doc.visibility==='public'?'Public':'Private'}}</span>
+              <button type="button" class="documents__text-action" (click)="downloadDocument(doc)">Download <span aria-hidden="true">↗</span></button>
+            </div>
+          </article>
+        }
+      </div>
+    }
+
+
+    @if (!loading && viewMode==='table' && (visibleFolders.length || documents.length)) {
+      <div class="documents__table-wrap">
+        <table class="documents__table">
+          <thead><tr><th scope="col">Title / original file</th><th scope="col">Type</th><th scope="col">Uploaded by</th><th scope="col">Uploaded</th><th scope="col">Access</th><th scope="col">Actions</th></tr></thead>
+          <tbody cdkDropList id="documents-table-source" [cdkDropListSortingDisabled]="true" [cdkDropListConnectedTo]="sourceDropListIds('documents-table-source')" (cdkDropListDropped)="dropOnSource($event)">
+            @for (folder of visibleFolders; track folder) {
+              <tr cdkDropList [cdkDropListSortingDisabled]="true" [id]="folderDropId(folder.id)" [cdkDropListConnectedTo]="folderDropListIds(folder.id)" [cdkDropListData]="folder" [cdkDropListDisabled]="!folder.canMove" (cdkDropListDropped)="dropOnFolder($event,folder)">
+                <td><button class="documents__table-name" type="button" cdkDrag [cdkDragData]="{kind:'folder',item:folder}" [cdkDragDisabled]="!folder.canMove" (click)="openFolder(folder.id)">{{folder.name}} <span class="documents__folder-count documents__folder-count--table">{{folder.documentCount || 0}}</span></button><small class="documents__table-description">Folder · {{folder.documentCount || 0}} documents</small></td>
+                <td>Folder</td>
+                <td>{{folder.uploadedBy?.email || 'Unknown user'}}</td>
+                <td>{{formatDate(folder.createdAt)}}</td>
+                <td><span class="documents__visibility" [class.is-public]="folder.access==='shared'">{{folder.access==='shared'?'Shared':'Private'}}</span></td>
+                <td>
+                  @if (folder.canManageShares || folder.canMove) {
+                    <div class="documents__table-actions">
+                      <button type="button" class="documents__icon-button" aria-label="Folder options" title="Folder options" [attr.aria-expanded]="folderMenuId===folder.id" (click)="toggleFolderMenu(folder.id,$event)"><span aria-hidden="true">⋮</span></button>
+                      @if (folderMenuId===folder.id) {
+                        <div class="documents__menu">
+                          @if (folder.canManageShares) {
+                            <button type="button" (click)="openShareDialog(folder,'groups')">Share with group</button>
+                          }
+                          @if (folder.canManageShares) {
+                            <button type="button" (click)="openShareDialog(folder,'users')">Share with user</button>
+                          }
+                          @if (folder.canMove && folder.parentId) {
+                            <button type="button" (click)="moveFolderOut(folder)">Move out of this folder</button>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                  @if (!folder.canManageShares && !folder.canMove) {
+                    <span>—</span>
+                  }
+                </td>
+              </tr>
+            }
+            @for (doc of documents; track doc) {
+              <tr cdkDrag [cdkDragData]="{kind:'document',item:doc}" [cdkDragDisabled]="!doc.canMove">
+                <td cdkDragHandle><strong class="documents__table-name-text">{{doc.title}}</strong><small class="documents__table-description">Original: {{doc.originalName}}</small></td>
+                <td>{{doc.fileContentType}}</td>
+                <td>{{doc.uploadedBy?.email || 'Unknown user'}}</td>
+                <td>{{formatDate(doc.uploadedAt)}}</td>
+                <td><span class="documents__visibility" [class.is-public]="doc.visibility==='public'">{{doc.visibility==='public'?'Public':'Private'}}</span></td>
+                <td><div class="documents__table-actions">
+                  <button type="button" class="documents__icon-button" aria-label="Document options" title="Document options" [attr.aria-expanded]="documentMenuId===doc.id" (click)="toggleDocumentMenu(doc.id,$event)"><span aria-hidden="true">⋮</span></button>
+                  @if (documentMenuId===doc.id) {
+                    <div class="documents__menu">
+                      <button type="button" (click)="openDocumentDetails(doc)">Document details</button>
+                      <button type="button" (click)="downloadDocument(doc)">Download</button>
+                      @if (doc.canMove && doc.folderId) {
+                        <button type="button" (click)="moveDocumentOut(doc)">Move out of this folder</button>
+                      }
+                    </div>
+                  }
+                </div></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    @if (!loading && !visibleFolders.length && !documents.length) {
+      <div class="documents__empty bee-panel">
+        <h2>{{currentFolderId ? 'This folder is empty' : 'No documents yet'}}</h2>
+        <p>{{currentFolderId ? 'Add a text document or create a subfolder to organize this location.' : 'Start by creating a folder or uploading a plain text document.'}}</p>
+        <div class="documents__empty-actions">
+          <button type="button" class="documents__button documents__button--secondary" (click)="textFileInput.click()" [disabled]="uploading">{{uploading ? 'Uploading…' : 'Upload text file'}}</button>
+          <button type="button" class="documents__button documents__button--primary" (click)="showCreateFolder=true">New folder</button>
+        </div>
+      </div>
+    }
   </section>
 
-  <div class="documents__overlay" *ngIf="shareFolder" (click)="closeShareDialog()">
-    <section class="documents__share-dialog" (keydown.escape)="closeShareDialog()" role="dialog" aria-modal="true" aria-labelledby="share-title" aria-describedby="share-description" (click)="$event.stopPropagation()">
-      <header class="documents__dialog-header">
-        <div>
-          <p class="documents__eyebrow">FOLDER ACCESS</p>
-          <h2 id="share-title">Share “{{shareFolder.name}}”</h2>
-          <p id="share-description">Choose which organization groups or members can view and download this folder.</p>
+  @if (shareFolder) {
+    <div class="documents__overlay" (click)="closeShareDialog()">
+      <section class="documents__share-dialog" (keydown.escape)="closeShareDialog()" role="dialog" aria-modal="true" aria-labelledby="share-title" aria-describedby="share-description" (click)="$event.stopPropagation()">
+        <header class="documents__dialog-header">
+          <div>
+            <p class="documents__eyebrow">FOLDER ACCESS</p>
+            <h2 id="share-title">Share “{{shareFolder.name}}”</h2>
+            <p id="share-description">Choose which organization groups or members can view and download this folder.</p>
+          </div>
+          <button type="button" class="documents__icon-button" (click)="closeShareDialog()" aria-label="Close sharing dialog">×</button>
+        </header>
+        @if (error) {
+          <p class="documents__notice documents__notice--error" role="alert">{{error}}</p>
+        }
+        <div class="documents__share-tabs" role="group" aria-label="Sharing target type">
+          <button type="button" [attr.aria-pressed]="shareMode==='groups'" [class.is-active]="shareMode==='groups'" (click)="shareMode='groups';shareQuery='';targetTeams=[];targetUsers=[];">Groups</button>
+          <button type="button" [attr.aria-pressed]="shareMode==='users'" [class.is-active]="shareMode==='users'" (click)="shareMode='users';shareQuery='';targetTeams=[];targetUsers=[];">Users</button>
         </div>
-        <button type="button" class="documents__icon-button" (click)="closeShareDialog()" aria-label="Close sharing dialog">×</button>
-      </header>
-      <p *ngIf="error" class="documents__notice documents__notice--error" role="alert">{{error}}</p>
-      <div class="documents__share-tabs" role="group" aria-label="Sharing target type">
-        <button type="button" [attr.aria-pressed]="shareMode==='groups'" [class.is-active]="shareMode==='groups'" (click)="shareMode='groups';shareQuery='';targetTeams=[];targetUsers=[];">Groups</button>
-        <button type="button" [attr.aria-pressed]="shareMode==='users'" [class.is-active]="shareMode==='users'" (click)="shareMode='users';shareQuery='';targetTeams=[];targetUsers=[];">Users</button>
-      </div>
-      <label class="documents__field documents__share-field">
-        <span>{{shareMode==='groups'?'Find a group':'Find an organization member'}}</span>
-        <input [(ngModel)]="shareQuery" (ngModelChange)="searchShareTargets()" [placeholder]="shareMode==='groups'?'Type a group name…':'Type a name or email…'" [attr.aria-label]="shareMode==='groups'?'Find a group':'Find an organization member'" autocomplete="off">
-      </label>
-      <div class="documents__suggestions" *ngIf="shareQuery.trim()">
-        <button type="button" *ngFor="let team of targetTeams" (click)="addShareTeam(team)">{{team.name}} <span aria-hidden="true">＋</span></button>
-        <button type="button" *ngFor="let user of targetUsers" (click)="addShareUser(user)">{{user.email}} <span aria-hidden="true">＋</span></button>
-        <p *ngIf="!targetTeams.length&&!targetUsers.length">No matches found.</p>
-      </div>
-      <div class="documents__selected">
-        <section class="documents__selected-group">
-          <h3>Groups with access</h3>
-          <div class="documents__chips">
-            <span class="documents__chip" *ngFor="let team of shareTeams">{{team.name}} <button type="button" (click)="removeShareTeam(team)" [attr.aria-label]="'Remove group ' + team.name">×</button></span>
-            <small *ngIf="!shareTeams.length">No groups selected.</small>
+        <label class="documents__field documents__share-field">
+          <span>{{shareMode==='groups'?'Find a group':'Find an organization member'}}</span>
+          <input [(ngModel)]="shareQuery" (ngModelChange)="searchShareTargets()" [placeholder]="shareMode==='groups'?'Type a group name…':'Type a name or email…'" [attr.aria-label]="shareMode==='groups'?'Find a group':'Find an organization member'" autocomplete="off">
+        </label>
+        @if (shareQuery.trim()) {
+          <div class="documents__suggestions">
+            @for (team of targetTeams; track team) {
+              <button type="button" (click)="addShareTeam(team)">{{team.name}} <span aria-hidden="true">＋</span></button>
+            }
+            @for (user of targetUsers; track user) {
+              <button type="button" (click)="addShareUser(user)">{{user.email}} <span aria-hidden="true">＋</span></button>
+            }
+            @if (!targetTeams.length&&!targetUsers.length) {
+              <p>No matches found.</p>
+            }
           </div>
-        </section>
-        <section class="documents__selected-group">
-          <h3>Users with access</h3>
-          <div class="documents__chips">
-            <span class="documents__chip" *ngFor="let user of shareUsers">{{user.email}} <button type="button" (click)="removeShareUser(user)" [attr.aria-label]="'Remove user ' + user.email">×</button></span>
-            <small *ngIf="!shareUsers.length">No users selected.</small>
-          </div>
-        </section>
-      </div>
-      <p class="documents__share-hint">Shared members can view and download documents in this folder and its subfolders. Only the folder owner can change sharing.</p>
-      <footer class="documents__dialog-footer">
-        <button type="button" class="documents__button documents__button--secondary" (click)="closeShareDialog()">Cancel</button>
-        <button type="button" class="documents__button documents__button--primary" [disabled]="shareSaving" (click)="saveFolderShares()">{{shareSaving?'Saving…':'Save sharing'}}</button>
-      </footer>
-    </section>
-  </div>
-  <div class="documents__overlay" *ngIf="detailDocument" (click)="closeDocumentDetails()">
-    <section class="documents__share-dialog documents__details-dialog" (keydown.escape)="closeDocumentDetails()" role="dialog" aria-modal="true" aria-labelledby="document-details-title" (click)="$event.stopPropagation()">
-      <header class="documents__dialog-header">
-        <div><p class="documents__eyebrow">DOCUMENT INFORMATION</p><h2 id="document-details-title">{{detailDocument.title}}</h2><p>File metadata and upload history.</p></div>
-        <button type="button" class="documents__icon-button" (click)="closeDocumentDetails()" aria-label="Close document details">×</button>
-      </header>
-      <dl class="documents__details-list">
-        <div><dt>Document title</dt><dd>{{detailDocument.title}}</dd></div>
-        <div><dt>Original filename</dt><dd>{{detailDocument.originalName}}</dd></div>
-        <div><dt>Uploaded by</dt><dd>{{detailDocument.uploadedBy?.email || 'Unknown user'}}</dd></div>
-        <div><dt>Uploaded on</dt><dd>{{formatDate(detailDocument.uploadedAt)}}</dd></div>
-        <div><dt>Document record created</dt><dd>{{formatDate(detailDocument.createdAt)}}</dd></div>
-        <div><dt>Last updated</dt><dd>{{formatDate(detailDocument.updatedAt)}}</dd></div>
-        <div><dt>File type</dt><dd>{{detailDocument.fileContentType}}</dd></div>
-        <div><dt>File size</dt><dd>{{formatBytes(detailDocument.fileSize)}}</dd></div>
-        <div><dt>Access</dt><dd>{{detailDocument.visibility==='public'?'Public':'Private'}}</dd></div>
-        <div *ngIf="detailDocument.description"><dt>Description</dt><dd>{{detailDocument.description}}</dd></div>
-        <div *ngIf="detailDocument.tags?.length"><dt>Tags</dt><dd>{{detailDocument.tags.join(', ')}}</dd></div>
-      </dl>
-      <footer class="documents__dialog-footer">
-        <button type="button" class="documents__button documents__button--secondary" (click)="closeDocumentDetails()">Close</button>
-        <button type="button" class="documents__button documents__button--primary" (click)="downloadDocument(detailDocument)">Download file</button>
-      </footer>
-    </section>
-  </div>
+        }
+        <div class="documents__selected">
+          <section class="documents__selected-group">
+            <h3>Groups with access</h3>
+            <div class="documents__chips">
+              @for (team of shareTeams; track team) {
+                <span class="documents__chip">{{team.name}} <button type="button" (click)="removeShareTeam(team)" [attr.aria-label]="'Remove group ' + team.name">×</button></span>
+              }
+              @if (!shareTeams.length) {
+                <small>No groups selected.</small>
+              }
+            </div>
+          </section>
+          <section class="documents__selected-group">
+            <h3>Users with access</h3>
+            <div class="documents__chips">
+              @for (user of shareUsers; track user) {
+                <span class="documents__chip">{{user.email}} <button type="button" (click)="removeShareUser(user)" [attr.aria-label]="'Remove user ' + user.email">×</button></span>
+              }
+              @if (!shareUsers.length) {
+                <small>No users selected.</small>
+              }
+            </div>
+          </section>
+        </div>
+        <p class="documents__share-hint">Shared members can view and download documents in this folder and its subfolders. Only the folder owner can change sharing.</p>
+        <footer class="documents__dialog-footer">
+          <button type="button" class="documents__button documents__button--secondary" (click)="closeShareDialog()">Cancel</button>
+          <button type="button" class="documents__button documents__button--primary" [disabled]="shareSaving" (click)="saveFolderShares()">{{shareSaving?'Saving…':'Save sharing'}}</button>
+        </footer>
+      </section>
+    </div>
+  }
+  @if (detailDocument) {
+    <div class="documents__overlay" (click)="closeDocumentDetails()">
+      <section class="documents__share-dialog documents__details-dialog" (keydown.escape)="closeDocumentDetails()" role="dialog" aria-modal="true" aria-labelledby="document-details-title" (click)="$event.stopPropagation()">
+        <header class="documents__dialog-header">
+          <div><p class="documents__eyebrow">DOCUMENT INFORMATION</p><h2 id="document-details-title">{{detailDocument.title}}</h2><p>File metadata and upload history.</p></div>
+          <button type="button" class="documents__icon-button" (click)="closeDocumentDetails()" aria-label="Close document details">×</button>
+        </header>
+        <dl class="documents__details-list">
+          <div><dt>Document title</dt><dd>{{detailDocument.title}}</dd></div>
+          <div><dt>Original filename</dt><dd>{{detailDocument.originalName}}</dd></div>
+          <div><dt>Uploaded by</dt><dd>{{detailDocument.uploadedBy?.email || 'Unknown user'}}</dd></div>
+          <div><dt>Uploaded on</dt><dd>{{formatDate(detailDocument.uploadedAt)}}</dd></div>
+          <div><dt>Document record created</dt><dd>{{formatDate(detailDocument.createdAt)}}</dd></div>
+          <div><dt>Last updated</dt><dd>{{formatDate(detailDocument.updatedAt)}}</dd></div>
+          <div><dt>File type</dt><dd>{{detailDocument.fileContentType}}</dd></div>
+          <div><dt>File size</dt><dd>{{formatBytes(detailDocument.fileSize)}}</dd></div>
+          <div><dt>Access</dt><dd>{{detailDocument.visibility==='public'?'Public':'Private'}}</dd></div>
+          @if (detailDocument.description) {
+            <div><dt>Description</dt><dd>{{detailDocument.description}}</dd></div>
+          }
+          @if (detailDocument.tags?.length) {
+            <div><dt>Tags</dt><dd>{{detailDocument.tags.join(', ')}}</dd></div>
+          }
+        </dl>
+        <footer class="documents__dialog-footer">
+          <button type="button" class="documents__button documents__button--secondary" (click)="closeDocumentDetails()">Close</button>
+          <button type="button" class="documents__button documents__button--primary" (click)="downloadDocument(detailDocument)">Download file</button>
+        </footer>
+      </section>
+    </div>
+  }
 </section>`,
+ changeDetection: ChangeDetectionStrategy.Eager,
  styles:[`
 :host{display:block;min-width:0;color:inherit}
 .documents{display:flex;flex-direction:column;gap:22px;min-width:0;width:100%;color:inherit}

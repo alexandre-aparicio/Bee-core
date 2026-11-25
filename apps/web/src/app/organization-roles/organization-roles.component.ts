@@ -1,5 +1,5 @@
-import { CommonModule } from "@angular/common";
-import { Component, HostListener, Input, OnChanges, SimpleChanges } from "@angular/core";
+
+import { Component, HostListener, Input, OnChanges, SimpleChanges, ChangeDetectionStrategy } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { RoleAuditComponent } from "./role-audit.component";
 type CustomRole={id:string;name:string;description:string;permissions:string[];mode?:"grant"|"restriction"};
@@ -7,176 +7,280 @@ type SystemRole={key:string;label:string;description:string;protected:boolean;pe
 type PermissionOption={key:string;label:string;group:string;action:string;description:string;sensitive?:boolean;customRoleAssignable:boolean;assignable:boolean;selected:boolean};
 
 @Component({
- selector:"bee-organization-roles",standalone:true,imports:[CommonModule,FormsModule,RoleAuditComponent],
+ selector:"bee-organization-roles",standalone:true,imports: [FormsModule, RoleAuditComponent],
  template:`
  <section class="org-roles">
-  <header class="org-roles__header org-roles__header--actions"><button type="button" (click)="load()" [disabled]="loading||busy">Refresh</button></header>
-  <p class="org-roles__error" *ngIf="error" role="alert">{{error}}</p><p class="org-roles__success" *ngIf="message" role="status">{{message}}</p>
-  <p class="org-roles__notice" *ngIf="!canManage">You can view roles. Only the organization owner or Super Admin can create, edit or delete custom roles.</p>
-  <nav class="org-roles__tabs" aria-label="Roles and permissions sections">
-   <button type="button" [class.is-active]="activeTab==='system'" [attr.aria-selected]="activeTab==='system'" (click)="activeTab='system'"><span>01</span>System Roles <small>{{systemRoles.length}}</small></button>
-   <button type="button" [class.is-active]="activeTab==='permissions'" [attr.aria-selected]="activeTab==='permissions'" (click)="activeTab='permissions'"><span>02</span>Available Permissions <small>{{permissions.length}}</small></button>
-   <button *ngIf="canReadAudit" type="button" [class.is-active]="activeTab==='audit'" [attr.aria-selected]="activeTab==='audit'" (click)="activeTab='audit'"><span>03</span>Role Audit <small>Audit</small></button>
-  </nav>
-  <section class="org-roles__tab-panel" *ngIf="activeTab==='system'">
-   <div class="org-roles__section-heading"><div><h3>Roles</h3><p>Browse Core-managed native roles and organization-created roles in one collection. Native role permissions are maintained by Core; custom roles follow the organization delegation policy.</p></div><span class="org-roles__section-tag">{{systemRoles.length}} native · {{roles.length}} created</span></div>
-   <div class="org-roles__toolbar">
-    <div class="org-roles__toolbar-filters">
-     <div class="org-roles__search"><span aria-hidden="true">⌕</span><input [(ngModel)]="systemSearch" name="systemRoleSearch" placeholder="Search roles…" aria-label="Search roles"><button *ngIf="systemSearch" type="button" (click)="systemSearch=''" aria-label="Clear search">×</button></div>
-     <select class="org-roles__source-filter" [(ngModel)]="roleSourceFilter" name="roleSourceFilter" aria-label="Filter roles by source"><option value="all">All roles</option><option value="native">Native roles</option><option value="created">Created roles</option></select>
-     <span class="org-roles__filter-spacer" aria-hidden="true"></span>
-    </div>
-    <div class="org-roles__toolbar-actions">
-     <span class="org-roles__result-count">{{filteredSystemRoles.length}} {{filteredSystemRoles.length===1?'role':'roles'}}</span>
-     <div class="teams-workspace__view-toggle" role="group" aria-label="Role display mode">
-      <button type="button" [class.is-active]="systemView==='cards'" [attr.aria-pressed]="systemView==='cards'" (click)="systemView='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
-      <button type="button" [class.is-active]="systemView==='table'" [attr.aria-pressed]="systemView==='table'" (click)="systemView='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
-     </div>
-     <button type="button" class="documents__button documents__button--secondary" *ngIf="canManage" (click)="createCustomRole()">＋ Create role</button>
-    </div>
-   </div>
-   <div class="org-roles__system-grid" *ngIf="filteredSystemRoles.length && systemView==='cards'">
-    <article class="org-roles__system-card" *ngFor="let item of filteredSystemRoles">
-     <div class="org-roles__card-top"><span class="org-roles__role-mark">{{item.label.slice(0,1).toUpperCase()}}</span><div class="org-roles__card-menu"><details><summary [attr.aria-label]="'Options for '+item.label" [attr.title]="'Options for '+item.label"><span>⋮</span></summary><div class="org-roles__menu" role="menu"><button type="button" role="menuitem" (click)="openSystemRole(item)">View details</button><ng-container *ngIf="item.custom"><button type="button" role="menuitem" (click)="editCatalogRole(item)" [disabled]="!canManage">Edit role</button></ng-container><ng-container *ngIf="!item.custom"><button type="button" role="menuitem" disabled>Edit role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Deactivate role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Delete role <small>Core managed</small></button></ng-container></div></details></div></div>
-     <div class="org-roles__card-copy"><strong>{{item.label}}</strong><p>{{item.description}}</p></div>
-     <div class="org-roles__card-meta"><span class="org-roles__permission-count">{{item.permissions.length}} {{item.permissions.length===1?'permission':'permissions'}}</span><span class="org-roles__status" [class.is-inactive]="item.active===false">{{item.active===false?'Inactive':'Active'}}</span></div>
-     <div class="org-roles__permission-preview" [attr.aria-label]="item.permissions.length+' permissions'"><span class="org-roles__permission-circle" tabindex="0" role="img" *ngFor="let permission of item.permissions.slice(0,3)" [attr.data-tooltip]="permissionLabel(permission)" [attr.aria-label]="permissionLabel(permission)" [attr.title]="permissionLabel(permission)">{{permissionInitials(permissionLabel(permission))}}</span><span class="org-roles__permission-more" *ngIf="item.permissions.length>3">+{{item.permissions.length-3}}</span></div>
-    </article>
-   </div>
-   <div class="org-roles__table-wrap" *ngIf="filteredSystemRoles.length && systemView==='table'">
-    <table><thead><tr><th>Role</th><th>Description</th><th>Permissions</th><th>Status</th><th><span class="org-roles__sr-only">Options</span></th></tr></thead><tbody>
-     <tr *ngFor="let item of filteredSystemRoles">
-      <td><span class="org-roles__table-role"><span class="org-roles__role-mark">{{item.label.slice(0,1).toUpperCase()}}</span><strong>{{item.label}}</strong></span></td>
-      <td class="org-roles__table-description">{{item.description}}</td>
-      <td><div class="org-roles__permission-preview"><span class="org-roles__permission-circle" tabindex="0" role="img" *ngFor="let permission of item.permissions.slice(0,3)" [attr.data-tooltip]="permissionLabel(permission)" [attr.aria-label]="permissionLabel(permission)" [attr.title]="permissionLabel(permission)">{{permissionInitials(permissionLabel(permission))}}</span><span class="org-roles__permission-more" *ngIf="item.permissions.length>3">+{{item.permissions.length-3}}</span><small class="org-roles__table-permission-count">{{item.permissions.length}}</small></div></td>
-      <td><span class="org-roles__status" [class.is-inactive]="item.active===false">{{item.active===false?'Inactive':'Active'}}</span></td>
-      <td><details class="org-roles__table-menu"><summary [attr.aria-label]="'Options for '+item.label">⋮</summary><div class="org-roles__menu" role="menu"><button type="button" role="menuitem" (click)="openSystemRole(item)">View details</button><ng-container *ngIf="item.custom"><button type="button" role="menuitem" (click)="editCatalogRole(item)" [disabled]="!canManage">Edit role</button></ng-container><ng-container *ngIf="!item.custom"><button type="button" role="menuitem" disabled>Edit role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Deactivate role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Delete role <small>Core managed</small></button></ng-container></div></details></td>
-     </tr>
-    </tbody></table>
-   </div>
-   <div *ngIf="!loading && !filteredSystemRoles.length" class="org-roles__empty"><strong>{{systemRoles.length||roles.length?'No matching roles':'No roles available'}}</strong><span>{{systemRoles.length||roles.length?'Try another search term or change the role source.':'No native or created roles are available.'}}</span><button *ngIf="systemSearch" type="button" class="teams-workspace__text-button" (click)="systemSearch=''">Clear search</button></div>
-   <div class="org-roles__modal-backdrop" *ngIf="selectedSystemRole" (click)="closeSystemRole()">
-    <section class="org-roles__modal org-roles__details-modal" role="dialog" aria-modal="true" aria-labelledby="org-system-role-title" (click)="$event.stopPropagation()" (keydown.escape)="closeSystemRole()" tabindex="-1">
-     <header class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">{{selectedSystemRole.custom?'ORGANIZATION ROLE · CUSTOM':'SYSTEM ROLE · CORE MANAGED'}}</span><h2 id="org-system-role-title">{{selectedSystemRole.label}}</h2><p>{{selectedSystemRole.description}}</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeSystemRole()">×</button></header>
-     <div class="org-roles__details-summary"><div><span class="org-roles__detail-label">Role status</span><span class="org-roles__status" [class.is-inactive]="selectedSystemRole.active===false">{{selectedSystemRole.active===false?'Inactive':'Active'}}</span></div><div><span class="org-roles__detail-label">Permissions</span><strong>{{selectedSystemRole.permissions.length}}</strong></div><div><span class="org-roles__detail-label">Protection</span><strong>{{selectedSystemRole.custom?'Created by organization':selectedSystemRole.protected?'Protected by Core':'Standard system role'}}</strong></div></div>
-     <section class="org-roles__details-permissions"><div class="org-roles__details-heading"><h3>Assigned permissions</h3><span>{{selectedSystemRole.permissions.length}} total</span></div><div class="org-roles__detail-badges"><span *ngFor="let permission of selectedSystemRole.permissions"><strong>{{permissionLabel(permission)}}</strong><code>{{permission}}</code></span><p *ngIf="!selectedSystemRole.permissions.length">No explicit permission keys are listed for this role.</p></div></section>
-    </section>
-   </div>
-  </section>
-  <section class="org-roles__tab-panel" *ngIf="activeTab==='permissions'">
-   <div class="org-roles__section-heading"><div><h3>Available permissions</h3><p>Core capabilities that can be reviewed and, subject to platform policy, assigned to custom grant roles. Restriction roles can deny permissions without granting new access.</p></div><span class="org-roles__section-tag">{{permissions.length}} registered</span></div>
-   <div class="org-roles__permissions-toolbar">
-    <span class="org-roles__result-count">{{permissions.length}} registered permissions</span>
-    <div class="teams-workspace__view-toggle" role="group" aria-label="Permission catalogue display mode">
-     <button type="button" [class.is-active]="permissionView==='cards'" [attr.aria-pressed]="permissionView==='cards'" (click)="permissionView='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
-     <button type="button" [class.is-active]="permissionView==='table'" [attr.aria-pressed]="permissionView==='table'" (click)="permissionView='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
-    </div>
-   </div>
-   <div *ngIf="loading" class="org-roles__empty">Loading permission catalogue…</div>
-   <div class="org-roles__permission-groups" *ngIf="!loading && permissionView==='cards'">
-    <section class="org-roles__permission-group" *ngFor="let group of groups">
-     <header class="org-roles__permission-group-heading">
-      <div><h4>{{group}}</h4><span>{{inGroup(group).length}} permissions</span></div>
-     </header>
-     <div class="org-roles__permission-grid" [class.is-next]="permissionDirections[group]!=='previous'" [class.is-previous]="permissionDirections[group]==='previous'">
-      <article class="org-roles__permission-tile" *ngFor="let item of permissionPageItems(group);trackBy:trackPermission">
-       <div class="org-roles__permission-tile-top">
-        <span class="org-roles__permission-action">{{item.action}}</span>
-        <span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable':'Protected'}}</span>
+   <header class="org-roles__header org-roles__header--actions"><button type="button" (click)="load()" [disabled]="loading||busy">Refresh</button></header>
+   @if (error) {
+     <p class="org-roles__error" role="alert">{{error}}</p>
+     }@if (message) {
+     <p class="org-roles__success" role="status">{{message}}</p>
+   }
+   @if (!canManage) {
+     <p class="org-roles__notice">You can view roles. Only the organization owner or Super Admin can create, edit or delete custom roles.</p>
+   }
+   <nav class="org-roles__tabs" aria-label="Roles and permissions sections">
+     <button type="button" [class.is-active]="activeTab==='system'" [attr.aria-selected]="activeTab==='system'" (click)="activeTab='system'"><span>01</span>System Roles <small>{{systemRoles.length}}</small></button>
+     <button type="button" [class.is-active]="activeTab==='permissions'" [attr.aria-selected]="activeTab==='permissions'" (click)="activeTab='permissions'"><span>02</span>Available Permissions <small>{{permissions.length}}</small></button>
+     @if (canReadAudit) {
+       <button type="button" [class.is-active]="activeTab==='audit'" [attr.aria-selected]="activeTab==='audit'" (click)="activeTab='audit'"><span>03</span>Role Audit <small>Audit</small></button>
+     }
+   </nav>
+   @if (activeTab==='system') {
+     <section class="org-roles__tab-panel">
+       <div class="org-roles__section-heading"><div><h3>Roles</h3><p>Browse Core-managed native roles and organization-created roles in one collection. Native role permissions are maintained by Core; custom roles follow the organization delegation policy.</p></div><span class="org-roles__section-tag">{{systemRoles.length}} native · {{roles.length}} created</span></div>
+       <div class="org-roles__toolbar">
+         <div class="org-roles__toolbar-filters">
+           <div class="org-roles__search"><span aria-hidden="true">⌕</span><input [(ngModel)]="systemSearch" name="systemRoleSearch" placeholder="Search roles…" aria-label="Search roles">@if (systemSearch) {
+           <button type="button" (click)="systemSearch=''" aria-label="Clear search">×</button>
+         }</div>
+         <select class="org-roles__source-filter" [(ngModel)]="roleSourceFilter" name="roleSourceFilter" aria-label="Filter roles by source"><option value="all">All roles</option><option value="native">Native roles</option><option value="created">Created roles</option></select>
+         <span class="org-roles__filter-spacer" aria-hidden="true"></span>
        </div>
-       <strong>{{item.label}}</strong>
-       <p>{{item.description}}</p>
-       <code>{{item.key}}</code>
-      </article>
-     </div>
-     <nav class="org-roles__permission-pagination" *ngIf="permissionPageCount(group)>1" [attr.aria-label]="group+' permission pages'">
-      <button type="button" *ngIf="permissionPage(group)>0" (click)="changePermissionPage(group,-1)" [attr.aria-label]="'Previous '+group+' permissions'" title="Previous permissions"><span aria-hidden="true">←</span></button>
-      <span class="org-roles__permission-page-count">{{permissionPage(group)+1}} / {{permissionPageCount(group)}}</span>
-      <button type="button" *ngIf="permissionPage(group)<permissionPageCount(group)-1" (click)="changePermissionPage(group,1)" [attr.aria-label]="'Next '+group+' permissions'" title="Next permissions"><span aria-hidden="true">→</span></button>
-     </nav>
-    </section>
-   </div>
-   <div class="org-roles__permission-accordions" *ngIf="!loading && permissionView==='table'">
-    <section class="org-roles__permission-accordion" *ngFor="let group of groups">
-     <h4 class="org-roles__permission-accordion-heading">
-      <button type="button" class="org-roles__permission-accordion-trigger" (click)="togglePermissionGroup(group)" [attr.aria-expanded]="expandedPermissionGroup===group" [attr.aria-controls]="'permission-group-'+group">
-       <span class="org-roles__permission-accordion-symbol" aria-hidden="true">{{expandedPermissionGroup===group?'−':'+'}}</span>
-       <span class="org-roles__permission-accordion-name">{{group}}</span>
-       <span class="org-roles__permission-accordion-count">({{inGroup(group).length}})</span>
-      </button>
-     </h4>
-     <div class="org-roles__permission-accordion-content" *ngIf="expandedPermissionGroup===group" [id]="'permission-group-'+group">
-      <div class="org-roles__permission-table-wrap">
-       <table>
-        <thead><tr><th>Permission</th><th>Action</th><th>Access policy</th><th>Code</th></tr></thead>
-        <tbody><tr *ngFor="let item of inGroup(group);trackBy:trackPermission">
-         <td><strong>{{item.label}}</strong><small>{{item.description}}</small></td>
-         <td><span class="org-roles__permission-action">{{item.action}}</span></td>
-         <td><span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable by custom roles':'Restriction only / protected'}}</span></td>
-         <td><code>{{item.key}}</code></td>
-        </tr></tbody>
-       </table>
-      </div>
-     </div>
-    </section>
-   </div>
-   <p class="org-roles__footnote">The global delegation policy controls which capabilities may be granted to tenant custom roles. Protected capabilities remain unavailable for grants. Backend authorization remains authoritative.</p>
-  </section>
-  <section class="org-roles__tab-panel org-roles__audit-panel" *ngIf="activeTab==='audit' && canReadAudit">
-   <bee-role-audit [tenantId]="tenantId" [role]="role" [accessToken]="accessToken"></bee-role-audit>
-   <div class="org-roles__modal-backdrop" *ngIf="modalOpen" (click)="closeModal()">
-    <div class="org-roles__modal" role="dialog" aria-modal="true" aria-labelledby="org-role-modal-title" (click)="$event.stopPropagation()">
-     <div class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">ORGANIZATION ACCESS</span><h2 id="org-role-modal-title">{{editingId?'Edit custom role':'Create custom role'}}</h2><p>Define the role identity and choose its permission behavior.</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeModal()">×</button></div>
-     <p class="org-roles__error" *ngIf="error" role="alert">{{error}}</p>
-     <div class="org-roles__editor org-roles__editor--modal">
-     <div class="org-roles__editor-heading"><div><h3>{{editingId?'Edit custom role':'Create custom role'}}</h3><p>Define the role identity and choose its permission behavior.</p></div><span class="org-roles__section-tag">{{mode==='restriction'?'Deny overlay':'Permission grants'}}</span></div>
-     <form (submit)="save($event)">
-      <div class="org-roles__form-grid">
-       <label>Role name<input name="roleName" [(ngModel)]="name" maxlength="48" required [disabled]="!canManage"></label>
-       <label>Description<input name="roleDescription" [(ngModel)]="description" maxlength="240" [disabled]="!canManage"></label>
-      </div>
-      <label class="org-roles__mode-label">Role behavior<select name="roleMode" [(ngModel)]="mode" (ngModelChange)="updateMode($event)" [disabled]="!canManage"><option value="grant">Grant role — explicitly allows selected permissions</option><option value="restriction">Restriction role — explicitly denies selected permissions</option></select></label>
-      <p class="org-roles__mode-hint">{{mode==='restriction'?'Selected permissions are explicit denials. Denials always override permissions granted by the primary role.':'Selected permissions are grants. They remain limited by the global delegation policy.'}}</p>
-      <section class="org-roles__module-builder" aria-label="Module permissions">
-       <div class="org-roles__module-search-wrap">
-        <label class="org-roles__module-search-label" for="org-role-module-search">Add permissions by module</label>
-        <div class="org-roles__module-search"><span aria-hidden="true">⌕</span><input id="org-role-module-search" name="moduleSearch" [(ngModel)]="moduleSearch" autocomplete="off" placeholder="Type a module name…" [disabled]="!canManage"><button type="button" *ngIf="moduleSearch" (click)="moduleSearch=''" aria-label="Clear module search">×</button></div>
-        <div class="org-roles__module-suggestions" *ngIf="moduleSearch.trim() && !activePermissionModule">
-         <button type="button" *ngFor="let group of matchingPermissionModules" (click)="openPermissionModule(group)"><span><strong>{{group}}</strong><small>{{inGroup(group).length}} available permissions</small></span><span aria-hidden="true">＋</span></button>
-         <p *ngIf="!matchingPermissionModules.length">No matching modules available.</p>
-        </div>
-       </div>
-       <section class="org-roles__module-permission-card" *ngIf="activePermissionModule as module">
-        <header><div><span class="org-roles__module-eyebrow">MODULE PERMISSIONS</span><h4>{{module}}</h4><p>Select the permissions this role should {{mode==='restriction'?'deny':'grant'}}.</p></div><button type="button" class="org-roles__module-close" (click)="closePermissionModule()" aria-label="Close module permissions">×</button></header>
-        <div class="org-roles__module-permission-grid">
-         <label class="org-roles__module-permission" *ngFor="let item of inGroup(module)">
-          <input type="checkbox" [checked]="item.selected" (change)="item.selected=$any($event.target).checked" [disabled]="!canManage||!item.assignable">
-          <span><strong>{{item.label}}</strong><small>{{item.description}}</small><code>{{item.key}}</code></span>
-          <em *ngIf="!item.assignable">Protected</em><em *ngIf="item.assignable&&item.sensitive">Sensitive</em>
-         </label>
-        </div>
-        <footer><span>{{selectedCountForModule(module)}} selected · {{inGroup(module).length}} available</span><button type="button" class="org-roles__primary" (click)="closePermissionModule()">Save module</button></footer>
-       </section>
-       <div class="org-roles__assigned-modules">
-        <div class="org-roles__assigned-heading"><strong>Assigned modules</strong><span>{{selectedPermissionModules.length}} modules</span></div>
-        <div class="org-roles__module-chip-grid" *ngIf="selectedPermissionModules.length; else noAssignedModules">
-         <div class="org-roles__module-chip" *ngFor="let module of selectedPermissionModules">
-          <button type="button" class="org-roles__module-chip-edit" (click)="openPermissionModule(module)" [disabled]="!canManage" [attr.aria-label]="'Edit '+module+' permissions'" title="Edit permissions">✎</button>
-          <span class="org-roles__module-chip-name" [title]="module">{{module}}</span>
-          <span class="org-roles__module-chip-count">{{selectedCountForModule(module)}}</span>
-          <button type="button" class="org-roles__module-chip-remove" (click)="removePermissionModule(module)" [disabled]="!canManage" [attr.aria-label]="'Remove '+module+' module'" title="Remove module">×</button>
+       <div class="org-roles__toolbar-actions">
+         <span class="org-roles__result-count">{{filteredSystemRoles.length}} {{filteredSystemRoles.length===1?'role':'roles'}}</span>
+         <div class="teams-workspace__view-toggle" role="group" aria-label="Role display mode">
+           <button type="button" [class.is-active]="systemView==='cards'" [attr.aria-pressed]="systemView==='cards'" (click)="systemView='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
+           <button type="button" [class.is-active]="systemView==='table'" [attr.aria-pressed]="systemView==='table'" (click)="systemView='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
          </div>
-        </div>
-        <ng-template #noAssignedModules><p class="org-roles__module-empty">Search for a module above to start assigning permissions.</p></ng-template>
+         @if (canManage) {
+           <button type="button" class="documents__button documents__button--secondary" (click)="createCustomRole()">＋ Create role</button>
+         }
        </div>
-      </section>
-      <div class="org-roles__actions" *ngIf="canManage"><button class="org-roles__primary" type="submit" [disabled]="busy||!name.trim()">{{busy?'Saving…':editingId?'Save changes':'Create role'}}</button><button type="button" *ngIf="editingId" (click)="remove()" [disabled]="busy">Delete role</button><button type="button" (click)="reset()" [disabled]="busy">Clear form</button></div>
-     </form>
-    </div>
-    </div>
+     </div>
+     @if (filteredSystemRoles.length && systemView==='cards') {
+       <div class="org-roles__system-grid">
+         @for (item of filteredSystemRoles; track item) {
+           <article class="org-roles__system-card">
+             <div class="org-roles__card-top"><span class="org-roles__role-mark">{{item.label.slice(0,1).toUpperCase()}}</span><div class="org-roles__card-menu"><details><summary [attr.aria-label]="'Options for '+item.label" [attr.title]="'Options for '+item.label"><span>⋮</span></summary><div class="org-roles__menu" role="menu"><button type="button" role="menuitem" (click)="openSystemRole(item)">View details</button>@if (item.custom) {
+             <button type="button" role="menuitem" (click)="editCatalogRole(item)" [disabled]="!canManage">Edit role</button>
+             }@if (!item.custom) {
+             <button type="button" role="menuitem" disabled>Edit role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Deactivate role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Delete role <small>Core managed</small></button>
+           }</div></details></div></div>
+           <div class="org-roles__card-copy"><strong>{{item.label}}</strong><p>{{item.description}}</p></div>
+           <div class="org-roles__card-meta"><span class="org-roles__permission-count">{{item.permissions.length}} {{item.permissions.length===1?'permission':'permissions'}}</span><span class="org-roles__status" [class.is-inactive]="item.active===false">{{item.active===false?'Inactive':'Active'}}</span></div>
+           <div class="org-roles__permission-preview" [attr.aria-label]="item.permissions.length+' permissions'">@for (permission of item.permissions.slice(0,3); track permission) {
+             <span class="org-roles__permission-circle" tabindex="0" role="img" [attr.data-tooltip]="permissionLabel(permission)" [attr.aria-label]="permissionLabel(permission)" [attr.title]="permissionLabel(permission)">{{permissionInitials(permissionLabel(permission))}}</span>
+             }@if (item.permissions.length>3) {
+             <span class="org-roles__permission-more">+{{item.permissions.length-3}}</span>
+           }</div>
+         </article>
+       }
+     </div>
+   }
+   @if (filteredSystemRoles.length && systemView==='table') {
+     <div class="org-roles__table-wrap">
+       <table><thead><tr><th>Role</th><th>Description</th><th>Permissions</th><th>Status</th><th><span class="org-roles__sr-only">Options</span></th></tr></thead><tbody>
+       @for (item of filteredSystemRoles; track item) {
+         <tr>
+           <td><span class="org-roles__table-role"><span class="org-roles__role-mark">{{item.label.slice(0,1).toUpperCase()}}</span><strong>{{item.label}}</strong></span></td>
+           <td class="org-roles__table-description">{{item.description}}</td>
+           <td><div class="org-roles__permission-preview">@for (permission of item.permissions.slice(0,3); track permission) {
+             <span class="org-roles__permission-circle" tabindex="0" role="img" [attr.data-tooltip]="permissionLabel(permission)" [attr.aria-label]="permissionLabel(permission)" [attr.title]="permissionLabel(permission)">{{permissionInitials(permissionLabel(permission))}}</span>
+             }@if (item.permissions.length>3) {
+             <span class="org-roles__permission-more">+{{item.permissions.length-3}}</span>
+             }<small class="org-roles__table-permission-count">{{item.permissions.length}}</small></div></td>
+             <td><span class="org-roles__status" [class.is-inactive]="item.active===false">{{item.active===false?'Inactive':'Active'}}</span></td>
+             <td><details class="org-roles__table-menu"><summary [attr.aria-label]="'Options for '+item.label">⋮</summary><div class="org-roles__menu" role="menu"><button type="button" role="menuitem" (click)="openSystemRole(item)">View details</button>@if (item.custom) {
+             <button type="button" role="menuitem" (click)="editCatalogRole(item)" [disabled]="!canManage">Edit role</button>
+             }@if (!item.custom) {
+             <button type="button" role="menuitem" disabled>Edit role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Deactivate role <small>Core managed</small></button><button type="button" role="menuitem" disabled>Delete role <small>Core managed</small></button>
+           }</div></details></td>
+         </tr>
+       }
+     </tbody></table>
    </div>
-  </section>
+ }
+ @if (!loading && !filteredSystemRoles.length) {
+   <div class="org-roles__empty"><strong>{{systemRoles.length||roles.length?'No matching roles':'No roles available'}}</strong><span>{{systemRoles.length||roles.length?'Try another search term or change the role source.':'No native or created roles are available.'}}</span>@if (systemSearch) {
+   <button type="button" class="teams-workspace__text-button" (click)="systemSearch=''">Clear search</button>
+ }</div>
+ }
+ @if (selectedSystemRole) {
+   <div class="org-roles__modal-backdrop" (click)="closeSystemRole()">
+     <section class="org-roles__modal org-roles__details-modal" role="dialog" aria-modal="true" aria-labelledby="org-system-role-title" (click)="$event.stopPropagation()" (keydown.escape)="closeSystemRole()" tabindex="-1">
+       <header class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">{{selectedSystemRole.custom?'ORGANIZATION ROLE · CUSTOM':'SYSTEM ROLE · CORE MANAGED'}}</span><h2 id="org-system-role-title">{{selectedSystemRole.label}}</h2><p>{{selectedSystemRole.description}}</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeSystemRole()">×</button></header>
+       <div class="org-roles__details-summary"><div><span class="org-roles__detail-label">Role status</span><span class="org-roles__status" [class.is-inactive]="selectedSystemRole.active===false">{{selectedSystemRole.active===false?'Inactive':'Active'}}</span></div><div><span class="org-roles__detail-label">Permissions</span><strong>{{selectedSystemRole.permissions.length}}</strong></div><div><span class="org-roles__detail-label">Protection</span><strong>{{selectedSystemRole.custom?'Created by organization':selectedSystemRole.protected?'Protected by Core':'Standard system role'}}</strong></div></div>
+       <section class="org-roles__details-permissions"><div class="org-roles__details-heading"><h3>Assigned permissions</h3><span>{{selectedSystemRole.permissions.length}} total</span></div><div class="org-roles__detail-badges">@for (permission of selectedSystemRole.permissions; track permission) {
+       <span><strong>{{permissionLabel(permission)}}</strong><code>{{permission}}</code></span>
+       }@if (!selectedSystemRole.permissions.length) {
+       <p>No explicit permission keys are listed for this role.</p>
+     }</div></section>
+   </section>
+ </div>
+ }
+ </section>
+ }
+ @if (activeTab==='permissions') {
+   <section class="org-roles__tab-panel">
+     <div class="org-roles__section-heading"><div><h3>Available permissions</h3><p>Core capabilities that can be reviewed and, subject to platform policy, assigned to custom grant roles. Restriction roles can deny permissions without granting new access.</p></div><span class="org-roles__section-tag">{{permissions.length}} registered</span></div>
+     <div class="org-roles__permissions-toolbar">
+       <span class="org-roles__result-count">{{permissions.length}} registered permissions</span>
+       <div class="teams-workspace__view-toggle" role="group" aria-label="Permission catalogue display mode">
+         <button type="button" [class.is-active]="permissionView==='cards'" [attr.aria-pressed]="permissionView==='cards'" (click)="permissionView='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
+         <button type="button" [class.is-active]="permissionView==='table'" [attr.aria-pressed]="permissionView==='table'" (click)="permissionView='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
+       </div>
+     </div>
+     @if (loading) {
+       <div class="org-roles__empty">Loading permission catalogue…</div>
+     }
+     @if (!loading && permissionView==='cards') {
+       <div class="org-roles__permission-groups">
+         @for (group of groups; track group) {
+           <section class="org-roles__permission-group">
+             <header class="org-roles__permission-group-heading">
+               <div><h4>{{group}}</h4><span>{{inGroup(group).length}} permissions</span></div>
+             </header>
+             <div class="org-roles__permission-grid" [class.is-next]="permissionDirections[group]!=='previous'" [class.is-previous]="permissionDirections[group]==='previous'">
+               @for (item of permissionPageItems(group); track trackPermission($index, item)) {
+                 <article class="org-roles__permission-tile">
+                   <div class="org-roles__permission-tile-top">
+                     <span class="org-roles__permission-action">{{item.action}}</span>
+                     <span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable':'Protected'}}</span>
+                   </div>
+                   <strong>{{item.label}}</strong>
+                   <p>{{item.description}}</p>
+                   <code>{{item.key}}</code>
+                 </article>
+               }
+             </div>
+             @if (permissionPageCount(group)>1) {
+               <nav class="org-roles__permission-pagination" [attr.aria-label]="group+' permission pages'">
+                 @if (permissionPage(group)>0) {
+                   <button type="button" (click)="changePermissionPage(group,-1)" [attr.aria-label]="'Previous '+group+' permissions'" title="Previous permissions"><span aria-hidden="true">←</span></button>
+                 }
+                 <span class="org-roles__permission-page-count">{{permissionPage(group)+1}} / {{permissionPageCount(group)}}</span>
+                 @if (permissionPage(group)<permissionPageCount(group)-1) {
+                   <button type="button" (click)="changePermissionPage(group,1)" [attr.aria-label]="'Next '+group+' permissions'" title="Next permissions"><span aria-hidden="true">→</span></button>
+                 }
+               </nav>
+             }
+           </section>
+         }
+       </div>
+     }
+     @if (!loading && permissionView==='table') {
+       <div class="org-roles__permission-accordions">
+         @for (group of groups; track group) {
+           <section class="org-roles__permission-accordion">
+             <h4 class="org-roles__permission-accordion-heading">
+               <button type="button" class="org-roles__permission-accordion-trigger" (click)="togglePermissionGroup(group)" [attr.aria-expanded]="expandedPermissionGroup===group" [attr.aria-controls]="'permission-group-'+group">
+                 <span class="org-roles__permission-accordion-symbol" aria-hidden="true">{{expandedPermissionGroup===group?'−':'+'}}</span>
+                 <span class="org-roles__permission-accordion-name">{{group}}</span>
+                 <span class="org-roles__permission-accordion-count">({{inGroup(group).length}})</span>
+               </button>
+             </h4>
+             @if (expandedPermissionGroup===group) {
+               <div class="org-roles__permission-accordion-content" [id]="'permission-group-'+group">
+                 <div class="org-roles__permission-table-wrap">
+                   <table>
+                     <thead><tr><th>Permission</th><th>Action</th><th>Access policy</th><th>Code</th></tr></thead>
+                     <tbody>@for (item of inGroup(group); track trackPermission($index, item)) {
+                       <tr>
+                         <td><strong>{{item.label}}</strong><small>{{item.description}}</small></td>
+                         <td><span class="org-roles__permission-action">{{item.action}}</span></td>
+                         <td><span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable by custom roles':'Restriction only / protected'}}</span></td>
+                         <td><code>{{item.key}}</code></td>
+                       </tr>
+                     }</tbody>
+                   </table>
+                 </div>
+               </div>
+             }
+           </section>
+         }
+       </div>
+     }
+     <p class="org-roles__footnote">The global delegation policy controls which capabilities may be granted to tenant custom roles. Protected capabilities remain unavailable for grants. Backend authorization remains authoritative.</p>
+   </section>
+ }
+ @if (activeTab==='audit' && canReadAudit) {
+   <section class="org-roles__tab-panel org-roles__audit-panel">
+     <bee-role-audit [tenantId]="tenantId" [role]="role" [accessToken]="accessToken"></bee-role-audit>
+     @if (modalOpen) {
+       <div class="org-roles__modal-backdrop" (click)="closeModal()">
+         <div class="org-roles__modal" role="dialog" aria-modal="true" aria-labelledby="org-role-modal-title" (click)="$event.stopPropagation()">
+           <div class="org-roles__modal-top"><div><span class="org-roles__modal-eyebrow">ORGANIZATION ACCESS</span><h2 id="org-role-modal-title">{{editingId?'Edit custom role':'Create custom role'}}</h2><p>Define the role identity and choose its permission behavior.</p></div><button type="button" class="org-roles__modal-close" aria-label="Close dialog" (click)="closeModal()">×</button></div>
+           @if (error) {
+             <p class="org-roles__error" role="alert">{{error}}</p>
+           }
+           <div class="org-roles__editor org-roles__editor--modal">
+             <div class="org-roles__editor-heading"><div><h3>{{editingId?'Edit custom role':'Create custom role'}}</h3><p>Define the role identity and choose its permission behavior.</p></div><span class="org-roles__section-tag">{{mode==='restriction'?'Deny overlay':'Permission grants'}}</span></div>
+             <form (submit)="save($event)">
+               <div class="org-roles__form-grid">
+                 <label>Role name<input name="roleName" [(ngModel)]="name" maxlength="48" required [disabled]="!canManage"></label>
+                 <label>Description<input name="roleDescription" [(ngModel)]="description" maxlength="240" [disabled]="!canManage"></label>
+               </div>
+               <label class="org-roles__mode-label">Role behavior<select name="roleMode" [(ngModel)]="mode" (ngModelChange)="updateMode($event)" [disabled]="!canManage"><option value="grant">Grant role — explicitly allows selected permissions</option><option value="restriction">Restriction role — explicitly denies selected permissions</option></select></label>
+               <p class="org-roles__mode-hint">{{mode==='restriction'?'Selected permissions are explicit denials. Denials always override permissions granted by the primary role.':'Selected permissions are grants. They remain limited by the global delegation policy.'}}</p>
+               <section class="org-roles__module-builder" aria-label="Module permissions">
+                 <div class="org-roles__module-search-wrap">
+                   <label class="org-roles__module-search-label" for="org-role-module-search">Add permissions by module</label>
+                   <div class="org-roles__module-search"><span aria-hidden="true">⌕</span><input id="org-role-module-search" name="moduleSearch" [(ngModel)]="moduleSearch" autocomplete="off" placeholder="Type a module name…" [disabled]="!canManage">@if (moduleSearch) {
+                   <button type="button" (click)="moduleSearch=''" aria-label="Clear module search">×</button>
+                 }</div>
+                 @if (moduleSearch.trim() && !activePermissionModule) {
+                   <div class="org-roles__module-suggestions">
+                     @for (group of matchingPermissionModules; track group) {
+                       <button type="button" (click)="openPermissionModule(group)"><span><strong>{{group}}</strong><small>{{inGroup(group).length}} available permissions</small></span><span aria-hidden="true">＋</span></button>
+                     }
+                     @if (!matchingPermissionModules.length) {
+                       <p>No matching modules available.</p>
+                     }
+                   </div>
+                 }
+               </div>
+               @if (activePermissionModule; as module) {
+                 <section class="org-roles__module-permission-card">
+                   <header><div><span class="org-roles__module-eyebrow">MODULE PERMISSIONS</span><h4>{{module}}</h4><p>Select the permissions this role should {{mode==='restriction'?'deny':'grant'}}.</p></div><button type="button" class="org-roles__module-close" (click)="closePermissionModule()" aria-label="Close module permissions">×</button></header>
+                   <div class="org-roles__module-permission-grid">
+                     @for (item of inGroup(module); track item) {
+                       <label class="org-roles__module-permission">
+                         <input type="checkbox" [checked]="item.selected" (change)="item.selected=$any($event.target).checked" [disabled]="!canManage||!item.assignable">
+                         <span><strong>{{item.label}}</strong><small>{{item.description}}</small><code>{{item.key}}</code></span>
+                         @if (!item.assignable) {
+                           <em>Protected</em>
+                           }@if (item.assignable&&item.sensitive) {
+                           <em>Sensitive</em>
+                         }
+                       </label>
+                     }
+                   </div>
+                   <footer><span>{{selectedCountForModule(module)}} selected · {{inGroup(module).length}} available</span><button type="button" class="org-roles__primary" (click)="closePermissionModule()">Save module</button></footer>
+                 </section>
+               }
+               <div class="org-roles__assigned-modules">
+                 <div class="org-roles__assigned-heading"><strong>Assigned modules</strong><span>{{selectedPermissionModules.length}} modules</span></div>
+                 @if (selectedPermissionModules.length) {
+                   <div class="org-roles__module-chip-grid">
+                     @for (module of selectedPermissionModules; track module) {
+                       <div class="org-roles__module-chip">
+                         <button type="button" class="org-roles__module-chip-edit" (click)="openPermissionModule(module)" [disabled]="!canManage" [attr.aria-label]="'Edit '+module+' permissions'" title="Edit permissions">✎</button>
+                         <span class="org-roles__module-chip-name" [title]="module">{{module}}</span>
+                         <span class="org-roles__module-chip-count">{{selectedCountForModule(module)}}</span>
+                         <button type="button" class="org-roles__module-chip-remove" (click)="removePermissionModule(module)" [disabled]="!canManage" [attr.aria-label]="'Remove '+module+' module'" title="Remove module">×</button>
+                       </div>
+                     }
+                   </div>
+                 } @else {
+                   <p class="org-roles__module-empty">Search for a module above to start assigning permissions.</p>
+                 }
+               </div>
+             </section>
+             @if (canManage) {
+               <div class="org-roles__actions"><button class="org-roles__primary" type="submit" [disabled]="busy||!name.trim()">{{busy?'Saving…':editingId?'Save changes':'Create role'}}</button>@if (editingId) {
+               <button type="button" (click)="remove()" [disabled]="busy">Delete role</button>
+               }<button type="button" (click)="reset()" [disabled]="busy">Clear form</button></div>
+             }
+           </form>
+         </div>
+       </div>
+     </div>
+   }
+ </section>
+ }
  </section>`,
+ changeDetection: ChangeDetectionStrategy.Eager,
  styles:[`
  .org-roles{display:grid;gap:16px;margin-top:18px;min-width:0;color:inherit}
  .org-roles__header,.org-roles__section-heading,.org-roles__card-top,.org-roles__editor-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}

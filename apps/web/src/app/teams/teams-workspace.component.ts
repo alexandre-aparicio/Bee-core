@@ -1,5 +1,5 @@
-import { CommonModule } from "@angular/common";
-import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from "@angular/core";
+
+import { Component, Input, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
 type Team = { id:string; name:string; description:string; status:"active"|"archived"; memberCount:number; applications:string[]; parentTeamId?:string|null };
@@ -9,76 +9,165 @@ type TeamView = "cards" | "table";
 @Component({
  selector:"bee-teams-workspace",
  standalone:true,
- imports:[CommonModule,FormsModule],
+ imports: [FormsModule],
  template:`
 <section class="teams-workspace">
- <p *ngIf="error" class="teams-workspace__feedback teams-workspace__feedback--error" role="alert">{{error}}</p>
- 
+  @if (error) {
+    <p class="teams-workspace__feedback teams-workspace__feedback--error" role="alert">{{error}}</p>
+  }
 
- <div class="teams-workspace__overlay" *ngIf="composerOpen && canManage" (click)="closeComposer()">
- <section class="teams-workspace__composer" role="dialog" aria-modal="true" aria-labelledby="teams-modal-title" aria-label="Team editor" (click)="$event.stopPropagation()" (keydown.escape)="closeComposer()" tabindex="-1">
-  <div class="teams-workspace__composer-heading"><div><span class="teams-workspace__eyebrow">{{composerMode === 'manage' ? 'TEAM MEMBERS & APPLICATIONS' : composerMode === 'edit' ? 'TEAM SETTINGS' : 'NEW TEAM'}}</span><h3 id="teams-modal-title">{{composerMode === 'manage' ? 'Manage team' : composerMode === 'edit' ? 'Edit team' : 'Create a team'}}</h3></div><button type="button" class="teams-workspace__icon-button" (click)="closeComposer()" aria-label="Close editor">×</button></div>
-  <form *ngIf="composerMode !== 'manage'" (submit)="save($event)">
-   <div class="teams-workspace__form-row">
-    <label class="teams-workspace__field teams-workspace__field--name"><span>Team name</span><input name="name" [(ngModel)]="name" maxlength="64" placeholder="e.g. Product & Design" required autocomplete="off"></label>
-    <label class="teams-workspace__field teams-workspace__field--description"><span>Description <small>Optional</small></span><input name="description" [(ngModel)]="description" maxlength="240" placeholder="What does this team work on?"></label>
-    <label class="teams-workspace__field teams-workspace__field--parent"><span>Parent team <small>Optional</small></span><select name="parent" [(ngModel)]="parentTeamId"><option value="">No parent</option><option *ngFor="let item of teams" [value]="item.id" [disabled]="item.id===selected?.id">{{item.name}}</option></select></label>
-    <button type="submit" class="teams-workspace__button teams-workspace__button--primary teams-workspace__save" [disabled]="busy || !name.trim()">{{busy ? 'Saving…' : selected ? 'Save changes' : 'Create team'}}</button>
-   </div>
-  </form>
-  <div class="teams-workspace__advanced" *ngIf="selected">
-   <details class="teams-workspace__editor-details" open><summary>Members <span class="teams-workspace__detail-count">{{selectedMemberIds.length}}</span></summary><div class="teams-workspace__member-picker"><label *ngFor="let member of allMembers" class="teams-workspace__check"><input type="checkbox" [checked]="selectedMemberIds.includes(member.userId)" (change)="toggleMember(member.userId,$any($event.target).checked)"><span>{{member.email}}</span></label><p *ngIf="!allMembers.length" class="teams-workspace__muted">No active organization members available.</p><button type="button" class="teams-workspace__button" (click)="saveMembers()" [disabled]="busy">Save members</button></div></details>
-   <details class="teams-workspace__editor-details" open><summary>Applications <span class="teams-workspace__detail-count">{{selectedApplications.length}}</span></summary><div class="teams-workspace__application-editor"><p class="teams-workspace__muted">Assign the applications where this team should be available. Resource permissions are configured separately.</p><div class="teams-workspace__autocomplete"><input [(ngModel)]="pluginInput" name="pluginInput" placeholder="Type an app name, e.g. doc…" list="teams-app-suggestions" autocomplete="off" (keydown.enter)="$event.preventDefault();addPlugin()"><datalist id="teams-app-suggestions"><option *ngFor="let app of applicationCatalog" [value]="app.id">{{app.label}}</option></datalist><button type="button" class="teams-workspace__button" (click)="addPlugin()" [disabled]="!pluginInput.trim()">Add app</button></div><div class="teams-workspace__chips"><span *ngFor="let app of selectedApplications" class="teams-workspace__chip">{{applicationLabel(app)}}<button type="button" (click)="removePlugin(app)" [attr.aria-label]="'Remove '+app">×</button></span></div><div class="teams-workspace__suggestions" *ngIf="matchingApplications.length"><span>Suggestions</span><button type="button" *ngFor="let app of matchingApplications" (click)="chooseApplication(app.id)">{{app.label}} <small>{{app.id}}</small></button></div><button type="button" class="teams-workspace__button" (click)="saveApplications()" [disabled]="busy">Save applications</button></div></details>
-  </div>
- </section>
- </div>
 
- <section class="teams-workspace__directory">
-  <div class="teams-workspace__toolbar">
-   <div class="teams-workspace__toolbar-filters">
-    <div class="teams-workspace__search"><span aria-hidden="true">⌕</span><input [(ngModel)]="search" name="teamSearch" placeholder="Search teams…" aria-label="Search teams"><button *ngIf="search" type="button" (click)="search=''" aria-label="Clear search">×</button></div>
-    <select class="teams-workspace__status-filter" [(ngModel)]="statusFilter" name="teamStatus" aria-label="Filter teams by status"><option value="all">All teams</option><option value="active">Active</option><option value="archived">Archived</option></select>
-   </div>
-   <div class="teams-workspace__toolbar-actions">
-    <div class="teams-workspace__view-toggle" role="group" aria-label="Team display mode">
-     <button type="button" [class.is-active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
-     <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
+  @if (composerOpen && canManage) {
+    <div class="teams-workspace__overlay" (click)="closeComposer()">
+      <section class="teams-workspace__composer" role="dialog" aria-modal="true" aria-labelledby="teams-modal-title" aria-label="Team editor" (click)="$event.stopPropagation()" (keydown.escape)="closeComposer()" tabindex="-1">
+        <div class="teams-workspace__composer-heading"><div><span class="teams-workspace__eyebrow">{{composerMode === 'manage' ? 'TEAM MEMBERS & APPLICATIONS' : composerMode === 'edit' ? 'TEAM SETTINGS' : 'NEW TEAM'}}</span><h3 id="teams-modal-title">{{composerMode === 'manage' ? 'Manage team' : composerMode === 'edit' ? 'Edit team' : 'Create a team'}}</h3></div><button type="button" class="teams-workspace__icon-button" (click)="closeComposer()" aria-label="Close editor">×</button></div>
+        @if (composerMode !== 'manage') {
+          <form (submit)="save($event)">
+            <div class="teams-workspace__form-row">
+              <label class="teams-workspace__field teams-workspace__field--name"><span>Team name</span><input name="name" [(ngModel)]="name" maxlength="64" placeholder="e.g. Product & Design" required autocomplete="off"></label>
+              <label class="teams-workspace__field teams-workspace__field--description"><span>Description <small>Optional</small></span><input name="description" [(ngModel)]="description" maxlength="240" placeholder="What does this team work on?"></label>
+              <label class="teams-workspace__field teams-workspace__field--parent"><span>Parent team <small>Optional</small></span><select name="parent" [(ngModel)]="parentTeamId"><option value="">No parent</option>@for (item of teams; track item) {
+              <option [value]="item.id" [disabled]="item.id===selected?.id">{{item.name}}</option>
+            }</select></label>
+            <button type="submit" class="teams-workspace__button teams-workspace__button--primary teams-workspace__save" [disabled]="busy || !name.trim()">{{busy ? 'Saving…' : selected ? 'Save changes' : 'Create team'}}</button>
+          </div>
+        </form>
+      }
+      @if (selected) {
+        <div class="teams-workspace__advanced">
+          <details class="teams-workspace__editor-details" open><summary>Members <span class="teams-workspace__detail-count">{{selectedMemberIds.length}}</span></summary><div class="teams-workspace__member-picker">@for (member of allMembers; track member) {
+          <label class="teams-workspace__check"><input type="checkbox" [checked]="selectedMemberIds.includes(member.userId)" (change)="toggleMember(member.userId,$any($event.target).checked)"><span>{{member.email}}</span></label>
+          }@if (!allMembers.length) {
+          <p class="teams-workspace__muted">No active organization members available.</p>
+          }<button type="button" class="teams-workspace__button" (click)="saveMembers()" [disabled]="busy">Save members</button></div></details>
+          <details class="teams-workspace__editor-details" open><summary>Applications <span class="teams-workspace__detail-count">{{selectedApplications.length}}</span></summary><div class="teams-workspace__application-editor"><p class="teams-workspace__muted">Assign the applications where this team should be available. Resource permissions are configured separately.</p><div class="teams-workspace__autocomplete"><input [(ngModel)]="pluginInput" name="pluginInput" placeholder="Type an app name, e.g. doc…" list="teams-app-suggestions" autocomplete="off" (keydown.enter)="$event.preventDefault();addPlugin()"><datalist id="teams-app-suggestions">@for (app of applicationCatalog; track app) {
+          <option [value]="app.id">{{app.label}}</option>
+          }</datalist><button type="button" class="teams-workspace__button" (click)="addPlugin()" [disabled]="!pluginInput.trim()">Add app</button></div><div class="teams-workspace__chips">@for (app of selectedApplications; track app) {
+          <span class="teams-workspace__chip">{{applicationLabel(app)}}<button type="button" (click)="removePlugin(app)" [attr.aria-label]="'Remove '+app">×</button></span>
+        }</div>@if (matchingApplications.length) {
+        <div class="teams-workspace__suggestions"><span>Suggestions</span>@for (app of matchingApplications; track app) {
+        <button type="button" (click)="chooseApplication(app.id)">{{app.label}} <small>{{app.id}}</small></button>
+      }</div>
+      }<button type="button" class="teams-workspace__button" (click)="saveApplications()" [disabled]="busy">Save applications</button></div></details>
     </div>
-    <button *ngIf="canManage" type="button" class="teams-workspace__toolbar-create" (click)="startCreate()">＋ New team</button>
-   </div>
+  }
+</section>
+</div>
+}
+
+<section class="teams-workspace__directory">
+  <div class="teams-workspace__toolbar">
+    <div class="teams-workspace__toolbar-filters">
+      <div class="teams-workspace__search"><span aria-hidden="true">⌕</span><input [(ngModel)]="search" name="teamSearch" placeholder="Search teams…" aria-label="Search teams">@if (search) {
+      <button type="button" (click)="search=''" aria-label="Clear search">×</button>
+    }</div>
+    <select class="teams-workspace__status-filter" [(ngModel)]="statusFilter" name="teamStatus" aria-label="Filter teams by status"><option value="all">All teams</option><option value="active">Active</option><option value="archived">Archived</option></select>
   </div>
+  <div class="teams-workspace__toolbar-actions">
+    <div class="teams-workspace__view-toggle" role="group" aria-label="Team display mode">
+      <button type="button" [class.is-active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
+      <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
+    </div>
+    @if (canManage) {
+      <button type="button" class="teams-workspace__toolbar-create" (click)="startCreate()">＋ New team</button>
+    }
+  </div>
+</div>
 
-  <div class="teams-workspace__section-heading"><div><h3>Organization teams</h3><span>{{filteredTeams.length}} {{filteredTeams.length===1?'team':'teams'}} shown</span></div><button type="button" class="teams-workspace__text-button" (click)="load()" [disabled]="loading">Refresh list</button></div>
+<div class="teams-workspace__section-heading"><div><h3>Organization teams</h3><span>{{filteredTeams.length}} {{filteredTeams.length===1?'team':'teams'}} shown</span></div><button type="button" class="teams-workspace__text-button" (click)="load()" [disabled]="loading">Refresh list</button></div>
 
-  <div *ngIf="loading && !teams.length" class="teams-workspace__empty"><span class="teams-workspace__loader"></span><strong>Loading teams…</strong></div>
-  <div *ngIf="!loading && !teams.length" class="teams-workspace__empty"><span class="teams-workspace__empty-icon">◇</span><strong>No teams yet</strong><span>Create your first team to organize people and application access.</span><button *ngIf="canManage" type="button" class="teams-workspace__button teams-workspace__button--primary" (click)="startCreate()">Create first team</button></div>
-  <div *ngIf="teams.length && !filteredTeams.length" class="teams-workspace__empty"><strong>No matching teams</strong><span>Try another search or status filter.</span><button type="button" class="teams-workspace__text-button" (click)="search='';statusFilter='all'">Clear filters</button></div>
+@if (loading && !teams.length) {
+  <div class="teams-workspace__empty"><span class="teams-workspace__loader"></span><strong>Loading teams…</strong></div>
+}
+@if (!loading && !teams.length) {
+  <div class="teams-workspace__empty"><span class="teams-workspace__empty-icon">◇</span><strong>No teams yet</strong><span>Create your first team to organize people and application access.</span>@if (canManage) {
+  <button type="button" class="teams-workspace__button teams-workspace__button--primary" (click)="startCreate()">Create first team</button>
+}</div>
+}
+@if (teams.length && !filteredTeams.length) {
+  <div class="teams-workspace__empty"><strong>No matching teams</strong><span>Try another search or status filter.</span><button type="button" class="teams-workspace__text-button" (click)="search='';statusFilter='all'">Clear filters</button></div>
+}
 
-  <div class="teams-workspace__cards" *ngIf="filteredTeams.length && view==='cards'">
-   <article class="teams-workspace__card" *ngFor="let team of filteredTeams" [class.is-selected]="selected?.id===team.id">
-    <div class="teams-workspace__card-top"><span class="teams-workspace__team-mark">{{team.name.slice(0,1).toUpperCase()}}</span><div class="teams-workspace__card-menu" *ngIf="canManage"><details><summary aria-label="Team options" title="Team options"><span>⋮</span></summary><div class="teams-workspace__menu" role="menu"><button type="button" role="menuitem" (click)="editTeam(team)">Edit team</button><button type="button" role="menuitem" (click)="manageTeam(team)">Manage members & apps</button><button type="button" role="menuitem" (click)="archiveTeam(team)" *ngIf="canManage && team.status==='active'">Archive</button><button type="button" role="menuitem" (click)="restoreTeam(team)" *ngIf="canManage && team.status==='archived'">Restore</button><button type="button" role="menuitem" class="is-danger" (click)="deleteTeam(team)" *ngIf="canManage">Delete</button></div></details></div></div>
+@if (filteredTeams.length && view==='cards') {
+  <div class="teams-workspace__cards">
+    @for (team of filteredTeams; track team) {
+      <article class="teams-workspace__card" [class.is-selected]="selected?.id===team.id">
+        <div class="teams-workspace__card-top"><span class="teams-workspace__team-mark">{{team.name.slice(0,1).toUpperCase()}}</span>@if (canManage) {
+        <div class="teams-workspace__card-menu"><details><summary aria-label="Team options" title="Team options"><span>⋮</span></summary><div class="teams-workspace__menu" role="menu"><button type="button" role="menuitem" (click)="editTeam(team)">Edit team</button><button type="button" role="menuitem" (click)="manageTeam(team)">Manage members & apps</button>@if (canManage && team.status==='active') {
+        <button type="button" role="menuitem" (click)="archiveTeam(team)">Archive</button>
+        }@if (canManage && team.status==='archived') {
+        <button type="button" role="menuitem" (click)="restoreTeam(team)">Restore</button>
+        }@if (canManage) {
+        <button type="button" role="menuitem" class="is-danger" (click)="deleteTeam(team)">Delete</button>
+      }</div></details></div>
+    }</div>
     <button type="button" class="teams-workspace__card-main" (click)="manageTeam(team)"><strong>{{team.name}}</strong><span class="teams-workspace__card-description">{{team.description || 'No description added'}}</span></button>
     <div class="teams-workspace__card-meta"><div><strong>{{team.memberCount}}</strong><small>{{team.memberCount===1?'member':'members'}}</small></div><span class="teams-workspace__status" [class.is-archived]="team.status==='archived'">{{team.status}}</span></div>
-    <div class="teams-workspace__card-footer"><div class="teams-workspace__app-tags"><span *ngFor="let app of team.applications.slice(0,3)">{{applicationLabel(app)}}</span><span *ngIf="team.applications.length>3">+{{team.applications.length-3}}</span><span *ngIf="!team.applications.length" class="is-empty">No apps assigned</span></div><span class="teams-workspace__parent" *ngIf="team.parentTeamId">Sub-team</span></div>
-   </article>
-  </div>
+    <div class="teams-workspace__card-footer"><div class="teams-workspace__app-tags">@for (app of team.applications.slice(0,3); track app) {
+      <span>{{applicationLabel(app)}}</span>
+      }@if (team.applications.length>3) {
+      <span>+{{team.applications.length-3}}</span>
+      }@if (!team.applications.length) {
+      <span class="is-empty">No apps assigned</span>
+    }</div>@if (team.parentTeamId) {
+    <span class="teams-workspace__parent">Sub-team</span>
+  }</div>
+</article>
+}
+</div>
+}
 
-  <div class="teams-workspace__table-wrap" *ngIf="filteredTeams.length && view==='table'">
-   <table><thead><tr><th>Team</th><th>Members</th><th>Applications</th><th>Status</th><th><span class="teams-workspace__sr-only">Options</span></th></tr></thead><tbody>
-    <tr *ngFor="let team of filteredTeams"><td><button type="button" class="teams-workspace__table-team" (click)="manageTeam(team)"><span class="teams-workspace__team-mark">{{team.name.slice(0,1).toUpperCase()}}</span><span><strong>{{team.name}}</strong><small>{{team.description || 'No description'}}</small></span></button></td><td><span class="teams-workspace__table-count"><span>{{team.memberCount}}</span> {{team.memberCount===1?'member':'members'}}</span></td><td><div class="teams-workspace__app-tags"><span *ngFor="let app of team.applications.slice(0,3)">{{applicationLabel(app)}}</span><span *ngIf="team.applications.length>3">+{{team.applications.length-3}}</span><span *ngIf="!team.applications.length" class="is-empty">—</span></div></td><td><span class="teams-workspace__status" [class.is-archived]="team.status==='archived'">{{team.status}}</span></td><td><details class="teams-workspace__table-menu" *ngIf="canManage"><summary aria-label="Team options">⋮</summary><div class="teams-workspace__menu" role="menu"><button type="button" role="menuitem" (click)="editTeam(team)">Edit team</button><button type="button" role="menuitem" (click)="manageTeam(team)">Manage members & apps</button><button type="button" role="menuitem" (click)="archiveTeam(team)" *ngIf="canManage && team.status==='active'">Archive</button><button type="button" role="menuitem" (click)="restoreTeam(team)" *ngIf="canManage && team.status==='archived'">Restore</button><button type="button" role="menuitem" class="is-danger" (click)="deleteTeam(team)" *ngIf="canManage">Delete</button></div></details></td></tr>
-   </tbody></table>
-  </div>
- </section>
+@if (filteredTeams.length && view==='table') {
+  <div class="teams-workspace__table-wrap">
+    <table><thead><tr><th>Team</th><th>Members</th><th>Applications</th><th>Status</th><th><span class="teams-workspace__sr-only">Options</span></th></tr></thead><tbody>
+    @for (team of filteredTeams; track team) {
+      <tr><td><button type="button" class="teams-workspace__table-team" (click)="manageTeam(team)"><span class="teams-workspace__team-mark">{{team.name.slice(0,1).toUpperCase()}}</span><span><strong>{{team.name}}</strong><small>{{team.description || 'No description'}}</small></span></button></td><td><span class="teams-workspace__table-count"><span>{{team.memberCount}}</span> {{team.memberCount===1?'member':'members'}}</span></td><td><div class="teams-workspace__app-tags">@for (app of team.applications.slice(0,3); track app) {
+      <span>{{applicationLabel(app)}}</span>
+      }@if (team.applications.length>3) {
+      <span>+{{team.applications.length-3}}</span>
+      }@if (!team.applications.length) {
+      <span class="is-empty">—</span>
+      }</div></td><td><span class="teams-workspace__status" [class.is-archived]="team.status==='archived'">{{team.status}}</span></td><td>@if (canManage) {
+      <details class="teams-workspace__table-menu"><summary aria-label="Team options">⋮</summary><div class="teams-workspace__menu" role="menu"><button type="button" role="menuitem" (click)="editTeam(team)">Edit team</button><button type="button" role="menuitem" (click)="manageTeam(team)">Manage members & apps</button>@if (canManage && team.status==='active') {
+      <button type="button" role="menuitem" (click)="archiveTeam(team)">Archive</button>
+      }@if (canManage && team.status==='archived') {
+      <button type="button" role="menuitem" (click)="restoreTeam(team)">Restore</button>
+      }@if (canManage) {
+      <button type="button" role="menuitem" class="is-danger" (click)="deleteTeam(team)">Delete</button>
+    }</div></details>
+  }</td></tr>
+}
+</tbody></table>
+</div>
+}
+</section>
 
- <details class="teams-workspace__acl" *ngIf="canManage">
-  <summary><span><strong>Resource access policies</strong><small>Grant teams access to individual resources, with user-level exceptions.</small></span><span class="teams-workspace__acl-arrow">⌄</span></summary>
-  <div class="teams-workspace__acl-content"><p class="teams-workspace__muted">A user's explicit denial overrides grants from every team they belong to. Application assignment alone does not grant access to every resource.</p>
-   <div class="teams-workspace__acl-grid"><label class="teams-workspace__field"><span>Application / plugin</span><input [(ngModel)]="aclPlugin" name="aclPlugin" placeholder="documents"></label><label class="teams-workspace__field"><span>Resource type</span><input [(ngModel)]="aclType" name="aclType" placeholder="folder"></label><label class="teams-workspace__field"><span>Resource ID</span><input [(ngModel)]="aclId" name="aclId" placeholder="Resource identifier"></label><button type="button" class="teams-workspace__button" (click)="loadAcl()" [disabled]="busy||!aclReady">Load policy</button></div>
-   <div *ngIf="aclLoaded" class="teams-workspace__acl-editor"><strong>Team grants</strong><div *ngFor="let team of teams" class="teams-workspace__grant"><span>{{team.name}}</span><label *ngFor="let permission of resourcePermissions"><input type="checkbox" [checked]="grantHas(team.id,permission)" (change)="toggleGrant(team.id,permission,$any($event.target).checked)">{{permission}}</label></div><strong>Individual exceptions</strong><div *ngFor="let item of userOverrides" class="teams-workspace__grant"><span>{{memberEmail(item.userId)}}</span><small>{{item.effect}} · {{item.permissions.join(', ')}}</small><button type="button" class="teams-workspace__text-button" (click)="removeOverride(item.userId)">Remove</button></div><div class="teams-workspace__acl-grid"><label class="teams-workspace__field"><span>Organization member</span><select [(ngModel)]="overrideUserId" name="overrideUserId"><option value="">Choose a member</option><option *ngFor="let member of allMembers" [value]="member.userId">{{member.email}}</option></select></label><label class="teams-workspace__field"><span>Exception</span><select [(ngModel)]="overrideEffect" name="overrideEffect"><option value="deny">Deny (takes priority)</option><option value="allow">Allow (within tenant policy)</option></select></label></div><div class="teams-workspace__permission-list"><label *ngFor="let permission of resourcePermissions"><input type="checkbox" [checked]="overridePermissions.includes(permission)" (change)="toggleOverride(permission,$any($event.target).checked)">{{permission}}</label></div><div class="teams-workspace__acl-actions"><button type="button" class="teams-workspace__button teams-workspace__button--primary" (click)="saveAcl()" [disabled]="busy">Save policy</button><button type="button" class="teams-workspace__button teams-workspace__button--danger" (click)="resetAcl()" [disabled]="busy">Reset to defaults</button></div></div>
-  </div>
- </details>
- <div *ngIf="toastMessage" class="teams-workspace__toast" role="status" aria-live="polite"><span class="teams-workspace__toast-icon" aria-hidden="true">✓</span><span class="teams-workspace__toast-message">{{toastMessage}}</span><button type="button" (click)="dismissToast()" aria-label="Dismiss notification">×</button></div>
+@if (canManage) {
+  <details class="teams-workspace__acl">
+    <summary><span><strong>Resource access policies</strong><small>Grant teams access to individual resources, with user-level exceptions.</small></span><span class="teams-workspace__acl-arrow">⌄</span></summary>
+    <div class="teams-workspace__acl-content"><p class="teams-workspace__muted">A user's explicit denial overrides grants from every team they belong to. Application assignment alone does not grant access to every resource.</p>
+    <div class="teams-workspace__acl-grid"><label class="teams-workspace__field"><span>Application / plugin</span><input [(ngModel)]="aclPlugin" name="aclPlugin" placeholder="documents"></label><label class="teams-workspace__field"><span>Resource type</span><input [(ngModel)]="aclType" name="aclType" placeholder="folder"></label><label class="teams-workspace__field"><span>Resource ID</span><input [(ngModel)]="aclId" name="aclId" placeholder="Resource identifier"></label><button type="button" class="teams-workspace__button" (click)="loadAcl()" [disabled]="busy||!aclReady">Load policy</button></div>
+    @if (aclLoaded) {
+      <div class="teams-workspace__acl-editor"><strong>Team grants</strong>@for (team of teams; track team) {
+      <div class="teams-workspace__grant"><span>{{team.name}}</span>@for (permission of resourcePermissions; track permission) {
+      <label><input type="checkbox" [checked]="grantHas(team.id,permission)" (change)="toggleGrant(team.id,permission,$any($event.target).checked)">{{permission}}</label>
+    }</div>
+    }<strong>Individual exceptions</strong>@for (item of userOverrides; track item) {
+    <div class="teams-workspace__grant"><span>{{memberEmail(item.userId)}}</span><small>{{item.effect}} · {{item.permissions.join(', ')}}</small><button type="button" class="teams-workspace__text-button" (click)="removeOverride(item.userId)">Remove</button></div>
+    }<div class="teams-workspace__acl-grid"><label class="teams-workspace__field"><span>Organization member</span><select [(ngModel)]="overrideUserId" name="overrideUserId"><option value="">Choose a member</option>@for (member of allMembers; track member) {
+    <option [value]="member.userId">{{member.email}}</option>
+    }</select></label><label class="teams-workspace__field"><span>Exception</span><select [(ngModel)]="overrideEffect" name="overrideEffect"><option value="deny">Deny (takes priority)</option><option value="allow">Allow (within tenant policy)</option></select></label></div><div class="teams-workspace__permission-list">@for (permission of resourcePermissions; track permission) {
+    <label><input type="checkbox" [checked]="overridePermissions.includes(permission)" (change)="toggleOverride(permission,$any($event.target).checked)">{{permission}}</label>
+    }</div><div class="teams-workspace__acl-actions"><button type="button" class="teams-workspace__button teams-workspace__button--primary" (click)="saveAcl()" [disabled]="busy">Save policy</button><button type="button" class="teams-workspace__button teams-workspace__button--danger" (click)="resetAcl()" [disabled]="busy">Reset to defaults</button></div></div>
+  }
+</div>
+</details>
+}
+@if (toastMessage) {
+  <div class="teams-workspace__toast" role="status" aria-live="polite"><span class="teams-workspace__toast-icon" aria-hidden="true">✓</span><span class="teams-workspace__toast-message">{{toastMessage}}</span><button type="button" (click)="dismissToast()" aria-label="Dismiss notification">×</button></div>
+}
 </section>`,
+ changeDetection: ChangeDetectionStrategy.Eager,
  styles:[`
 .teams-workspace{--teams-surface:var(--panel);--teams-bg:var(--bg);--teams-muted:var(--muted);--teams-border:var(--border);--teams-accent:var(--purple);display:grid;gap:18px;min-width:0;color:inherit}
 .teams-workspace *{box-sizing:border-box}

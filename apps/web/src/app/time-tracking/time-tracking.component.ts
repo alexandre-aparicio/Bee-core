@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input, OnInit } from "@angular/core";
+import { Component, Input, OnInit, ChangeDetectionStrategy } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { TimeTrackingApiService } from "./time-tracking-api.service";
 type ClockEvent={type:string;occurredAt:string;source:string};
@@ -8,7 +8,8 @@ type TeamMember={userId:string;email:string;role:string};
 type ScheduleDay={day:number;enabled:boolean;start:string;end:string;breakMinutes:number};
 type Schedule={userId:string;timezone:string;days:Array<{day:number;start:string;end:string;breakMinutes:number}>};
 type Correction={id:string;sessionId:string;userEmail?:string;eventType:"clock_in"|"clock_out";originalAt:string;requestedAt:string;reason:string;status:string;createdAt:string;reviewNote?:string};
-@Component({selector:"bee-time-tracking",standalone:true,providers:[TimeTrackingApiService],imports:[CommonModule,FormsModule],templateUrl:"./time-tracking.component.html",styleUrls:["./time-tracking.component.css"]})
+@Component({selector:"bee-time-tracking",standalone:true,providers:[TimeTrackingApiService],imports:[CommonModule,FormsModule],templateUrl:"./time-tracking.component.html",changeDetection: ChangeDetectionStrategy.Eager,
+styleUrls:["./time-tracking.component.css"]})
 export class BeeTimeTrackingComponent implements OnInit {
  constructor(private readonly api:TimeTrackingApiService){}
  @Input() tenantId=""; @Input() role="member"; @Input() accessToken=""; @Input() section="";

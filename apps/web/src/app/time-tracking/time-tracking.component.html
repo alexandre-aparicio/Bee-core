@@ -1,70 +1,129 @@
 <section class="tt-page bee-page">
- <header class="tt-header bee-page__header">
-  <div><p class="tt-eyebrow">WORKSPACE / PERSONAS</p><h1>Control horario</h1><p>Registra tu jornada, consulta horarios y gestiona incidencias.</p></div>
-  <button type="button" class="tt-secondary" (click)="load()" [disabled]="loading">Actualizar</button>
- </header>
- <p *ngIf="error" class="tt-error" role="alert">{{error}}</p><p *ngIf="message" class="tt-message" role="status">{{message}}</p>
- <div class="tt-content-wrapper">
-   <main class="tt-content bee-page__content">
-   <ng-container *ngIf="activeSection==='my-day'">
-    <div class="tt-content-heading"><div><p class="tt-eyebrow">MI ESPACIO</p><h2>Mi jornada</h2><p>Controla tu fichaje y consulta la actividad registrada.</p></div></div>
-    <nav class="tt-tabs" aria-label="Pestañas de mi jornada">
-     <button type="button" [class.is-active]="activeSubTab==='status'" (click)="activeSubTab='status'">Estado actual</button>
-     <button type="button" [class.is-active]="activeSubTab==='activity'" (click)="activeSubTab='activity'">Actividad</button>
-    </nav>
-    <ng-container *ngIf="activeSubTab==='status'">
-     <section class="tt-clock"><div class="tt-clock__top"><span>ESTADO ACTUAL</span><span class="tt-status" [class.tt-status--working]="session?.status==='working'" [class.tt-status--break]="session?.status==='on_break'">{{session?.status==='working'?'Trabajando':session?.status==='on_break'?'En pausa':'Sin jornada activa'}}</span></div>
-      <div class="tt-clock__time">{{session?elapsed:'Listo para empezar'}}</div><p *ngIf="session">Entrada registrada: {{session.startedAt | date:'short'}}</p><p *ngIf="!session">Cuando comiences a trabajar, registra tu entrada.</p>
-      <div class="tt-actions"><button *ngIf="!session" type="button" class="tt-primary" (click)="act('clock-in')" [disabled]="busy">Fichar entrada</button><ng-container *ngIf="session?.status==='working'"><button type="button" class="tt-secondary" (click)="act('break-start')" [disabled]="busy">Iniciar pausa</button><button type="button" class="tt-primary" (click)="act('clock-out')" [disabled]="busy">Fichar salida</button></ng-container><button *ngIf="session?.status==='on_break'" type="button" class="tt-primary" (click)="act('break-end')" [disabled]="busy">Finalizar pausa</button></div>
-     </section>
-     <section *ngIf="session" class="tt-history"><div class="tt-section-heading"><div><h3>Jornada en curso</h3><p>Los registros se guardan con la hora del servidor.</p></div></div><div *ngIf="session.events?.length" class="tt-events"><article *ngFor="let event of session.events;let i=index;trackBy:trackEvent" class="tt-event"><span class="tt-event__dot"></span><div><strong>{{label(event.type)}}</strong><small>{{event.occurredAt | date:'medium'}}</small></div><span class="tt-event__source">Web</span></article></div><p *ngIf="!session.events?.length">Todavía no hay actividad registrada.</p></section>
-    </ng-container>
-    <ng-container *ngIf="activeSubTab==='activity'">
-     <section class="tt-history"><div class="tt-section-heading"><div><h3>Actividad reciente</h3><p>Últimas 30 jornadas cerradas.</p></div></div>
-      <article *ngFor="let item of history" class="tt-history-row"><div><strong>{{item.startedAt | date:'mediumDate'}}</strong><small>{{item.startedAt | date:'shortTime'}} – {{item.endedAt | date:'shortTime'}}</small></div><div class="tt-row-actions"><span class="tt-status">Cerrada</span><button type="button" class="tt-link" (click)="openCorrection(item,'clock_in',item.startedAt)">Corregir entrada</button><button *ngIf="item.endedAt" type="button" class="tt-link" (click)="openCorrection(item,'clock_out',item.endedAt)">Corregir salida</button></div></article><p *ngIf="!history.length">Todavía no hay jornadas anteriores.</p>
-     </section>
-    </ng-container>
-   </ng-container>
-   <ng-container *ngIf="activeSection==='schedule'">
-    <div class="tt-content-heading"><div><p class="tt-eyebrow">{{canManage?'GESTIÓN':'MI INFORMACIÓN'}}</p><h2>{{canManage?'Planificación de horarios':'Mi horario'}}</h2><p>{{canManage?'Configura el horario semanal de cada persona.':'Consulta el horario habitual que tienes asignado.'}}</p></div></div>
-    <ng-container *ngIf="canManage">
-     <section class="tt-history"><div class="tt-section-heading"><div><h3>Horario semanal</h3><p>Los días desactivados son días libres.</p></div></div>
-      <label class="tt-field">Trabajador<select [ngModel]="selectedUserId" (ngModelChange)="selectMember($event)"><option *ngFor="let member of members" [value]="member.userId">{{member.email}} · {{member.role}}</option></select></label>
-      <label class="tt-field">Zona horaria<input [(ngModel)]="timezone" placeholder="Europe/Madrid"></label>
-      <div class="tt-table-wrap"><table class="tt-table"><thead><tr><th scope="col">Día</th><th scope="col">Activo</th><th scope="col">Entrada</th><th scope="col">Salida</th><th scope="col">Pausa (min)</th></tr></thead><tbody>
-       <tr *ngFor="let day of scheduleDraft;let i=index"><th scope="row">{{['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][i]}}</th><td><input type="checkbox" [(ngModel)]="day.enabled" [attr.aria-label]="'Activar '+['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][i]"></td><td><input type="time" [(ngModel)]="day.start" [disabled]="!day.enabled"></td><td><input type="time" [(ngModel)]="day.end" [disabled]="!day.enabled"></td><td><input type="number" min="0" max="240" step="5" [(ngModel)]="day.breakMinutes" [disabled]="!day.enabled"></td></tr>
-      </tbody></table></div><div class="tt-actions"><button type="button" class="tt-primary" (click)="saveSchedule()" [disabled]="busy || !selectedUserId">Guardar horario</button></div>
-     </section>
-    </ng-container>
-    <ng-container *ngIf="!canManage">
-     <section class="tt-history"><div class="tt-section-heading"><div><h3>Horario asignado</h3><p>{{mySchedule?.timezone || 'Zona horaria no configurada'}}</p></div></div>
-      <ng-container *ngIf="mySchedule?.days?.length;else noSchedule"><article *ngFor="let day of mySchedule?.days" class="tt-history-row"><strong>{{['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][day.day]}}</strong><span>{{day.start}} – {{day.end}}</span><small>Pausa prevista: {{day.breakMinutes}} min</small></article></ng-container>
-      <ng-template #noSchedule><p>Aún no tienes un horario asignado. Consulta con el responsable de tu equipo.</p></ng-template>
-     </section>
-    </ng-container>
-   </ng-container>
-   <ng-container *ngIf="activeSection==='history' && !canManage">
-    <div class="tt-content-heading"><div><p class="tt-eyebrow">MI INFORMACIÓN</p><h2>Mi historial</h2><p>Consulta tus jornadas anteriores y solicita correcciones si lo necesitas.</p></div></div>
-    <section class="tt-history"><div class="tt-section-heading"><div><h3>Jornadas registradas</h3><p>Últimas 30 jornadas cerradas.</p></div></div><article *ngFor="let item of history" class="tt-history-row"><div><strong>{{item.startedAt | date:'mediumDate'}}</strong><small>{{item.startedAt | date:'shortTime'}} – {{item.endedAt | date:'shortTime'}}</small></div><div class="tt-row-actions"><span class="tt-status">Cerrada</span><button type="button" class="tt-link" (click)="openCorrection(item,'clock_in',item.startedAt)">Corregir entrada</button><button *ngIf="item.endedAt" type="button" class="tt-link" (click)="openCorrection(item,'clock_out',item.endedAt)">Corregir salida</button></div></article><p *ngIf="!history.length">Todavía no hay jornadas anteriores.</p></section>
-   </ng-container>
-   <ng-container *ngIf="activeSection==='requests'">
-    <div class="tt-content-heading"><div><p class="tt-eyebrow">{{canManage?'GESTIÓN':'MI INFORMACIÓN'}}</p><h2>{{canManage?'Incidencias':'Mis solicitudes'}}</h2><p>{{canManage?'Gestiona las solicitudes de corrección de jornada.':'Consulta el estado de tus solicitudes de corrección.'}}</p></div></div>
-    <nav class="tt-tabs" aria-label="Pestañas de solicitudes">
-     <button type="button" [class.is-active]="activeSubTab==='mine'" (click)="activeSubTab='mine'">{{canManage?'Mis solicitudes':'Correcciones'}}</button>
-     <button *ngIf="canManage" type="button" [class.is-active]="activeSubTab==='team'" (click)="activeSubTab='team'">Solicitudes del equipo <span *ngIf="teamCorrections.length">{{teamCorrections.length}}</span></button>
-    </nav>
-    <ng-container *ngIf="activeSubTab==='mine'">
-     <section class="tt-history"><div class="tt-section-heading"><div><h3>{{canManage?'Mis solicitudes':'Solicitudes enviadas'}}</h3><p>Estado de las correcciones de entrada y salida que has enviado.</p></div></div>
-      <article *ngFor="let item of corrections" class="tt-correction"><div><strong>{{item.eventType==='clock_in'?'Corrección de entrada':'Corrección de salida'}}</strong><small>Original: {{item.originalAt | date:'short'}} · Solicitado: {{item.requestedAt | date:'short'}}</small><p>{{item.reason}}</p><small *ngIf="item.reviewNote">Respuesta: {{item.reviewNote}}</small></div><span class="tt-status" [class.tt-status--working]="item.status==='approved'">{{item.status==='pending'?'Pendiente':item.status==='approved'?'Aprobada':'Rechazada'}}</span></article><p *ngIf="!corrections.length">No has enviado solicitudes.</p>
-     </section>
-    </ng-container>
-    <ng-container *ngIf="canManage && activeSubTab==='team'">
-     <section class="tt-history"><div class="tt-section-heading"><div><h3>Solicitudes pendientes del equipo</h3><p>Aprueba o rechaza las correcciones solicitadas por las personas de tu equipo.</p></div></div>
-      <article *ngFor="let item of teamCorrections" class="tt-correction"><div><strong>{{item.userEmail}} · {{item.eventType==='clock_in'?'Entrada':'Salida'}}</strong><small>Original: {{item.originalAt | date:'short'}} · Solicitado: {{item.requestedAt | date:'short'}}</small><p>{{item.reason}}</p><small>Enviada: {{item.createdAt | date:'short'}}</small></div><div class="tt-row-actions"><button type="button" class="tt-primary" (click)="reviewCorrection(item,'approved')" [disabled]="busy">Aprobar</button><button type="button" class="tt-secondary" (click)="reviewCorrection(item,'rejected')" [disabled]="busy">Rechazar</button></div></article><p *ngIf="!teamCorrections.length">No hay solicitudes pendientes.</p>
-     </section>
-    </ng-container>
-   </ng-container>
-  </main>
- </div>
- <div *ngIf="correctionTarget" class="tt-modal-backdrop"><section class="tt-modal" role="dialog" aria-modal="true" aria-labelledby="tt-correction-title"><h2 id="tt-correction-title">Solicitar corrección</h2><p>La modificación no se aplicará hasta que un responsable la apruebe.</p><label class="tt-field">Fecha y hora correcta<input type="datetime-local" [(ngModel)]="requestedAt"></label><label class="tt-field">Motivo<textarea rows="3" [(ngModel)]="correctionReason" maxlength="1000" placeholder="Explica por qué debe corregirse este fichaje"></textarea></label><div class="tt-actions"><button type="button" class="tt-secondary" (click)="closeCorrection()">Cancelar</button><button type="button" class="tt-primary" (click)="submitCorrection()" [disabled]="busy || !requestedAt || correctionReason.trim().length<5">Enviar solicitud</button></div></section></div>
+  <header class="tt-header bee-page__header">
+    <div><p class="tt-eyebrow">WORKSPACE / PERSONAS</p><h1>Control horario</h1><p>Registra tu jornada, consulta horarios y gestiona incidencias.</p></div>
+    <button type="button" class="tt-secondary" (click)="load()" [disabled]="loading">Actualizar</button>
+  </header>
+  @if (error) {
+    <p class="tt-error" role="alert">{{error}}</p>
+    }@if (message) {
+    <p class="tt-message" role="status">{{message}}</p>
+  }
+  <div class="tt-content-wrapper">
+    <main class="tt-content bee-page__content">
+      @if (activeSection==='my-day') {
+        <div class="tt-content-heading"><div><p class="tt-eyebrow">MI ESPACIO</p><h2>Mi jornada</h2><p>Controla tu fichaje y consulta la actividad registrada.</p></div></div>
+        <nav class="tt-tabs" aria-label="Pestañas de mi jornada">
+          <button type="button" [class.is-active]="activeSubTab==='status'" (click)="activeSubTab='status'">Estado actual</button>
+          <button type="button" [class.is-active]="activeSubTab==='activity'" (click)="activeSubTab='activity'">Actividad</button>
+        </nav>
+        @if (activeSubTab==='status') {
+          <section class="tt-clock"><div class="tt-clock__top"><span>ESTADO ACTUAL</span><span class="tt-status" [class.tt-status--working]="session?.status==='working'" [class.tt-status--break]="session?.status==='on_break'">{{session?.status==='working'?'Trabajando':session?.status==='on_break'?'En pausa':'Sin jornada activa'}}</span></div>
+          <div class="tt-clock__time">{{session?elapsed:'Listo para empezar'}}</div>@if (session) {
+          <p>Entrada registrada: {{session.startedAt | date:'short'}}</p>
+          }@if (!session) {
+          <p>Cuando comiences a trabajar, registra tu entrada.</p>
+        }
+        <div class="tt-actions">@if (!session) {
+          <button type="button" class="tt-primary" (click)="act('clock-in')" [disabled]="busy">Fichar entrada</button>
+          }@if (session?.status==='working') {
+          <button type="button" class="tt-secondary" (click)="act('break-start')" [disabled]="busy">Iniciar pausa</button><button type="button" class="tt-primary" (click)="act('clock-out')" [disabled]="busy">Fichar salida</button>
+          }@if (session?.status==='on_break') {
+          <button type="button" class="tt-primary" (click)="act('break-end')" [disabled]="busy">Finalizar pausa</button>
+        }</div>
+      </section>
+      @if (session) {
+        <section class="tt-history"><div class="tt-section-heading"><div><h3>Jornada en curso</h3><p>Los registros se guardan con la hora del servidor.</p></div></div>@if (session.events?.length) {
+        <div class="tt-events">@for (event of session.events; track trackEvent(i, event); let i = $index) {
+          <article class="tt-event"><span class="tt-event__dot"></span><div><strong>{{label(event.type)}}</strong><small>{{event.occurredAt | date:'medium'}}</small></div><span class="tt-event__source">Web</span></article>
+        }</div>
+        }@if (!session.events?.length) {
+        <p>Todavía no hay actividad registrada.</p>
+      }</section>
+    }
+  }
+  @if (activeSubTab==='activity') {
+    <section class="tt-history"><div class="tt-section-heading"><div><h3>Actividad reciente</h3><p>Últimas 30 jornadas cerradas.</p></div></div>
+    @for (item of history; track item) {
+      <article class="tt-history-row"><div><strong>{{item.startedAt | date:'mediumDate'}}</strong><small>{{item.startedAt | date:'shortTime'}} – {{item.endedAt | date:'shortTime'}}</small></div><div class="tt-row-actions"><span class="tt-status">Cerrada</span><button type="button" class="tt-link" (click)="openCorrection(item,'clock_in',item.startedAt)">Corregir entrada</button>@if (item.endedAt) {
+      <button type="button" class="tt-link" (click)="openCorrection(item,'clock_out',item.endedAt)">Corregir salida</button>
+    }</div></article>
+    }@if (!history.length) {
+    <p>Todavía no hay jornadas anteriores.</p>
+  }
+</section>
+}
+}
+@if (activeSection==='schedule') {
+  <div class="tt-content-heading"><div><p class="tt-eyebrow">{{canManage?'GESTIÓN':'MI INFORMACIÓN'}}</p><h2>{{canManage?'Planificación de horarios':'Mi horario'}}</h2><p>{{canManage?'Configura el horario semanal de cada persona.':'Consulta el horario habitual que tienes asignado.'}}</p></div></div>
+  @if (canManage) {
+    <section class="tt-history"><div class="tt-section-heading"><div><h3>Horario semanal</h3><p>Los días desactivados son días libres.</p></div></div>
+    <label class="tt-field">Trabajador<select [ngModel]="selectedUserId" (ngModelChange)="selectMember($event)">@for (member of members; track member) {
+      <option [value]="member.userId">{{member.email}} · {{member.role}}</option>
+    }</select></label>
+    <label class="tt-field">Zona horaria<input [(ngModel)]="timezone" placeholder="Europe/Madrid"></label>
+    <div class="tt-table-wrap"><table class="tt-table"><thead><tr><th scope="col">Día</th><th scope="col">Activo</th><th scope="col">Entrada</th><th scope="col">Salida</th><th scope="col">Pausa (min)</th></tr></thead><tbody>
+    @for (day of scheduleDraft; track day; let i = $index) {
+      <tr><th scope="row">{{['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][i]}}</th><td><input type="checkbox" [(ngModel)]="day.enabled" [attr.aria-label]="'Activar '+['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][i]"></td><td><input type="time" [(ngModel)]="day.start" [disabled]="!day.enabled"></td><td><input type="time" [(ngModel)]="day.end" [disabled]="!day.enabled"></td><td><input type="number" min="0" max="240" step="5" [(ngModel)]="day.breakMinutes" [disabled]="!day.enabled"></td></tr>
+    }
+    </tbody></table></div><div class="tt-actions"><button type="button" class="tt-primary" (click)="saveSchedule()" [disabled]="busy || !selectedUserId">Guardar horario</button></div>
+  </section>
+}
+@if (!canManage) {
+  <section class="tt-history"><div class="tt-section-heading"><div><h3>Horario asignado</h3><p>{{mySchedule?.timezone || 'Zona horaria no configurada'}}</p></div></div>
+  @if (mySchedule?.days?.length) {
+    @for (day of mySchedule?.days; track day) {
+      <article class="tt-history-row"><strong>{{['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][day.day]}}</strong><span>{{day.start}} – {{day.end}}</span><small>Pausa prevista: {{day.breakMinutes}} min</small></article>
+    }
+  } @else {
+    <p>Aún no tienes un horario asignado. Consulta con el responsable de tu equipo.</p>
+  }
+</section>
+}
+}
+@if (activeSection==='history' && !canManage) {
+  <div class="tt-content-heading"><div><p class="tt-eyebrow">MI INFORMACIÓN</p><h2>Mi historial</h2><p>Consulta tus jornadas anteriores y solicita correcciones si lo necesitas.</p></div></div>
+  <section class="tt-history"><div class="tt-section-heading"><div><h3>Jornadas registradas</h3><p>Últimas 30 jornadas cerradas.</p></div></div>@for (item of history; track item) {
+  <article class="tt-history-row"><div><strong>{{item.startedAt | date:'mediumDate'}}</strong><small>{{item.startedAt | date:'shortTime'}} – {{item.endedAt | date:'shortTime'}}</small></div><div class="tt-row-actions"><span class="tt-status">Cerrada</span><button type="button" class="tt-link" (click)="openCorrection(item,'clock_in',item.startedAt)">Corregir entrada</button>@if (item.endedAt) {
+  <button type="button" class="tt-link" (click)="openCorrection(item,'clock_out',item.endedAt)">Corregir salida</button>
+}</div></article>
+}@if (!history.length) {
+<p>Todavía no hay jornadas anteriores.</p>
+}</section>
+}
+@if (activeSection==='requests') {
+  <div class="tt-content-heading"><div><p class="tt-eyebrow">{{canManage?'GESTIÓN':'MI INFORMACIÓN'}}</p><h2>{{canManage?'Incidencias':'Mis solicitudes'}}</h2><p>{{canManage?'Gestiona las solicitudes de corrección de jornada.':'Consulta el estado de tus solicitudes de corrección.'}}</p></div></div>
+  <nav class="tt-tabs" aria-label="Pestañas de solicitudes">
+    <button type="button" [class.is-active]="activeSubTab==='mine'" (click)="activeSubTab='mine'">{{canManage?'Mis solicitudes':'Correcciones'}}</button>
+    @if (canManage) {
+      <button type="button" [class.is-active]="activeSubTab==='team'" (click)="activeSubTab='team'">Solicitudes del equipo @if (teamCorrections.length) {
+        <span>{{teamCorrections.length}}</span>
+      }</button>
+    }
+  </nav>
+  @if (activeSubTab==='mine') {
+    <section class="tt-history"><div class="tt-section-heading"><div><h3>{{canManage?'Mis solicitudes':'Solicitudes enviadas'}}</h3><p>Estado de las correcciones de entrada y salida que has enviado.</p></div></div>
+    @for (item of corrections; track item) {
+      <article class="tt-correction"><div><strong>{{item.eventType==='clock_in'?'Corrección de entrada':'Corrección de salida'}}</strong><small>Original: {{item.originalAt | date:'short'}} · Solicitado: {{item.requestedAt | date:'short'}}</small><p>{{item.reason}}</p>@if (item.reviewNote) {
+      <small>Respuesta: {{item.reviewNote}}</small>
+      }</div><span class="tt-status" [class.tt-status--working]="item.status==='approved'">{{item.status==='pending'?'Pendiente':item.status==='approved'?'Aprobada':'Rechazada'}}</span></article>
+      }@if (!corrections.length) {
+      <p>No has enviado solicitudes.</p>
+    }
+  </section>
+}
+@if (canManage && activeSubTab==='team') {
+  <section class="tt-history"><div class="tt-section-heading"><div><h3>Solicitudes pendientes del equipo</h3><p>Aprueba o rechaza las correcciones solicitadas por las personas de tu equipo.</p></div></div>
+  @for (item of teamCorrections; track item) {
+    <article class="tt-correction"><div><strong>{{item.userEmail}} · {{item.eventType==='clock_in'?'Entrada':'Salida'}}</strong><small>Original: {{item.originalAt | date:'short'}} · Solicitado: {{item.requestedAt | date:'short'}}</small><p>{{item.reason}}</p><small>Enviada: {{item.createdAt | date:'short'}}</small></div><div class="tt-row-actions"><button type="button" class="tt-primary" (click)="reviewCorrection(item,'approved')" [disabled]="busy">Aprobar</button><button type="button" class="tt-secondary" (click)="reviewCorrection(item,'rejected')" [disabled]="busy">Rechazar</button></div></article>
+    }@if (!teamCorrections.length) {
+    <p>No hay solicitudes pendientes.</p>
+  }
+</section>
+}
+}
+</main>
+</div>
+@if (correctionTarget) {
+  <div class="tt-modal-backdrop"><section class="tt-modal" role="dialog" aria-modal="true" aria-labelledby="tt-correction-title"><h2 id="tt-correction-title">Solicitar corrección</h2><p>La modificación no se aplicará hasta que un responsable la apruebe.</p><label class="tt-field">Fecha y hora correcta<input type="datetime-local" [(ngModel)]="requestedAt"></label><label class="tt-field">Motivo<textarea rows="3" [(ngModel)]="correctionReason" maxlength="1000" placeholder="Explica por qué debe corregirse este fichaje"></textarea></label><div class="tt-actions"><button type="button" class="tt-secondary" (click)="closeCorrection()">Cancelar</button><button type="button" class="tt-primary" (click)="submitCorrection()" [disabled]="busy || !requestedAt || correctionReason.trim().length<5">Enviar solicitud</button></div></section></div>
+}
 </section>
