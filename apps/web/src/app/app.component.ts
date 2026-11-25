@@ -95,7 +95,7 @@ export class AppComponent implements OnInit {
     const sequence = ++this.pluginNavigationSequence;
     const token = String(this.auth?.accessToken ?? "");
     const candidates = this.activePlugins.filter(id => !["connected-devices", "time-tracking"].includes(id));
-    if (!token || !candidates.length) { this.pluginNavigationItems = []; return; }
+    if (!token || !candidates.length) { this.pluginNavigationItems = []; this.syncActiveSectionFromPath(); return; }
     const items = await Promise.all(candidates.map(async id => {
       try {
         const response = await fetch(this.api + "/marketplace/plugins/" + encodeURIComponent(id) + "/runtime", {
