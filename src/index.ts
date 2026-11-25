@@ -20,7 +20,6 @@ import { organizationsPlugin } from "./plugins/organizations/organizations.plugi
 import { teamsPlugin } from "./plugins/teams/teams.plugin.js";
 import { filesPlugin } from "./plugins/files/files.plugin.js";
 import { documentsPlugin } from "./plugins/documents/documents.plugin.js";
-import { connectedDevicesPlugin } from "./plugins/connected-devices/connected-devices.plugin.js";
 import { marketplacePlugin } from "./plugins/marketplace/marketplace.plugin.js";
 import { notificationsPlugin } from "./plugins/notifications/notifications.plugin.js";
 import { mailPlugin } from "./plugins/mail/mail.plugin.js";
@@ -288,7 +287,7 @@ async function loadSignedZipPlugins(): Promise<Map<string,string>> {
   return failures;
 }
 
-async function persistZipPluginRuntimeState(failures: Map<string,string>, builtinFallbackIds: Set<string> = new Set()): Promise<void> {
+async function persistZipPluginRuntimeState(failures: Map<string,string>): Promise<void> {
   const db = mongoClient.db(environment.mongoDbName);
   const registry = db.collection("platform_plugin_packages");
   const versions = db.collection("platform_plugin_package_versions");
@@ -298,14 +297,13 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>, builti
   for (const item of packageRows) {
     const pluginId = String(item.pluginId);
     const runtimePlugin = hostPlugins.get(pluginId);
-    const builtinFallbackActive = builtinFallbackIds.has(pluginId) && runtimePlugin?.status === "started";
     const mounted = mountedIds.has(pluginId);
-    const failure = failures.get(pluginId) ?? (mounted || builtinFallbackActive ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
+    const failure = failures.get(pluginId) ?? (mounted ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
     const runtimeState = mounted && !failure ? "loaded" : "failed";
     await registry.updateOne({ pluginId }, { $set: { runtimeState, runtimeError: failure || null, updatedAt: new Date() } });
     await versions.updateOne({ pluginId, version: item.version }, { $set: { runtimeState, runtimeError: failure || null, runtimeCheckedAt: new Date() } });
-    await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: runtimeState === "loaded" || Boolean(builtinFallbackActive), updatedAt: new Date() } });
-    if (runtimeState === "loaded" || builtinFallbackActive) {
+    await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: runtimeState === "loaded", updatedAt: new Date() } });
+    if (runtimeState === "loaded") {
       await syncAutomaticPluginProvisioning(db, pluginId);
       await syncPluginPackageVersionUpdates(db, pluginId);
     }
@@ -318,17 +316,12 @@ async function bootstrap(): Promise<void> {
   const uploadedPackages = await platformPackages.find({ source: "zip", status: "installed" }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
   const uploadedIds = new Set(uploadedPackages.map(item => item.pluginId));
   if (!uploadedIds.has("documents")) plugins.register(documentsPlugin);
-  if (!uploadedIds.has("connected-devices")) plugins.register(connectedDevicesPlugin);
 
   const zipPluginFailures = await loadSignedZipPlugins();
-  const builtinFallbacks = new Map([
-    ["documents", documentsPlugin], ["connected-devices", connectedDevicesPlugin]
-  ]);
-  const builtinFallbackIds = new Set<string>();
+  const builtinFallbacks = new Map([["documents", documentsPlugin]]);
   for (const [pluginId, plugin] of builtinFallbacks) {
     if (zipPluginFailures.has(pluginId) && !plugins.list().some(item => item.name === pluginId)) {
       plugins.register(plugin);
-      builtinFallbackIds.add(pluginId);
       logger.warn("Plugin runtime lifecycle: using built-in fallback after ZIP load failure", { pluginId, error: zipPluginFailures.get(pluginId) });
     }
   }
@@ -360,7 +353,7 @@ async function bootstrap(): Promise<void> {
       }
     }
   }
-  await persistZipPluginRuntimeState(zipPluginFailures, builtinFallbackIds);
+  await persistZipPluginRuntimeState(zipPluginFailures);
   const db = mongoClient.db(environment.mongoDbName);
   const automaticPackages = await db.collection("plugin_catalog").find({ activationPolicy: "automatic", codeAvailable: true, status: "published" }).project<{id:string}>({ id: 1, _id: 0 }).toArray();
   for (const item of automaticPackages) await syncAutomaticPluginProvisioning(db, item.id);
