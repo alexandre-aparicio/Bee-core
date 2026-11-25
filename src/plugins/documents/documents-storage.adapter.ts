@@ -41,8 +41,7 @@ export class DocumentsStorageAdapter {
     if(!Buffer.isBuffer(data)||data.length===0||data.length>MAX_FILE_SIZE)throw new Error("Document file must be between 1 byte and 10 MB");
     const normalizedType=String(contentType||"").split(";")[0].trim().toLowerCase();
     if(!ALLOWED_TYPES.has(normalizedType)||!validContent(normalizedType,data))throw new Error("Unsupported or invalid document file content");
-    const safeName=path.basename(String(originalName||"document").replace(/[\\/\r
-\0]/g,"_")).slice(0,180)||"document";
+    const safeName=path.basename(String(originalName||"document").replace(/[\\/]/g,"_").replace(/[\x00-\x1f\x7f]/g,"_")).slice(0,180)||"document";
     const id=randomUUID(),directory=this.directory(tenantId),target=this.filePath(tenantId,id),temporary=path.resolve(directory,randomUUID()+".tmp");
     if(path.dirname(temporary)!==directory)throw new Error("Invalid temporary storage location");
     await mkdir(directory,{recursive:true,mode:0o700});
