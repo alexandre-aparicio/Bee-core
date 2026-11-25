@@ -16,6 +16,7 @@ export const timeTrackingPlugin: BeePlugin = {
     dependencies: ["auth", "organizations", "marketplace"],
     scope: "tenant",
     activationPolicy: "automatic",
+    apiPrefixes: ["/time-tracking"],
     frontend: { routes: [{ path: "/dashboard/time-tracking", component: "bee-time-tracking" }] }
   },
   tenantMigrations: [{

@@ -34,20 +34,6 @@ export const platformAdminPlugin:BeePlugin={
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
   // The default tenant is a legacy authentication fallback, not a customer tenant.
   const defaultTenantId=String(ctx.config.defaultTenantId??"default").trim()||"default";
-  // Signed ZIP runtimes are loaded during bootstrap. Give the HTTP client
-  // enough time to consume the response and finish its UI transition before
-  // restarting. Debounce multiple package changes into one restart.
-  let runtimeRestartTimer:ReturnType<typeof setTimeout>|undefined;
-  const scheduleRuntimeRestart=(reply:import("fastify").FastifyReply,reason:string):void=>{
-   reply.raw.once("finish",()=>{
-    if(runtimeRestartTimer)clearTimeout(runtimeRestartTimer);
-    runtimeRestartTimer=setTimeout(()=>{
-     ctx.logger.warn("Scheduling graceful Bee Core restart for plugin runtime change",{reason});
-     process.kill(process.pid,"SIGTERM");
-    },12000);
-    runtimeRestartTimer.unref();
-   });
-  };
   const sessionIdSecret=String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   if(sessionIdSecret.length<32)throw new Error("Platform admin: JWT_SECRET must contain at least 32 characters.");
   const platformAudit=db.collection("platform_audit_events");
@@ -337,9 +323,22 @@ export const platformAdminPlugin:BeePlugin={
      {$set:{name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),activationPolicy:manifest.activationPolicy??"manual",status:"installed",source:"zip",runtimeState:"stored_pending_runtime",publisher:manifest.publisher,digest,packageDirectory,backendEntrypoint:manifest.backend.entrypoint,frontendRoutes:manifest.frontend.routes,installedAt:now,installedBy:actor.id,updatedAt:now},$setOnInsert:{pluginId:manifest.id,createdAt:now}},
      {upsert:true}
     );
-    await recordPlatformAudit({actorId:actor.id,action:"plugin.package_uploaded",resourceType:"plugin_package",resourceId:manifest.id,metadata:{version:manifest.version,digest,publisher:manifest.publisher,extractedFiles,extractedBytes,runtimeState:"stored_pending_runtime"}});
-    scheduleRuntimeRestart(reply,"signed plugin package installed: "+manifest.id);
-    return reply.code(201).send({success:true,restartRequired:true,message:"Package installed. Bee Core will restart automatically to load the plugin runtime.",package:{id:mask(req.platformSession!,manifest.id,"plugin"),pluginKey:manifest.id,name:manifest.name,version:manifest.version,status:"installed",runtimeState:"stored_pending_runtime",activationPolicy:manifest.activationPolicy??"manual",extractedFiles,extractedBytes,storageKey}});
+    const packageState=await packages.findOne({pluginId:manifest.id},{projection:{globallyEnabled:1}});
+    let runtimeState="disabled";
+    if(packageState?.globallyEnabled!==false){
+     if(!ctx.pluginRuntime)throw new Error("Dynamic plugin runtime is unavailable");
+     try{await ctx.pluginRuntime.mountStoredPackage(manifest.id);runtimeState="loaded";}
+     catch(runtimeError){
+      const runtimeMessage=runtimeError instanceof Error?runtimeError.message:String(runtimeError);
+      await packages.updateOne({pluginId:manifest.id},{$set:{runtimeState:"failed",runtimeError:runtimeMessage.slice(0,500),updatedAt:new Date()}});
+      await db.collection("plugin_catalog").updateOne({id:manifest.id},{$set:{codeAvailable:false,updatedAt:new Date()}});
+      throw new Error("Package was stored but hot activation failed: "+runtimeMessage);
+     }
+    }else{
+     await packages.updateOne({pluginId:manifest.id},{$set:{runtimeState:"disabled",runtimeError:null,updatedAt:new Date()}});
+    }
+    await recordPlatformAudit({actorId:actor.id,action:"plugin.package_uploaded",resourceType:"plugin_package",resourceId:manifest.id,metadata:{version:manifest.version,digest,publisher:manifest.publisher,extractedFiles,extractedBytes,runtimeState}});
+    return reply.code(201).send({success:true,restartRequired:false,message:runtimeState==="loaded"?"Package installed and loaded without restarting Bee Core.":"Package stored; global availability is disabled.",package:{id:mask(req.platformSession!,manifest.id,"plugin"),pluginKey:manifest.id,name:manifest.name,version:manifest.version,status:"installed",runtimeState,activationPolicy:manifest.activationPolicy??"manual",extractedFiles,extractedBytes,storageKey}});
    }catch(error){
     const message=error instanceof Error?error.message:"Plugin package installation failed";
     const status=/not configured/.test(message)?503:/already stored|already being installed|reserved by a built-in|must be newer|dependency is not installed|dependency is not healthy/.test(message)?409:/signature|digest|manifest|ZIP|archive|path|entrypoint|compatible|storageKey|README|frontend|backend|publisher|version/i.test(message)?400:500;
@@ -412,12 +411,21 @@ export const platformAdminPlugin:BeePlugin={
     }
    }
    try{
+    if(ctx.pluginRuntime)await ctx.pluginRuntime.unmount(pluginId);
+   }catch(error){
+    await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
+    return reply.code(409).send({error:"Could not unload the plugin runtime safely: "+(error instanceof Error?error.message:String(error))});
+   }
+   try{
     const info=await lstat(pluginRoot);
     if(!info.isDirectory()||info.isSymbolicLink())throw new Error("Stored plugin package path is not a regular directory");
     await rm(pluginRoot,{recursive:true,force:false});
    }catch(error){
     if((error as NodeJS.ErrnoException).code!=="ENOENT"){
      await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
+     if(packageRecord.globallyEnabled!==false&&ctx.pluginRuntime){
+      try{await ctx.pluginRuntime.mountStoredPackage(pluginId);}catch(restoreError){ctx.logger.error("Plugin runtime could not be restored after package file removal failed",{pluginId,error:restoreError});}
+     }
      return reply.code(500).send({error:"Could not remove stored package files; registry entry was preserved"});
     }
    }
@@ -435,8 +443,7 @@ export const platformAdminPlugin:BeePlugin={
    ]);
    await db.collection("plugin_catalog").updateOne({id:pluginId},{$set:{status:"deprecated",codeAvailable:false,updatedAt:new Date()}});
    await recordPlatformAudit({actorId:actor.id,action:"plugin.package_removed",resourceType:"plugin_package",resourceId:pluginId,metadata:{version:packageRecord.version,activeTenantInstallations:0,inactiveTenantInstallationsRetired:inactiveInstallations.length,tenantDataPreserved:true}});
-   scheduleRuntimeRestart(reply,"signed plugin package removed: "+pluginId);
-   return {success:true,pluginId,restartRequired:true,tenantDataPreserved:true,message:"Package removed. Bee Core will restart automatically to unload its runtime. Tenant data was preserved."};
+   return {success:true,pluginId,restartRequired:false,tenantDataPreserved:true,message:"Package removed and runtime unloaded without restarting Bee Core. Tenant data was preserved."};
   });
   ctx.server.get("/platform/plugin-plans",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
@@ -493,11 +500,31 @@ export const platformAdminPlugin:BeePlugin={
    if(!current)return reply.code(404).send({error:"Platform package not found"});
    if(current.status!=="installed")return reply.code(409).send({error:"Install the platform package before changing its global availability"});
    if((current.globallyEnabled!==false)===req.body.enabled)return {success:true,pluginId,globallyEnabled:req.body.enabled,unchanged:true};
+   if(current.source==="zip"&&!ctx.pluginRuntime)return reply.code(503).send({error:"Dynamic plugin runtime is unavailable"});
+   if(current.source==="zip"&&!req.body.enabled){
+    try{await ctx.pluginRuntime!.unmount(pluginId);}
+    catch(error){return reply.code(409).send({error:"Plugin runtime could not be disabled safely: "+(error instanceof Error?error.message:String(error))});}
+   }
    const now=new Date();
    const expectedState:any={pluginId,status:"installed"};
    if(typeof current.globallyEnabled==="boolean")expectedState.globallyEnabled=current.globallyEnabled;else expectedState.globallyEnabled={$exists:false};
    const updated=await packages.updateOne(expectedState,{$set:{globallyEnabled:req.body.enabled,globallyEnabledAt:now,globallyEnabledBy:actor.id,updatedAt:now}});
-   if(!updated.modifiedCount)return reply.code(409).send({error:"Platform package changed concurrently; refresh and retry"});
+   if(!updated.modifiedCount){
+    if(current.source==="zip"&&!req.body.enabled&&ctx.pluginRuntime)await ctx.pluginRuntime.mountStoredPackage(pluginId).catch(error=>ctx.logger.error("Could not restore plugin runtime after activation race",{pluginId,error}));
+    return reply.code(409).send({error:"Platform package changed concurrently; refresh and retry"});
+   }
+   if(current.source==="zip"&&req.body.enabled){
+    try{await ctx.pluginRuntime!.mountStoredPackage(pluginId);}
+    catch(error){
+     const message=error instanceof Error?error.message:String(error);
+     await packages.updateOne({pluginId,globallyEnabled:true},{$set:{globallyEnabled:false,runtimeState:"failed",runtimeError:message.slice(0,500),updatedAt:new Date()}});
+     await db.collection("plugin_catalog").updateOne({id:pluginId},{$set:{codeAvailable:false,updatedAt:new Date()}});
+     return reply.code(409).send({error:"Plugin could not be enabled because its runtime failed to load: "+message});
+    }
+   }else if(current.source==="zip"&&!req.body.enabled){
+    await packages.updateOne({pluginId},{$set:{runtimeState:"disabled",runtimeError:null,updatedAt:new Date()}});
+    await db.collection("plugin_catalog").updateOne({id:pluginId},{$set:{codeAvailable:false,updatedAt:new Date()}});
+   }
    await recordPlatformAudit({actorId:actor.id,action:req.body.enabled?"plugin.globally_enabled":"plugin.globally_disabled",resourceType:"plugin_package",resourceId:pluginId,metadata:{globallyEnabled:req.body.enabled,tenantInstallationsPreserved:true}});
    return {success:true,pluginId,globallyEnabled:req.body.enabled,tenantInstallationsPreserved:true};
   });

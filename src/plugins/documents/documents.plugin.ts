@@ -8,7 +8,7 @@ import { createDocumentsServices } from "./documents.service.js";
 import { DocumentsRepository } from "./documents.repository.js";
 
 export const documentsPlugin:BeePlugin={
- manifest:{name:"documents",version:"0.1.2",description:"Tenant document library, folder ACLs and controlled public delivery",dependencies:["auth","organizations"],scope:"tenant",activationPolicy:"manual",frontend:{routes:[{path:"/dashboard/documents",component:"documents"}]}},
+ manifest:{name:"documents",version:"0.1.2",description:"Tenant document library, folder ACLs and controlled public delivery",dependencies:["auth","organizations"],scope:"tenant",activationPolicy:"manual",apiPrefixes:["/documents","/public/documents"],frontend:{routes:[{path:"/dashboard/documents",component:"documents"}]}},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const secret=String(ctx.config.sessionIdSecret??ctx.config.jwtSecret??"");
