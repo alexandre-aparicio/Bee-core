@@ -84,7 +84,7 @@ jobs:
         run: npm run check:template-tokens
       - name: Audit style source
         run: npm run audit:styles
-      - name: Lint template CSS
+      - name: Lint standalone application and asset CSS
         run: npm run lint:styles
       - name: Production build
         run: npm run build
