@@ -35,10 +35,12 @@ export class BeePluginFrontendRegistry {
     PLUGIN_FRONTEND_REGISTRATIONS.map(registration => [registration.pluginId, registration])
   );
   private readonly remoteNavigation = new Map<string, BeePluginNavigation>();
+  private readonly remoteRuntimeRefs = new Map<string, string>();
 
   /** Navigation for signed ZIP frontends is supplied by the tenant-authorized package catalogue. */
-  setRemoteNavigation(entries: Array<{ pluginId: string; navigation: BeePluginNavigation }>): void {
+  setRemoteNavigation(entries: Array<{ pluginId: string; runtimeRef?: string; navigation: BeePluginNavigation }>): void {
     this.remoteNavigation.clear();
+    this.remoteRuntimeRefs.clear();
     for (const entry of entries) {
       const pluginId = String(entry.pluginId ?? "");
       const navigation = entry.navigation;
@@ -51,7 +53,12 @@ export class BeePluginFrontendRegistry {
           navigation.route.includes("?") ||
           navigation.route.includes("#")) continue;
       this.remoteNavigation.set(pluginId, navigation);
+      if (typeof entry.runtimeRef === "string" && entry.runtimeRef.length > 0) this.remoteRuntimeRefs.set(pluginId, entry.runtimeRef);
     }
+  }
+
+  runtimeReference(pluginId: string): string {
+    return this.remoteRuntimeRefs.get(pluginId) ?? pluginId;
   }
 
   private navigationEntries(): Array<[string, BeePluginNavigation]> {
