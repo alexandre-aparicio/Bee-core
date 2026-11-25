@@ -75,7 +75,10 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /Hola Mundo/);
         assert.match(script, /bee-plugin:ready/);
       } else if (item.id === "connected-devices") {
+        assert.deepEqual([...installed.manifest.dependencies].sort(), ["auth", "organizations"]);
+        assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
+        assert.deepEqual(installed.manifest.frontend.routes?.map(route => route.path), ["/dashboard/connected-devices"]);
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/connected-devices"]);
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/qrcode.min.js"));
         const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
