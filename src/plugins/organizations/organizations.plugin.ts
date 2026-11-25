@@ -50,8 +50,9 @@ export const organizationsPlugin:BeePlugin={
   const getTenantAssignablePermissions=async(tenantId:string):Promise<string[]>=>{
    const policy=await permissionPolicies.findOne({id:"global"},{projection:{tenantAssignablePermissions:1}});
    const pluginPermissions=await getTenantPluginPermissionCatalog(db,tenantId);
-   const base=policy?.tenantAssignablePermissions??CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key);
-   return [...new Set([...base,...pluginPermissions.filter(item=>item.customRoleAssignable).map(item=>item.key)])];
+   const base=policy?.tenantAssignablePermissions??[...CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key),...pluginPermissions.filter(item=>item.customRoleAssignable).map(item=>item.key)];
+   const active=new Set([...CORE_PERMISSION_CATALOG.map(item=>item.key),...pluginPermissions.map(item=>item.key)]);
+   return [...new Set(base.filter(key=>active.has(key)))];
   };
   // Backfill stable public subdomain slugs for tenants created before host routing existed.
   const usedTenantSlugs=new Set<string>();
@@ -153,11 +154,12 @@ export const organizationsPlugin:BeePlugin={
    const actor=await requireCompanyPermission(auth,req.params.companyId,"members.read",reply);if(!actor)return;
    const rows=await customRoles.find({tenantId:req.params.companyId}).sort({name:1}).toArray();
    const company=await companies.findOne({id:req.params.companyId});
+   const pluginPermissionCatalog=await getTenantPluginPermissionCatalog(db,req.params.companyId);
    const roleKeys=company?.kind==="super"?["super_admin","owner","admin","manager","member","guest"] as const:["owner","admin","manager","member","guest"] as const;
    const roleLabels:Record<string,string>={super_admin:"Super Admin",owner:"Owner",admin:"Admin",manager:"Manager",member:"Member",guest:"Guest"};
    const roleDescriptions:Record<string,string>={super_admin:"Protected global platform authority; cannot be restricted or delegated.",owner:"Full administration of this organization; protected against accidental lockout.",admin:"Delegated organization administration.",manager:"Operational management without ownership privileges.",member:"Standard organization access.",guest:"Minimal read-only access; default access is limited to viewing plugins."};
-   const systemRoles=roleKeys.map(key=>({key,label:roleLabels[key],protected:key==="super_admin"||key==="owner",description:roleDescriptions[key],permissions:COMPANY_ROLE_PERMISSIONS[key]}));
-   return {roles:rows.map(({id,name,description,permissions,mode,createdAt,updatedAt})=>({id:mask(auth,id,"role"),name,description,permissions,mode:mode??"grant",createdAt,updatedAt})),systemRoles,permissionCatalog:[...CORE_PERMISSION_CATALOG,...await getTenantPluginPermissionCatalog(db,req.params.companyId)],tenantAssignablePermissions:await getTenantAssignablePermissions(req.params.companyId)};
+   const systemRoles=roleKeys.map(key=>({key,label:roleLabels[key],protected:key==="super_admin"||key==="owner",description:roleDescriptions[key],permissions:[...COMPANY_ROLE_PERMISSIONS[key],...pluginPermissionCatalog.filter(permission=>key!=="guest"&&permission.defaultGrants?.[key==="super_admin"?"owner":key as "owner"|"admin"|"manager"|"member"]).map(permission=>permission.key)]}));
+   return {roles:rows.map(({id,name,description,permissions,mode,createdAt,updatedAt})=>({id:mask(auth,id,"role"),name,description,permissions,mode:mode??"grant",createdAt,updatedAt})),systemRoles,permissionCatalog:[...CORE_PERMISSION_CATALOG,...pluginPermissionCatalog],tenantAssignablePermissions:await getTenantAssignablePermissions(req.params.companyId)};
   });
   ctx.server.post<{Params:{companyId:string};Body:{name?:string;description?:string;permissions?:unknown;mode?:"grant"|"restriction"}}>("/companies/:companyId/roles",async(req,reply)=>{
    const auth=await authenticate(req,reply);if(!auth)return;
