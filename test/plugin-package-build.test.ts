@@ -73,13 +73,14 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /clock-out/);
         assert.doesNotThrow(() => new Script(script), "the standalone Time Tracking frontend must be valid JavaScript");
       } else if (item.id === "documents") {
-        assert.equal(installed.manifest.version, "0.1.2", "Documents must publish the decoupled manual-activation package version");
+        assert.equal(installed.manifest.version, "0.1.5", "Documents must publish the Files-backed manual-activation package version");
         assert.equal(installed.manifest.activationPolicy, "manual", "Documents must follow the same opt-in tenant activation policy as Hello Mundo");
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/public/documents"]);
-        assert.deepEqual(installed.manifest.dependencies.map((dependency: { pluginId: string }) => dependency.pluginId), ["auth", "organizations"]);
+        assert.deepEqual(installed.manifest.dependencies.map((dependency: { pluginId: string }) => dependency.pluginId), ["auth", "organizations", "files"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
-        assert.ok(existsSync(join(installed.packageDirectory, "dist/plugins/documents/documents-storage.adapter.js")), "the signed ZIP must include Documents-owned storage in its backend graph");
+        assert.ok(existsSync(join(installed.packageDirectory, "dist/plugins/documents/files-storage.adapter.js")), "the signed ZIP must use the native Files storage adapter");
+        assert.ok(!existsSync(join(installed.packageDirectory, "dist/plugins/documents/documents-storage.adapter.js")), "Documents must not ship a second file storage implementation");
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
         const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
         const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
@@ -130,7 +131,11 @@ test("Hello Mundo and Documents are not registered or advertised as bundled plug
   assert.doesNotMatch(entitlementSource, /hello-world/, "Hello Mundo must not be seeded as a built-in catalog item or included in built-in plans");
   assert.doesNotMatch(runtimeSource, /documentsPlugin|documentsStoragePath/, "Documents backend and storage configuration must not be statically registered in Core");
   assert.doesNotMatch(pluginManagerSource, /documentsStoragePath|documents:\s*\[/, "Core must not contain a Documents-specific configuration allowlist");
-  assert.doesNotMatch(frontendRegistrySource, /BeeDocumentsComponent|\["documents"/, "Documents must not be registered as a bundled Angular frontend");
+  assert.match(frontendRegistrySource, /BeeDocumentsComponent|\["documents"/, "Documents must render in the native Bee-Core workspace");
+  const pluginOutletSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+  assert.ok(pluginOutletSource.indexOf("this.registry.resolve(pluginId)") < pluginOutletSource.indexOf("this.loadRemoteRuntime(pluginId)"), "native workspace components must take precedence over standalone package frontends");
+  const documentsApiSource = await readFile(join(process.cwd(), "apps/web/src/app/documents/documents-api.service.ts"), "utf8");
+  assert.match(documentsApiSource, /filesUpload:\s*"\/files"/, "Documents uploads must go through the native Files plugin");
   assert.doesNotMatch(appComponentSource, /documents/i, "the Angular shell must discover Documents through signed plugin routes, not hardcoded module wiring");
   assert.match(registrySource, /retireBundledPlatformPackage/, "legacy bundled records must be retired");
   assert.match(registrySource, /status:\s*"deprecated"/, "retired package records must be hidden from active listings");
