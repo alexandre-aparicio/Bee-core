@@ -368,7 +368,7 @@ test("auth integration: login, token introspection, refresh rotation and logout"
     const customPermissions=await app.inject({method:"GET",url:"/companies/active/permissions",headers:{authorization:"Bearer "+betaCustomCompany.json().accessToken}});
     assert.equal(customPermissions.statusCode,200);
     assert.equal(customPermissions.json().role,"custom");
-    assert.ok(customPermissions.json().permissions.includes("files.read"));
+    assert.ok(customPermissions.json().permissions.includes("documents.read"));
     assert.ok(customPermissions.json().permissions.includes("files.read"));
     assert.ok(!customPermissions.json().permissions.includes("members.manage"));
     const cannotDeleteAssignedRole=await app.inject({method:"DELETE",url:"/companies/"+secondCompanyId+"/roles/"+customRoleId,headers:{authorization:"Bearer "+activateCompany.json().accessToken}});
