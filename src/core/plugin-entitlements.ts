@@ -2,6 +2,7 @@ import type { Db, Document } from "mongodb";
 import { randomUUID } from "node:crypto";
 import { TenantCollection } from "./tenant-collection.js";
 import type { TenantPluginMigration } from "./plugin-migrations.js";
+import type { BeePluginPermission } from "./plugin-package.js";
 import { hasTenantPermission, type TenantContext } from "./tenant-context.js";
 import { enqueuePluginInstallJob, enqueuePluginUpdateJob, ensurePluginInstallJobIndexes } from "./plugin-install-jobs.js";
 
@@ -26,6 +27,9 @@ export type PluginPackageDefinition = Document & {
   system: boolean;
   dependencies: string[];
   activationPolicy?: "automatic" | "manual";
+  permissions?: BeePluginPermission[];
+  requiredServices?: string[];
+  frontendContract?: number;
   migrations?: TenantPluginMigration[];
   codeAvailable: boolean;
   status: "published" | "draft" | "deprecated";
