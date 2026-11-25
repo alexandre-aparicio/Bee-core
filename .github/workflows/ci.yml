@@ -14,6 +14,12 @@ on:
       - "apps/web/package-lock.json"
       - "tsconfig.json"
       - ".github/workflows/ci.yml"
+      - ".github/workflows/docker-prod-profile.yml"
+      - "Dockerfile"
+      - "apps/web/Dockerfile"
+      - "docker-compose*.yml"
+      - ".env*.example"
+      - "docker/**"
   push:
     branches: [main]
 
@@ -84,3 +90,7 @@ jobs:
         run: npm run build
       - name: Validate Playwright test discovery
         run: npm run test:e2e -- --list
+
+  production-compose:
+    name: Production Compose clean install and backup/restore
+    uses: ./.github/workflows/docker-prod-profile.yml
