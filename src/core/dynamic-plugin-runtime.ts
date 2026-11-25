@@ -44,6 +44,10 @@ export class BeeDynamicPluginRuntime {
     });
     const scopedConfig: Record<string, unknown> = {};
     if (Object.prototype.hasOwnProperty.call(base.config, "mongoDbName")) scopedConfig.mongoDbName = base.config.mongoDbName;
+    // Files-backed plugins must resolve the exact same storage root as the host Files service.
+    if ((plugin.manifest.dependencies ?? []).some(name => name.toLowerCase() === "files") && Object.prototype.hasOwnProperty.call(base.config, "fileStoragePath")) {
+      scopedConfig.fileStoragePath = base.config.fileStoragePath;
+    }
     scopedConfig.sessionIdSecret = typeof base.config.sessionIdSecret === "string"
       ? base.config.sessionIdSecret
       : createHmac("sha256", this.jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
