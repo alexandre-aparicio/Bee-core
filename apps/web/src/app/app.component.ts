@@ -106,6 +106,7 @@ export class AppComponent implements OnInit, OnDestroy {
   activePlugins: string[] = [];
   setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.pluginFrontends.setActivePlugins(this.activePlugins); this.syncActiveSectionFromPath(); }
   isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
+  pluginIdForSection(section: string): string | null { return this.pluginFrontends.getPluginIdForSection(section, this.activePlugins) ?? null; }
   private async refreshTenantPlugins(): Promise<void> {
     if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
     try {
