@@ -59,8 +59,8 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
   </form>
 
   <div class="documents__feedback" aria-live="polite" aria-atomic="true">
-    <p *ngIf="error" class="documents__notice documents__notice--error" role="alert">{{error}}</p>
-    <p *ngIf="uploadMessage" class="documents__notice documents__notice--success" role="status">{{uploadMessage}}</p>
+    <p *ngIf="error" class="documents__notice documents__notice--error bee-status--danger" role="alert">{{error}}</p>
+    <p *ngIf="uploadMessage" class="documents__notice documents__notice--success bee-status--success" role="status">{{uploadMessage}}</p>
   </div>
 
   <section class="documents__content bee-page__content" aria-label="Documents and folders">
@@ -304,15 +304,15 @@ type DragItem={kind:"document";item:Doc}|{kind:"folder";item:Folder};
 .documents__folder-count{display:inline-flex;flex:0 0 27px;width:27px;height:27px;align-items:center;justify-content:center;margin-left:auto;border:1px solid color-mix(in srgb,var(--bee-accent) 42%,var(--bee-border));border-radius:50%;background:color-mix(in srgb,var(--bee-accent) 11%,transparent);color:var(--bee-accent);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
 .documents__folder-count--table{width:23px;height:23px;min-width:23px;margin-left:8px;vertical-align:middle}
 .documents__item--folder.cdk-drop-list-receiving,.documents__table tr.cdk-drop-list-receiving,.documents__breadcrumb-root.cdk-drop-list-receiving{outline:2px solid var(--bee-accent);outline-offset:2px;background:color-mix(in srgb,var(--bee-accent) 9%,var(--bee-surface))}
-:host .cdk-drag-preview{z-index:1000;display:flex;box-sizing:border-box;min-width:220px;max-width:min(360px,80vw);padding:16px;border:1px solid color-mix(in srgb,var(--bee-accent) 58%,var(--bee-border));border-radius:14px;background:var(--bee-surface);color:inherit;opacity:1;box-shadow:var(--bee-shadow-raised);transform:scale(1.025);pointer-events:none}
-:host .cdk-drag-placeholder{opacity:0;transition:opacity .18s ease,transform .24s cubic-bezier(.2,.8,.2,1)}
+.cdk-drag-preview.cdk-drag-preview{z-index:1000;display:flex;box-sizing:border-box;min-width:220px;max-width:min(360px,80vw);padding:16px;border:1px solid color-mix(in srgb,var(--bee-accent) 58%,var(--bee-border));border-radius:14px;background:var(--bee-surface);color:inherit;opacity:1;box-shadow:var(--bee-shadow-raised);transform:scale(1.025);pointer-events:none}
+.cdk-drag-placeholder.cdk-drag-placeholder{opacity:0;transition:opacity .18s ease,transform .24s cubic-bezier(.2,.8,.2,1)}
 .documents__grid.cdk-drop-list-dragging>.cdk-drag-placeholder{min-height:0;height:0;margin:0;padding-block:0;border-width:0;overflow:hidden}
 .documents__grid.cdk-drop-list-dragging>.documents__item:not(.cdk-drag-placeholder){transition:transform .26s cubic-bezier(.2,.8,.2,1),border-color .2s ease,background-color .2s ease}
 .documents__item--folder.cdk-drop-list-receiving{position:relative;z-index:1;transform:scale(1.025);box-shadow:0 0 0 4px color-mix(in srgb,var(--bee-accent) 12%,transparent),0 14px 34px color-mix(in srgb,var(--bee-accent) 18%,transparent);transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease,background-color .2s ease}
-:host .documents__table tbody tr.cdk-drag-placeholder{height:0;opacity:0}
+.documents__table tbody tr.cdk-drag-placeholder{height:0;opacity:0}
 .documents__table tbody tr.cdk-drop-list-receiving{background:color-mix(in srgb,var(--bee-accent) 12%,var(--bee-surface))}
 .cdk-drag-animating{transition:transform .28s cubic-bezier(.2,.8,.2,1)}
-@media(prefers-reduced-motion:reduce){:host .cdk-drag-preview,:host .cdk-drag-placeholder,:host .documents__grid.cdk-drop-list-dragging>.documents__item,:host .documents__item--folder.cdk-drop-list-receiving{transition:none;animation:none}}
+@media(prefers-reduced-motion:reduce){ .cdk-drag-preview.cdk-drag-preview,.cdk-drag-placeholder.cdk-drag-placeholder,:host .documents__grid.cdk-drop-list-dragging>.documents__item,:host .documents__item--folder.cdk-drop-list-receiving{transition:none;animation:none}}
 .documents__item-main[cdkDragHandle],.documents__table td[cdkDragHandle]{cursor:grab}
 .documents__item-main[cdkDragHandle]:active,.documents__table td[cdkDragHandle]:active{cursor:grabbing}
 .documents__folder-open{display:flex;align-items:flex-start;gap:0;width:100%;min-width:0;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
