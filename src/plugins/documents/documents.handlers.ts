@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { hasTenantPermission } from "../../core/tenant-context.js";
 import { evaluateResourceAccess } from "../../core/resource-access.js";
-import { unmaskResourceId } from "../../core/session-id.js";
+import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import type { Folder, BeeDocument } from "./documents.service.js";
 
 /** Documents endpoint operation handlers. They receive Core and repository services
@@ -9,6 +9,18 @@ import type { Folder, BeeDocument } from "./documents.service.js";
 export function createDocumentsHandlers(deps:any) {
  const {db,secret,storage,repository,authenticate,folders,docs,ref,userRef,unref,ancestors,canAccess,present,sharePolicy,policies,ownedFolder,isEnabled,MAX_DEPTH,clean,validPublicId,normalizeTags}=deps;
  return {
+  uploadFile: async(req:any,reply:any)=>{
+   const tenant=await authenticate(req,reply);if(!tenant)return;
+   if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
+   if(!Buffer.isBuffer(req.body))return reply.code(400).send({error:"A binary document upload is required"});
+   const originalName=String(req.headers["x-document-name"]??"").slice(0,180);
+   const contentType=String(req.headers["x-document-content-type"]??"").split(";")[0].trim().toLowerCase();
+   try{
+    const file=await storage.store(tenant.tenantId,req.body,originalName,contentType,tenant.userId);
+    const id=maskResourceId(file.id,"document-file",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);
+    return reply.code(201).send({file:{id,name:file.originalName,contentType:file.contentType,size:file.size}});
+   }catch(error:any){return reply.code(400).send({error:error instanceof Error?error.message:"Document upload failed"});}
+  },
   shareTargets: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"members.read"))return reply.code(403).send({error:"Organization member read permission required"});
@@ -167,10 +179,8 @@ export function createDocumentsHandlers(deps:any) {
   documentsPost: async(req:any,reply:any)=>{
    const tenant=await authenticate(req,reply);if(!tenant)return;
    if(!hasTenantPermission(tenant,"documents.write"))return reply.code(403).send({error:"Documents write permission required"});
-   let fileId:string;try{fileId=unmaskResourceId(String(req.body?.fileId??""),"file",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);}catch{return reply.code(400).send({error:"A valid uploaded Files reference is required"});}
+   let fileId:string;try{fileId=unmaskResourceId(String(req.body?.fileId??""),"document-file",{sessionId:tenant.sessionId,expiresAt:tenant.sessionExpiresAt},secret);}catch{return reply.code(400).send({error:"A valid uploaded Documents reference is required"});}
    const file=await storage.getMetadata(tenant.tenantId,fileId);if(!file)return reply.code(404).send({error:"Stored file not found"});
-   const fileDecision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"files",resourceType:"file",resourceId:fileId,permission:"read"});
-   if(fileDecision===false)return reply.code(404).send({error:"Stored file not found"});
    let folderId:string|null=null;let parents:Folder[]=[];
    if(req.body?.folderId){try{folderId=unref(String(req.body.folderId),"folder",tenant);parents=await ancestors(tenant.tenantId,folderId);}catch{return reply.code(404).send({error:"Folder not found"});}
     if(!await canAccess(tenant,"folder",folderId,"write",parents.slice(1)))return reply.code(404).send({error:"Folder not found"});}
@@ -197,8 +207,6 @@ export function createDocumentsHandlers(deps:any) {
    const parents=await ancestors(tenant.tenantId,item.folderId);
    if(!await canAccess(tenant,"document",id,"read",parents))return reply.code(404).send({error:"Document not found"});
    const file=await storage.getMetadata(tenant.tenantId,item.fileId);if(!file)return reply.code(404).send({error:"Document content not found"});
-   const fileDecision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"files",resourceType:"file",resourceId:item.fileId,permission:"read"});
-   if(fileDecision===false)return reply.code(404).send({error:"Document content not found"});
    let data:Buffer;try{data=await storage.read(tenant.tenantId,file);}catch{return reply.code(404).send({error:"Document content not found"});}
    reply.header("content-type",file.contentType);reply.header("content-length",String(data.length));
    reply.header("content-disposition","attachment; filename=\""+file.originalName.replace(/["\\\\\\r\\n]/g,"_")+"\"");
