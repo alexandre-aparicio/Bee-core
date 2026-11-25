@@ -19,7 +19,7 @@ type PlatformPackage = {
 
 type PackageTenantUsage = { pluginId: string; canRemove: boolean; installedCount: number; inactiveCount: number; pendingJobCount: number; tenants: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; inactiveTenants?: Array<{name:string;slug?:string|null;kind:string;companyStatus:string;installationStatus:string;version?:string|null}>; pendingJobs: Array<{tenantName:string;action:string;status:string}>; };
 
-type SuperOrganizationPlugin = { id: string; name: string; installed: boolean; enabled: boolean; status: string; };
+type SuperOrganizationPlugin = { id: string; pluginKey: string; name: string; installed: boolean; enabled: boolean; status: string; };
 
 type PlatformPlan = {
   id: string;
@@ -418,9 +418,7 @@ export class PluginSettingsComponent implements OnInit {
   }
   superOrganizationPluginFor(plugin: PluginRecord): SuperOrganizationPlugin | undefined {
     const key = plugin.pluginKey || plugin.id;
-    const catalogPlugin = this.plugins.find(item => item.pluginKey === key || item.id === plugin.id);
-    const maskedId = catalogPlugin?.id || plugin.id;
-    return this.superOrganizationPlugins.find(item => item.id === maskedId);
+    return this.superOrganizationPlugins.find(item => item.pluginKey === key || item.id === plugin.id);
   }
   async toggleSuperOrganizationActivation(plugin: PluginRecord): Promise<void> {
     const platformPackage = this.platformPackageFor(plugin);
@@ -429,7 +427,9 @@ export class PluginSettingsComponent implements OnInit {
     this.superOrganizationActivationBusyId = platformPackage.pluginKey;
     this.packageError = ''; this.message = ''; this.openMenuId = '';
     try {
-      const response = await fetch('/api/platform/companies/' + encodeURIComponent(this.superOrganizationTenantId) + '/plugins/' + encodeURIComponent(plugin.id), {
+      const superOrganizationPlugin = this.superOrganizationPluginFor(plugin);
+      if (!superOrganizationPlugin) throw new Error('Could not resolve the Super Organization plugin identifier');
+      const response = await fetch('/api/platform/companies/' + encodeURIComponent(this.superOrganizationTenantId) + '/plugins/' + encodeURIComponent(superOrganizationPlugin.id), {
         method: 'PUT', headers: { authorization: 'Bearer ' + this.token, 'content-type': 'application/json' },
         body: JSON.stringify({ enabled })
       });
