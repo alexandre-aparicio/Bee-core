@@ -11,7 +11,7 @@ Scope: `apps/web` template palettes, shared dashboard styles and feature CSS. No
 | Fixed package palettes and active html/body theme scope | Done by source review | Six package token sheets; Light/Dark selectors are mirrored to the active html surface. First paint before Angular boot remains neutral fallback. |
 | Remove legacy client custom-palette runtime | Done by source review | Engine token application/save/preview runtime and six `theme-tokens.ts` files removed. Backend legacy endpoint and payload contract intentionally retained. |
 | Shared wrapper migration | Done by source review | Midnight, Paper and Glass dashboard wrappers have empty `styles: []`; shared structure is in `base.css`. |
-| Legacy alias removal | Pending | Six aliases remain on the package host in `base.css` for unconverted feature CSS. |
+| Legacy alias removal | Done by source search | Migrated the final `organization-company` and `teams-workspace` consumers and removed all six temporary aliases from the package host. |
 
 ## Step 2 — Token contract and checker
 
@@ -61,21 +61,21 @@ Explicit transition paths from source review:
 
 | Item | Status | Scope |
 |---|---|---|
-| Public template tokenization | Source-reviewed; runtime NOT verified | Aurora: 21 hex / 1 RGB-HSL → 0 / 0; Editorial: 10 hex / 0 RGB-HSL → 0 / 0; Studio: 23 hex / 0 RGB-HSL → 0 / 0. All three public page components now consume package semantic tokens; inline CSS braces balanced (29/29, 29/29, 41/41). Used tokens exist in the contract and both modes of all six packages. |
+| Public template tokenization | Source-reviewed; runtime NOT verified | Aurora public page + package CSS: 22 hex / 1 RGB-HSL → 0 / 0; Editorial: 29 hex / 0 RGB-HSL → 0 / 0; Studio: 40 hex / 0 RGB-HSL → 0 / 0. All three public page components and package layout styles now consume semantic tokens; inline CSS braces balanced (29/29, 29/29, 41/41). Used tokens exist in the contract and both modes of all six packages. |
 
 ## Step 7 — Stylelint / CI
 
 | Item | Status | Scope |
 |---|---|---|
 | Public package manifest checker | Implemented; source-reviewed, NOT executed | `check-template-tokens.mjs` excludes `shared`, reports each non-shared package directory without `manifest.ts` in the JSON `warnings` array, continues checking other packages, and sets exit code 1 when `errors` is non-empty. All six current package directories contain `manifest.ts` by repository tree inventory. |
-| Stylelint and CI policy | Implemented in source; NOT executed | Added `stylelint.config.mjs` and pinned `stylelint@18.1.0` through the `lint:styles` npm script. The web CI now runs token/manifest checks, style audit, Stylelint, production build and Playwright discovery; web Node is pinned to 22.22.2. Stylelint covers standalone `src/app/templates/**/*.css`; inline Angular CSS remains source-audited, not parsed by Stylelint. No workflow was run. The Stylelint CLI is fetched by `npx` and is intentionally not recorded in package-lock; converting it to a lockfile dependency requires a permitted package-manager install. |
+| Stylelint and CI policy | Implemented in source; NOT executed | Added `stylelint.config.mjs` and pinned `stylelint@18.1.0` through the `lint:styles` npm script. The web CI now runs token/manifest checks, style audit, Stylelint, production build and Playwright discovery; web Node is pinned to 22.22.2. Stylelint covers standalone `src/app/**/*.css` and `src/styles.css`; inline Angular CSS remains source-audited, not parsed by Stylelint. Device-simulator CSS under `src/assets` is excluded. No workflow was run. The Stylelint CLI is fetched by `npx` and is intentionally not recorded in package-lock; converting it to a lockfile dependency requires a permitted package-manager install. |
 
 ## Step 8 — Cleanup and documentation
 
 | Item | Status | Scope |
 |---|---|---|
 | Legacy palette aliases | Removed by source search | Migrated the remaining `organization-company` and `teams-workspace` consumers to `--bee-*` tokens, then removed all six temporary aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) from the package host. The three explicitly deferred Teams Workspace Midnight-Light `:host-context` rules remain unchanged. |
-| Cleanup and documentation reconciliation | In progress | This progress record is being updated with the public template and CI work. Remaining cleanup must be based on source inventory; do not claim runtime or visual validation. |
+| Cleanup and documentation reconciliation | Source-reviewed | Progress record updated to reflect Steps 6–8 and validation boundaries. Remaining exception is the explicitly deferred Teams Workspace palette block; runtime and visual validation remain NOT verified. |
 
 ## Step 5 — source batches completed
 
@@ -111,7 +111,7 @@ Explicit transition paths from source review:
 | `base.css` | `[class*=` | 0; all substring compatibility selectors deleted |
 | `base.css` | hex / RGB-HSL / brace balance | 0 / 0 / 96 open = 96 close |
 | `core/appearance-modes.css` | palette literals / `!important` / `[class*=` | 0 / 0 / 0 (previously reviewed) |
-| `apps/web/src/styles.css` | `!important` | 8 retained in the mixed global/public stylesheet; public/global cleanup remains out of scope until Step 6 is authorized |
+| `apps/web/src/styles.css` | `!important` | 0 after removing eight auth, dashboard and Notes overrides by increasing selector specificity |
 | Package styles | hex in Midnight / Paper / Glass | 0 / 0 / 0 (previously reviewed) |
 | Deferred feature overrides | `:host-context` | 3 in Teams Workspace; 22 other selectors had already been removed in prior changes (scope discrepancy recorded above) |
 | F2 source references | `--bee-control-(bg|border|placeholder)` in time tracking and STYLE-GUIDE | 0; uses `--bee-input-*` equivalents |
@@ -126,6 +126,7 @@ cd apps/web
 npm ci
 npm run check:template-tokens
 npm run audit:styles
+npm run lint:styles
 npx ng build --configuration production
 npx playwright test
 ```
@@ -134,4 +135,4 @@ Then visually review Midnight Dark and Light, Paper and Glass on Platform Admin,
 
 ## Validation boundary
 
-No repository code was executed by this work. The checker, style audit, Angular build, Playwright tests, route runtime behavior, cascade behavior, responsive behavior and all visual comparisons are **NOT verified**. Do not mark Steps 1–5 complete until their remaining source work and human validation are complete.
+No repository code or GitHub workflow was executed by this work. The token checker, style audit, Stylelint, Angular build, Playwright tests, route runtime behavior, cascade behavior, responsive behavior and all visual comparisons are **NOT verified**. Do not mark Steps 1–5 complete until their remaining source work and human validation are complete.
