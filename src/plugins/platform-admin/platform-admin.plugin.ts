@@ -66,7 +66,9 @@ export const platformAdminPlugin:BeePlugin={
   // Preserve tenant installation history; hide only the old bundled platform record.
   await retireBundledPlatformPackage(db,"hello-world");
   await retireBundledPlatformPackage(db,"time-tracking");
-  await retireBundledPlatformPackage(db,"notes");
+  // Retire this discarded module even if a tenant or platform previously replaced it with a ZIP.
+  // Tenant installation rows, migration history and tenant_workspace-independent data remain untouched.
+  await retireBundledPlatformPackage(db,"notes",true);
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // Migrate legacy platformRole accounts once. The configured bootstrap email
   // is only eligible when no Super Admin membership exists yet; it must never
