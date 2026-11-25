@@ -81,7 +81,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Check template token contract and package manifests
-        run: npm run check:template-tokens
+        run: npm run check:template-tokens -- --contrast-report
       - name: Audit style source
         run: npm run audit:styles -- --strict
       - name: Lint standalone application and asset CSS
