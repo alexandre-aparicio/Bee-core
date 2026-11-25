@@ -88,6 +88,18 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify({ companies: [{ id: tenantId, name: 'Test Company', role, active: true }] })
     });
   });
+  await page.route('**/api/companies/active/permissions', async route => {
+    const session = await readSessionFixture(route.request());
+    const permissions = session.user?.roles?.includes('admin')
+      ? ['members.read', 'members.manage', 'members.invite']
+      : ['members.read'];
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ permissions }) });
+  });
+  await page.route('**/api/companies/*/roles', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ roles: [] })
+  }));
 });
 
 test('landing page renders the main message', async ({ page }) => {
@@ -420,7 +432,7 @@ test('company owner can invite, change roles and suspend company members', async
   await page.getByRole('button', { name: 'Suspend access' }).click();
   await page.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect.poll(() => members.find(item => item.userId === 'member-2')?.status).toBe('suspended');
-  await expect(memberRow).toContainText('suspended');
+  await expect(memberRow).toContainText(/suspended/i);
 
   await page.getByPlaceholder('name@company.com').fill('new@example.test');
   await page.locator('select[name="inviteRole"]').selectOption('member');
