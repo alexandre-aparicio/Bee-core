@@ -65,6 +65,7 @@ test("Connected Devices is ZIP-only and has no Core or Angular static registrati
   const remoteRegistry = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
   assert.match(remoteRegistry, /setRemoteNavigation/);
   const dashboard = await readFile(resolve(root, "apps/web/src/app/app.component.ts"), "utf8");
+  assert.doesNotMatch(dashboard, /connected-devices|connectedDevicesFrontend/i, "the dashboard root must not know the Connected Devices package ID");
   assert.match(dashboard, /setRemoteNavigation/);
   assert.match(dashboard, /frontendRoutes/);
   const packageUpload = await readFile(resolve(root, "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
