@@ -35,6 +35,8 @@ test("plugin manifest rejects unsafe paths, invalid IDs, duplicate permissions a
   assert.throws(() => validatePluginManifest({ ...validManifest, dependencies: [{ pluginId: "core.audit", versionRange: "latest" }] }), /Invalid plugin dependencies/);
   assert.throws(() => validatePluginManifest({ ...validManifest, requiredServices: ["root-shell"] }), /requiredServices/);
   assert.throws(() => validatePluginManifest({ ...validManifest, frontendContract: 0 }), /frontend contract/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, permissions: [{ ...validManifest.permissions[0], module: "other.module" }] }), /Invalid plugin permissions/);
+  assert.throws(() => validatePluginManifest({ ...validManifest, permissions: [{ ...validManifest.permissions[0], defaultGrants: { owner: true, admin: true, manager: true } }] }), /Invalid plugin permissions/);
   assert.throws(() => validatePluginManifest({ ...validManifest, frontend: { routes: [{ path: "/same", component: "crm.contacts.list" }, { path: "/same", component: "crm.contacts.detail" }] } }), /route paths must be unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, collections: ["crm_contacts", "crm_contacts"] }), /collection names must be unique/);
   assert.throws(() => validatePluginManifest({ ...validManifest, migrations: [...validManifest.migrations, ...validManifest.migrations] }), /migration IDs must be unique/);
