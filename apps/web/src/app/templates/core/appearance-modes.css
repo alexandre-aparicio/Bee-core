@@ -1,11 +1,11 @@
 /* Appearance rules are scoped to the active surface host. Public mode can never restyle dashboard UI. */
-.theme-mode-toggle{display:inline-flex;align-items:center;justify-content:center;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--panel);color:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.theme-mode-toggle{display:inline-flex;align-items:center;justify-content:center;padding:8px 11px;border:1px solid var(--bee-border);border-radius:9px;background:var(--bee-surface);color:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
 .theme-mode-toggle:hover{filter:brightness(1.12)}
 .bee-template-manager__mode-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
-.bee-template-mode{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);font-size:12px}
-.bee-template-mode>div{display:flex;gap:4px;padding:3px;border-radius:8px;background:color-mix(in srgb,var(--muted) 12%,transparent)}
-.bee-template-mode button{border:0;border-radius:6px;padding:7px 9px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer}
-.bee-template-mode button.active{background:var(--bg);color:inherit;box-shadow:0 1px 4px #0002}
+.bee-template-mode{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--bee-border);border-radius:10px;background:var(--bee-surface);font-size:12px}
+.bee-template-mode>div{display:flex;gap:4px;padding:3px;border-radius:8px;background:color-mix(in srgb,var(--bee-text-muted) 12%,transparent)}
+.bee-template-mode button{border:0;border-radius:6px;padding:7px 9px;background:transparent;color:var(--bee-text-muted);font-size:11px;cursor:pointer}
+.bee-template-mode button.active{background:var(--bee-bg);color:inherit;box-shadow:0 1px 4px #0002}
 
 /* Dashboard light mode targets the shared bee-dash shell markup. */
 .bee-template-package-host[data-bee-dashboard-mode="light"] .bee-dash-dashboard{color:#20283a}
