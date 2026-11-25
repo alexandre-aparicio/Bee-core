@@ -590,7 +590,7 @@
 }
 
 /* Platform Admin, Platform Company and Company Members action buttons. */
-.bee-dash-content :is(.quick-action, ) {
+.bee-dash-content .quick-action {
   background: var(--bee-dashboard-quick-action-background, var(--bee-surface-subtle)) !important;
   color: var(--bee-dashboard-quick-action-color, var(--bee-text)) !important;
   border-color: var(--bee-dashboard-quick-action-border, var(--bee-border)) !important;
