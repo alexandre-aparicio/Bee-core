@@ -1,5 +1,5 @@
-import { CommonModule } from "@angular/common";
-import { Component, Input, OnInit } from "@angular/core";
+
+import { Component, Input, OnInit, ChangeDetectionStrategy } from "@angular/core";
 
 type PlatformPackage = {
   id: string;
@@ -35,7 +35,7 @@ type PluginRecord = {
 @Component({
   selector: "bee-plugin-settings",
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <section class="plugin-settings">
       <header class="plugin-settings__page-header">
@@ -45,37 +45,53 @@ type PluginRecord = {
           <p>{{detail ? 'Plugin information and availability.' : 'Browse modules, manage platform packages and configure plan access.'}}</p>
         </div>
       </header>
-      <div class="plugin-settings__toolbar" *ngIf="!detail">
-        <div class="plugin-settings__toolbar-filters">
-          <div class="plugin-settings__search">
-            <span aria-hidden="true">⌕</span>
-            <input type="search" [value]="search" (input)="search=$any($event.target).value" placeholder="Search modules…" aria-label="Search modules">
-            <button *ngIf="search" type="button" (click)="search=''" aria-label="Clear search">×</button>
+      @if (!detail) {
+        <div class="plugin-settings__toolbar">
+          <div class="plugin-settings__toolbar-filters">
+            <div class="plugin-settings__search">
+              <span aria-hidden="true">⌕</span>
+              <input type="search" [value]="search" (input)="search=$any($event.target).value" placeholder="Search modules…" aria-label="Search modules">
+              @if (search) {
+                <button type="button" (click)="search=''" aria-label="Clear search">×</button>
+              }
+            </div>
+            <select class="plugin-settings__type-filter" [value]="moduleTypeFilter" (change)="moduleTypeFilter=$any($event.target).value" aria-label="Filter modules by type">
+              <option value="all">All modules</option>
+              <option value="system">System modules</option>
+              <option value="extension">Extensions</option>
+            </select>
           </div>
-          <select class="plugin-settings__type-filter" [value]="moduleTypeFilter" (change)="moduleTypeFilter=$any($event.target).value" aria-label="Filter modules by type">
-            <option value="all">All modules</option>
-            <option value="system">System modules</option>
-            <option value="extension">Extensions</option>
-          </select>
-        </div>
-        <div class="plugin-settings__toolbar-actions">
-          <div class="plugin-settings__views" role="group" aria-label="Module display mode">
-            <button type="button" [class.is-active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
-            <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
+          <div class="plugin-settings__toolbar-actions">
+            <div class="plugin-settings__views" role="group" aria-label="Module display mode">
+              <button type="button" [class.is-active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
+              <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
+            </div>
+            @if (isPlatformAdmin) {
+              <button type="button" class="plugin-settings__upload" (click)="loadPlatformPackages()" [disabled]="pluginPackagesLoading">{{pluginPackagesLoading ? 'Refreshing…' : '↻ Refresh packages'}}</button>
+            }
+            @if (isPlatformAdmin) {
+              <button type="button" class="plugin-settings__upload" (click)="pluginZipInput.click()" [disabled]="pluginUploadBusy">{{pluginUploadBusy ? 'Uploading…' : '＋ Upload plugin'}}</button>
+            }
+            <input #pluginZipInput type="file" accept=".zip,application/zip" hidden (change)="uploadPluginZip($event)">
           </div>
-          <button *ngIf="isPlatformAdmin" type="button" class="plugin-settings__upload" (click)="loadPlatformPackages()" [disabled]="pluginPackagesLoading">{{pluginPackagesLoading ? 'Refreshing…' : '↻ Refresh packages'}}</button>
-          <button *ngIf="isPlatformAdmin" type="button" class="plugin-settings__upload" (click)="pluginZipInput.click()" [disabled]="pluginUploadBusy">{{pluginUploadBusy ? 'Uploading…' : '＋ Upload plugin'}}</button>
-          <input #pluginZipInput type="file" accept=".zip,application/zip" hidden (change)="uploadPluginZip($event)">
         </div>
-      </div>
-
-      <p *ngIf="loading" class="plugin-settings__state">Loading modules…</p>
-      <p *ngIf="error" class="plugin-settings__error" role="alert">{{error}}</p>
-      <p *ngIf="packageError && !planConfigPlugin" class="plugin-settings__error" role="alert">{{packageError}}</p>
-      <p *ngIf="message" class="plugin-settings__message" role="status">{{message}}</p>
-
-      <ng-container *ngIf="!loading && !error">
-        <ng-container *ngIf="detail as plugin">
+      }
+    
+      @if (loading) {
+        <p class="plugin-settings__state">Loading modules…</p>
+      }
+      @if (error) {
+        <p class="plugin-settings__error" role="alert">{{error}}</p>
+      }
+      @if (packageError && !planConfigPlugin) {
+        <p class="plugin-settings__error" role="alert">{{packageError}}</p>
+      }
+      @if (message) {
+        <p class="plugin-settings__message" role="status">{{message}}</p>
+      }
+    
+      @if (!loading && !error) {
+        @if (detail; as plugin) {
           <button type="button" class="plugin-settings__back" (click)="backToList()">← Back to modules</button>
           <article class="plugin-settings__detail">
             <div class="plugin-settings__detail-icon">{{plugin.system ? '◈' : '▣'}}</div>
@@ -87,90 +103,132 @@ type PluginRecord = {
                 <div><dt>Type</dt><dd>{{plugin.system ? 'System module' : 'Extension'}}</dd></div>
                 <div><dt>Installation</dt><dd>{{plugin.installed ? 'Installed' : 'Not installed'}}</dd></div>
                 <div><dt>Entitlement</dt><dd>{{plugin.entitled ? 'Available' : 'Not included'}}</dd></div>
-                <div *ngIf="plugin.installedVersion"><dt>Installed version</dt><dd>{{plugin.installedVersion}}</dd></div>
+                @if (plugin.installedVersion) {
+                  <div><dt>Installed version</dt><dd>{{plugin.installedVersion}}</dd></div>
+                }
                 <div><dt>Access</dt><dd>{{plugin.accessSource || '—'}}</dd></div>
               </dl>
-              <div *ngIf="plugin.dependencies?.length"><strong>Dependencies</strong><p>{{plugin.dependencies?.length}} required module(s)</p></div>
-              <div *ngIf="isPlatformAdmin && platformPackageFor(plugin) as platformPackage" class="plugin-settings__global-control">
-                <div><strong>Global availability</strong><p>{{platformPackage.globallyEnabled === false ? "Suspended for every tenant. Tenant installations and data are preserved." : "Available to tenants according to their own activation and plan."}}</p></div>
-                <button type="button" class="plugin-settings__save" (click)="toggleGlobalActivation(platformPackage)" [disabled]="globalActivationBusyId===platformPackage.pluginKey">{{globalActivationBusyId===platformPackage.pluginKey ? "Saving…" : (platformPackage.globallyEnabled === false ? "Enable globally" : "Disable globally")}}</button>
-              </div>
-            </div>
-          </article>
-        </ng-container>
-
-        <div *ngIf="!detail && plugins.length===0" class="plugin-settings__empty">
-          <span class="plugin-settings__empty-icon">◇</span><strong>No modules available</strong><span>There are no modules in this catalogue yet.</span>
-        </div>
-        <div *ngIf="!detail && plugins.length && filteredPlugins.length===0" class="plugin-settings__empty">
-          <strong>No matching modules</strong><span>Try another search or module type.</span>
-          <button type="button" class="plugin-settings__text-button" (click)="search='';moduleTypeFilter='all'">Clear filters</button>
-        </div>
-
-        <div *ngIf="!detail && filteredPlugins.length && view==='cards'" class="plugin-settings__cards">
-          <article class="plugin-settings__card" *ngFor="let plugin of filteredPlugins; trackBy: trackPlugin">
-            <div class="plugin-settings__card-top">
-              <div class="plugin-settings__card-icon">{{plugin.system ? '◈' : '▣'}}</div>
-              <div class="plugin-settings__menu-wrap">
-                <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
-                <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
-                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
-                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
-                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
-                  <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
+              @if (plugin.dependencies?.length) {
+                <div><strong>Dependencies</strong><p>{{plugin.dependencies?.length}} required module(s)</p></div>
+              }
+              @if (isPlatformAdmin && platformPackageFor(plugin); as platformPackage) {
+                <div class="plugin-settings__global-control">
+                  <div><strong>Global availability</strong><p>{{platformPackage.globallyEnabled === false ? "Suspended for every tenant. Tenant installations and data are preserved." : "Available to tenants according to their own activation and plan."}}</p></div>
+                  <button type="button" class="plugin-settings__save" (click)="toggleGlobalActivation(platformPackage)" [disabled]="globalActivationBusyId===platformPackage.pluginKey">{{globalActivationBusyId===platformPackage.pluginKey ? "Saving…" : (platformPackage.globallyEnabled === false ? "Enable globally" : "Disable globally")}}</button>
                 </div>
-              </div>
-            </div>
-            <div class="plugin-settings__card-body">
-              <div class="plugin-settings__name-line"><h3>{{plugin.name}}</h3><span>v{{plugin.version}}</span></div>
-              <p>{{plugin.description || 'No description provided.'}}</p>
-            </div>
-            <div class="plugin-settings__meta">
-              <span>{{plugin.category || 'Uncategorized'}}</span>
-              <span>{{plugin.system ? 'System' : 'Extension'}}</span>
-              <span class="plugin-settings__status" [class.is-installed]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span>
-              <span *ngIf="plugin.packageSource" class="plugin-settings__status">{{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</span>
+              }
             </div>
           </article>
-        </div>
-
-        <div *ngIf="!detail && filteredPlugins.length && view==='table'" class="plugin-settings__table-wrap">
-          <table>
-            <thead><tr><th>Module</th><th>Type</th><th>Category</th><th>Status</th><th><span class="plugin-settings__sr-only">Options</span></th></tr></thead>
-            <tbody>
-              <tr *ngFor="let plugin of filteredPlugins; trackBy: trackPlugin">
-                <td><button type="button" class="plugin-settings__table-module" (click)="openDetails(plugin)"><span class="plugin-settings__table-icon">{{plugin.system ? '◈' : '▣'}}</span><span><strong>{{plugin.name}}</strong><small>v{{plugin.version}} · {{plugin.description || 'No description'}}</small></span></button></td>
-                <td>{{plugin.system ? 'System' : 'Extension'}}</td>
-                <td>{{plugin.category || 'Uncategorized'}}</td>
-                <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span><small *ngIf="plugin.packageSource"> {{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</small></td>
-                <td>
+        }
+        @if (!detail && plugins.length===0) {
+          <div class="plugin-settings__empty">
+            <span class="plugin-settings__empty-icon">◇</span><strong>No modules available</strong><span>There are no modules in this catalogue yet.</span>
+          </div>
+        }
+        @if (!detail && plugins.length && filteredPlugins.length===0) {
+          <div class="plugin-settings__empty">
+            <strong>No matching modules</strong><span>Try another search or module type.</span>
+            <button type="button" class="plugin-settings__text-button" (click)="search='';moduleTypeFilter='all'">Clear filters</button>
+          </div>
+        }
+        @if (!detail && filteredPlugins.length && view==='cards') {
+          <div class="plugin-settings__cards">
+            @for (plugin of filteredPlugins; track trackPlugin($index, plugin)) {
+              <article class="plugin-settings__card">
+                <div class="plugin-settings__card-top">
+                  <div class="plugin-settings__card-icon">{{plugin.system ? '◈' : '▣'}}</div>
                   <div class="plugin-settings__menu-wrap">
                     <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
-                    <div class="plugin-settings__menu" *ngIf="openMenuId===plugin.id" role="menu">
-                      <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)" type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
-                  <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed'" type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
-                      <button *ngIf="isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip'" type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
-                      <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
-                    </div>
+                    @if (openMenuId===plugin.id) {
+                      <div class="plugin-settings__menu" role="menu">
+                        @if (isPlatformAdmin && platformPackageFor(plugin)) {
+                          <button type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
+                        }
+                        @if (isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed') {
+                          <button type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
+                        }
+                        @if (isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip') {
+                          <button type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
+                        }
+                        <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
+                      </div>
+                    }
                   </div>
-                </td>
-              </tr>
+                </div>
+                <div class="plugin-settings__card-body">
+                  <div class="plugin-settings__name-line"><h3>{{plugin.name}}</h3><span>v{{plugin.version}}</span></div>
+                  <p>{{plugin.description || 'No description provided.'}}</p>
+                </div>
+                <div class="plugin-settings__meta">
+                  <span>{{plugin.category || 'Uncategorized'}}</span>
+                  <span>{{plugin.system ? 'System' : 'Extension'}}</span>
+                  <span class="plugin-settings__status" [class.is-installed]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span>
+                  @if (plugin.packageSource) {
+                    <span class="plugin-settings__status">{{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</span>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+        }
+        @if (!detail && filteredPlugins.length && view==='table') {
+          <div class="plugin-settings__table-wrap">
+            <table>
+              <thead><tr><th>Module</th><th>Type</th><th>Category</th><th>Status</th><th><span class="plugin-settings__sr-only">Options</span></th></tr></thead>
+              <tbody>
+                @for (plugin of filteredPlugins; track trackPlugin($index, plugin)) {
+                  <tr>
+                    <td><button type="button" class="plugin-settings__table-module" (click)="openDetails(plugin)"><span class="plugin-settings__table-icon">{{plugin.system ? '◈' : '▣'}}</span><span><strong>{{plugin.name}}</strong><small>v{{plugin.version}} · {{plugin.description || 'No description'}}</small></span></button></td>
+                    <td>{{plugin.system ? 'System' : 'Extension'}}</td>
+                    <td>{{plugin.category || 'Uncategorized'}}</td>
+                    <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span>@if (plugin.packageSource) {
+                    <small> {{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</small>
+                  }</td>
+                  <td>
+                    <div class="plugin-settings__menu-wrap">
+                      <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
+                      @if (openMenuId===plugin.id) {
+                        <div class="plugin-settings__menu" role="menu">
+                          @if (isPlatformAdmin && platformPackageFor(plugin)) {
+                            <button type="button" role="menuitem" (click)="openPlanConfig(plugin)">Configure plans</button>
+                          }
+                          @if (isPlatformAdmin && platformPackageFor(plugin)?.status === 'installed') {
+                            <button type="button" role="menuitem" (click)="toggleGlobalActivation(platformPackageFor(plugin)!)">{{platformPackageFor(plugin)?.globallyEnabled === false ? "Enable globally" : "Disable globally"}}</button>
+                          }
+                          @if (isPlatformAdmin && platformPackageFor(plugin)?.source === 'zip') {
+                            <button type="button" role="menuitem" (click)="openPackageRemoval(plugin)">Remove platform package…</button>
+                          }
+                          <button type="button" role="menuitem" (click)="openDetails(plugin)">Details</button>
+                        </div>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-      </ng-container>
-
-      <div class="plugin-settings__overlay" *ngIf="planConfigPlugin as planPackage" (click)="closePlanConfig()">
+      }
+    }
+    
+    @if (planConfigPlugin; as planPackage) {
+      <div class="plugin-settings__overlay" (click)="closePlanConfig()">
         <section class="plugin-settings__plan-dialog" role="dialog" aria-modal="true" aria-labelledby="plugin-plan-title" (click)="$event.stopPropagation()" (keydown.escape)="closePlanConfig()" tabindex="-1">
           <header class="plugin-settings__plan-heading">
             <div><span class="plugin-settings__eyebrow">PLATFORM SETTINGS</span><h3 id="plugin-plan-title">Plan availability</h3><p>{{planPackage.name}} · v{{planPackage.version}}</p></div>
             <button type="button" class="plugin-settings__close" (click)="closePlanConfig()" aria-label="Close plan settings">×</button>
           </header>
           <p class="plugin-settings__plan-description">Choose which subscription plans can access this module. Tenant activation remains managed separately.</p>
-          <p *ngIf="packageError" class="plugin-settings__error" role="alert">{{packageError}}</p>
+          @if (packageError) {
+            <p class="plugin-settings__error" role="alert">{{packageError}}</p>
+          }
           <div class="plugin-settings__plan-list">
-            <label *ngFor="let plan of platformPlans"><input type="checkbox" [checked]="packagePlanSelections[planPackage.pluginKey]?.includes(plan.id)" (change)="togglePackagePlan(planPackage,plan.id,$any($event.target).checked)"><span><strong>{{plan.name}}</strong><small>{{plan.packageIds?.includes(planPackage.pluginKey) ? 'Currently included' : 'Not included'}}</small></span></label>
-            <p *ngIf="!platformPlans.length" class="plugin-settings__state">No subscription plans are available.</p>
+            @for (plan of platformPlans; track plan) {
+              <label><input type="checkbox" [checked]="$safeNavigationMigration(packagePlanSelections[planPackage.pluginKey]?.includes(plan.id))" (change)="togglePackagePlan(planPackage,plan.id,$any($event.target).checked)"><span><strong>{{plan.name}}</strong><small>{{plan.packageIds?.includes(planPackage.pluginKey) ? 'Currently included' : 'Not included'}}</small></span></label>
+            }
+            @if (!platformPlans.length) {
+              <p class="plugin-settings__state">No subscription plans are available.</p>
+            }
           </div>
           <footer class="plugin-settings__plan-footer">
             <button type="button" class="plugin-settings__cancel" (click)="closePlanConfig()">Cancel</button>
@@ -178,43 +236,65 @@ type PluginRecord = {
           </footer>
         </section>
       </div>
-      <div class="plugin-settings__overlay" *ngIf="packageRemovalPlugin as removalPackage" (click)="closePackageRemoval()">
+    }
+    @if (packageRemovalPlugin; as removalPackage) {
+      <div class="plugin-settings__overlay" (click)="closePackageRemoval()">
         <section class="plugin-settings__plan-dialog plugin-settings__removal-dialog" role="dialog" aria-modal="true" aria-labelledby="plugin-removal-title" (click)="$event.stopPropagation()" (keydown.escape)="closePackageRemoval()" tabindex="-1">
           <header class="plugin-settings__plan-heading">
             <div><span class="plugin-settings__eyebrow">PLATFORM PACKAGE</span><h3 id="plugin-removal-title">Remove {{removalPackage.name}}?</h3><p>v{{removalPackage.version}} · {{removalPackage.pluginKey}}</p></div>
             <button type="button" class="plugin-settings__close" (click)="closePackageRemoval()" aria-label="Close package removal">×</button>
           </header>
           <p class="plugin-settings__plan-description">Deactivate this plugin in every company before removing the global package. Deactivation preserves tenant data and installation history.</p>
-          <div class="plugin-settings__removal-summary" *ngIf="packageUsageLoading">Checking tenant installations…</div>
-          <p *ngIf="packageUsageError" class="plugin-settings__error" role="alert">{{packageUsageError}}</p>
-          <ng-container *ngIf="!packageUsageLoading && packageUsage as usage">
+          @if (packageUsageLoading) {
+            <div class="plugin-settings__removal-summary">Checking tenant installations…</div>
+          }
+          @if (packageUsageError) {
+            <p class="plugin-settings__error" role="alert">{{packageUsageError}}</p>
+          }
+          @if (!packageUsageLoading && packageUsage; as usage) {
             <div class="plugin-settings__removal-counts">
               <div><strong>{{usage.installedCount}}</strong><span>Active tenants</span></div>
               <div><strong>{{usage.inactiveCount || 0}}</strong><span>Inactive installations</span></div>
               <div><strong>{{usage.pendingJobCount}}</strong><span>Operations in progress</span></div>
             </div>
-            <div *ngIf="usage.tenants.length" class="plugin-settings__tenant-list">
-              <h4>Companies that still have the plugin</h4>
-              <div *ngFor="let tenant of usage.tenants" class="plugin-settings__tenant-row">
-                <span><strong>{{tenant.name}}</strong><small>{{tenant.kind === 'super' ? 'Platform organization' : tenant.slug || 'Tenant'}} · {{tenant.companyStatus}}</small></span>
-                <span class="plugin-settings__status">{{tenant.installationStatus}}</span>
+            @if (usage.tenants.length) {
+              <div class="plugin-settings__tenant-list">
+                <h4>Companies that still have the plugin</h4>
+                @for (tenant of usage.tenants; track tenant) {
+                  <div class="plugin-settings__tenant-row">
+                    <span><strong>{{tenant.name}}</strong><small>{{tenant.kind === 'super' ? 'Platform organization' : tenant.slug || 'Tenant'}} · {{tenant.companyStatus}}</small></span>
+                    <span class="plugin-settings__status">{{tenant.installationStatus}}</span>
+                  </div>
+                }
+                <p class="plugin-settings__removal-hint">Open each company and use Plugins → Deactivate. When no tenant remains active, refresh this list.</p>
               </div>
-              <p class="plugin-settings__removal-hint">Open each company and use Plugins → Deactivate. When no tenant remains active, refresh this list.</p>
-            </div>
-            <div *ngIf="usage.inactiveTenants?.length" class="plugin-settings__tenant-list">
-              <h4>Inactive installations (data preserved)</h4>
-              <div *ngFor="let tenant of usage.inactiveTenants" class="plugin-settings__tenant-row">
-                <span><strong>{{tenant.name}}</strong><small>{{tenant.kind === 'super' ? 'Platform organization' : tenant.slug || 'Tenant'}} · {{tenant.companyStatus}}</small></span>
-                <span class="plugin-settings__status">Inactive</span>
+            }
+            @if (usage.inactiveTenants?.length) {
+              <div class="plugin-settings__tenant-list">
+                <h4>Inactive installations (data preserved)</h4>
+                @for (tenant of usage.inactiveTenants; track tenant) {
+                  <div class="plugin-settings__tenant-row">
+                    <span><strong>{{tenant.name}}</strong><small>{{tenant.kind === 'super' ? 'Platform organization' : tenant.slug || 'Tenant'}} · {{tenant.companyStatus}}</small></span>
+                    <span class="plugin-settings__status">Inactive</span>
+                  </div>
+                }
               </div>
-            </div>
-            <div *ngIf="usage.pendingJobs.length" class="plugin-settings__tenant-list">
-              <h4>Operations still running</h4>
-              <div *ngFor="let job of usage.pendingJobs" class="plugin-settings__tenant-row"><span><strong>{{job.tenantName}}</strong><small>{{job.action}}</small></span><span class="plugin-settings__status">{{job.status}}</span></div>
-            </div>
-            <div *ngIf="usage.canRemove" class="plugin-settings__removal-ready">No active tenant activations or pending operations remain. Inactive installation records will be retired; tenant data will be preserved.</div>
-            <div *ngIf="!usage.canRemove" class="plugin-settings__removal-blocked">Global removal is blocked until every tenant installation and pending operation is cleared.</div>
-          </ng-container>
+            }
+            @if (usage.pendingJobs.length) {
+              <div class="plugin-settings__tenant-list">
+                <h4>Operations still running</h4>
+                @for (job of usage.pendingJobs; track job) {
+                  <div class="plugin-settings__tenant-row"><span><strong>{{job.tenantName}}</strong><small>{{job.action}}</small></span><span class="plugin-settings__status">{{job.status}}</span></div>
+                }
+              </div>
+            }
+            @if (usage.canRemove) {
+              <div class="plugin-settings__removal-ready">No active tenant activations or pending operations remain. Inactive installation records will be retired; tenant data will be preserved.</div>
+            }
+            @if (!usage.canRemove) {
+              <div class="plugin-settings__removal-blocked">Global removal is blocked until every tenant installation and pending operation is cleared.</div>
+            }
+          }
           <footer class="plugin-settings__plan-footer">
             <button type="button" class="plugin-settings__cancel" (click)="closePackageRemoval()">Close</button>
             <button type="button" class="plugin-settings__cancel" (click)="refreshPackageUsage()" [disabled]="packageUsageLoading || packageRemovalBusy">↻ Refresh status</button>
@@ -222,8 +302,10 @@ type PluginRecord = {
           </footer>
         </section>
       </div>
+    }
     </section>
-  `,
+    `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     :host{display:block;min-width:0}
     .plugin-settings{color:inherit;min-width:0}

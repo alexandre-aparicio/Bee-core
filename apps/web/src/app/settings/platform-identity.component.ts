@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+
+import { Component, Input, OnChanges, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 type IdentityTab = 'brand' | 'assets' | 'seo';
@@ -18,7 +18,7 @@ const EMPTY_IDENTITY: PlatformIdentity = {
 @Component({
   selector:'bee-platform-identity',
   standalone:true,
-  imports:[CommonModule,FormsModule],
+  imports: [FormsModule],
   template:`
     <section class="identity bee-dashboard-card">
       <div class="identity__heading">
@@ -103,6 +103,7 @@ const EMPTY_IDENTITY: PlatformIdentity = {
       </footer>
     </section>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles:[`
     :host{display:block;min-width:0;color:inherit}.identity{min-width:0;padding:0;border:1px solid var(--border,#8885);border-radius:14px;background:var(--panel,#8881);overflow:hidden}
     .identity__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:19px 20px 15px}.identity__icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:12px;background:var(--purple,#777);color:white;font-size:19px}.identity__heading-content{flex:1;min-width:0}.identity__heading h2{font-size:17px;margin:2px 0 5px;font-weight:600;line-height:1.35}.identity__heading p,.identity__section-title p,.identity__social p{font-size:12px;line-height:1.55;opacity:.68;margin:0}.identity__heading p strong{font-weight:600;opacity:1}.identity__scope{border:1px solid var(--border,#8885);border-radius:30px;padding:6px 9px;font-size:10px;white-space:nowrap;opacity:.7}

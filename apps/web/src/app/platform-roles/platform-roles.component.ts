@@ -1,5 +1,5 @@
-import { CommonModule } from "@angular/common";
-import { Component, HostListener, Input, OnChanges, SimpleChanges } from "@angular/core";
+
+import { Component, HostListener, Input, OnChanges, SimpleChanges, ChangeDetectionStrategy } from "@angular/core";
 
 type PermissionDefinition={key:string;module:string;resource:string;action:string;label:string;description:string;sensitive?:boolean;customRoleAssignable:boolean};
 type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boolean;description:string;permissions:string[]};
@@ -7,50 +7,75 @@ type SystemRole={key:string;label:string;scope:"platform"|"tenant";protected:boo
 @Component({
  selector:"bee-platform-roles",
  standalone:true,
- imports:[CommonModule],
+ imports: [],
  template:`
  <section class="platform-roles">
-  <header class="platform-roles__header">
-   <div class="platform-roles__heading-copy"><span class="platform-roles__eyebrow">GLOBAL PLATFORM</span><h1>Roles &amp; Permissions</h1><p>Manage system-role boundaries and the Core capabilities that tenants may delegate to their custom roles.</p></div>
-   <div class="platform-roles__header-actions"><span class="platform-roles__scope">Platform-wide</span><button type="button" (click)="load()" [disabled]="loading||saving">Refresh</button></div>
-  </header>
-  <p *ngIf="error" class="platform-roles__error" role="alert">{{error}}</p>
-  <p *ngIf="message" class="platform-roles__success" role="status">{{message}}</p>
-  <section class="platform-roles__panel">
-   <div class="platform-roles__panel-head"><div><h3>System roles and boundaries</h3><p>Reserved roles are managed by Core and cannot be recreated or elevated by a tenant.</p></div><span class="platform-roles__tag">Protected by Core</span></div>
-   <div class="platform-roles__role-grid">
-    <article *ngFor="let role of systemRoles" class="platform-roles__role">
-     <div><strong>{{role.label}}</strong><small>{{role.scope==='platform'?'Platform':'Tenant'}} scope · {{role.protected?'Protected':'Policy based'}}</small></div>
-     <p>{{role.description}}</p><button type="button" class="platform-roles__details" (click)="openSystemRole(role)">View permissions</button>
-    </article>
+   <header class="platform-roles__header">
+     <div class="platform-roles__heading-copy"><span class="platform-roles__eyebrow">GLOBAL PLATFORM</span><h1>Roles &amp; Permissions</h1><p>Manage system-role boundaries and the Core capabilities that tenants may delegate to their custom roles.</p></div>
+     <div class="platform-roles__header-actions"><span class="platform-roles__scope">Platform-wide</span><button type="button" (click)="load()" [disabled]="loading||saving">Refresh</button></div>
+   </header>
+   @if (error) {
+     <p class="platform-roles__error" role="alert">{{error}}</p>
+   }
+   @if (message) {
+     <p class="platform-roles__success" role="status">{{message}}</p>
+   }
+   <section class="platform-roles__panel">
+     <div class="platform-roles__panel-head"><div><h3>System roles and boundaries</h3><p>Reserved roles are managed by Core and cannot be recreated or elevated by a tenant.</p></div><span class="platform-roles__tag">Protected by Core</span></div>
+     <div class="platform-roles__role-grid">
+       @for (role of systemRoles; track role) {
+         <article class="platform-roles__role">
+           <div><strong>{{role.label}}</strong><small>{{role.scope==='platform'?'Platform':'Tenant'}} scope · {{role.protected?'Protected':'Policy based'}}</small></div>
+           <p>{{role.description}}</p><button type="button" class="platform-roles__details" (click)="openSystemRole(role)">View permissions</button>
+         </article>
+       }
+     </div>
+   </section>
+   <section class="platform-roles__panel">
+     <div class="platform-roles__panel-head"><div><h3>Tenant permission delegation</h3><p>Choose which registered Core capabilities tenant owners may grant to custom roles. Built-in role permissions remain protected by Core. Disabling a capability removes it from existing tenant custom roles too.</p></div><span class="platform-roles__count">{{enabledCount}} / {{assignableCount}} enabled</span><button type="button" class="platform-roles__manage" (click)="openDelegationModal()" [disabled]="loading||saving">Manage delegation</button></div>
+     @if (loading) {
+       <div class="platform-roles__empty">Loading permission catalogue…</div>
+     }
+ 
+     @if (delegationModalOpen) {
+       <div class="platform-roles__modal-backdrop" (click)="closeDelegationModal()">
+         <div class="platform-roles__modal" role="dialog" aria-modal="true" aria-labelledby="platform-delegation-title" (click)="$event.stopPropagation()">
+           <div class="platform-roles__modal-top"><div><span class="platform-roles__eyebrow">GLOBAL POLICY</span><h2 id="platform-delegation-title">Tenant permission delegation</h2><p>Choose which Core capabilities tenant owners may grant to custom roles. Saving revokes disabled capabilities from existing tenant roles.</p></div><button type="button" class="platform-roles__close" aria-label="Close dialog" (click)="closeDelegationModal()">×</button></div>
+           @for (group of groups; track group) {
+             <div class="platform-roles__group">
+               <h4>{{groupLabel(group)}}</h4>
+               @for (permission of inGroup(group); track permission) {
+                 <label class="platform-roles__permission">
+                   <span class="platform-roles__permission-copy"><strong>{{permission.label}}</strong><small>{{permission.description}}</small><code>{{permission.key}}</code></span>
+                   @if (!permission.customRoleAssignable) {
+                     <span class="platform-roles__permission-state">System protected</span>
+                   }
+                   @if (permission.customRoleAssignable) {
+                     <span class="platform-roles__toggle"><input type="checkbox" [checked]="enabled.has(permission.key)" (change)="toggle(permission.key,$any($event.target).checked)" [disabled]="loading||saving"><span></span></span>
+                   }
+                 </label>
+               }
+             </div>
+           }
+           <footer class="platform-roles__footer"><p>Protected operations such as membership administration, plugin administration, billing administration and mailbox administration remain reserved to built-in roles.</p><button type="button" (click)="save()" [disabled]="loading||saving||!dirty">{{saving?'Saving…':'Save platform policy'}}</button></footer>
+         </div>
+       </div>
+     }
+   </section>
+   @if (selectedSystemRole) {
+     <div class="platform-roles__modal-backdrop" (click)="closeSystemRole()">
+       <div class="platform-roles__modal platform-roles__role-modal" role="dialog" aria-modal="true" aria-labelledby="platform-role-title" (click)="$event.stopPropagation()">
+         <div class="platform-roles__modal-top"><div><span class="platform-roles__eyebrow">{{selectedSystemRole.scope}} · CORE MANAGED</span><h2 id="platform-role-title">{{selectedSystemRole.label}}</h2><p>{{selectedSystemRole.description}}</p></div><button type="button" class="platform-roles__close" aria-label="Close dialog" (click)="closeSystemRole()">×</button></div>
+         <h3>Assigned permissions</h3><div class="platform-roles__role-permissions">@for (permission of selectedSystemRole.permissions; track permission) {
+         <code>{{permission}}</code>
+         }@if (!selectedSystemRole.permissions.length) {
+         <p>No explicit permission keys are listed for this role.</p>
+       }</div>
+     </div>
    </div>
-  </section>
-  <section class="platform-roles__panel">
-   <div class="platform-roles__panel-head"><div><h3>Tenant permission delegation</h3><p>Choose which registered Core capabilities tenant owners may grant to custom roles. Built-in role permissions remain protected by Core. Disabling a capability removes it from existing tenant custom roles too.</p></div><span class="platform-roles__count">{{enabledCount}} / {{assignableCount}} enabled</span><button type="button" class="platform-roles__manage" (click)="openDelegationModal()" [disabled]="loading||saving">Manage delegation</button></div>
-   <div *ngIf="loading" class="platform-roles__empty">Loading permission catalogue…</div>
-
-   <div class="platform-roles__modal-backdrop" *ngIf="delegationModalOpen" (click)="closeDelegationModal()">
-    <div class="platform-roles__modal" role="dialog" aria-modal="true" aria-labelledby="platform-delegation-title" (click)="$event.stopPropagation()">
-     <div class="platform-roles__modal-top"><div><span class="platform-roles__eyebrow">GLOBAL POLICY</span><h2 id="platform-delegation-title">Tenant permission delegation</h2><p>Choose which Core capabilities tenant owners may grant to custom roles. Saving revokes disabled capabilities from existing tenant roles.</p></div><button type="button" class="platform-roles__close" aria-label="Close dialog" (click)="closeDelegationModal()">×</button></div>
-   <div *ngFor="let group of groups" class="platform-roles__group">
-    <h4>{{groupLabel(group)}}</h4>
-    <label *ngFor="let permission of inGroup(group)" class="platform-roles__permission">
-     <span class="platform-roles__permission-copy"><strong>{{permission.label}}</strong><small>{{permission.description}}</small><code>{{permission.key}}</code></span>
-     <span class="platform-roles__permission-state" *ngIf="!permission.customRoleAssignable">System protected</span>
-     <span class="platform-roles__toggle" *ngIf="permission.customRoleAssignable"><input type="checkbox" [checked]="enabled.has(permission.key)" (change)="toggle(permission.key,$any($event.target).checked)" [disabled]="loading||saving"><span></span></span>
-    </label>
-   </div>
-   <footer class="platform-roles__footer"><p>Protected operations such as membership administration, plugin administration, billing administration and mailbox administration remain reserved to built-in roles.</p><button type="button" (click)="save()" [disabled]="loading||saving||!dirty">{{saving?'Saving…':'Save platform policy'}}</button></footer>
-    </div>
-   </div>
-  </section>
-  <div class="platform-roles__modal-backdrop" *ngIf="selectedSystemRole" (click)="closeSystemRole()">
-   <div class="platform-roles__modal platform-roles__role-modal" role="dialog" aria-modal="true" aria-labelledby="platform-role-title" (click)="$event.stopPropagation()">
-    <div class="platform-roles__modal-top"><div><span class="platform-roles__eyebrow">{{selectedSystemRole.scope}} · CORE MANAGED</span><h2 id="platform-role-title">{{selectedSystemRole.label}}</h2><p>{{selectedSystemRole.description}}</p></div><button type="button" class="platform-roles__close" aria-label="Close dialog" (click)="closeSystemRole()">×</button></div>
-    <h3>Assigned permissions</h3><div class="platform-roles__role-permissions"><code *ngFor="let permission of selectedSystemRole.permissions">{{permission}}</code><p *ngIf="!selectedSystemRole.permissions.length">No explicit permission keys are listed for this role.</p></div>
-   </div>
-  </div>
+ }
  </section>`,
+ changeDetection: ChangeDetectionStrategy.Eager,
  styles:[`
  .platform-roles{display:grid;gap:18px;min-width:0;color:inherit}
  .platform-roles__modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:rgba(8,12,22,.62);backdrop-filter:blur(7px);animation:platformRoleFade .16s ease-out}

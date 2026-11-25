@@ -1,5 +1,5 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, Input, OnInit, Output, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 
 type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'suspended';createdAt:string;membersCount?:number};
@@ -7,7 +7,8 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
 @Component({
  selector:'bee-platform-admin',
  standalone:true,
- imports:[CommonModule,FormsModule],
+ imports: [FormsModule],
+ changeDetection: ChangeDetectionStrategy.Eager,
  template:`
  <section class="platform-admin">
    @if (!managedTenantId) {

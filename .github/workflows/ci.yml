@@ -14,6 +14,12 @@ on:
       - "apps/web/package-lock.json"
       - "tsconfig.json"
       - ".github/workflows/ci.yml"
+      - ".github/workflows/docker-prod-profile.yml"
+      - "Dockerfile"
+      - "apps/web/Dockerfile"
+      - "docker-compose*.yml"
+      - ".env*.example"
+      - "docker/**"
   push:
     branches: [main]
 
@@ -49,6 +55,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Audit backend production dependencies
+        run: npm audit --omit=dev
       - name: Build backend
         run: npm run build
       - name: Tests
@@ -80,7 +88,13 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Audit web production dependencies
+        run: npm run audit:production
       - name: Production build
         run: npm run build
       - name: Validate Playwright test discovery
         run: npm run test:e2e -- --list
+
+  production-compose:
+    name: Production Compose clean install and backup/restore
+    uses: ./.github/workflows/docker-prod-profile.yml
