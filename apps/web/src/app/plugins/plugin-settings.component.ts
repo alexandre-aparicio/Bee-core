@@ -371,6 +371,9 @@ export class PluginSettingsComponent implements OnInit {
   pluginUploadBusy = false;
   packageSavingId = "";
   globalActivationBusyId = "";
+  superOrganizationActivationBusyId = "";
+  superOrganizationTenantId = "";
+  superOrganizationPlugins: SuperOrganizationPlugin[] = [];
   packageError = "";
   busyId = "";
   message = "";
