@@ -13,8 +13,8 @@ test.beforeEach(async ({ page }) => {
     };
   });
 
-  const readSessionFixture = (request: { headers(): Record<string, string> }) => {
-    const cookie = request.headers().cookie || '';
+  const readSessionFixture = async (request: { allHeaders(): Promise<Record<string, string>> }) => {
+    const cookie = (await request.allHeaders()).cookie || '';
     const fixture = cookie.split(';').map(part => part.trim()).find(part => part.startsWith('bee-test-auth='));
     try {
       return fixture
@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
   };
 
   await page.route('**/api/auth/refresh', route => {
-    const session = readSessionFixture(route.request());
+    const session = await readSessionFixture(route.request());
     if (!session.accessToken) {
       return route.fulfill({
         status: 401,
@@ -77,7 +77,7 @@ test('landing page renders the main message', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /build less core/i })).toBeVisible();
   await expect(page.locator('[data-bee-layout="public.aurora"]')).toBeVisible();
-  await expect(page.locator('[data-bee-slot="hero"]')).toHaveCount(1);
+  await expect(page.locator('.aurora-hero')).toHaveCount(1);
   await expect(page.getByRole('link', { name: /sign in/i })).toBeVisible();
 });
 
@@ -107,24 +107,41 @@ test('dashboard redirects unauthenticated visitors to the visible login page', a
 
 
 test('template manager keeps public and dashboard themes independent', async ({ page }) => {
-  await page.goto('/');
+  let selection = { public: 'aurora', dashboard: 'midnight' };
+  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({
+    accessToken: 'template-admin-token',
+    tenantId: 'tenant-demo',
+    user: { id: 'admin-1', email: 'admin@example.test', roles: ['admin'], tenantId: 'tenant-demo' }
+  })));
+  await page.route('**/api/templates/preferences', route => {
+    if (route.request().method() === 'PUT') selection = route.request().postDataJSON();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ selection, installedTemplates: ['aurora', 'editorial', 'midnight', 'paper'] }) });
+  });
+  await page.route('**/api/templates/stream-ticket', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) }));
+  await page.goto('/dashboard/settings/general');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
-  await manager.getByLabel('Public website').selectOption('editorial');
+  await manager.getByLabel('Public website template').selectOption('editorial');
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
   await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
-  await expect(manager.getByLabel('Public website')).toHaveValue('editorial');
+  await expect(manager.getByLabel('Public website template')).toHaveValue('editorial');
 });
 
 test('dashboard template can be selected without changing public theme', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({ user: { email: 'test@example.com', roles: ['admin'], tenantId: 'tenant-test' }, accessToken: 'test' })));
-  await page.goto('/dashboard');
+  let selection = { public: 'aurora', dashboard: 'midnight' };
+  await page.addInitScript(() => localStorage.setItem('bee-auth', JSON.stringify({ user: { email: 'test@example.com', roles: ['admin'], tenantId: 'tenant-test' }, accessToken: 'test', tenantId: 'tenant-test' })));
+  await page.route('**/api/templates/preferences', route => {
+    if (route.request().method() === 'PUT') selection = route.request().postDataJSON();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ selection, installedTemplates: ['aurora', 'editorial', 'midnight', 'paper'] }) });
+  });
+  await page.route('**/api/templates/stream-ticket', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) }));
+  await page.goto('/dashboard/settings/general');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
-  await manager.getByLabel('Dashboard').selectOption('paper');
+  await manager.getByLabel('Dashboard template').selectOption('paper');
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'paper');
   await expect(page.locator('[data-bee-layout="dashboard.paper"]')).toBeVisible();
   await expect(manager.getByText('Preview only')).toBeVisible();
@@ -172,12 +189,12 @@ test('tenant admin can install and activate a trusted dashboard template package
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ installedTemplates: ['aurora', 'editorial', 'midnight', 'paper', 'glass'] })
   }));
-  await page.goto('/dashboard');
+  await page.goto('/dashboard/settings/general');
   const manager = page.getByRole('region', { name: 'Template manager' });
   await expect(manager).toBeVisible();
   await manager.locator('.bee-template-package').filter({ hasText: 'Glass' }).getByRole('button', { name: 'Install' }).click();
   await expect(manager.getByText('Package installed for this tenant.')).toBeVisible();
-  await manager.getByLabel('Dashboard').selectOption('glass');
+  await manager.getByLabel('Dashboard template').selectOption('glass');
   await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
   await manager.getByRole('button', { name: 'Discard preview' }).click();
@@ -281,6 +298,7 @@ test('dashboard marketplace shows company packages and installs an entitled plug
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pluginId: 'notes', status: 'uninstalled', dataPreserved: true }) });
   });
   await page.goto('/dashboard');
+  await page.getByRole('button', { name: /manage plugins/i }).click();
   await expect(page.getByRole('heading', { name: 'Company plugin marketplace' })).toBeVisible();
   await expect(page.getByText('Private Files')).toBeVisible();
   await expect(page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' })).toBeVisible();
@@ -325,6 +343,7 @@ test('starter company sees purchasable add-ons but cannot install them without e
     ] })
   }));
   await page.goto('/dashboard');
+  await page.getByRole('button', { name: /manage plugins/i }).click();
   const notesRow = page.locator('.bee-marketplace__item').filter({ hasText: 'Team Notes' });
   await expect(notesRow).toBeVisible();
   await expect(notesRow.getByText('Available as add-on')).toBeVisible();
@@ -378,6 +397,8 @@ test('company owner can invite, change roles and suspend company members', async
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
   });
   await page.goto('/dashboard');
+  await page.getByRole('button', { name: /organization/i }).click();
+  await page.getByRole('button', { name: /users/i }).click();
   await expect(page.getByRole('heading', { name: 'Company members' })).toBeVisible();
   const memberRow = page.locator('.bee-company-members__table tr').filter({ hasText: 'member@example.test' });
   await memberRow.locator('select').selectOption('manager');
@@ -398,40 +419,40 @@ test('company owner can invite, change roles and suspend company members', async
 });
 
 
-test('a signed-in member can accept an invitation and see the new company in the switcher', async ({ page }) => {
-  let accepted = false;
-  await page.addInitScript(() => {
-    if (!localStorage.getItem('bee-auth')) localStorage.setItem('bee-auth', JSON.stringify({
-      accessToken: 'company-a-token',
-      tenantId: 'company-a',
-      user: { id: 'user-a', email: 'user@example.test', roles: ['user'], tenantId: 'company-a' }
-    }));
-  });
+test('a signed-in member can accept an invitation through the secure invitation route', async ({ page }) => {
+  await page.route('**/api/auth/invitations/preview', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ invitation: { email: 'user@example.test', companyName: 'Company B', role: 'member', restrictions: [], expiresAt: '2026-11-30T00:00:00.000Z' } })
+  }));
+  await page.route('**/api/auth/login', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    headers: { 'set-cookie': 'refreshToken=test-refresh; Path=/; SameSite=Lax' },
+    body: JSON.stringify({ accessToken: 'company-b-token', tenantId: 'company-b', user: { id: 'user-a', email: 'user@example.test', roles: ['user'], tenantId: 'company-b' } })
+  }));
+  await page.route('**/api/invitations/accept', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ success: true, company: { id: 'company-b', name: 'Company B' }, membership: { role: 'member' } })
+  }));
+  await page.route('**/api/auth/refresh', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ accessToken: 'company-b-token', tenantId: 'company-b', user: { id: 'user-a', email: 'user@example.test', roles: ['user'], tenantId: 'company-b' } })
+  }));
+  await page.route('**/api/auth/me', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ authenticated: true, tenantId: 'company-b' })
+  }));
   await page.route('**/api/companies', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ companies: [
-      { id: 'company-a', name: 'Company A', role: 'member', active: true },
-      ...(accepted ? [{ id: 'company-b', name: 'Company B', role: 'member', active: false }] : [])
-    ] })
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ companies: [{ id: 'company-b', name: 'Company B', role: 'member', active: true }] })
   }));
-  await page.route('**/api/companies/company-a/memberships', route => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify({ memberships: [] })
-  }));
-  await page.route('**/api/invitations/accept', route => {
-    accepted = true;
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ success: true, company: { id: 'company-b', name: 'Company B' }, membership: { role: 'member' } })
-    });
-  });
-  await page.goto('/dashboard');
-  await page.getByPlaceholder('Paste a company invitation token').fill('one-time-invitation-token');
-  await page.getByRole('button', { name: 'Accept invitation' }).click();
-  await expect(page.getByText('Invitation accepted for Company B. Select that company in the workspace switcher.')).toBeVisible();
-  await expect(page.getByLabel('Active company')).toHaveValue('company-a');
-  await expect(page.getByLabel('Active company').locator('option[value="company-b"]')).toHaveCount(1);
+  await page.goto('/invite/accept?token=one-time-invitation-token');
+  await expect(page.getByRole('heading', { name: 'Join your organization' })).toBeVisible();
+  await expect(page.getByText('You have been invited to join Company B.')).toBeVisible();
+  await page.getByLabel('I already have a Bee-Core account').check();
+  await page.getByLabel('Account password').fill('correct-horse-battery');
+  await page.getByRole('button', { name: 'Sign in and accept invitation' }).click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard');
+  await expect(page.getByLabel('Active company')).toHaveValue('company-b');
 });
 
 test('company member data cannot leak across a rapid active-company switch', async ({ page }) => {
@@ -488,6 +509,8 @@ test('company member data cannot leak across a rapid active-company switch', asy
     ] }) });
   });
   await page.goto('/dashboard');
+  await page.getByRole('button', { name: /organization/i }).click();
+  await page.getByRole('button', { name: /users/i }).click();
   await companyAStarted;
   const selector = page.getByLabel('Active company');
   await selector.selectOption('company-b');
@@ -573,7 +596,7 @@ test('Settings plugins supports cards/list and only enables plugin details', asy
     body: JSON.stringify({ plugin: { id: 'masked-plugin-ref', name: 'Team Notes', version: '1.2.0', description: 'Shared team notes', category: 'productivity', system: false, entitled: true, installed: true, installedVersion: '1.2.0', accessSource: 'plan' } })
   }));
   await page.goto('/dashboard');
-  await page.getByRole('button', { name: /settings/i }).click();
+  await page.getByRole('complementary').getByRole('button', { name: 'Settings' }).click();
   await expect(page.getByRole('button', { name: 'Plugins', exact: true })).toHaveCount(1);
   await page.getByRole('button', { name: 'Plugins', exact: true }).click();
   const catalogue = page.locator('bee-plugin-settings');
@@ -612,8 +635,8 @@ test('Settings exposes the seven role-authorized sections and General has exactl
   await page.goto('/dashboard/settings');
   await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard/settings');
   await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible();
-  await expect(page.locator('.settings-workspace__general > article')).toHaveCount(3);
-  for (const title of ['Platform Identity', 'Appearance', 'Platform Defaults']) {
+  await expect(page.locator('.settings-workspace__general > article')).toHaveCount(4);
+  for (const title of ['Platform Identity', 'Appearance', 'Platform Preferences', 'Platform Defaults']) {
     await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   }
   const expected = [
