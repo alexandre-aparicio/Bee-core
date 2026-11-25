@@ -66,6 +66,7 @@ export const CORE_RUNTIME_PLUGIN_IDS = new Set([
   "platform-admin", "notifications", "mail", "localization", "hello"
 ]);
 
+export const PLUGIN_HOST_SERVICE_KEYS: ReadonlySet<string> = new Set(["mongoDbName","defaultTenantId","authAdminEmail","authAdminPassword","authMfaEncryptionKey","publicBaseDomain","fileStoragePath","billingWebhookSecret","pluginPackagePath","pluginPublisherPublicKey","sessionIdSecret"]);
 const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const pluginId = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 const permissionKey = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9_-]*)+$/;
@@ -127,8 +128,7 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   if (item.compatibility.maxRuntimeVersion !== undefined && (typeof item.compatibility.maxRuntimeVersion !== "string" || !semver.test(item.compatibility.maxRuntimeVersion))) throw new Error("Invalid maximum runtime version");
   const versionRange = /^(?:\*|(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s+\|\|\s+(?:\^|~|>=|<=|>|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)*$/;
   if (!Array.isArray(item.dependencies) || item.dependencies.some((dependency: any) => !record(dependency) || typeof dependency.pluginId !== "string" || !pluginId.test(dependency.pluginId) || typeof dependency.versionRange !== "string" || !versionRange.test(dependency.versionRange.trim()))) throw new Error("Invalid plugin dependencies");
-  const allowedServices = new Set(["mongoDbName","defaultTenantId","authAdminEmail","authAdminPassword","authMfaEncryptionKey","publicBaseDomain","fileStoragePath","billingWebhookSecret","pluginPackagePath","pluginPublisherPublicKey","sessionIdSecret"]);
-  if (item.requiredServices !== undefined && (!Array.isArray(item.requiredServices) || item.requiredServices.some((service: unknown) => typeof service !== "string" || !allowedServices.has(service)) || new Set(item.requiredServices).size !== item.requiredServices.length)) throw new Error("Invalid plugin required services");
+  if (item.requiredServices !== undefined && (!Array.isArray(item.requiredServices) || item.requiredServices.some((service: unknown) => typeof service !== "string" || !PLUGIN_HOST_SERVICE_KEYS.has(service)) || new Set(item.requiredServices).size !== item.requiredServices.length)) throw new Error("Invalid plugin required services");
   if (item.optionalServices !== undefined && (!Array.isArray(item.optionalServices) || item.optionalServices.some((service: unknown) => typeof service !== "string" || !allowedServices.has(service)) || new Set(item.optionalServices).size !== item.optionalServices.length || (item.requiredServices??[]).some((service:string)=>item.optionalServices.includes(service)))) throw new Error("Invalid plugin optional services");
   if (item.tenantDependencies !== undefined && (!Array.isArray(item.tenantDependencies) || item.tenantDependencies.some((id: unknown) => typeof id !== "string" || !pluginId.test(id)) || new Set(item.tenantDependencies).size !== item.tenantDependencies.length)) throw new Error("Invalid tenant plugin dependencies");
   if (new Set(item.dependencies.map((dependency: any) => dependency.pluginId)).size !== item.dependencies.length) throw new Error("Plugin dependencies must be unique");
