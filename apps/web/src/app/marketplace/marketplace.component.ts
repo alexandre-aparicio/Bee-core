@@ -29,7 +29,7 @@ type MarketplacePlugin = {
         <button class="bee-marketplace__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
       </div>
       <div *ngIf="loading" class="bee-marketplace__state">Loading company plugins…</div>
-      <div *ngIf="error" class="bee-marketplace__error" role="alert">{{error}}</div>
+      <div *ngIf="error" class="bee-marketplace__error bee-status--danger" role="alert">{{error}}</div>
       <div *ngIf="!loading && !error && plugins.length === 0" class="bee-marketplace__state">No plugins are currently available for this company.</div>
       <div class="bee-marketplace__list" *ngIf="!loading && plugins.length">
         <article class="bee-marketplace__item" *ngFor="let plugin of plugins; trackBy: trackPlugin">
@@ -43,7 +43,7 @@ type MarketplacePlugin = {
               <span *ngIf="plugin.accessSource === 'purchase'">Purchased add-on</span>
               <span *ngIf="plugin.accessSource === 'manual'">Granted by Superadmin</span>
               <span *ngIf="!plugin.entitled">Not included</span>
-              <span *ngIf="plugin.installed" class="bee-marketplace__installed">{{plugin.enabled ? (isHelloWorld(plugin) ? "Active" : "Installed") : "Disabled"}}</span>
+              <span *ngIf="plugin.installed" class="bee-marketplace__installed bee-status--success">{{plugin.enabled ? (isHelloWorld(plugin) ? "Active" : "Installed") : "Disabled"}}</span>
             </div>
           </div>
           <div class="bee-marketplace__actions">
