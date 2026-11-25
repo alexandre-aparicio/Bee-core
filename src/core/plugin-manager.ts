@@ -177,7 +177,7 @@ export class BeePluginManager {
       if (managed.status !== "registered") continue;
       const pluginName = managed.plugin.manifest.name;
       ctx.server.register(async scopedServer => {
-        const pluginContext = this.createPluginContext(pluginName, {
+        const pluginContext = this.createPluginContext(managed.plugin, {
           ...ctx,
           server: scopedServer,
           events: ctx.events.forPlugin(pluginName)
