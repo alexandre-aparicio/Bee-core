@@ -476,7 +476,7 @@ export class PluginSettingsComponent implements OnInit {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not change global plugin availability");
       plugin.globallyEnabled = enabled;
-      this.message = plugin.name + (enabled ? " is available globally again." : " has been suspended globally. Tenant data and activation settings were preserved.");
+      this.showToast(plugin.name + (enabled ? " is available globally again." : " has been suspended globally. Tenant data and activation settings were preserved."));
       if (this.detail) this.detail = { ...this.detail, globallyEnabled: enabled };
       window.dispatchEvent(new CustomEvent('bee:plugins-changed'));
     } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not change global plugin availability"; }
@@ -515,7 +515,7 @@ export class PluginSettingsComponent implements OnInit {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not save plan access");
-      this.message = "Plan access updated for " + plugin.name + ".";
+      this.showToast("Plan access updated for " + plugin.name + ".");
     } catch (error) { this.packageError = error instanceof Error ? error.message : "Could not save plan access"; }
     finally { this.packageSavingId = ""; }
   }
@@ -542,7 +542,7 @@ export class PluginSettingsComponent implements OnInit {
     try {
       const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.id), { method: 'DELETE', headers: { authorization: 'Bearer ' + this.token } });
       const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not remove platform package');
-      this.message = pkg.name + ' removed from the platform. Restart Bee Core to unload it from the current runtime; tenant data was preserved.';
+      this.showToast(pkg.name + ' removed from the platform. Restart Bee Core to unload it from the current runtime; tenant data was preserved.');
       this.packageRemovalPlugin = null; this.packageUsage = null; await this.loadPlatformPackages(); await this.load();
     } catch (error) { this.packageUsageError = error instanceof Error ? error.message : 'Could not remove platform package'; }
     finally { this.packageRemovalBusy = false; }
@@ -558,7 +558,7 @@ export class PluginSettingsComponent implements OnInit {
       const response = await fetch("/api/platform/plugin-packages", { method: "POST", headers: { authorization: "Bearer " + this.token, "content-type": "application/json" }, body: JSON.stringify({ archiveBase64: btoa(binary) }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Plugin upload failed");
-      this.message = "Package " + result.package.name + " v" + result.package.version + " stored. Runtime activation is pending.";
+      this.showToast("Package " + result.package.name + " v" + result.package.version + " stored. Runtime activation is pending.");
       await this.loadPlatformPackages();
     } catch (error) { this.packageError = error instanceof Error ? error.message : "Plugin upload failed"; }
     finally { this.pluginUploadBusy = false; }
@@ -674,9 +674,9 @@ export class PluginSettingsComponent implements OnInit {
       if (result.jobId) await this.waitForJob(String(result.jobId), plugin, action);
       await this.load();
       window.dispatchEvent(new CustomEvent('bee:plugins-changed'));
-      this.message = method === "POST"
+      this.showToast(method === "POST"
         ? plugin.name + " installed successfully."
-        : plugin.name + " uninstalled. Company data is preserved.";
+        : plugin.name + " uninstalled. Company data is preserved.");
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Plugin operation failed";
       this.message = "";
