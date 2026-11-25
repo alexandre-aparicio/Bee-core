@@ -84,6 +84,7 @@ export class AppComponent implements OnInit {
   companyError = '';
   companyBusy = false;
   activePlugins: string[] = [];
+  private pluginResourceIds: Record<string, string> = {};
   pluginNavigationItems: Array<{id:string;label:string;path:string}> = [];
   private pluginNavigationSequence = 0;
   setActivePlugins(pluginIds: string[]): void {
@@ -98,7 +99,10 @@ export class AppComponent implements OnInit {
     if (!token || !candidates.length) { this.pluginNavigationItems = []; this.syncActiveSectionFromPath(); return; }
     const items = await Promise.all(candidates.map(async id => {
       try {
-        const response = await fetch(this.api + "/marketplace/plugins/" + encodeURIComponent(id) + "/runtime", {
+        // pluginKey is the internal ID; the API route requires the tenant-masked resource ID.
+        const resourceId = this.pluginResourceIds[id];
+        if (!resourceId) return null;
+        const response = await fetch(this.api + "/marketplace/plugins/" + encodeURIComponent(resourceId) + "/runtime", {
           method: "GET", credentials: "same-origin", headers: { authorization: "Bearer " + token }
         });
         if (!response.ok) return null;
@@ -119,14 +123,18 @@ export class AppComponent implements OnInit {
   }
   isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
   private async refreshTenantPlugins(): Promise<void> {
-    if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
+    if (!this.auth?.accessToken || !this.activeCompanyId) { this.pluginResourceIds = {}; this.setActivePlugins([]); return; }
     try {
       const response = await fetch(this.api + '/marketplace/plugins', { credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not load enabled company plugins');
-      const enabledIds = (Array.isArray(result.plugins) ? result.plugins : []).filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true).map((plugin: any) => String(plugin.pluginKey || plugin.id || '')).filter(Boolean);
+      const tenantPlugins = Array.isArray(result.plugins) ? result.plugins : [];
+      this.pluginResourceIds = Object.fromEntries(tenantPlugins
+        .filter((plugin: any) => plugin?.pluginKey && plugin?.id)
+        .map((plugin: any) => [String(plugin.pluginKey), String(plugin.id)]));
+      const enabledIds = tenantPlugins.filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true).map((plugin: any) => String(plugin.pluginKey || plugin.id || '')).filter(Boolean);
       this.setActivePlugins(enabledIds);
-    } catch { this.setActivePlugins([]); }
+    } catch { this.pluginResourceIds = {}; this.setActivePlugins([]); }
   }
   t(key: string): string { return this.i18n.t(key); }
   get mode(): 'login'|'register'|'forgot' { return this.path === '/register' ? 'register' : this.path === '/forgot' ? 'forgot' : 'login'; }
