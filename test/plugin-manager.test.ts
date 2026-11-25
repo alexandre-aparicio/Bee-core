@@ -22,14 +22,14 @@ test("plugin scopes isolate routes and filter config keys", async () => {
   let authConfig: Record<string, unknown> | undefined;
   let filesConfig: Record<string, unknown> | undefined;
   const auth: BeePlugin = {
-    manifest: { name: "auth", version: "1" },
+    manifest: { name: "auth", version: "1", requiredServices: ["mongo", "session-resource-ids", "auth-bootstrap", "public-domain"] },
     initialize(ctx) {
       authConfig = ctx.config as Record<string, unknown>;
       ctx.server.get("/auth-scope-test", async () => ({ plugin: ctx.pluginName }));
     }
   };
   const files: BeePlugin = {
-    manifest: { name: "files", version: "1", dependencies: ["auth"] },
+    manifest: { name: "files", version: "1", dependencies: ["auth"], requiredServices: ["mongo", "session-resource-ids", "file-storage"] },
     initialize(ctx) {
       filesConfig = ctx.config as Record<string, unknown>;
       ctx.server.get("/files-scope-test", async () => ({ plugin: ctx.pluginName }));
@@ -118,5 +118,19 @@ test("all plugin scopes receive the exact same core MongoClient instance", async
   await manager.mountAll(rootContext);
   assert.equal(received.length, 2);
   assert.ok(received.every(client => client === rootContext.mongoClient));
+  await server.close();
+});
+
+
+test("unknown required host services fail one plugin with an actionable error", async () => {
+  const server = Fastify();
+  const manager = new BeePluginManager();
+  manager.register({ manifest: { name: "misconfigured", version: "1", requiredServices: ["unknown-service"] } });
+  manager.register({ manifest: { name: "healthy", version: "1" } });
+  await manager.mountAll(context(server));
+  const failed = manager.list().find(plugin => plugin.name === "misconfigured");
+  assert.equal(failed?.status, "failed");
+  assert.match(failed?.error ?? "", /requires unsupported host service 'unknown-service'/);
+  assert.equal(manager.list().find(plugin => plugin.name === "healthy")?.status, "started");
   await server.close();
 });
