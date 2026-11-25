@@ -570,9 +570,21 @@ export class PluginSettingsComponent implements OnInit {
     this.packageRemovalBusy = true; this.packageUsageError = '';
     try {
       const response = await fetch('/api/platform/plugin-packages/' + encodeURIComponent(pkg.id), { method: 'DELETE', headers: { authorization: 'Bearer ' + this.token } });
-      const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not remove platform package');
-      this.message = pkg.name + ' removed from the platform. Restart Bee Core to unload it from the current runtime; tenant data was preserved.';
-      this.packageRemovalPlugin = null; this.packageUsage = null; await this.loadPlatformPackages(); await this.load();
+      const responseText = await response.text();
+      let result: any;
+      try { result = responseText ? JSON.parse(responseText) : {}; }
+      catch { throw new Error(response.ok ? 'The server returned an invalid response while removing the package.' : 'Bee Core is restarting or temporarily unavailable. Refresh the page in a few seconds.'); }
+      if (!response.ok) throw new Error(result.error || 'Could not remove platform package');
+      this.message = result.restartRequired
+        ? pkg.name + ' removed. Bee Core will restart automatically to unload it. Tenant data was preserved.'
+        : pkg.name + ' removed from the platform. Tenant data was preserved.';
+      this.packageRemovalPlugin = null; this.packageUsage = null;
+      // Do not issue more API calls while the backend is preparing its restart.
+      if (result.restartRequired) {
+        window.setTimeout(() => window.location.reload(), 18000);
+      } else {
+        await this.loadPlatformPackages(); await this.load();
+      }
     } catch (error) { this.packageUsageError = error instanceof Error ? error.message : 'Could not remove platform package'; }
     finally { this.packageRemovalBusy = false; }
   }
