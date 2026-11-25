@@ -83,8 +83,8 @@ jobs:
       - name: Production build
         run: npm run build
       - name: Validate Playwright test discovery
-        if: steps.migration-state.outputs.run == 'true'
         run: npm run test:e2e -- --list
+
   angular-migration:
     name: Sequential Angular 19 to 22 migration rehearsal
     if: github.event_name == 'pull_request' && github.head_ref == 'security/angular-22-migration-runner'
@@ -156,7 +156,8 @@ jobs:
       - name: Migrate Angular core and CLI 21 to 22
         if: steps.migration-state.outputs.run == 'true'
         run: |
-          npx ng update @angular/core@22 @angular/cli@22
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
+          npx ng update @angular/core@22 @angular/cli@22 --allow-dirty
           git -C "$GITHUB_WORKSPACE" add -A
           git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular core and CLI to 22"
           test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
@@ -186,6 +187,7 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
+          rm -f apps/web/.angular-migration-complete
           git add -N apps/web || true
           git diff --binary "$MIGRATION_BASE" -- apps/web > "$RUNNER_TEMP/angular-migration.patch"
           git diff --stat "$MIGRATION_BASE" -- apps/web
