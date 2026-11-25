@@ -15,7 +15,8 @@ const RESOURCE_TYPE_CODES: Record<SessionResourceType, number> = {
   job: 9,
   "audit-event": 10,
   folder: 11,
-  document: 12,\n  "document-file": 13,
+  document: 12,
+  "document-file": 13,
 };
 const CODE_RESOURCE_TYPES = new Map<number, SessionResourceType>(
   Object.entries(RESOURCE_TYPE_CODES).map(([type, code]) => [code, type as SessionResourceType]),
