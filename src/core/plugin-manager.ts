@@ -18,34 +18,22 @@ export class BeePluginManager {
     if (this.plugins.has(name) || [...this.plugins.keys()].some(existing => existing.toLowerCase() === name.toLowerCase())) {
       throw new Error(`Plugin '${name}' already registered (names are case-insensitive)`);
     }
+    const allowedServices = new Set(["mongoDbName","defaultTenantId","authAdminEmail","authAdminPassword","authMfaEncryptionKey","publicBaseDomain","fileStoragePath","billingWebhookSecret","pluginPackagePath","pluginPublisherPublicKey","sessionIdSecret"]);
+    const requiredServices = plugin.manifest.requiredServices ?? [];
+    if (!Array.isArray(requiredServices) || requiredServices.some(service => typeof service !== "string" || !allowedServices.has(service))) {
+      const invalid = Array.isArray(requiredServices) ? requiredServices.filter(service => typeof service !== "string" || !allowedServices.has(service)).join(", ") : "invalid value";
+      throw new Error("Plugin '" + name + "' declares unsupported required service(s): " + invalid);
+    }
+    if (new Set(requiredServices).size !== requiredServices.length) throw new Error("Plugin '" + name + "' declares duplicate required services");
     this.plugins.set(name, { plugin, status: "registered" });
   }
 
-  private readonly configAccess: Record<string, readonly string[]> = {
-    auth: ["mongoDbName", "defaultTenantId", "authAdminEmail", "authAdminPassword", "authMfaEncryptionKey", "publicBaseDomain", "sessionIdSecret"],
-    organizations: ["mongoDbName", "publicBaseDomain", "sessionIdSecret"],
-    teams: ["mongoDbName", "sessionIdSecret"],
-    files: ["mongoDbName", "fileStoragePath", "sessionIdSecret"],
-    documents: ["mongoDbName", "fileStoragePath", "sessionIdSecret"],
-    "connected-devices": ["mongoDbName", "sessionIdSecret"],
-    "time-tracking": ["mongoDbName", "sessionIdSecret"],
-    marketplace: ["mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
-    mail: ["mongoDbName", "sessionIdSecret"],
-    notifications: ["mongoDbName", "sessionIdSecret"],
-    // Platform package upload and verification need the configured storage root
-    // and publisher public key. Never expose the publisher private key to plugins.
-    "platform-admin": ["mongoDbName", "sessionIdSecret", "pluginPackagePath", "pluginPublisherPublicKey"],
-    localization: ["mongoDbName", "sessionIdSecret"],
-    hello: []
-  };
-
-  private createPluginContext(pluginName: string, ctx: BeeContext): BeeContext {
+  private createPluginContext(pluginName: string, ctx: BeeContext, requiredServices: readonly string[]): BeeContext {
     const prefix = `[${pluginName}]`;
-    const allowedConfig = this.configAccess[pluginName.toLowerCase()] ?? [];
-    const scopedConfig = Object.fromEntries(allowedConfig.filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
+    const scopedConfig = Object.fromEntries(requiredServices.filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
     // Resource references use a dedicated key derived from JWT_SECRET. Plugins
     // that serialize IDs never receive the JWT signing secret itself.
-    if (allowedConfig.includes("sessionIdSecret")) {
+    if (requiredServices.includes("sessionIdSecret")) {
       const jwtSecret = String(ctx.config.jwtSecret ?? "");
       if (jwtSecret.length >= 32) scopedConfig.sessionIdSecret = createHmac("sha256", jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
     }
@@ -193,7 +181,7 @@ export class BeePluginManager {
           ...ctx,
           server: scopedServer,
           events: ctx.events.forPlugin(pluginName)
-        });
+        }, managed.plugin.manifest.requiredServices ?? []);
         managed.context = pluginContext;
         try {
           this.dependenciesReady(managed);
@@ -223,7 +211,7 @@ export class BeePluginManager {
   async stopAll(ctx: BeeContext): Promise<void> {
     for (const managed of [...this.startupOrder].reverse()) {
       if (managed.status !== "started") continue;
-      const pluginContext = managed.context ?? this.createPluginContext(managed.plugin.manifest.name, ctx);
+      const pluginContext = managed.context ?? this.createPluginContext(managed.plugin.manifest.name, ctx, managed.plugin.manifest.requiredServices ?? []);
       try {
         await managed.plugin.stop?.(pluginContext);
         managed.status = "stopped";
