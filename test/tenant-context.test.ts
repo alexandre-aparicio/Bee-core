@@ -82,11 +82,15 @@ test("tenant context requires a valid session, active membership and company", {
       ]
     });
     await db.collection("tenant_plugin_installations").insertOne({ id: "time-install", tenantId: "company-one", pluginId: "time-tracking", version: "0.2.0", status: "installed", installedAt: new Date(), updatedAt: new Date() });
+    await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { role: "manager" }, $unset: { customRoleId: "" } });
+    const managerPluginContext = await resolveTenantContext(db, claims, {}, secret);
+    assert.ok(managerPluginContext);
+    assert.ok(hasTenantPermission(managerPluginContext, "time-tracking.read"));
+    assert.ok(hasTenantPermission(managerPluginContext, "time-tracking.clock"));
+    assert.equal(hasTenantPermission(managerPluginContext, "time-tracking.manage"), false);
+    await db.collection("memberships").updateOne({ id: "membership-one" }, { $set: { role: "custom", customRoleId: "role-reader" } });
     const installedPluginContext = await resolveTenantContext(db, claims, {}, secret);
     assert.ok(installedPluginContext);
-    assert.ok(hasTenantPermission(installedPluginContext, "time-tracking.read"));
-    assert.ok(hasTenantPermission(installedPluginContext, "time-tracking.clock"));
-    assert.equal(hasTenantPermission(installedPluginContext, "time-tracking.manage"), false);
     assert.ok(hasTenantPermission(installedPluginContext, "time-tracking.read"), "custom role's stored plugin permission is effective while the plugin is installed");
     await db.collection("tenant_plugin_installations").updateOne({ id: "time-install" }, { $set: { status: "uninstalled" } });
     const retiredPluginContext = await resolveTenantContext(db, claims, {}, secret);
