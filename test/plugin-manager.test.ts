@@ -124,7 +124,7 @@ test("all plugin scopes receive the exact same core MongoClient instance", async
 
 test("plugin manager rejects undeclared host services and duplicate service declarations", () => {
   const manager = new BeePluginManager();
-  assert.throws(() => manager.register({ manifest: { name: "unsafe", version: "1", requiredServices: ["jwtSecret"] } }), /unsupported required service/);
+  assert.throws(() => manager.register({ manifest: { name: "unsafe", version: "1", requiredServices: ["jwtSecret"] } }), /unsupported service/);
   assert.throws(() => manager.register({ manifest: { name: "duplicate", version: "1", requiredServices: ["mongoDbName", "mongoDbName"] } }), /duplicate required services/);
 });
 
