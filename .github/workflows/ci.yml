@@ -12,6 +12,7 @@ on:
       - "package-lock.json"
       - "apps/web/package.json"
       - "apps/web/package-lock.json"
+      - "docs/**"
       - "tsconfig.json"
       - ".github/workflows/ci.yml"
   push:
