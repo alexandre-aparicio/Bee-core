@@ -69,9 +69,9 @@ type TenantPluginPurchase = Document & {
 };
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], visiblePluginIds: ["files", "documents", "notes", "connected-devices", "time-tracking"], maxUsers: null, storageMb: 10240 }
+  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "connected-devices"], maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents", "notes", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "connected-devices"], maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents", "notes", "connected-devices"], visiblePluginIds: ["files", "documents", "notes", "connected-devices"], maxUsers: null, storageMb: 10240 }
 ];
 
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
@@ -125,36 +125,6 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
       down: async db => {
         for (const name of ["tenant_notes_company_id_unique", "tenant_notes_company_updated"]) {
           try { await db.collection("tenant_notes").dropIndex(name); }
-          catch (error) { if (![26, 27].includes((error as { code?: number }).code ?? 0)) throw error; }
-        }
-      }
-    }]
-  },
-  {
-    id: "time-tracking",
-    name: "Control Horario",
-    version: "0.2.0",
-    description: "Tenant-scoped employee time clock, breaks and work-session history",
-    category: "productivity",
-    visibleInPlans: ["starter", "pro", "enterprise"],
-    includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false,
-    system: false,
-    dependencies: [],
-    activationPolicy: "automatic",
-    codeAvailable: true,
-    status: "published",
-    migrations: [{
-      id: "001_create_time_tracking_indexes",
-      checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37",
-      up: async db => {
-        await db.collection("tenant_time_tracking_sessions").createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "time_tracking_tenant_session_unique" });
-        await db.collection("tenant_time_tracking_sessions").createIndex({ tenantId: 1, userId: 1, startedAt: -1 }, { name: "time_tracking_user_history" });
-        await db.collection("tenant_time_tracking_sessions").createIndex({ tenantId: 1, userId: 1 }, { unique: true, partialFilterExpression: { active: true }, name: "time_tracking_one_active_session" });
-      },
-      down: async db => {
-        for (const name of ["time_tracking_tenant_session_unique", "time_tracking_user_history", "time_tracking_one_active_session"]) {
-          try { await db.collection("tenant_time_tracking_sessions").dropIndex(name); }
           catch (error) { if (![26, 27].includes((error as { code?: number }).code ?? 0)) throw error; }
         }
       }
