@@ -40,15 +40,9 @@ The current webhook credential is a shared static Bearer secret with constant-ti
 
 This is a webhook contract, not a complete billing product. Checkout, invoices, payment retries, refunds, taxes, customer portal and provider-specific reconciliation are not implemented yet.
 
-## Reference plugin: Notes
+## Retired package history
 
-The `notes` plugin demonstrates the intended pattern:
-- its routes are registered by the trusted runtime;
-- each request validates the persisted session and active company membership;
-- each query uses `TenantCollection`;
-- access requires the company to be entitled and the plugin to be installed;
-- role permissions distinguish read and write access;
-- uninstall or entitlement revocation disables access but does not delete company notes.
+Team Notes is no longer a product package. Startup permanently marks its platform package and catalogue record as deprecated, including a previous ZIP replacement. Tenant-owned rows, installation records and migration history are retained; the retired package is not restored to tenant catalogues or runtime access.
 
 ## Important limitations before commercial launch
 
@@ -59,6 +53,6 @@ The `notes` plugin demonstrates the intended pattern:
 - Install and uninstall jobs are durable and recover expired worker leases. Version upgrades, rollback, immutable package archive verification and full dependency graph resolution remain pending.
 - Plan user and storage quotas are enforced for new operations: invitations/direct membership additions reserve the company user allowance, and file uploads reserve storage atomically per company. A downgrade does not automatically suspend existing members or delete files; it blocks new additions/uploads that exceed the new allowance.
 - A company-facing dashboard catalogue with install/uninstall controls is implemented and hides management actions from non-admin roles. Checkout, subscription management and payment-provider UI remain pending.
-- Notes now includes a dashboard component mounted by a generic Angular plugin outlet from the active company installation state. The registry currently contains statically bundled trusted components; loading component code/routes from signed package archives remains pending.
+- The frontend registry currently contains statically bundled trusted components; loading component code/routes from signed package archives remains pending.
 
 Do not treat the marketplace as production billing or arbitrary third-party plugin execution yet.
