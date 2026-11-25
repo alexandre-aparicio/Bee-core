@@ -93,9 +93,9 @@ New feature code MUST consume semantic variables rather than literal colors. The
 | Danger | `--bee-status-danger` |
 | Informational | `--bee-status-info` |
 | Overlay | `--bee-overlay` |
-| Control background | `--bee-control-bg` |
-| Control border | `--bee-control-border` |
-| Control placeholder | `--bee-control-placeholder` |
+| Control background | `--bee-input-bg` |
+| Control border | `--bee-input-border` |
+| Control placeholder | `--bee-input-placeholder` |
 
 The semantic names above are supplied by the central contract and package mode blocks. Do not use a CSS fallback such as `var(--bee-surface-raised, #121827)` in a feature component; if a token is missing, fix the contract and all six package modes.
 
