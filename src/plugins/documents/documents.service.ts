@@ -3,7 +3,7 @@ import { resolveTenantContext, hasTenantPermission, type TenantContext } from ".
 import { hasPluginEntitlement, isPluginEnabled, isPluginInstalled } from "../../core/plugin-entitlements.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { evaluateResourceAccess } from "../../core/resource-access.js";
-import { FilesStorageAdapter } from "./files-storage.adapter.js";
+import { DocumentsStorageAdapter } from "./documents-storage.adapter.js";
 import { MAX_FOLDER_DEPTH, sanitizeText, isValidPublicId, normalizeTags } from "./documents.validators.js";
 import { DocumentsRepository, type DocumentsFolderRecord, type DocumentsRecord } from "./documents.repository.js";
 
@@ -13,8 +13,8 @@ export const MAX_DEPTH=MAX_FOLDER_DEPTH;
 export const clean=sanitizeText;
 export const validPublicId=isValidPublicId;
 
-/** Creates module-owned business/security helpers bound to Core and Files infrastructure. */
-export function createDocumentsServices(input:{db:Db;secret:string;storage:FilesStorageAdapter;repository:DocumentsRepository}) {
+/** Creates module-owned business/security helpers bound to Core and Documents-owned storage. */
+export function createDocumentsServices(input:{db:Db;secret:string;storage:DocumentsStorageAdapter;repository:DocumentsRepository}) {
  const {db,secret,storage,repository}=input;
  const authenticate=async(req:any,reply:any):Promise<TenantContext|null>=>{
   try{
