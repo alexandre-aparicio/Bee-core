@@ -1,26 +1,7 @@
 name: Bee-Core production Compose profile
 
 on:
-  pull_request:
-    paths:
-      - "docker-compose.yml"
-      - "docker-compose.prod.yml"
-      - ".env.production.example"
-      - ".github/workflows/docker-prod-profile.yml"
-      - "Dockerfile"
-      - "apps/web/Dockerfile"
-      - "apps/web/**"
-      - "src/**"
-  push:
-    branches: [main]
-    paths:
-      - "docker-compose.yml"
-      - "docker-compose.prod.yml"
-      - ".env.production.example"
-      - ".github/workflows/docker-prod-profile.yml"
-      - "Dockerfile"
-      - "apps/web/**"
-      - "src/**"
+  workflow_call:
   workflow_dispatch:
 
 permissions:
