@@ -77,7 +77,7 @@ Explicit transition paths from source review:
 | Legacy palette aliases | Removed by source search | Migrated the remaining `organization-company` and `teams-workspace` consumers to `--bee-*` tokens, then removed all six temporary aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) from the package host. |
 | Cleanup and documentation reconciliation | Done by source review | Reconciled `mvp-progress.md`, `template-token-mapping.md` and Midnight STYLE-GUIDE with current source. No feature palette host-context exception remains; runtime and visual validation remain NOT verified. |
 
-## Step 5 — source batches completed
+## Feature migration batches
 
 | Component / owner | Before → after | Compatibility selectors removed |
 |---|---|---|
@@ -136,4 +136,4 @@ Then visually review Midnight Dark and Light, Paper and Glass on Platform Admin,
 
 ## Validation boundary
 
-GitHub Actions run [#45590215483](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45590215483) completed with **success** on `refactor/template-base-and-packages` (commit `9970b58f17a49ae9e0ec2d0c06546880138f6042`). Passed: dependency installation, token/manifest checker, style audit, Stylelint, Angular production build, Playwright test discovery (`--list`), backend build, backend tests, and the no-skipped-tests guard. The full Playwright browser suite was not executed; route runtime behavior, cascade behavior, responsive behavior and visual comparisons remain **NOT verified**. Do not describe runtime or visual acceptance as complete until those checks have been run.
+GitHub Actions run [#45590445369](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45590445369) completed with **success** on `refactor/template-base-and-packages` (commit `02b28db938ab3a20f1767bbe1ffba9c7533fc2d8`). Passed: dependency installation, token/manifest checker, style audit, Stylelint, Angular production build, Playwright test discovery (`--list`), backend build, backend tests, and the no-skipped-tests guard. The full Playwright browser suite was not executed; route runtime behavior, cascade behavior, responsive behavior and visual comparisons remain **NOT verified**. Do not describe runtime or visual acceptance as complete until those checks have been run.
