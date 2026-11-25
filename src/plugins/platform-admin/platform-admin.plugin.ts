@@ -318,13 +318,14 @@ export const platformAdminPlugin:BeePlugin={
      {$set:{name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,dependencies:manifest.dependencies.filter(item=>!item.optional).map(item=>item.pluginId),activationPolicy:manifest.activationPolicy??"manual",status:"installed",source:"zip",runtimeState:"stored_pending_runtime",publisher:manifest.publisher,digest,packageDirectory,backendEntrypoint:manifest.backend.entrypoint,frontendRoutes:manifest.frontend.routes,installedAt:now,installedBy:actor.id,updatedAt:now},$setOnInsert:{pluginId:manifest.id,createdAt:now}},
      {upsert:true}
     );
-    logger.info("Platform package upload stored; mounting runtime without restarting Bee Core", { pluginId: manifest.id, version: manifest.version, actorId: actor.id });
+    ctx.logger.info("Platform package upload stored; mounting runtime without restarting Bee Core", { pluginId: manifest.id, version: manifest.version, actorId: actor.id });
     const runtime = await ctx.pluginRuntime?.mountStoredPackage(manifest.id);
     if (!runtime) throw new Error("Dynamic plugin runtime is not available");
     await recordPlatformAudit({actorId:actor.id,action:"plugin.package_uploaded",resourceType:"plugin_package",resourceId:manifest.id,metadata:{version:manifest.version,digest,publisher:manifest.publisher,extractedFiles,extractedBytes,runtimeState:"loaded"}});
     return reply.code(201).send({success:true,package:{id:mask(req.platformSession!,manifest.id,"plugin"),pluginKey:manifest.id,name:manifest.name,version:manifest.version,status:"installed",runtimeState:"loaded",activationPolicy:manifest.activationPolicy??"manual",extractedFiles,extractedBytes,storageKey}});
    }catch(error){
     const message=error instanceof Error?error.message:"Plugin package installation failed";
+    ctx.logger.error("Platform package installation/runtime mount failed", { error: message });
     const status=/not configured/.test(message)?503:/already stored|already being installed|reserved by a built-in|must be newer|dependency is not installed|dependency is not healthy/.test(message)?409:/signature|digest|manifest|ZIP|archive|path|entrypoint|compatible|storageKey|README|frontend|backend|publisher|version/i.test(message)?400:500;
     await recordPlatformAudit({actorId:actor.id,action:"plugin.package_upload_failed",resourceType:"plugin_package",metadata:{error:message.slice(0,300)}});
     return reply.code(status).send({error:message});
@@ -408,7 +409,9 @@ export const platformAdminPlugin:BeePlugin={
    }catch(error){
     if((error as NodeJS.ErrnoException).code!=="ENOENT"){
      await packages.updateOne({pluginId,status:"removing"},{$set:{status:"installed",updatedAt:new Date()}});
-     return reply.code(500).send({error:"Could not remove stored package files; registry entry was preserved"});
+     try { await ctx.pluginRuntime?.mountStoredPackage(pluginId); }
+     catch (reloadError) { ctx.logger.error("Package file removal failed and runtime recovery also failed", { pluginId, error, reloadError }); }
+     return reply.code(500).send({error:"Could not remove stored package files; registry entry was preserved and runtime recovery was attempted"});
     }
    }
    if(inactiveInstallations.length){
