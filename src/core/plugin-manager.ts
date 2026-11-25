@@ -26,7 +26,7 @@ export class BeePluginManager {
     organizations: ["mongoDbName", "publicBaseDomain", "sessionIdSecret"],
     teams: ["mongoDbName", "sessionIdSecret"],
     files: ["mongoDbName", "fileStoragePath", "sessionIdSecret"],
-    documents: ["mongoDbName", "fileStoragePath", "sessionIdSecret"],
+    documents: ["mongoDbName", "documentsStoragePath", "sessionIdSecret"],
     "connected-devices": ["mongoDbName", "sessionIdSecret"],
     "time-tracking": ["mongoDbName", "sessionIdSecret"],
     marketplace: ["mongoDbName", "billingWebhookSecret", "publicBaseDomain", "sessionIdSecret"],
