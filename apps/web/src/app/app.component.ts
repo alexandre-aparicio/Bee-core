@@ -103,7 +103,8 @@ export class AppComponent implements OnInit {
         });
         if (!response.ok) return null;
         const runtime = await response.json();
-        const route = Array.isArray(runtime.routes) ? runtime.routes.find((item: any) =>
+        if (runtime?.pluginId !== id || !Array.isArray(runtime.routes)) return null;
+        const route = runtime.routes.find((item: any) =>
           typeof item?.path === "string" && item.path.startsWith("/dashboard/") &&
           !item.path.startsWith("//") && !item.path.includes("..") &&
           !item.path.includes("?") && !item.path.includes("#")) : null;
