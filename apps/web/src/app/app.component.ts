@@ -36,7 +36,7 @@ export class AppComponent implements OnInit, OnDestroy {
       // The settings component can dispatch this event from an async request.
       // Re-enter Angular explicitly so the sidebar is rendered immediately.
       this.zone.run(() => {
-        const activePluginId = this.pluginFrontends.getPluginIdForSection(this.activeSection, this.activePlugins);
+        const activePluginId = this.pluginFrontends.getPluginIdForSection(this.activeSection, this.activePlugins, (this.activeCompanyRole || "member").toLowerCase());
         if (activePluginId && !this.isPluginEnabled(activePluginId)) this.navigateSection('dashboard');
       });
     });
@@ -106,7 +106,7 @@ export class AppComponent implements OnInit, OnDestroy {
   activePlugins: string[] = [];
   setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.pluginFrontends.setActivePlugins(this.activePlugins); this.syncActiveSectionFromPath(); }
   isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
-  pluginIdForSection(section: string): string | null { return this.pluginFrontends.getPluginIdForSection(section, this.activePlugins) ?? null; }
+  pluginIdForSection(section: string): string | null { return this.pluginFrontends.getPluginIdForSection(section, this.activePlugins, (this.activeCompanyRole || "member").toLowerCase()) ?? null; }
   private async refreshTenantPlugins(): Promise<void> {
     if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
     try {
@@ -404,7 +404,7 @@ export class AppComponent implements OnInit, OnDestroy {
       'settings-plans': '/dashboard/settings/plans-licensing', 'settings-security': '/dashboard/settings/security', 'settings-infrastructure': '/dashboard/settings/infrastructure',
       'settings-localization': '/dashboard/settings/localization', 'themes-dashboard': '/dashboard/themes', 'themes-public': '/dashboard/public-theme',
       branding: '/dashboard/branding', domains: '/dashboard/domains', integrations: '/dashboard/integrations', security: '/dashboard/security', system: '/dashboard/system',
-      ...this.pluginFrontends.getRoutes(this.activePlugins)
+      ...this.pluginFrontends.getRoutes(this.activePlugins, (this.activeCompanyRole || "member").toLowerCase())
     };
   }
   private readonly allSettingsSections = [
@@ -440,7 +440,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const nextSection = entry?.[0] || 'dashboard';
     const pluginId = this.pluginFrontends.getPluginIdForSection(nextSection, this.activePlugins);
     this.activeSection = (nextSection.startsWith('settings-') && !this.settingsNavigationItems.some(item => item.id === nextSection)) || (pluginId && !this.isPluginEnabled(pluginId)) ? 'dashboard' : nextSection;
-    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : this.pluginFrontends.getParentMenuId(this.activeSection, this.activePlugins) ?? '');
+    this.expandedMenuId = this.activeSection.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(this.activeSection) ? 'notifications' : this.activeSection.startsWith('organization-') ? 'organization' : this.pluginFrontends.getParentMenuId(this.activeSection, this.activePlugins, (this.activeCompanyRole || "member").toLowerCase()) ?? '');
   }
   get pluginDetailsId(): string { const match = this.path.match(/^\/dashboard\/plugins\/([^/]+)\/details\/?$/); return match ? decodeURIComponent(match[1]) : ''; }
   get platformTenantId(): string {
@@ -488,7 +488,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     this.expandedMenuId = menuId;
     const defaults: Record<string, string> = { settings: 'settings-general', notifications: 'notifications', organization: 'organization-company' };
-    const target = defaults[menuId] ?? this.pluginFrontends.getDefaultSection(menuId, this.activePlugins);
+    const target = defaults[menuId] ?? this.pluginFrontends.getDefaultSection(menuId, this.activePlugins, (this.activeCompanyRole || "member").toLowerCase());
     if (!target) return;
     if (menuId === 'settings' && !this.settingsNavigationItems.some(item => item.id === target)) {
       const firstAvailable = this.settingsNavigationItems[0];
@@ -531,7 +531,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.path = targetPath;
     this.templates.syncActiveSurface();
     this.activeSection = targetId;
-    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : this.pluginFrontends.getParentMenuId(targetId, this.activePlugins) ?? '');
+    this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : this.pluginFrontends.getParentMenuId(targetId, this.activePlugins, (this.activeCompanyRole || "member").toLowerCase()) ?? '');
     this.menuOpen = false;
   }
 
