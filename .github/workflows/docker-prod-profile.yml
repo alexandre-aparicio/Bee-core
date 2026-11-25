@@ -167,21 +167,29 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet "${auth_args[@]}" --eval "const restored=db.getSiblingDB('$restore_db'); const probe=restored.backup_restore_probe.findOne({_id:'ci-roundtrip'}); if(!probe || probe.verified !== true) throw new Error('Restore sentinel missing'); print('PASS authenticated MongoDB backup/restore');"
           docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mongodb mongosh --quiet "${auth_args[@]}" --eval "db.getSiblingDB('$restore_db').dropDatabase()"
 
-      - name: Verify private-file volume backup and restore
+      - name: Verify private-file and plugin-package volume backup and restore
         run: |
           set -euo pipefail
           backend_id=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -q bee-core)
           files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
-          test -n "$files_volume"
-          restore_volume="bee-core-files-restore-${GITHUB_RUN_ID}"
+          plugins_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-plugins"}}{{.Name}}{{end}}{{end}}')
+          test -n "$files_volume" && test -n "$plugins_volume"
+          restore_files_volume="bee-core-files-restore-${GITHUB_RUN_ID}"
+          restore_plugins_volume="bee-core-plugins-restore-${GITHUB_RUN_ID}"
           mkdir -p "$RUNNER_TEMP/bee-backups"
           docker run --rm -v "$files_volume:/source" ubuntu:22.04 bash -euc 'mkdir -p /source/.mvp-backup-probe && printf "bee-core-files-roundtrip\\n" > /source/.mvp-backup-probe/sentinel.txt'
+          docker run --rm -v "$plugins_volume:/source" ubuntu:22.04 bash -euc 'mkdir -p /source/.mvp-backup-probe && printf "bee-core-plugins-roundtrip\\n" > /source/.mvp-backup-probe/sentinel.txt'
           docker run --rm -v "$files_volume:/source:ro" -v "$RUNNER_TEMP/bee-backups:/backup" ubuntu:22.04 tar -czf /backup/bee-core-files.tar.gz -C /source .
-          docker volume create "$restore_volume" >/dev/null
-          docker run --rm -v "$restore_volume:/target" -v "$RUNNER_TEMP/bee-backups:/backup:ro" ubuntu:22.04 tar -xzf /backup/bee-core-files.tar.gz -C /target
-          docker run --rm -v "$files_volume:/source:ro" -v "$restore_volume:/restored:ro" ubuntu:22.04 bash -euc 'diff -r /source /restored'
+          docker run --rm -v "$plugins_volume:/source:ro" -v "$RUNNER_TEMP/bee-backups:/backup" ubuntu:22.04 tar -czf /backup/bee-core-plugins.tar.gz -C /source .
+          docker volume create "$restore_files_volume" >/dev/null
+          docker volume create "$restore_plugins_volume" >/dev/null
+          docker run --rm -v "$restore_files_volume:/target" -v "$RUNNER_TEMP/bee-backups:/backup:ro" ubuntu:22.04 tar -xzf /backup/bee-core-files.tar.gz -C /target
+          docker run --rm -v "$restore_plugins_volume:/target" -v "$RUNNER_TEMP/bee-backups:/backup:ro" ubuntu:22.04 tar -xzf /backup/bee-core-plugins.tar.gz -C /target
+          docker run --rm -v "$files_volume:/source:ro" -v "$restore_files_volume:/restored:ro" ubuntu:22.04 bash -euc 'diff -r /source /restored'
+          docker run --rm -v "$plugins_volume:/source:ro" -v "$restore_plugins_volume:/restored:ro" ubuntu:22.04 bash -euc 'diff -r /source /restored'
           docker run --rm -v "$files_volume:/source" ubuntu:22.04 rm -rf /source/.mvp-backup-probe
-          docker volume rm "$restore_volume"
+          docker run --rm -v "$plugins_volume:/source" ubuntu:22.04 rm -rf /source/.mvp-backup-probe
+          docker volume rm "$restore_files_volume" "$restore_plugins_volume"
 
       - name: Collect Compose diagnostics on failure
         if: failure()
