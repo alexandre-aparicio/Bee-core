@@ -8,6 +8,10 @@ import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { marketplacePlugin } from "../src/plugins/marketplace/marketplace.plugin.js";
 import { workspacePlugin } from "./fixtures/workspace.plugin.js";
+import { registerRuntimePlugin, unregisterRuntimePlugin } from "../src/core/runtime-plugin-registry.js";
+import { ConnectedDevicesRepository } from "../src/plugins/connected-devices/connected-devices.repository.js";
+import { createConnectedDevicesServices, hashDeviceSecret } from "../src/plugins/connected-devices/connected-devices.service.js";
+import { registerConnectedDevicesRoutes } from "../src/plugins/connected-devices/connected-devices.routes.js";
 import { TRUSTED_PLUGIN_PACKAGES, type PluginPackageDefinition } from "../src/core/plugin-entitlements.js";
 import { unmaskResourceId } from "../src/core/session-id.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
@@ -21,6 +25,21 @@ const workspacePackage: PluginPackageDefinition = {
   purchasable: true, system: false, dependencies: [], codeAvailable: true, status: "published"
 };
 TRUSTED_PLUGIN_PACKAGES.push(workspacePackage);
+const connectedDevicesRuntimeFixture = {
+  manifest: {
+    name: "connected-devices",
+    version: "0.1.0",
+    description: "Connected Devices signed ZIP integration fixture",
+    dependencies: [],
+    frontend: {
+      entrypoint: "frontend/index.html",
+      apiPrefixes: ["/connected-devices"],
+      routes: [{ path: "/dashboard/connected-devices", component: "ConnectedDevices" }]
+    }
+  },
+  tenantMigrations: []
+} as any;
+
 
 test("company plans and purchases control plugin visibility, installation and access", { skip: !uri }, async () => {
   const dbName = "bee_marketplace_test_" + Date.now();
@@ -81,6 +100,7 @@ test("company plans and purchases control plugin visibility, installation and ac
   };
 
   try {
+    registerRuntimePlugin(connectedDevicesRuntimeFixture);
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
     await marketplacePlugin.initialize?.(ctx);
@@ -88,6 +108,64 @@ test("company plans and purchases control plugin visibility, installation and ac
     await db.collection("plugin_plans").updateOne({ id: "pro" }, { $addToSet: { visiblePluginIds: "workspace", includedPluginIds: "workspace" } });
     await db.collection("plugin_plans").updateOne({ id: "enterprise" }, { $addToSet: { visiblePluginIds: "workspace", includedPluginIds: "workspace" } });
     await workspacePlugin.initialize?.(ctx);
+    const connectedDevicesRoutes = [{ path: "/dashboard/connected-devices", component: "ConnectedDevices" }];
+    await db.collection("plugin_catalog").insertOne({
+      id: "connected-devices",
+      name: "Connected Devices",
+      version: "0.1.0",
+      description: "Signed ZIP-only device pairing and management",
+      category: "platform",
+      purchasable: false,
+      system: false,
+      dependencies: [],
+      activationPolicy: "manual",
+      permissions: [{
+        key: "connected-devices.read",
+        module: "connected-devices",
+        resource: "devices",
+        action: "read",
+        label: "View connected devices",
+        defaultGrants: { owner: true, admin: true, manager: true, member: true }
+      }],
+      frontendRoutes: connectedDevicesRoutes,
+      codeAvailable: true,
+      status: "published"
+    });
+    await db.collection("platform_plugin_packages").insertOne({
+      pluginId: "connected-devices",
+      name: "Connected Devices",
+      version: "0.1.0",
+      description: "Signed ZIP-only device pairing and management",
+      category: "platform",
+      dependencies: [],
+      frontendRoutes: connectedDevicesRoutes,
+      status: "installed",
+      source: "zip",
+      runtimeState: "loaded",
+      globallyEnabled: true,
+      createdAt: now,
+      updatedAt: now
+    });
+    await db.collection("platform_plugin_package_versions").insertOne({
+      pluginId: "connected-devices",
+      version: "0.1.0",
+      manifest: { frontend: { entrypoint: "frontend/index.html", apiPrefixes: ["/connected-devices"], routes: connectedDevicesRoutes } },
+      createdAt: now
+    });
+    await db.collection("tenant_plugin_entitlements").insertOne({
+      id: "connected-devices-alpha-grant",
+      tenantId: "market-alpha",
+      pluginId: "connected-devices",
+      status: "granted",
+      grantedAt: now
+    });
+    const connectedDevicesRepository = new ConnectedDevicesRepository(db);
+    await connectedDevicesRepository.initializeIndexes();
+    const connectedDevicesServices = createConnectedDevicesServices({ db, secret: jwtSecret, repository: connectedDevicesRepository });
+    registerConnectedDevicesRoutes({ server: app, logger } as any, {
+      ...connectedDevicesServices,
+      repository: connectedDevicesRepository
+    });
     await app.ready();
 
     const login = async (email: string) => {
@@ -105,6 +183,116 @@ test("company plans and purchases control plugin visibility, installation and ac
     const publicMarketplace=await app.inject({method:"GET",url:"/marketplace/plugins",headers:{authorization:"Bearer "+publicLogin.json().accessToken}});
     assert.equal(publicMarketplace.statusCode,403,"public-client tokens must not access the private plugin marketplace");
     const betaToken = await login("owner@market-beta.test");
+
+    const alphaPluginList = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(alphaPluginList.statusCode, 200);
+    const connectedDevicesEntry = alphaPluginList.json().plugins.find((plugin: any) => plugin.pluginKey === "connected-devices");
+    assert.ok(connectedDevicesEntry, "a tenant with an explicit grant must discover the signed package");
+    assert.deepEqual(connectedDevicesEntry.frontendRoutes, connectedDevicesRoutes);
+    const betaPluginList = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaPluginList.statusCode, 200);
+    assert.equal(betaPluginList.json().plugins.some((plugin: any) => plugin.pluginKey === "connected-devices"), false, "a tenant without a grant must not discover the package");
+    const betaRuntime = await app.inject({ method: "GET", url: "/marketplace/plugins/connected-devices/runtime", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaRuntime.statusCode, 403, "a tenant without a grant must not load the package frontend");
+    const betaInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/connected-devices/install", headers: { authorization: "Bearer " + betaToken } });
+    assert.equal(betaInstall.statusCode, 404, "a tenant without a grant must not invoke the package install action");
+
+    const alphaInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/connected-devices/install", headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(alphaInstall.statusCode, 202, "a granted tenant can install the signed package");
+    const connectedDevicesInstallJob = await waitForInstallJob(await resolveJobId(alphaToken, alphaInstall.json().jobId as string));
+    assert.equal(connectedDevicesInstallJob.status, "succeeded");
+    const alphaRuntime = await app.inject({ method: "GET", url: "/marketplace/plugins/connected-devices/runtime", headers: { authorization: "Bearer " + alphaToken } });
+    assert.equal(alphaRuntime.statusCode, 200);
+    assert.equal(alphaRuntime.json().entrypoint, "frontend/index.html");
+    assert.deepEqual(alphaRuntime.json().routes, connectedDevicesRoutes);
+
+    const betaPairingAttempt = await app.inject({
+      method: "POST",
+      url: "/connected-devices/pairing-challenges",
+      headers: { authorization: "Bearer " + betaToken },
+      payload: { requestedCapabilities: ["scanner.use"] }
+    });
+    assert.equal(betaPairingAttempt.statusCode, 403, "a tenant without a grant must not invoke Connected Devices routes");
+    const alphaPairing = await app.inject({
+      method: "POST",
+      url: "/connected-devices/pairing-challenges",
+      headers: { authorization: "Bearer " + alphaToken },
+      payload: { requestedCapabilities: ["scanner.use"] }
+    });
+    assert.equal(alphaPairing.statusCode, 201);
+    const qrToken = new URL(alphaPairing.json().qrPayload).searchParams.get("token");
+    assert.ok(qrToken);
+    const pairedDevice = await app.inject({
+      method: "POST",
+      url: "/connected-devices/pair",
+      payload: { token: qrToken, name: "Alpha scanner", deviceType: "mobile", platform: "android" }
+    });
+    assert.equal(pairedDevice.statusCode, 201);
+    const deviceId = pairedDevice.json().deviceId as string;
+    const pairingSecret = pairedDevice.json().pairingSecret as string;
+    const approved = await app.inject({
+      method: "POST",
+      url: "/connected-devices/" + encodeURIComponent(deviceId) + "/approve",
+      headers: { authorization: "Bearer " + alphaToken },
+      payload: { grantedCapabilities: ["scanner.use"] }
+    });
+    assert.equal(approved.statusCode, 200);
+    const heartbeat = await app.inject({
+      method: "POST",
+      url: "/connected-devices/device/heartbeat",
+      headers: { authorization: "Bearer " + pairingSecret },
+      payload: {}
+    });
+    assert.equal(heartbeat.statusCode, 200, "JSON heartbeat payloads must be accepted");
+    assert.equal(heartbeat.json().success, true);
+    const selfUnlink = await app.inject({
+      method: "POST",
+      url: "/connected-devices/device/unlink",
+      headers: { "x-device-pairing-secret": pairingSecret },
+      payload: { deviceId }
+    });
+    assert.equal(selfUnlink.statusCode, 200, "a device can unlink itself with its pairing secret");
+    const unlinkedDevice = await connectedDevicesRepository.devices.findOne({ tenantId: "market-alpha", id: deviceId });
+    assert.equal(unlinkedDevice?.status, "unlinked");
+    const staleHeartbeat = await app.inject({
+      method: "POST",
+      url: "/connected-devices/device/heartbeat",
+      headers: { authorization: "Bearer " + pairingSecret },
+      payload: {}
+    });
+    assert.equal(staleHeartbeat.statusCode, 401, "self-unlink must invalidate the old device credential");
+
+    const deleteTarget = await connectedDevicesRepository.devices.insertOne({
+      id: "delete-empty-body-device",
+      tenantId: "market-alpha",
+      ownerUserId: "market-owner-alpha",
+      requestedBy: "market-owner-alpha",
+      name: "Delete without body",
+      deviceType: "mobile",
+      platform: "android",
+      appVersion: null,
+      requestedCapabilities: [],
+      grantedCapabilities: [],
+      credentialHash: hashDeviceSecret("d".repeat(64)),
+      status: "pending",
+      pairingExpiresAt: new Date(Date.now() + 60_000),
+      createdAt: now,
+      updatedAt: now,
+      approvedAt: null,
+      approvedBy: null,
+      revokedAt: null,
+      revokedBy: null,
+      lastSeenAt: null
+    });
+    assert.ok(deleteTarget.insertedId);
+    const emptyBodyDelete = await app.inject({
+      method: "DELETE",
+      url: "/connected-devices/delete-empty-body-device",
+      headers: { authorization: "Bearer " + alphaToken }
+    });
+    assert.equal(emptyBodyDelete.statusCode, 200, "device deletion must work without an artificial JSON body");
+    assert.equal(await connectedDevicesRepository.devices.countDocuments({ tenantId: "market-alpha", id: "delete-empty-body-device" }), 0);
+
     const webhook = (payload: unknown, secret = "test-billing-secret") => app.inject({
       method: "POST",
       url: "/billing/webhooks/entitlement",
