@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { marketplacePlugin } from "../src/plugins/marketplace/marketplace.plugin.js";
-import { workspacePlugin } from "./fixtures/workspace-items.plugin.js";
+import { workspacePlugin } from "./fixtures/workspace.plugin.js";
 import { TRUSTED_PLUGIN_PACKAGES, type PluginPackageDefinition } from "../src/core/plugin-entitlements.js";
 import { unmaskResourceId } from "../src/core/session-id.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
