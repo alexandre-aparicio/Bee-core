@@ -86,9 +86,12 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /historyPanel/);
         assert.match(script, /schedulePanel/);
         assert.match(script, /requestsPanel/);
-        assert.match(script, /teamMembers/);
-        assert.match(script, /saveTeamSchedule/);
-        assert.match(script, /reviewCorrection/);
+        assert.match(script, /\/time-tracking\/me\/status/);
+        assert.match(script, /\/time-tracking\/me\/sessions/);
+        assert.match(script, /\/time-tracking\/me\/corrections/);
+        assert.match(script, /\/time-tracking\/team\/members/);
+        assert.match(script, /\/time-tracking\/team\/schedules/);
+        assert.match(script, /\/time-tracking\/team\/corrections/);
         assert.match(script, /clock-in/);
         assert.match(script, /break-start/);
         assert.match(script, /break-end/);
