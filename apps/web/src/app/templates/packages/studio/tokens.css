@@ -36,7 +36,6 @@ html[data-bee-active-template="studio"][data-bee-active-mode="light"] {
   --bee-dashboard-quick-action-color: var(--bee-text);
   --bee-dashboard-quick-action-muted: var(--bee-text-muted);
   --bee-dashboard-quick-action-radius: var(--bee-radius-sm);
-  --bee-dashboard-quick-action-radius: var(--bee-radius-sm);
   --bee-dashboard-settings-active-background: color-mix(in srgb, var(--bee-accent) 10%, transparent);
   --bee-dashboard-settings-panel-border: color-mix(in srgb, var(--bee-border) 60%, transparent);
   --bee-dashboard-settings-panel-background: color-mix(in srgb, var(--bee-surface) 94%, transparent);
@@ -126,7 +125,6 @@ html[data-bee-active-template="studio"][data-bee-active-mode="dark"] {
   --bee-dashboard-quick-action-border: var(--bee-border);
   --bee-dashboard-quick-action-color: var(--bee-text);
   --bee-dashboard-quick-action-muted: var(--bee-text-muted);
-  --bee-dashboard-quick-action-radius: var(--bee-radius-sm);
   --bee-dashboard-quick-action-radius: var(--bee-radius-sm);
   --bee-dashboard-settings-active-background: color-mix(in srgb, var(--bee-accent) 10%, transparent);
   --bee-dashboard-settings-panel-border: color-mix(in srgb, var(--bee-border) 60%, transparent);
