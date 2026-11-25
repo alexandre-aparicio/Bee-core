@@ -24,7 +24,7 @@ export class BeePluginManager {
     if (!Array.isArray(requiredServices) || !Array.isArray(optionalServices)) throw new Error("Plugin '" + name + "' must declare requiredServices and optionalServices as arrays");
     const declaredServices = [...requiredServices, ...optionalServices];
     if (declaredServices.some(service => typeof service !== "string" || !PLUGIN_HOST_SERVICE_KEYS.has(service))) {
-      const invalid = declaredServices.filter(service => typeof service !== "string" || !allowedServices.has(service)).join(", ") || "invalid value";
+      const invalid = declaredServices.filter(service => typeof service !== "string" || !PLUGIN_HOST_SERVICE_KEYS.has(service)).join(", ") || "invalid value";
       throw new Error("Plugin '" + name + "' declares unsupported service(s): " + invalid);
     }
     if (new Set(declaredServices).size !== declaredServices.length) throw new Error("Plugin '" + name + "' declares duplicate required/optional services");
