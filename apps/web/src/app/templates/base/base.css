@@ -54,8 +54,9 @@
 .bee-dash-sidebar h4 {
   margin: 12px 8px 4px;
   color: var(--bee-dashboard-sidebar-heading-color, var(--bee-text-muted));
+  font-family: var(--bee-dashboard-sidebar-heading-font-family, inherit);
   font-size: 10px;
-  letter-spacing: .14em;
+  letter-spacing: var(--bee-dashboard-sidebar-heading-letter-spacing, .14em);
   text-transform: uppercase;
 }
 
@@ -152,6 +153,10 @@
   background: var(--bee-dashboard-quick-action-background, var(--bee-surface-subtle));
   border: 1px solid var(--bee-dashboard-quick-action-border, var(--bee-border));
   border-radius: var(--bee-dashboard-quick-action-radius, var(--bee-radius-sm));
+}
+
+.bee-dash-content .dash-welcome h1 {
+  font-weight: var(--bee-dashboard-welcome-font-weight, inherit);
 }
 
 .bee-dash-content .quick-action small {
