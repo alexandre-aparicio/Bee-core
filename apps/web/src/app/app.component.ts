@@ -16,7 +16,7 @@ import { BeePluginFrontendRegistry } from './plugins/plugin-frontend-registry.se
 import { BEE_PLUGIN_FRONTEND_PROVIDERS } from './plugins/plugin-frontend.providers';
 import { BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent } from './templates/packages';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], templateUrl: './app.component.html', providers: BEE_PLUGIN_FRONTEND_PROVIDERS })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], templateUrl: './app.component.html', providers: [BeePluginFrontendRegistry, ...BEE_PLUGIN_FRONTEND_PROVIDERS] })
 export class AppComponent implements OnInit, OnDestroy {
   constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService, private readonly zone: NgZone, private readonly pluginFrontends: BeePluginFrontendRegistry) {}
 
