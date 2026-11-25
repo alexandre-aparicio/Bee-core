@@ -127,6 +127,7 @@ test("member can clock in, start/end a break and clock out without a remote ifra
 });
 
 test("owner can save a weekly schedule and approve a team correction", async ({ page }) => {
+  page.setDefaultTimeout(8000);
   const auth = fixture("owner");
   const state = {
     session: null,
@@ -164,7 +165,7 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
     await page.screenshot({ path: "test-results/template-screenshots/time-tracking-owner-debug.png", fullPage: true });
     throw new Error(String(error) + "\\nURL: " + page.url() + "\\nBODY: " + body + "\\nBROWSER ERRORS: " + browserErrors.join(" | "));
   }
-  await page.getByLabel("Trabajador").selectOption("masked-member-e2e");
+  await page.locator(".tt-content select").selectOption("masked-member-e2e", { timeout: 5000 });
   await expect(page.getByRole("button", { name: "Guardar horario" })).toBeEnabled();
   await page.getByRole("checkbox", { name: "Activar lunes" }).check();
   await page.locator('input[type="time"]').nth(1).fill("08:30");
