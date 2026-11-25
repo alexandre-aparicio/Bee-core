@@ -1,6 +1,5 @@
 import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, ViewContainerRef } from "@angular/core";
 import { BeePluginFrontendRegistry } from "./plugin-frontend-registry.service";
-import { BeeI18nService } from "../i18n/bee-i18n.service";
 
 type RemotePluginRuntime = { pluginId: string; version: string; entrypoint: string; apiPrefixes: string[] };
 type RemoteFrame = { pluginId: string; apiPrefixes: string[] };
@@ -23,7 +22,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   private readonly frames = new Map<Window, RemoteFrame>();
   private readonly messageHandler = (event: MessageEvent<unknown>) => { void this.onPluginMessage(event); };
 
-  constructor(private readonly registry: BeePluginFrontendRegistry, private readonly i18n: BeeI18nService) {}
+  constructor(private readonly registry: BeePluginFrontendRegistry) {}
 
   ngAfterViewInit(): void {
     this.viewReady = true;
@@ -53,15 +52,12 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       // Use the same native host-component mechanism as the working Documents
       // frontend. Only plugins without a host registration use the remote runtime.
       const registration = this.registry.resolve(pluginId);
-      if (registration) {
-        if (registration.translations) {
-          this.i18n.registerCatalog(pluginId, "en", registration.translations.en);
-          this.i18n.registerCatalog(pluginId, "es", registration.translations.es);
-        }
-        const component = this.host.createComponent(registration.component);
-        for (const [name, value] of Object.entries(registration.inputs({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section }))) {
-          component.setInput(name, value);
-        }
+      if (registration?.loadComponent) {
+        const componentType = await registration.loadComponent();
+        if (sequence !== this.renderSequence) return;
+        const component = this.host.createComponent(componentType);
+        const inputs = registration.inputs?.({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section }) ?? {};
+        for (const [name, value] of Object.entries(inputs)) component.setInput(name, value);
         continue;
       }
 
