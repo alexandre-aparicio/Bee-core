@@ -180,6 +180,7 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
   const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
   const repositorySource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.repository.ts"), "utf8");
   const handlersSource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.handlers.ts"), "utf8");
+  const platformAdminSource = await readFile(join(process.cwd(), "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
 
   assert.match(pluginSource, /dependencies:\s*\["auth",\s*"organizations"\]/);
   assert.doesNotMatch(pluginSource, /files|FilesStorageAdapter/i);
