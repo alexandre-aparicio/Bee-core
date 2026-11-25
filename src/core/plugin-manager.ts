@@ -1,5 +1,6 @@
 import type { BeeContext, BeePlugin, BeePluginInfo, BeePluginStatus } from "./types.js";
 import { createHmac } from "node:crypto";
+import { PLUGIN_HOST_SERVICE_KEYS } from "./plugin-package.js";
 
 interface ManagedPlugin {
   plugin: BeePlugin;
@@ -18,12 +19,11 @@ export class BeePluginManager {
     if (this.plugins.has(name) || [...this.plugins.keys()].some(existing => existing.toLowerCase() === name.toLowerCase())) {
       throw new Error(`Plugin '${name}' already registered (names are case-insensitive)`);
     }
-    const allowedServices = new Set(["mongoDbName","defaultTenantId","authAdminEmail","authAdminPassword","authMfaEncryptionKey","publicBaseDomain","fileStoragePath","billingWebhookSecret","pluginPackagePath","pluginPublisherPublicKey","sessionIdSecret"]);
     const requiredServices = plugin.manifest.requiredServices ?? [];
     const optionalServices = plugin.manifest.optionalServices ?? [];
     if (!Array.isArray(requiredServices) || !Array.isArray(optionalServices)) throw new Error("Plugin '" + name + "' must declare requiredServices and optionalServices as arrays");
     const declaredServices = [...requiredServices, ...optionalServices];
-    if (declaredServices.some(service => typeof service !== "string" || !allowedServices.has(service))) {
+    if (declaredServices.some(service => typeof service !== "string" || !PLUGIN_HOST_SERVICE_KEYS.has(service))) {
       const invalid = declaredServices.filter(service => typeof service !== "string" || !allowedServices.has(service)).join(", ") || "invalid value";
       throw new Error("Plugin '" + name + "' declares unsupported service(s): " + invalid);
     }
