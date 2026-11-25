@@ -68,13 +68,14 @@ Explicit transition paths from source review:
 | Item | Status | Scope |
 |---|---|---|
 | Public package manifest checker | Implemented; source-reviewed, NOT executed | `check-template-tokens.mjs` excludes `shared`, reports each non-shared package directory without `manifest.ts` in the JSON `warnings` array, continues checking other packages, and sets exit code 1 when `errors` is non-empty. All six current package directories contain `manifest.ts` by repository tree inventory. |
-| Stylelint and CI policy | Not started | Explicitly out of scope until instructed. |
+| Stylelint and CI policy | Implemented in source; NOT executed | Added `stylelint.config.mjs` and pinned `stylelint@18.1.0` through the `lint:styles` npm script. The web CI now runs token/manifest checks, style audit, Stylelint, production build and Playwright discovery; web Node is pinned to 22.22.2. Stylelint covers standalone `src/app/templates/**/*.css`; inline Angular CSS remains source-audited, not parsed by Stylelint. No workflow was run. The Stylelint CLI is fetched by `npx` and is intentionally not recorded in package-lock; converting it to a lockfile dependency requires a permitted package-manager install. |
 
 ## Step 8 — Cleanup and documentation
 
 | Item | Status | Scope |
 |---|---|---|
-| Cleanup beyond this progress record | Not started | Explicitly out of scope until instructed. |
+| Legacy palette aliases | Removed by source search | Migrated the remaining `organization-company` and `teams-workspace` consumers to `--bee-*` tokens, then removed all six temporary aliases (`--bg`, `--panel`, `--muted`, `--border`, `--purple`, `--cyan`) from the package host. The three explicitly deferred Teams Workspace Midnight-Light `:host-context` rules remain unchanged. |
+| Cleanup and documentation reconciliation | In progress | This progress record is being updated with the public template and CI work. Remaining cleanup must be based on source inventory; do not claim runtime or visual validation. |
 
 ## Step 5 — source batches completed
 
