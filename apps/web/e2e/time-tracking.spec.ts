@@ -34,7 +34,7 @@ function installApiMocks(page: Page, fixture: Fixture, state: any): Promise<void
     } else if (path.endsWith("/notifications")) {
       body = { notifications: [] };
     } else if (path.endsWith("/i18n/preferences") || path.endsWith("/users/me/preferences")) {
-      body = { locale: "es" };
+      body = { effectiveLanguage: "es", requestedLanguage: "es" };
     } else if (path.endsWith("/time-tracking/me/status")) {
       body = { session: state.session?.active ? state.session : null };
     } else if (path.endsWith("/time-tracking/me/sessions")) {
