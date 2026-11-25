@@ -133,7 +133,19 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   if (item.tenantDependencies !== undefined && (!Array.isArray(item.tenantDependencies) || item.tenantDependencies.some((id: unknown) => typeof id !== "string" || !pluginId.test(id)) || new Set(item.tenantDependencies).size !== item.tenantDependencies.length)) throw new Error("Invalid tenant plugin dependencies");
   if (new Set(item.dependencies.map((dependency: any) => dependency.pluginId)).size !== item.dependencies.length) throw new Error("Plugin dependencies must be unique");
   const roles = ["owner","admin","manager","member"];
-  if (!Array.isArray(item.permissions) || item.permissions.some((permission: any) => !record(permission) || typeof permission.key !== "string" || !permissionKey.test(permission.key) || typeof permission.module !== "string" || !pluginId.test(permission.module) || typeof permission.resource !== "string" || !/^[a-z][a-z0-9_-]*$/.test(permission.resource) || typeof permission.action !== "string" || !/^[a-z][a-z0-9_-]*$/.test(permission.action) || typeof permission.label !== "string" || !permission.label.trim() || !record(permission.defaultGrants) || roles.some(role => typeof permission.defaultGrants[role] !== "boolean") || Object.keys(permission.defaultGrants).some(role => !roles.includes(role)))) throw new Error("Invalid plugin permissions");
+  const validPermission = (permission: unknown): boolean => {
+    if (!record(permission)) return false;
+    const grants = permission.defaultGrants;
+    if (!record(grants)) return false;
+    return typeof permission.key === "string" && permissionKey.test(permission.key) &&
+      permission.module === item.id && permission.key.startsWith(item.id + ".") &&
+      typeof permission.resource === "string" && /^[a-z][a-z0-9_-]*$/.test(permission.resource) &&
+      typeof permission.action === "string" && /^[a-z][a-z0-9_-]*$/.test(permission.action) &&
+      typeof permission.label === "string" && Boolean(permission.label.trim()) &&
+      roles.every(role => typeof grants[role] === "boolean") &&
+      Object.keys(grants).every(role => roles.includes(role));
+  };
+  if (!Array.isArray(item.permissions) || item.permissions.some((permission: unknown) => !validPermission(permission))) throw new Error("Invalid plugin permissions");
   if (new Set(item.permissions.map((permission: any) => permission.key)).size !== item.permissions.length) throw new Error("Plugin permissions must be unique");
   if (!record(item.backend) || typeof item.backend.entrypoint !== "string" || !item.backend.entrypoint.startsWith("dist/") || item.backend.entrypoint.includes("..") || item.backend.entrypoint.includes("\\") || item.backend.entrypoint.startsWith("/")) throw new Error("Backend entrypoint must be a safe path under dist/");
   if (!item.backend.entrypoint.endsWith(".mjs")) throw new Error("Backend entrypoint must be an ES module (.mjs)");
