@@ -55,8 +55,10 @@ function digestPackage(files) {
 function importSpecifiers(source) {
   const found = new Set();
   const patterns = [
-    /(?:^|\n)\s*import\s+(?:[\s\S]*?\s+from\s+)?["']([^"']+)["']/g,
-    /(?:^|\n)\s*export\s+[\s\S]*?\s+from\s+["']([^"']+)["']/g,
+    /(?:^|
+)\s*import\s+(?:[\s\S]*?\s+from\s+)?["']([^"']+)["']/g,
+    /(?:^|
+)\s*export\s+[\s\S]*?\s+from\s+["']([^"']+)["']/g,
     /\bimport\(\s*["']([^"']+)["']\s*\)/g
   ];
   for (const pattern of patterns) for (const match of source.matchAll(pattern)) found.add(match[1]);
@@ -82,7 +84,8 @@ async function collectModuleGraph(entryRelative, distDir) {
   return collected;
 }
 function canonicalPayload(manifest) {
-  return Buffer.from(["bee-plugin-package-v1", manifest.id, manifest.version, manifest.publisher, manifest.package.sha256].join("\n"), "utf8");
+  return Buffer.from(["bee-plugin-package-v1", manifest.id, manifest.version, manifest.publisher, manifest.package.sha256].join("
+"), "utf8");
 }
 function exportName(id) {
   return { "connected-devices": "connectedDevicesPlugin", "time-tracking": "timeTrackingPlugin", documents: "documentsPlugin", "hello-world": "helloWorldPlugin" }[id];
@@ -90,7 +93,9 @@ function exportName(id) {
 
 export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, distDir = DIST, runtimeVersion = RUNTIME_VERSION }) {
   if (!privateKeyPem?.trim()) throw new Error("BEE_PLUGIN_PUBLISHER_PRIVATE_KEY is required to sign release packages.");
-  const privateKey = createPrivateKey(privateKeyPem.replace(/\\n/g, "\n"));
+  const privateKey = createPrivateKey(privateKeyPem.replace(/\
+/g, "
+"));
   const output = resolve(outputDir);
   await mkdir(output, { recursive: true });
   const results = [];
@@ -98,8 +103,10 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
     const entry = resolve(distDir, definition.entry), entryRelative = relative(resolve(distDir), entry);
     const files = await collectModuleGraph(entryRelative, distDir);
     const wrapperPath = "dist/backend/index.mjs";
-    files.set(wrapperPath, Buffer.from("export { " + exportName(definition.id) + " as default } from \"../" + definition.entry.replaceAll("\\", "/") + "\";\n"));
-    files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "\n"));
+    files.set(wrapperPath, Buffer.from("export { " + exportName(definition.id) + " as default } from \"../" + definition.entry.replaceAll("\\", "/") + "\";
+"));
+    files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "
+"));
     if (definition.frontendSource && definition.frontend) {
       for (const asset of definition.frontend.assets ?? []) {
         const sourcePath = join(ROOT, definition.frontendSource, asset.slice("frontend/".length));
@@ -108,9 +115,18 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
     }
     if (definition.id === "hello-world") {
       files.set("frontend/index.html", Buffer.from('<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hola Mundo</title><style>body{font:16px system-ui;margin:0;padding:28px;color:#172033;background:#fff}.card{max-width:680px;margin:auto;padding:28px;border:1px solid #e6eaf0;border-radius:16px;background:#fbfcfe}h1{margin:0 0 8px;color:#ea7a22}.muted{color:#667085}</style></head><body><main class="card"><p class="muted">BEE PROJECTS · TENANT PACKAGE</p><h1>¡Hola Mundo!</h1><p>Este módulo se ha cargado desde un paquete ZIP firmado, sin un componente Angular registrado en el núcleo.</p><p id="context" class="muted">Conectando con Bee Core…</p></main><script type="module" src="main.js"></script></body></html>'));
-      files.set("frontend/main.js", Buffer.from('const context = document.getElementById("context");\nwindow.addEventListener("message", event => { if (event.data?.type !== "bee-plugin:init") return; context.textContent = "Paquete cargado · rol: " + String(event.data.role ?? "member"); });\nwindow.parent.postMessage({ type: "bee-plugin:ready" }, "*");\n'));
+      files.set("frontend/main.js", Buffer.from('const context = document.getElementById("context");
+window.addEventListener("message", event => { if (event.data?.type !== "bee-plugin:init") return; context.textContent = "Paquete cargado · rol: " + String(event.data.role ?? "member"); });
+window.parent.postMessage({ type: "bee-plugin:ready" }, "*");
+'));
     }
-    files.set("README.md", Buffer.from("# " + definition.name + "\n\nBee Core signed installable package.\n\nPackage ID: " + definition.id + "\nVersion: " + definition.version + "\n"));
+    files.set("README.md", Buffer.from("# " + definition.name + "
+
+Bee Core signed installable package.
+
+Package ID: " + definition.id + "
+Version: " + definition.version + "
+"));
     const manifest = {
       id: definition.id, name: definition.name, version: definition.version, publisher: "Bee Projects",
       description: definition.description, category: definition.category, activationPolicy: definition.activationPolicy,
@@ -123,7 +139,8 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
     };
     manifest.package.sha256 = digestPackage(files);
     manifest.package.signature = sign(null, canonicalPayload(manifest), privateKey).toString("base64");
-    files.set("bee-plugin.json", Buffer.from(JSON.stringify(manifest, null, 2) + "\n"));
+    files.set("bee-plugin.json", Buffer.from(JSON.stringify(manifest, null, 2) + "
+"));
     const archive = zip(files), target = join(output, definition.id + "-" + definition.version + ".zip");
     await writeFile(target, archive);
     results.push({ id: definition.id, version: definition.version, path: target, bytes: archive.length, files: files.size, digest: manifest.package.sha256 });
@@ -133,5 +150,6 @@ export async function buildPluginPackages({ privateKeyPem, outputDir = OUTPUT, d
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) {
   const results = await buildPluginPackages({ privateKeyPem: process.env.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY ?? "" });
-  for (const result of results) process.stdout.write(JSON.stringify(result) + "\n");
+  for (const result of results) process.stdout.write(JSON.stringify(result) + "
+");
 }
