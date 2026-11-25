@@ -127,7 +127,9 @@ test("member can clock in, start/end a break and clock out without a remote ifra
 });
 
 test("owner can save a weekly schedule and approve a team correction", async ({ page }) => {
-  page.setDefaultTimeout(8000);
+  test.setTimeout(60000);
+  page.setDefaultTimeout(6000);
+  page.setDefaultNavigationTimeout(8000);
   const auth = fixture("owner");
   const state = {
     session: null,
