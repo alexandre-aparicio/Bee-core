@@ -51,7 +51,7 @@ export class BeeConnectedDevicesComponent implements OnChanges,AfterViewChecked{
   if(!container||!this.qrPayload||this.renderedQrPayload===this.qrPayload)return;
   container.replaceChildren();
   if(typeof QRCode!=="undefined"){
-   new QRCode(container,{text:this.qrPayload,width:180,height:180,colorDark:getComputedStyle(container).getPropertyValue("--bee-qr-dark").trim() || "black",colorLight:getComputedStyle(container).getPropertyValue("--bee-qr-light").trim() || "white",correctLevel:QRCode.CorrectLevel?.M??0});
+   new QRCode(container,{text:this.qrPayload,width:180,height:180,colorDark:getComputedStyle(container).getPropertyValue("--bee-qr-dark").trim(),colorLight:getComputedStyle(container).getPropertyValue("--bee-qr-light").trim(),correctLevel:QRCode.CorrectLevel?.M??0});
    this.renderedQrPayload=this.qrPayload;
   }
  }
