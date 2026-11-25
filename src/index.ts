@@ -180,7 +180,7 @@ app.get("/plugins", async () => ({ plugins: plugins.list() }));
 app.get<{Params:{pluginId:string;version:string;"*":string}}>("/plugin-packages/:pluginId/:version/assets/*",async(request,reply)=>{
   const {pluginId,version}=request.params;
   const assetPath=String(request.params["*"]??"");
-  if(!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId)||!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\\\")||assetPath.includes("\\0")){
+  if(!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId)||!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\")||assetPath.includes("\0")){
     return reply.code(404).send({error:"Plugin asset not found"});
   }
   const db=mongoClient.db(environment.mongoDbName);
