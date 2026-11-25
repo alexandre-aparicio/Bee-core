@@ -96,8 +96,8 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     description: "Shared document library with folder-level team access and controlled public delivery",
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"], includedInPlans: ["starter", "pro", "enterprise"],
     purchasable: false, system: true, dependencies: ["files"], activationPolicy: "automatic", permissions: [
-      { key: "documents.documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
-      { key: "documents.documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
+      { key: "documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+      { key: "documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
     ], codeAvailable: true, status: "published"
   },
   {
@@ -106,8 +106,8 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     category: "platform", visibleInPlans: ["starter", "pro", "enterprise"],
     includedInPlans: ["starter", "pro", "enterprise"], purchasable: false, system: false,
     dependencies: [], activationPolicy: "manual", permissions: [
-      { key: "connected-devices.devices.read", module: "connected-devices", resource: "devices", action: "read", label: "View connected devices", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
-      { key: "connected-devices.devices.manage", module: "connected-devices", resource: "devices", action: "manage", label: "Manage connected devices", defaultGrants: { owner: true, admin: true, manager: false, member: false } }
+      { key: "connected-devices.read", module: "connected-devices", resource: "devices", action: "read", label: "View connected devices", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
+      { key: "connected-devices.manage", module: "connected-devices", resource: "devices", action: "manage", label: "Manage connected devices", defaultGrants: { owner: true, admin: true, manager: false, member: false } }
     ], codeAvailable: true, status: "published"
   },
 
