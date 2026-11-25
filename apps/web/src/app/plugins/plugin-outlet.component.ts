@@ -50,8 +50,8 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     this.remoteHost.nativeElement.replaceChildren();
 
     for (const pluginId of this.pluginIds) {
-      // Prefer the signed package frontend. The bundled Angular registration is
-      // retained only as a migration fallback until the package is installed.
+      // Prefer the signed package frontend. Legacy Angular registrations remain
+      // available only for modules that have not completed their ZIP migration.
       const runtime = await this.loadRemoteRuntime(pluginId);
       if (sequence !== this.renderSequence) return;
       if (runtime) {
