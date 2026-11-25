@@ -2,3 +2,6 @@ node_modules
 dist
 .env
 *.log
+
+# Generated signed plugin ZIP packages (keep local artifacts out of Git)
+artifacts/plugin-packages/*.zip
