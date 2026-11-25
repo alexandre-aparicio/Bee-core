@@ -90,9 +90,10 @@ test("member can clock in, start/end a break and clock out without a remote ifra
   const state = { session: null as any, history: [] as any[], myCorrections: [], mySchedule: null, members: [], schedules: [], teamCorrections: [] as any[] };
   await authenticate(page, auth);
   await installApiMocks(page, auth, state);
-  await page.goto("/dashboard/time-tracking/my_jorney");
+  await page.goto("/dashboard");
   await expect(page.locator(".bee-dash-company-switcher select")).toHaveValue(auth.tenantId, { timeout: 15000 });
-  await expect(page.getByRole("button", { name: /Control Horario/ })).toBeVisible({ timeout: 15000 });
+  await page.getByRole("button", { name: /Control Horario/ }).click();
+  await page.getByRole("button", { name: "Mi jornada" }).click();
 
   await expect(page.getByRole("heading", { name: "Mi jornada" })).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: "Fichar entrada" })).toBeVisible();
@@ -133,9 +134,10 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
   };
   await authenticate(page, auth);
   await installApiMocks(page, auth, state);
-  await page.goto("/dashboard/time-tracking/schedule");
+  await page.goto("/dashboard");
   await expect(page.locator(".bee-dash-company-switcher select")).toHaveValue(auth.tenantId, { timeout: 15000 });
-  await expect(page.getByRole("button", { name: /Control Horario/ })).toBeVisible({ timeout: 15000 });
+  await page.getByRole("button", { name: /Control Horario/ }).click();
+  await page.getByRole("button", { name: "Horarios" }).click();
 
   await expect(page.getByRole("heading", { name: "Planificación de horarios" })).toBeVisible({ timeout: 15000 });
   await page.getByRole("checkbox", { name: "Activar lunes" }).check();
@@ -146,7 +148,7 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
   expect(state.schedules[0].timezone).toBe("Europe/Madrid");
   expect(state.schedules[0].days).toEqual([{ day: 1, start: "08:30", end: "16:30", breakMinutes: 0 }]);
 
-  await page.goto("/dashboard/time-tracking/requests");
+  await page.getByRole("button", { name: "Incidencias" }).click();
   await expect(page.getByRole("heading", { name: "Incidencias" })).toBeVisible();
   await page.getByRole("button", { name: /Solicitudes del equipo/ }).click();
   await expect(page.getByText("member@example.test · Entrada")).toBeVisible();
