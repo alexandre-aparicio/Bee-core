@@ -1104,7 +1104,8 @@ Work is tracked on `security/hardening-92`, which was fast-forwarded to the then
 - Connected Devices dashboard routes now append successful lifecycle events and actor-tenant-only denial events when a device or pairing challenge is not found inside the active tenant.
 - Membership-driven device revocation from both pairing-status checks and capability checks appends a system-actor tenant audit event.
 - Added a route-level regression using a device owned by a different tenant. It exercises approve, suspend, activate, unlink, delete, revoke, rename and pairing cancellation; asserts 404 responses, no mutation of the foreign device and denial events written only to the requesting tenant.
-- **Validation pending:** backend CI must type-check and execute the new test. This route regression uses a controlled repository/database stub; it is not a substitute for a full Mongo-backed route audit or an exhaustive review of every Connected Devices denial path.
+- Added a second route regression backed by a real MongoDB database and `ConnectedDevicesRepository`. It attempts the same eight operations against a foreign tenant's device/pairing challenge, verifies 404 responses, confirms the foreign records remain unchanged, and confirms all eight denial events exist only in the requesting tenant's audit collection.
+- **CI validation passed:** GitHub Actions run [45582869039](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45582869039) on commit `fca8e14782b2ffae94f0edfe2df813cfd8210010` passed backend build/tests (**120 passed, 0 failed, 0 skipped**) and Angular production build/test discovery. The new Mongo-backed test executed successfully. Playwright discovery is not browser E2E execution.
 - **Known limitation:** the route audit helper logs and continues if an append fails. This remains best-effort audit delivery rather than an atomic transaction between the business mutation and audit insert.
 
 
