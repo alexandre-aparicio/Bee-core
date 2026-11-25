@@ -18,7 +18,7 @@ export class BeeTimeTrackingComponent implements OnInit {
  scheduleDraft:ScheduleDay[]=Array.from({length:7},(_,day)=>({day,enabled:false,start:"09:00",end:"17:00",breakMinutes:0}));
  correctionTarget:{sessionId:string;eventType:"clock_in"|"clock_out";originalAt:string}|null=null;
  requestedAt=""; correctionReason="";
- ngOnInit():void{const legacy=new URLSearchParams(window.location.search).get("section");const section=this.section||legacy||"time-tracking-day";this.activeSection=section==="time-tracking-schedule"||section==="schedule"?"schedule":section==="time-tracking-history"||section==="history"?"history":section==="time-tracking-requests"||section==="requests"?"requests":"my-day";void this.load();}
+ ngOnInit():void{const legacy=new URLSearchParams(window.location.search).get("section");const section=this.section||legacy||"time-tracking-day";this.activeSection=section==="time-tracking-schedule"||section==="schedule"?"schedule":section==="time-tracking-history"||section==="history"?"history":section==="time-tracking-requests"||section==="requests"?"requests":"my-day";if(this.activeSection==="requests")this.activeSubTab="mine";void this.load();}
  get canManage():boolean{return ["owner","admin","manager","super_admin","superadmin"].includes(this.role.toLowerCase());}
  private request(path:string,method="GET",body?:unknown):Promise<any>{return this.api.request(this.accessToken,path,method,body);}
  async load():Promise<void>{

@@ -20,6 +20,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   @ViewChild("pluginHost", { read: ViewContainerRef, static: true }) private host!: ViewContainerRef;
   private viewReady = false;
   private renderSequence = 0;
+  private lastRenderKey = "";
   private readonly frames = new Map<Window, RemoteFrame>();
   private readonly messageHandler = (event: MessageEvent<unknown>) => { void this.onPluginMessage(event); };
 
@@ -44,6 +45,12 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   private async render(): Promise<void> {
+    // The host template may create a fresh pluginIds array on every change-detection
+    // pass. Compare the effective inputs before invalidating an in-flight lazy import;
+    // otherwise a slower feature chunk can be perpetually cancelled before mounting.
+    const renderKey = JSON.stringify({ pluginIds: this.pluginIds, tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section });
+    if (renderKey === this.lastRenderKey) return;
+    this.lastRenderKey = renderKey;
     const sequence = ++this.renderSequence;
     this.frames.clear();
     this.host.clear();
