@@ -504,25 +504,25 @@ export class AppComponent implements OnInit, OnDestroy {
     // Keep navigation visibility aligned with AuditLogComponent.canRead.
     return ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase());
   }
-  get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string;children?:Array<{id:string;label:string;route:string}>}> {
+  get navigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;group:string;children:Array<{id:string;label:string;route:string}>}> {
     const pluginItems=this.pluginFrontends.navigation(this.activePlugins).map(item=>({
       id:item.id,label:this.i18n.locale==="es"?item.labelEs:item.label,labelKey:"",icon:item.icon,group:item.group,
-      ...(item.children?{children:item.children.map(child=>({id:child.id,label:this.i18n.locale==="es"?child.labelEs:child.label,route:child.route}))}:{})
+      children:item.children?.map(child=>({id:child.id,label:this.i18n.locale==="es"?child.labelEs:child.label,route:child.route})) ?? []
     }));
     const items = [
-      {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE'},
+      {id:'dashboard',label:this.i18n.t('nav.dashboard'),labelKey:'nav.dashboard',icon:'dashboard',group:'WORKSPACE',children:[]},
       ...pluginItems,
-      {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE'},
-      {id:'activity',label:this.i18n.t('nav.activity'),labelKey:'nav.activity',icon:'activity',group:'WORKSPACE'},
-      {id:'mail',label:this.i18n.t('nav.mail'),labelKey:'nav.mail',icon:'mail',group:'WORKSPACE'},
-      {id:'notifications',label:this.i18n.t('nav.notifications'),labelKey:'nav.notifications',icon:'notifications',group:'WORKSPACE'},
-      {id:'settings',label:this.i18n.t('nav.settings'),labelKey:'nav.settings',icon:'settings',group:'SYSTEM'}
+      {id:'organization',label:this.i18n.t('nav.organization'),labelKey:'nav.organization',icon:'organization',group:'WORKSPACE',children:[]},
+      {id:'activity',label:this.i18n.t('nav.activity'),labelKey:'nav.activity',icon:'activity',group:'WORKSPACE',children:[]},
+      {id:'mail',label:this.i18n.t('nav.mail'),labelKey:'nav.mail',icon:'mail',group:'WORKSPACE',children:[]},
+      {id:'notifications',label:this.i18n.t('nav.notifications'),labelKey:'nav.notifications',icon:'notifications',group:'WORKSPACE',children:[]},
+      {id:'settings',label:this.i18n.t('nav.settings'),labelKey:'nav.settings',icon:'settings',group:'SYSTEM',children:[]}
     ];
     return items.filter(item => item.id !== 'activity' || this.canReadActivity);
   }
   get visibleMenuGroups(): string[] { return [...new Set(this.navigationItems.map(item => item.group))]; }
   pluginIdsForSection(sectionId:string):string[] { const pluginId=this.pluginFrontends.pluginForSection(sectionId); return pluginId && this.isPluginEnabled(pluginId) ? [pluginId] : []; }
-  isNavigationItemActive(item:{id:string;children?:Array<{id:string}>}):boolean { return this.activeSection===item.id || Boolean(item.children?.some(child=>child.id===this.activeSection)); }
+  isNavigationItemActive(item:{id:string;children:Array<{id:string}>}):boolean { return this.activeSection===item.id || Boolean(item.children?.some(child=>child.id===this.activeSection)); }
   navigateSection(id: string): void {
     const targetId = id === 'settings' ? (this.settingsNavigationItems.some(item => item.id === 'settings-general') ? 'settings-general' : this.settingsNavigationItems[0]?.id) : id === 'organization' ? 'organization-company' : id;
     if (!targetId) return;
