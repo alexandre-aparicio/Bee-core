@@ -572,6 +572,56 @@ export class PluginSettingsComponent implements OnInit {
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not load plugins"; }
     finally { this.loading = false; }
   }
+  async install(plugin: PluginRecord): Promise<void> {
+    await this.runLifecycleAction(plugin, "POST");
+  }
+  async uninstall(plugin: PluginRecord): Promise<void> {
+    await this.runLifecycleAction(plugin, "DELETE");
+  }
+  private async waitForJob(jobId: string, plugin: PluginRecord, action: "install" | "uninstall"): Promise<void> {
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      const response = await fetch("/api/marketplace/install-jobs/" + encodeURIComponent(jobId), {
+        headers: { authorization: "Bearer " + this.token }
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not check plugin operation");
+      const status = String(result.job?.status ?? "");
+      if (status === "succeeded") return;
+      if (status === "failed") throw new Error(result.job?.error || "Plugin " + action + " failed");
+      this.message = (action === "install" ? "Installing " : "Uninstalling ") + plugin.name + "…";
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    throw new Error("The plugin operation is taking longer than expected. Refresh the catalogue to check its status.");
+  }
+  private async runLifecycleAction(plugin: PluginRecord, method: "POST" | "DELETE"): Promise<void> {
+    if (!this.canManage || this.busyId) return;
+    if (method === "POST" && (!plugin.entitled || plugin.installed)) return;
+    if (method === "DELETE" && (!plugin.installed || plugin.system)) return;
+    this.busyId = plugin.id;
+    this.openMenuId = "";
+    this.error = "";
+    this.message = method === "POST" ? "Queuing installation…" : "Queuing uninstallation…";
+    try {
+      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(plugin.id) + "/install", {
+        method,
+        headers: { authorization: "Bearer " + this.token }
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Plugin operation failed");
+      const action = method === "POST" ? "install" : "uninstall";
+      if (result.jobId) await this.waitForJob(String(result.jobId), plugin, action);
+      await this.load();
+      this.message = method === "POST"
+        ? plugin.name + " installed successfully."
+        : plugin.name + " uninstalled. Company data is preserved.";
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : "Plugin operation failed";
+      this.message = "";
+    } finally {
+      this.busyId = "";
+    }
+  }
   openDetails(plugin: PluginRecord): void {
     this.openMenuId = "";
     window.history.pushState({}, "", "/dashboard/plugins/" + encodeURIComponent(plugin.id) + "/details");
