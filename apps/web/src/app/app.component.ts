@@ -85,6 +85,7 @@ export class AppComponent implements OnInit {
   companyBusy = false;
   activePlugins: string[] = [];
   private pluginResourceIds: Record<string, string> = {};
+  get pluginResourceIdMap(): Record<string, string> { return { ...this.pluginResourceIds }; }
   pluginNavigationItems: Array<{id:string;label:string;path:string}> = [];
   private pluginNavigationSequence = 0;
   setActivePlugins(pluginIds: string[]): void {
@@ -488,7 +489,7 @@ export class AppComponent implements OnInit {
   get isPlatformAdmin(): boolean { return this.auth?.platformRole === 'superadmin'; }
   get canManagePlugins(): boolean { return this.isPlatformAdmin || ['super_admin','owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
   get canManageAppearance(): boolean { return this.isPlatformAdmin || ['owner','admin'].includes((this.activeCompanyRole || '').toLowerCase()); }
-  get sectionTitle(): string { const organizationTitles: Record<string,string> = {'organization-company':'nav.organization.company','organization-users':'nav.organization.users','organization-teams':'nav.organization.teams','organization-roles':'nav.organization.roles'}; const timeTrackingTitles: Record<string,string> = {'time-tracking-day':'nav.timeTracking','time-tracking-schedule':'nav.timeTracking','time-tracking-history':'nav.timeTracking','time-tracking-requests':'nav.timeTracking'}; const key=timeTrackingTitles[this.activeSection] || organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'nav.notifications' : this.activeSection === 'messages' ? 'nav.notifications.chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.labelKey || this.navigationItems.find(item => item.id === this.activeSection)?.labelKey || 'nav.dashboard'); return this.i18n.t(key); }
+  get sectionTitle(): string { const organizationTitles: Record<string,string> = {'organization-company':'nav.organization.company','organization-users':'nav.organization.users','organization-teams':'nav.organization.teams','organization-roles':'nav.organization.roles'}; const timeTrackingTitles: Record<string,string> = {'time-tracking-day':'nav.timeTracking','time-tracking-schedule':'nav.timeTracking','time-tracking-history':'nav.timeTracking','time-tracking-requests':'nav.timeTracking'}; const externalPlugin = this.pluginNavigationItems.find(item => item.id === this.activeSection); if (externalPlugin) return externalPlugin.label; const key=timeTrackingTitles[this.activeSection] || organizationTitles[this.activeSection] || (this.activeSection === 'notifications' ? 'nav.notifications' : this.activeSection === 'messages' ? 'nav.notifications.chat' : this.settingsNavigationItems.find(item => item.id === this.activeSection)?.labelKey || this.navigationItems.find(item => item.id === this.activeSection)?.labelKey || 'nav.dashboard'); return this.i18n.t(key); }
   get settingsNavigationItems(): Array<{id:string;label:string;labelKey:string;icon:string;description:string}> {
     const role = (this.activeCompanyRole || '').toLowerCase();
     const allowed = this.isPlatformAdmin
