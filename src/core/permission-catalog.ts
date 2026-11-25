@@ -1,5 +1,12 @@
 /** Canonical permission keys currently enforced by Bee-Core Core modules. */
-export type PermissionDefinition={key:string;module:string;resource:string;action:string;label:string;description:string;sensitive?:boolean;customRoleAssignable:boolean};
+export type PermissionDefinition={key:string;module:string;resource:string;action:string;label:string;description:string;sensitive?:boolean;customRoleAssignable:boolean;defaultGrants?:{owner:boolean;admin:boolean;manager:boolean;member:boolean}};
+export type PluginPermissionSource={id:string;permissions?:Array<{key:string;module:string;resource:string;action:string;label:string;defaultGrants:{owner:boolean;admin:boolean;manager:boolean;member:boolean}}>};
+export function composePermissionCatalog(packages:readonly PluginPermissionSource[]):PermissionDefinition[]{
+ const dynamic=packages.flatMap(pkg=>(pkg.permissions??[]).map(permission=>({...permission,description:permission.label,customRoleAssignable:true})));
+ const byKey=new Map<string,PermissionDefinition>();
+ for(const permission of [...CORE_PERMISSION_CATALOG,...dynamic])byKey.set(permission.key,permission);
+ return [...byKey.values()].sort((a,b)=>a.module.localeCompare(b.module)||a.resource.localeCompare(b.resource)||a.action.localeCompare(b.action));
+}
 export const CORE_PERMISSION_CATALOG:readonly PermissionDefinition[]=[
 {key:"members.read",module:"organization",resource:"members",action:"read",label:"View members",description:"List members and inspect membership details.",customRoleAssignable:true},
 {key:"members.invite",module:"organization",resource:"members",action:"invite",label:"Invite members",description:"Invite members, add existing accounts and manage invitations.",customRoleAssignable:true},
