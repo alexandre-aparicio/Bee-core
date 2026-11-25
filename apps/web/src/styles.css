@@ -80,7 +80,7 @@ footer .bee-template-manager{width:min(100%,420px);margin:0 0 15px}
 .bee-template-slot [data-plugin-ui]{min-width:0}
 
 /* Tenant-scoped runtime theme tokens (updated over SSE without a rebuild). */
-:root{--bee-runtime-bg:var(--bee-bg);--bee-runtime-panel:var(--bee-surface);--bee-runtime-muted:var(--bee-text-muted);--bee-runtime-border:var(--bee-border);--bee-runtime-accent:var(--bee-accent);--bee-runtime-secondary:var(--bee-secondary)}
+
 
 
 
