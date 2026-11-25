@@ -54,6 +54,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "time-tracking") {
+        assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
+        assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/time-tracking"]);
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
@@ -122,4 +124,26 @@ test("Hello Mundo is not registered or advertised as a bundled plugin", async ()
   assert.match(registrySource, /retireBundledPlatformPackage/, "legacy bundled records must be retired");
   assert.match(registrySource, /status:\s*"deprecated"/, "retired package records must be hidden from active listings");
   assert.match(platformAdminSource, /retireBundledPlatformPackage\(db,\s*"hello-world"\)/, "platform startup must retire the old bundled record");
+});
+
+
+test("Control Horario backend is independent from Files and scopes tenant-owned persistence through its repository", async () => {
+  const pluginSource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.plugin.ts"), "utf8");
+  const packageSource = await readFile(join(process.cwd(), "scripts/build-plugin-packages.mjs"), "utf8");
+  const repositorySource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.repository.ts"), "utf8");
+  const handlersSource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.handlers.ts"), "utf8");
+
+  assert.match(pluginSource, /dependencies:\s*\["auth",\s*"organizations"\]/);
+  assert.doesNotMatch(pluginSource, /files|FilesStorageAdapter/i);
+  assert.match(packageSource, /id:\s*"time-tracking"[\\s\\S]*?dependencies:\s*\["auth",\s*"organizations"\]/);
+  assert.doesNotMatch(packageSource.match(/\{ id: "time-tracking"[\\s\\S]*?\},/)?.[0] ?? "", /files|marketplace/i);
+  assert.match(repositorySource, /sessionsForTenant/);
+  assert.match(repositorySource, /schedulesForTenant/);
+  assert.match(repositorySource, /correctionsForTenant/);
+  assert.match(repositorySource, /membershipsForTenant/);
+  assert.doesNotMatch(handlersSource, /new TenantCollection/);
+  assert.match(handlersSource, /repository\.sessionsForTenant/);
+  assert.match(handlersSource, /repository\.schedulesForTenant/);
+  assert.match(handlersSource, /repository\.correctionsForTenant/);
+  assert.match(handlersSource, /repository\.membershipsForTenant/);
 });
