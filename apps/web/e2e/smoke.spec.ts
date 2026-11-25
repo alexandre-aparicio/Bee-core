@@ -152,7 +152,7 @@ test('template manager keeps public and dashboard themes independent', async ({ 
   await expect(manager).toBeVisible();
   await manager.getByLabel('Public website template').selectOption('editorial');
   await expect(page.locator('body')).toHaveAttribute('data-bee-public-template', 'editorial');
-  await expect(page.locator('[data-bee-layout="public.editorial"]')).toBeVisible();
+  await expect(page.locator('.bee-template-package-host--midnight')).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
   await manager.getByRole('button', { name: 'Apply template' }).click();
   await page.reload();
@@ -173,7 +173,7 @@ test('dashboard template can be selected without changing public theme', async (
   await expect(manager).toBeVisible();
   await manager.getByLabel('Dashboard template').selectOption('paper');
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'paper');
-  await expect(page.locator('[data-bee-layout="dashboard.paper"]')).toBeVisible();
+  await expect(page.locator('.bee-template-package-host--paper')).toBeVisible();
   await expect(manager.getByText('Preview only')).toBeVisible();
   await manager.getByRole('button', { name: 'Discard' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-bee-dashboard-template', 'midnight');
@@ -225,10 +225,10 @@ test('tenant admin can install and activate a trusted dashboard template package
   await manager.locator('.bee-template-package').filter({ hasText: 'Glass' }).getByRole('button', { name: 'Install' }).click();
   await expect(manager.getByText('Template installed for this company.')).toBeVisible();
   await manager.getByLabel('Dashboard template').selectOption('glass');
-  await expect(page.locator('[data-bee-layout="dashboard.glass"]')).toBeVisible();
+  await expect(page.locator('.bee-template-package-host--glass')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--glass').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#eaf1fc');
   await manager.getByRole('button', { name: 'Discard' }).click();
-  await expect(page.locator('[data-bee-layout="dashboard.midnight"]')).toBeVisible();
+  await expect(page.locator('.bee-template-package-host--midnight')).toBeVisible();
   await expect.poll(() => page.locator('.bee-template-package-host--midnight').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#080a12');
   await manager.getByLabel('Dashboard template').selectOption('glass');
   await manager.getByRole('button', { name: 'Apply template' }).click();
@@ -595,7 +595,7 @@ test('Settings > Tenants supports card/list views, tenant management and create 
   await page.getByRole('button', { name: 'Manage', exact: true }).click();
   await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard/settings/tenants/company-1/manage');
   await expect(page.getByRole('heading', { name: 'Acme Studio' })).toBeVisible();
-  await page.getByRole('button', { name: /tenants/i }).click();
+  await page.getByRole('button', { name: 'Tenants', exact: true }).click();
   await page.getByRole('button', { name: /new tenant/i }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Create a tenant' })).toBeVisible();
