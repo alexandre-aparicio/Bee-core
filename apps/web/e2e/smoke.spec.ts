@@ -1,6 +1,47 @@
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  // The application refreshes its session through the HTTP-only-cookie endpoint.
+  // Smoke tests seed a bee-auth fixture in localStorage; mirror that fixture into
+  // a test-only cookie so the mocked refresh endpoint can return the same identity.
+  await page.addInitScript(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string): void {
+      originalSetItem.call(this, key, value);
+      if (this === window.localStorage && key === 'bee-auth') {
+        document.cookie = `bee-test-auth=${encodeURIComponent(value)}; Path=/; SameSite=Lax`;
+      }
+    };
+  });
+
+  await page.route('**/api/auth/refresh', route => {
+    const cookie = route.request().headers().cookie || '';
+    const fixture = cookie.split(';').map(part => part.trim()).find(part => part.startsWith('bee-test-auth='));
+    let session: { accessToken?: string; tenantId?: string; user?: unknown; platformRole?: string } = {};
+    try {
+      if (fixture) session = JSON.parse(decodeURIComponent(fixture.slice('bee-test-auth='.length)));
+    } catch {
+      session = {};
+    }
+    if (!session.accessToken) {
+      return route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'No test session fixture' })
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        accessToken: session.accessToken,
+        tenantId: session.tenantId,
+        user: session.user,
+        platformRole: session.platformRole
+      })
+    });
+  });
+
   await page.route('**/api/auth/me', route => {
     const token = route.request().headers().authorization || '';
     return route.fulfill({
@@ -13,6 +54,14 @@ test.beforeEach(async ({ page }) => {
       })
     });
   });
+
+  // The public homepage is the platform's corporate site unless a tenant
+  // domain resolves to a company website.
+  await page.route('**/api/public/tenant', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ kind: 'corporate' })
+  }));
 });
 
 test('landing page renders the main message', async ({ page }) => {
