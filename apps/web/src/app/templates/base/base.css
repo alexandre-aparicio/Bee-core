@@ -490,10 +490,6 @@
 }
 
 @media (max-width: 759px) {
-  .bee-dash-shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .bee-dash-header {
     padding-inline: 1rem;
   }
