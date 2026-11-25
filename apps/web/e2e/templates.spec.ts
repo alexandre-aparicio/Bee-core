@@ -29,9 +29,11 @@ async function seed(page, target, template, mode) {
       dashboard: target === 'dashboard' ? template : 'midnight'
     };
     localStorage.setItem('bee-template-selection', JSON.stringify(selection));
-    localStorage.setItem('bee-template-mode:' + target + ':' + template + ':host-localhost', mode);
+    const hostScope = 'host-' + window.location.hostname;
+    localStorage.setItem('bee-template-mode:' + target + ':' + template + ':' + hostScope, mode);
     if (target === 'dashboard') {
-      localStorage.setItem('bee-template-mode:dashboard:' + template + ':tenant-demo', mode);
+      localStorage.setItem('bee-template-mode:dashboard:' + template + '::tenant-demo', mode);
+      localStorage.setItem('bee-template-mode:dashboard:' + template + '::' + hostScope, mode);
       localStorage.setItem('bee-auth', JSON.stringify({
         accessToken: 'template-e2e-admin-token',
         tenantId: 'tenant-demo',
