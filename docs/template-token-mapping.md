@@ -75,3 +75,53 @@ All six packages define the custom dashboard tokens in both Light and Dark block
 The removed wrapper-only selectors `.bee-dash-workspace`, `.bee-dash-label` and `.bee-dash-user` were dead in the current shared dashboard template (the workspace switcher and sidebar user block are not rendered). The obsolete Paper workspace override was removed. Dashboard grid columns are defined once in `base.css`, with the mobile single-column override in the same rule family.
 
 This is a source migration, not a claim of visual equivalence. Production build, token checker, style audit, browser screenshots and visual comparison remain required before acceptance.
+
+## Part B1 — Appearance rule classification (original source snapshot)
+
+The following classification numbers every one of the 65 CSS blocks in the original `core/appearance-modes.css` snapshot before migration. The category letters follow the refactor brief: **(a)** core appearance/toggle UI, **(b)** generic dashboard/shell, **(c)** public Light presentation, **(d)** temporary feature-compatibility overrides.
+
+| Original rule(s) | Original selector / responsibility | Class | Destination or decision |
+|---|---|---|---|
+| 1 | `.theme-mode-toggle` | a | Keep in `core/appearance-modes.css`; semantic tokens only. |
+| 2 | `.theme-mode-toggle:hover` | a | Keep in core; no literal color. |
+| 3 | `.bee-template-manager__mode-controls` | a | Keep in core; layout only. |
+| 4 | `.bee-template-mode` | a | Keep in core; semantic surface/border tokens. |
+| 5 | `.bee-template-mode > div` | a | Keep in core; token-based muted surface. |
+| 6 | `.bee-template-mode button` | a | Keep in core; semantic foreground/surface tokens. |
+| 7 | `.bee-template-mode button.active` | a | Keep in core; replace literal shadow with semantic shadow token. |
+| 8–14 | Dashboard canvas, sidebar/header, panels, nav buttons, quick actions and panel headings | b | Shared shell/content rules belong in `base.css`; use package dashboard tokens and no mode selector. |
+| 15–34 | Public Light host, header, nav, hero, CTA, preview, cards, architecture, footer and login controls | c | Remove after equivalent token-driven public styles and package values exist; no dashboard selector may affect these surfaces. |
+| 35 | Responsive stacking for `.bee-template-mode` | a | Keep in core as the responsive behavior of the appearance control. |
+| 36–39 | Dashboard color-scheme, canvas, sidebar and header normalization | b | Shared base shell owns these roles; package tokens supply Light/Dark values. |
+| 40 | Broad feature surface selector, including platform admin/company, members, settings, plugins, marketplace, audit, roles, invitations, forms, dialogs and package surfaces | d | Split into named, token-only compatibility rules at the end of `base.css`; retain `!important` only in this block. |
+| 41 | Dashboard content text inheritance | b | Generic content inheritance belongs in `base.css`; no palette override. |
+| 42 | Feature description, subtitle, eyebrow and hint text | d | Temporary feature compatibility rule in the end-of-file base block; semantic muted token only. |
+| 43 | Feature input/select/textarea normalization | d | Temporary feature compatibility rule in the end-of-file base block; input/text/border tokens only. |
+| 44 | Feature input placeholder normalization | d | Temporary feature compatibility rule in the end-of-file base block; placeholder token only. |
+| 45 | Feature table surface normalization | d | Temporary feature compatibility rule in the end-of-file base block; surface/text/border tokens only. |
+| 46 | Feature table row/cell normalization | d | Temporary feature compatibility rule in the end-of-file base block; surface/text/border tokens only. |
+| 47–49 | Sidebar buttons, selected navigation and dashboard content buttons | b | Shared shell behavior belongs in `base.css`; package tokens define active/inactive states. |
+| 50 | Feature create/action buttons (Platform Admin, Platform Company and Company Members) | d | Temporary feature compatibility rule in the end-of-file base block; action/surface/text/border tokens only. |
+| 51 | Platform Admin modal backdrop and dialog foreground | d | Temporary feature compatibility rule in the end-of-file base block; semantic foreground token only. |
+| 52 | Platform Admin/Company Members/error text | d | Temporary feature compatibility rule in the end-of-file base block; danger token only. |
+| 53 | Platform Admin/Company Members/success text | d | Temporary feature compatibility rule in the end-of-file base block; success token only. |
+| 54–56 | Final sidebar default, hover and active navigation pass | b | Merge into the token-driven base sidebar/navigation rules; no mode selector or `!important`. |
+| 57–61 | Template manager appearance-mode card, label, segmented controls and active control | a | Keep in core; remove Light-only selector and use semantic tokens in both modes. |
+| 62–63 | Template manager field label and select | a | Keep with template manager/appearance controls; use semantic text/input tokens without `!important`. |
+| 64–65 | `.bee-users` and `.bee-company` alias overrides | b | Remove the two alias blocks; the active package host and Midnight Light tokens now supply the semantic values. |
+
+The original 65-block snapshot contained **59 `!important` declarations**, **28 `[class*=` selectors**, **131 hex literals**, **41 `.bee-dash-` selector occurrences**, and **66 dashboard/public mode-attribute selector occurrences**. The expected temporary compatibility block after the migration contains the feature rules from #40, #42–46 and #50–53; the generic shell, public Light and toggle rules must not remain there. Counts in the final source are recorded after migration below.
+
+## Part B5 — Deferred feature-local override backlog
+
+These component-local `:host-context` overrides are intentionally recorded, not rewritten in this migration. They remain follow-up work for the feature owners:
+
+| Feature component | Existing `:host-context` override count |
+|---|---:|
+| Documents | 17 |
+| Organization Roles | 4 |
+| Teams Workspace | 3 |
+| Role Audit | 1 |
+| **Total deferred** | **25** |
+
+Do not mark this backlog complete or reduce these counts as part of the appearance-mode migration. Each feature must be migrated and visually checked separately in Midnight Light and Dark.
