@@ -15,7 +15,7 @@ export const documentsPlugin:BeePlugin={
   if(secret.length<32)throw new Error("Documents requires a session resource ID secret.");
   const root=path.resolve(String(ctx.config.documentsStoragePath??"/data/bee-documents"));
   await mkdir(root,{recursive:true,mode:0o700});
-  const storage=new DocumentsStorageAdapter(db,root);
+  if(!ctx.server.hasContentTypeParser("application/octet-stream"))ctx.server.addContentTypeParser("application/octet-stream",{parseAs:"buffer",bodyLimit:10*1024*1024},(_request:any,body:any,done:any)=>done(null,body));\n  const storage=new DocumentsStorageAdapter(db,root);
   await storage.initialize();
   const repository=new DocumentsRepository(db);
   await repository.initializeIndexes();
