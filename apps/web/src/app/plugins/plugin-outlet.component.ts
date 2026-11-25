@@ -50,8 +50,21 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     this.remoteHost.nativeElement.replaceChildren();
 
     for (const pluginId of this.pluginIds) {
-      // Prefer the signed package frontend. The bundled Angular registration is
-      // retained only as a migration fallback until the package is installed.
+      // First-party workspace components stay inside the Angular shell.
+      // Only plugins without a trusted native registration use the remote iframe frontend.
+      const registration = this.registry.resolve(pluginId);
+      if (registration) {
+        if (registration.translations) {
+          this.i18n.registerCatalog(pluginId, "en", registration.translations.en);
+          this.i18n.registerCatalog(pluginId, "es", registration.translations.es);
+        }
+        const component = this.host.createComponent(registration.component);
+        for (const [name, value] of Object.entries(registration.inputs({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section }))) {
+          component.setInput(name, value);
+        }
+        continue;
+      }
+
       const runtime = await this.loadRemoteRuntime(pluginId);
       if (sequence !== this.renderSequence) return;
       if (runtime) {
@@ -72,16 +85,6 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
         continue;
       }
 
-      const registration = this.registry.resolve(pluginId);
-      if (!registration) continue;
-      if (registration.translations) {
-        this.i18n.registerCatalog(pluginId, "en", registration.translations.en);
-        this.i18n.registerCatalog(pluginId, "es", registration.translations.es);
-      }
-      const component = this.host.createComponent(registration.component);
-      for (const [name, value] of Object.entries(registration.inputs({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section }))) {
-        component.setInput(name, value);
-      }
     }
   }
 
