@@ -16,12 +16,23 @@ test("four first-party modules build as independently signed ZIP packages", { sk
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const root = await mkdtemp(join(tmpdir(), "bee-first-party-packages-"));
   try {
+    const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     const built = await buildPluginPackages({
-      privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+      privateKeyPem,
+      publicKeyPem,
       outputDir: join(root, "archives")
     });
+    const mismatchedPair = generateKeyPairSync("ed25519");
+    await assert.rejects(
+      () => buildPluginPackages({
+        privateKeyPem,
+        publicKeyPem: mismatchedPair.publicKey.export({ type: "spki", format: "pem" }).toString(),
+        outputDir: join(root, "rejected")
+      }),
+      /does not match/
+    );
     assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking"]);
-    const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     for (const item of built) {
       assert.ok(item.bytes > 100);
       const installed = await installSignedPluginZip({
@@ -61,6 +72,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
         const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
         const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
+        assert.equal(html, await readFile(join(process.cwd(), "src/plugins/time-tracking/frontend/index.html"), "utf8"), "the ZIP must contain the exact current standalone HTML");
+        assert.equal(script, await readFile(join(process.cwd(), "src/plugins/time-tracking/frontend/main.js"), "utf8"), "the ZIP must contain the exact current standalone frontend and all its functionality");
         assert.match(html, /Control horario/);
         assert.match(script, /clock-in/);
         assert.match(script, /team\/schedules/);
@@ -69,6 +82,13 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /saveSchedule/);
         assert.match(script, /confirmReview/);
         assert.match(script, /renderReviewModal/);
+        assert.match(script, /my-day/);
+        assert.match(script, /historyPanel/);
+        assert.match(script, /schedulePanel/);
+        assert.match(script, /requestsPanel/);
+        assert.match(script, /teamMembers/);
+        assert.match(script, /saveTeamSchedule/);
+        assert.match(script, /reviewCorrection/);
         assert.match(script, /clock-in/);
         assert.match(script, /break-start/);
         assert.match(script, /break-end/);
