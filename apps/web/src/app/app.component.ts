@@ -30,6 +30,7 @@ export class AppComponent implements OnInit {
 
   private readonly handlePublicPopState = (): void => {
     this.path = window.location.pathname;
+    this.templates.syncActiveSurface();
     this.syncActiveSectionFromPath();
     this.menuOpen = false;
     if (this.path === '/invite/accept') void this.loadInvitation();
@@ -40,6 +41,7 @@ export class AppComponent implements OnInit {
     if (this.path === path) return;
     window.history.pushState({}, '', path);
     this.path = path;
+    this.templates.syncActiveSurface();
     this.menuOpen = false;
   }
 
@@ -440,6 +442,7 @@ export class AppComponent implements OnInit {
     const route = '/dashboard/settings/tenants/' + encodeURIComponent(tenantId) + '/manage';
     window.history.pushState({}, '', route);
     this.path = route;
+    this.templates.syncActiveSurface();
     this.activeSection = 'settings-tenants';
     this.menuOpen = false;
   }
@@ -522,6 +525,7 @@ export class AppComponent implements OnInit {
     const targetPath = route.split('?')[0];
     if (window.location.pathname + window.location.search !== route) window.history.pushState({}, '', route);
     this.path = targetPath;
+    this.templates.syncActiveSurface();
     this.activeSection = targetId;
     this.expandedMenuId = targetId.startsWith('settings-') ? 'settings' : (['notifications','messages','mail'].includes(targetId) ? 'notifications' : targetId.startsWith('organization-') ? 'organization' : targetId.startsWith('time-tracking-') ? 'time-tracking' : '');
     this.menuOpen = false;
