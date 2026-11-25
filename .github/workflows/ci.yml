@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      contents: read
+      contents: write
     defaults:
       run:
         working-directory: apps/web
@@ -199,3 +199,21 @@ jobs:
           name: angular-22-migration-patch
           path: ${{ runner.temp }}/angular-migration.patch
           retention-days: 7
+      - name: Publish verified Angular 22 branch
+        if: steps.migration-state.outputs.run == 'true' && success()
+        working-directory: .
+        env:
+          TARGET_BRANCH: security/angular-22-migrated-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/angular-migration.patch"
+          git fetch origin main
+          git switch --detach origin/main
+          git switch -c "$TARGET_BRANCH"
+          git apply "$RUNNER_TEMP/angular-migration.patch"
+          sed -i 's/^FROM node:22-alpine AS build$/FROM node:22.22.3-alpine AS build/' apps/web/Dockerfile
+          grep -Fqx 'FROM node:22.22.3-alpine AS build' apps/web/Dockerfile
+          git add apps/web
+          git commit -m "security(web): migrate Angular to 22 and pin Node 22.22.3"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "Published $TARGET_BRANCH"
