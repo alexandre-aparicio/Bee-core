@@ -20,8 +20,8 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
          <button type="button" class="platform-admin__create-trigger" (click)="openCreate()">＋ New tenant</button>
        </div>
      </div>
-     @if(error){<p class="platform-admin__error">{{error}}</p>}
-     @if(success){<p class="platform-admin__success">{{success}}</p>}
+     @if(error){<p class="platform-admin__error bee-status--danger">{{error}}</p>}
+     @if(success){<p class="platform-admin__success bee-status--success">{{success}}</p>}
      @if(loading){<div class="platform-admin__empty">Loading companies…</div>}
      @else if(!companies.length){<div class="platform-admin__empty">No tenants have been created yet.</div>}
      @else if(viewMode==='cards'){
@@ -71,7 +71,7 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
        <div><span class="platform-admin__eyebrow">SETTINGS / TENANTS</span><h2>{{managedCompany?.name || 'Company management'}}</h2><p>Manage this tenant and its platform-level configuration</p></div>
        <button type="button" class="platform-admin__back" (click)="backToList.emit()">All Tenants</button>
      </div>
-     @if(error){<p class="platform-admin__error">{{error}}</p>}
+     @if(error){<p class="platform-admin__error bee-status--danger">{{error}}</p>}
      @if(managedCompany){
        <div class="platform-admin__tenant-summary">
          <article class="platform-admin__detail"><span>Company ID</span><strong>{{managedCompany.id}}</strong></article>
@@ -132,7 +132,7 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
            <small>Public address: {{slug || '[company-slug]'}}.beecore.beeprojects.net</small>
            <label>Owner email</label><input name="ownerEmail" type="email" [(ngModel)]="ownerEmail" required placeholder="owner@company.com">
            <label>Initial password (new user only)</label><input name="ownerPassword" type="password" [(ngModel)]="ownerPassword" minlength="12" placeholder="At least 12 characters">
-           @if(error){<p class="platform-admin__error">{{error}}</p>}
+           @if(error){<p class="platform-admin__error bee-status--danger">{{error}}</p>}
            <div class="platform-admin__modal-actions"><button type="button" class="platform-admin__cancel" (click)="closeCreate()">Cancel</button><button type="submit" [disabled]="busy">{{busy?'Creating…':'Create tenant'}}</button></div>
          </form>
        </section>
