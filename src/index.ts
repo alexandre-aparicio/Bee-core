@@ -252,7 +252,7 @@ async function loadSignedZipPlugins(): Promise<Map<string,string>> {
   return failures;
 }
 
-async function persistZipPluginRuntimeState(failures: Map<string,string>): Promise<void> {
+async function persistZipPluginRuntimeState(failures: Map<string,string>, builtinFallbackIds: Set<string> = new Set()): Promise<void> {
   const db = mongoClient.db(environment.mongoDbName);
   const registry = db.collection("platform_plugin_packages");
   const versions = db.collection("platform_plugin_package_versions");
@@ -261,12 +261,15 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>): Promi
   for (const item of packageRows) {
     const pluginId = String(item.pluginId);
     const runtimePlugin = runtimePlugins.get(pluginId);
-    const failure = failures.get(pluginId) ?? (runtimePlugin?.status === "started" ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
-    const runtimeState = !failure && runtimePlugin?.status === "started" ? "loaded" : "failed";
+    const builtinFallbackActive = builtinFallbackIds.has(pluginId) && runtimePlugin?.status === "started";
+    const failure = builtinFallbackActive ? "" : failures.get(pluginId) ?? (runtimePlugin?.status === "started" ? "" : runtimePlugin?.error ?? "Plugin did not reach started state");
+    // A broken uploaded ZIP must not hide a healthy Core implementation with the same plugin ID.
+    // Keep the ZIP registry state failed, but leave the trusted built-in catalog entry available.
+    const runtimeState = !failure && runtimePlugin?.status === "started" && !builtinFallbackActive ? "loaded" : "failed";
     await registry.updateOne({ pluginId }, { $set: { runtimeState, runtimeError: failure || null, updatedAt: new Date() } });
     await versions.updateOne({ pluginId, version: item.version }, { $set: { runtimeState, runtimeError: failure || null, runtimeCheckedAt: new Date() } });
-    await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: runtimeState === "loaded", updatedAt: new Date() } });
-    if (runtimeState === "loaded") {
+    await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: runtimeState === "loaded" || Boolean(builtinFallbackActive), updatedAt: new Date() } });
+    if (runtimeState === "loaded" || builtinFallbackActive) {
       await syncAutomaticPluginProvisioning(db, pluginId);
       await syncPluginPackageVersionUpdates(db, pluginId);
     }
@@ -283,8 +286,23 @@ async function bootstrap(): Promise<void> {
   if (!uploadedIds.has("time-tracking")) plugins.register(timeTrackingPlugin);
 
   const zipPluginFailures = await loadSignedZipPlugins();
+  const builtinFallbacks = new Map([
+    ["documents", documentsPlugin],
+    ["connected-devices", connectedDevicesPlugin],
+    ["time-tracking", timeTrackingPlugin]
+  ]);
+  const builtinFallbackIds = new Set<string>();
+  for (const [pluginId, plugin] of builtinFallbacks) {
+    // A registry row alone must not suppress a Core plugin when its uploaded ZIP
+    // failed validation or could not be registered.
+    if (zipPluginFailures.has(pluginId) && !plugins.list().some(item => item.name === pluginId)) {
+      plugins.register(plugin);
+      builtinFallbackIds.add(pluginId);
+      logger.warn("Falling back to the built-in plugin after uploaded package failed", { pluginId });
+    }
+  }
   await plugins.mountAll(ctx);
-  await persistZipPluginRuntimeState(zipPluginFailures);
+  await persistZipPluginRuntimeState(zipPluginFailures, builtinFallbackIds);
   const db = mongoClient.db(environment.mongoDbName);
   const automaticPackages = await db.collection("plugin_catalog").find({ activationPolicy: "automatic", codeAvailable: true, status: "published" }).project<{id:string}>({ id: 1, _id: 0 }).toArray();
   for (const item of automaticPackages) await syncAutomaticPluginProvisioning(db, item.id);
