@@ -52,7 +52,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     for (const pluginId of this.pluginIds) {
       // First-party workspace components stay inside the Angular shell.
       // Only plugins without a trusted native registration use the remote iframe frontend.
-      const registration = this.registry.resolve(pluginId);
+      const registration = pluginId === "documents" ? this.registry.resolve(pluginId) : undefined;
       if (registration) {
         if (registration.translations) {
           this.i18n.registerCatalog(pluginId, "en", registration.translations.en);
@@ -85,6 +85,16 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
         continue;
       }
 
+      const fallbackRegistration = this.registry.resolve(pluginId);
+      if (!fallbackRegistration) continue;
+      if (fallbackRegistration.translations) {
+        this.i18n.registerCatalog(pluginId, "en", fallbackRegistration.translations.en);
+        this.i18n.registerCatalog(pluginId, "es", fallbackRegistration.translations.es);
+      }
+      const fallbackComponent = this.host.createComponent(fallbackRegistration.component);
+      for (const [name, value] of Object.entries(fallbackRegistration.inputs({ tenantId: this.tenantId, role: this.role, accessToken: this.accessToken, section: this.section }))) {
+        fallbackComponent.setInput(name, value);
+      }
     }
   }
 
