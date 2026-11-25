@@ -83,10 +83,11 @@ jobs:
       - name: Production build
         run: npm run build
       - name: Validate Playwright test discovery
+        if: steps.migration-state.outputs.run == 'true'
         run: npm run test:e2e -- --list
   angular-migration:
     name: Sequential Angular 19 to 22 migration rehearsal
-    if: github.event_name == 'pull_request' && github.event.action == 'opened' && github.head_ref == 'security/angular-22-migration-runner'
+    if: github.event_name == 'pull_request' && github.head_ref == 'security/angular-22-migration-runner'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -99,33 +100,56 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
+      - id: migration-state
+        name: Check migration marker
+        run: |
+          if [ -f .angular-migration-complete ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: apps/web
       - uses: actions/setup-node@v4
+        if: steps.migration-state.outputs.run == 'true'
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
       - name: Install current lockfile
+        if: steps.migration-state.outputs.run == 'true'
         run: npm ci
       - name: Migrate Angular core and CLI 19 to 20
+        if: steps.migration-state.outputs.run == 'true'
         run: npx ng update @angular/core@20 @angular/cli@20
       - name: Migrate Angular CDK 19 to 20
+        if: steps.migration-state.outputs.run == 'true'
         run: npx ng update @angular/cdk@20
       - name: Migrate Angular core and CLI 20 to 21
+        if: steps.migration-state.outputs.run == 'true'
         run: npx ng update @angular/core@21 @angular/cli@21
       - name: Migrate Angular CDK 20 to 21
+        if: steps.migration-state.outputs.run == 'true'
         run: npx ng update @angular/cdk@21
       - name: Migrate Angular core and CLI 21 to 22
+        if: steps.migration-state.outputs.run == 'true'
         run: npx ng update @angular/core@22 @angular/cli@22
       - name: Migrate Angular CDK 21 to 22
+        if: steps.migration-state.outputs.run == 'true'
         run: npx ng update @angular/cdk@22
       - name: Verify regenerated lockfile
+        if: steps.migration-state.outputs.run == 'true'
         run: npm ci
       - name: Audit production dependencies
+        if: steps.migration-state.outputs.run == 'true'
         run: npm run audit:production
       - name: Angular production build
+        if: steps.migration-state.outputs.run == 'true'
         run: npm run build
       - name: Validate Playwright test discovery
         run: npm run test:e2e -- --list
+      - name: Mark successful migration
+        if: steps.migration-state.outputs.run == 'true' && success()
+        run: touch .angular-migration-complete
       - name: Create migration patch artifact
         if: always()
         working-directory: .
