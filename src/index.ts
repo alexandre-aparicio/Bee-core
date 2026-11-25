@@ -108,7 +108,7 @@ app.register(jwt, {
 app.register(websocket);
 
 
-let dynamicPluginRuntime: BeeDynamicPluginRuntime;
+let dynamicPluginRuntime: BeeDynamicPluginRuntime | undefined;
 const pluginRuntimeControl: BeePluginRuntimeControl = {
   mountStoredPackage: async (pluginId: string) => {
     const db = mongoClient.db(environment.mongoDbName);
@@ -116,6 +116,7 @@ const pluginRuntimeControl: BeePluginRuntimeControl = {
     if (!item || item.globallyEnabled === false) throw new Error("Enabled signed plugin package was not found");
     logger.info("Plugin runtime lifecycle: loading stored package", { pluginId, version: item.version });
     const plugin = await loadSignedZipPlugin(item);
+    if (!dynamicPluginRuntime) throw new Error("Dynamic plugin runtime has not been initialized");
     await dynamicPluginRuntime.mount(plugin);
     replaceRuntimePlugin(plugin);
     const now = new Date();
@@ -127,6 +128,7 @@ const pluginRuntimeControl: BeePluginRuntimeControl = {
   },
   unmount: async (pluginId: string) => {
     logger.info("Plugin runtime lifecycle: unloading package", { pluginId });
+    if (!dynamicPluginRuntime) throw new Error("Dynamic plugin runtime has not been initialized");
     await dynamicPluginRuntime.unmount(pluginId);
     unregisterRuntimePlugin(pluginId);
     const db = mongoClient.db(environment.mongoDbName);
@@ -219,7 +221,10 @@ app.get("/", async () => ({
 app.route({
   method: ["GET", "HEAD", "TRACE", "DELETE", "PATCH", "PUT", "POST", "QUERY"],
   url: "/*",
-  handler: async (request, reply) => dynamicPluginRuntime.dispatch(request, reply)
+  handler: async (request, reply) => {
+    if (!dynamicPluginRuntime) return reply.code(503).send({ error: "Plugin runtime is starting" });
+    return dynamicPluginRuntime.dispatch(request, reply);
+  }
 });
 
 const preparedZipPlugins = new Map<string, BeePlugin>();
@@ -291,7 +296,7 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>, builti
   const registry = db.collection("platform_plugin_packages");
   const versions = db.collection("platform_plugin_package_versions");
   const packageRows = await registry.find({ source: "zip", status: "installed" }).toArray();
-  const mountedIds = new Set(dynamicPluginRuntime.list().map(item => item.pluginId));
+  const mountedIds = new Set((dynamicPluginRuntime?.list() ?? []).map(item => item.pluginId));
   const hostPlugins = new Map(plugins.list().map(plugin => [plugin.name, plugin]));
   for (const item of packageRows) {
     const pluginId = String(item.pluginId);
@@ -335,6 +340,7 @@ async function bootstrap(): Promise<void> {
   await plugins.mountAll(ctx);
   for (const [pluginId, plugin] of preparedZipPlugins) {
     try {
+      if (!dynamicPluginRuntime) throw new Error("Dynamic plugin runtime has not been initialized");
       await dynamicPluginRuntime.mount(plugin);
       replaceRuntimePlugin(plugin);
       logger.info("Plugin runtime lifecycle: startup mount completed", { pluginId, version: plugin.manifest.version });
@@ -347,6 +353,7 @@ async function bootstrap(): Promise<void> {
       if (fallback && !builtinFallbackIds.has(pluginId)) {
         try {
           const fallbackPlugin = { ...fallback, manifest: { ...fallback.manifest, apiPrefixes: [...(plugin.manifest.apiPrefixes ?? [])] } };
+          if (!dynamicPluginRuntime) throw new Error("Dynamic plugin runtime has not been initialized");
           await dynamicPluginRuntime.mount(fallbackPlugin);
           replaceRuntimePlugin(fallbackPlugin);
           builtinFallbackIds.add(pluginId);
@@ -374,7 +381,7 @@ const shutdown = async (signal: string): Promise<void> => {
   shuttingDown = true;
   logger.info(`Received ${signal}, shutting down`);
   try {
-    await dynamicPluginRuntime.stopAll();
+    await dynamicPluginRuntime?.stopAll();
     await plugins.stopAll(ctx);
   } finally {
     await app.close();
