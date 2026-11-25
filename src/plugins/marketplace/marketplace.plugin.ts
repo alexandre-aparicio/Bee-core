@@ -279,10 +279,13 @@ export const marketplacePlugin: BeePlugin = {
           request.resourceIds = resourceIds;
           // Keep the existing contract for handlers that read request.params.
           Object.assign(request.params ?? {}, resourceIds);
-        } catch {
+        } catch (error) {
           ctx.logger.warn("Marketplace request rejected: invalid masked resource reference", {
+            requestId:String(request.id??"unknown"),
             route: String(request.routerPath ?? request.routeOptions?.url ?? "unknown"),
-            resourceType: request.params?.jobId ? "job" : request.params?.pluginId ? "plugin" : "unknown"
+            resourceType: request.params?.jobId ? "job" : request.params?.pluginId ? "plugin" : "unknown",
+            errorName:error instanceof Error?error.name:"UnknownError",
+            errorCode:typeof error==="object"&&error!==null&&"code" in error?String((error as {code?:unknown}).code??""):""
           });
           reply.code(404).send({error:"Resource not found"});
           return null;
@@ -293,7 +296,13 @@ export const marketplacePlugin: BeePlugin = {
           return null;
         }
         return tenant;
-      } catch {
+      } catch (error) {
+        ctx.logger.warn("Marketplace authentication failed",{
+          requestId:String(request.id??"unknown"),
+          route:String(request.routerPath??request.routeOptions?.url??"unknown"),
+          errorName:error instanceof Error?error.name:"UnknownError",
+          errorCode:typeof error==="object"&&error!==null&&"code" in error?String((error as {code?:unknown}).code??""):""
+        });
         reply.code(401).send({ error: "Unauthorized" });
         return null;
       }
