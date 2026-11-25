@@ -30,7 +30,7 @@ test.beforeEach(async ({ page }) => {
     }
   };
 
-  await page.route('**/api/auth/refresh', route => {
+  await page.route('**/api/auth/refresh', async route => {
     const session = await readSessionFixture(route.request());
     if (!session.accessToken) {
       return route.fulfill({
@@ -51,9 +51,9 @@ test.beforeEach(async ({ page }) => {
     });
   });
 
-  await page.route('**/api/auth/me', route => {
+  await page.route('**/api/auth/me', async route => {
     const token = route.request().headers().authorization || '';
-    const session = readSessionFixture(route.request());
+    const session = await readSessionFixture(route.request());
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
