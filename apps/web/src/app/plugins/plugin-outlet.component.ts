@@ -12,6 +12,7 @@ type RemoteFrame = { pluginId: string; apiPrefixes: string[] };
 })
 export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() pluginIds: string[] = [];
+  @Input() pluginResourceIds: Record<string, string> = {};
   @Input() tenantId = "";
   @Input() role = "member";
   @Input() accessToken = "";
@@ -88,7 +89,9 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   private async loadRemoteRuntime(pluginId: string): Promise<RemotePluginRuntime | null> {
     if (!this.accessToken) return null;
     try {
-      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(pluginId) + "/runtime", {
+      const resourceId = this.pluginResourceIds[pluginId];
+      if (!resourceId) return null;
+      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(resourceId) + "/runtime", {
         method: "GET",
         credentials: "omit",
         headers: { authorization: "Bearer " + this.accessToken }
