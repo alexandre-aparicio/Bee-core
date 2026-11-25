@@ -21,18 +21,19 @@ The first runtime/package phase is now implemented:
 - `npm run build:plugin-packages` requires the publisher private key from the release environment. The manual `.github/workflows/package-release.yml` workflow publishes the four ZIPs as an artifact; the private key is never committed.
 - The package contract distinguishes host runtime dependencies from `tenantDependencies`. Core services such as auth, organizations, files and marketplace are not mistakenly treated as tenant-installable modules.
 - The platform upload endpoint now allows only these four known first-party IDs to transition from bundled packages to ZIP packages. It preserves existing plan visibility, grants, purchasability and the Documents system classification.
-- Startup prefers an uploaded ZIP for each of the four IDs. A temporary bundled fallback remains only while that package has not yet been uploaded, to make the migration deployable without taking the existing modules offline.
+- Connected Devices is now ZIP-only: its static backend import/fallback is removed and the legacy bundled platform record is retired with `retireSignedZip: false`. Existing tenant installs and device data are preserved, and the migration allowlist remains only to permit a same-ID signed ZIP to replace a legacy bundled record. Documents is the only remaining bundled backend fallback.
 - The ZIP installer accepts a declared frontend entrypoint and allowlisted assets. Hola Mundo is the first package frontend: its Angular component has been removed and the package is rendered in a sandboxed iframe. The host keeps the bearer token and only proxies API requests allowed by the package manifest.
-- Documents, Connected Devices and Control Horario still use their existing statically compiled Angular frontends. Their frontend migration and removal of the temporary backend fallback are not yet complete.
+- Connected Devices now uses the generic package frontend runtime: verified `frontendRoutes` are persisted with the catalogue, projected only into entitled tenant catalogues and converted into generic remote navigation. Its static Angular component, API service and frontend registration are removed. Documents and Control Horario still use statically compiled Angular frontends; Documents retains the remaining backend migration fallback.
+- The device simulator remains a separate developer/test asset under `apps/web/src/assets/device-simulator`; the style-guard allowlist, explicit Capacitor CORS origins, pairing-secret header and current CSP boundaries are retained. The simulator is not part of the production package frontend.
 
 ### Verification so far
 
 - Backend TypeScript build: passed.
 - Angular production build: passed.
 - New package test: passed; it generates temporary Ed25519 keys, builds all four ZIPs, installs them through the real ZIP verifier, imports every backend entrypoint, and checks the Hola Mundo frontend assets.
-- Full backend suite: 117 tests, 109 passed, 8 failed, 0 skipped. The eight failures are in existing auth, Private Files isolation, marketplace entitlement, user quota, platform MFA, custom-role policy, stream-ticket memory-bound and tenant-context tests. The new package/frontend tests passed.
+- Phase 4 adds Mongo-backed ZIP install/tenant-isolation/device-lifecycle coverage, package retirement/data-preservation tests, static-import architecture checks, CORS/CSP assertions and a Playwright remote-frontend delete-confirmation flow. Exact-head CI evidence is recorded in the phase PR and will be copied here after it passes.
 
-This is not yet the end-to-end acceptance point. The remaining work is to migrate the three complex Angular frontends, remove the temporary bundled backend fallback after the signed ZIPs have been uploaded and verified, and add integration tests that exercise upload through tenant grant/install/authorization and frontend/API access across two tenants.
+This is not yet the end-to-end acceptance point for all four packages. The remaining work is to migrate the Documents and Control Horario frontends, retire the Documents backend fallback after its signed ZIP is published and verified, and complete upload-to-runtime-to-authorized-use tests for every package. Connected Devices still requires owner-VPS publication and install/upgrade/uninstall/reinstall validation.
 
 ## Required runtime model
 
