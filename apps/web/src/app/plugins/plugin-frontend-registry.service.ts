@@ -42,7 +42,7 @@ export class BeePluginFrontendRegistry {
     for (const entry of entries) {
       const pluginId = String(entry.pluginId ?? "");
       const navigation = entry.navigation;
-      if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(pluginId) ||
+      if (!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId) ||
           navigation?.id !== pluginId ||
           typeof navigation.route !== "string" ||
           !navigation.route.startsWith("/dashboard/") ||
