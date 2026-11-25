@@ -12,7 +12,7 @@ export const documentsPlugin:BeePlugin={
  manifest:{name:"documents",version:"0.1.5",description:"Tenant document library, folder ACLs and controlled public delivery",dependencies:["auth","organizations","files"],scope:"tenant",activationPolicy:"manual",apiPrefixes:["/documents","/public/documents"],frontend:{routes:[{path:"/dashboard/documents",component:"documents"}]}},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
-  const secret=String(ctx.config.sessionIdSecret??"");
+  const secret=String(ctx.config.sessionIdSecret??ctx.config.jwtSecret??"");
   if(secret.length<32)throw new Error("Documents requires the session resource ID secret.");
   const root=path.resolve(String(ctx.config.fileStoragePath??"/data/bee-files"));
   await mkdir(root,{recursive:true});
