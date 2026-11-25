@@ -162,7 +162,7 @@
 }
 
 /* Dashboard feature content inherits the package foreground unless a semantic role says otherwise. */
-.bee-dash-content :is(h1, h2, h3, h4, strong, b, label, th, td, p, span, small, li, a) {
+:where(.bee-dash-content h1, .bee-dash-content h2, .bee-dash-content h3, .bee-dash-content h4, .bee-dash-content strong, .bee-dash-content b, .bee-dash-content label, .bee-dash-content th, .bee-dash-content td, .bee-dash-content p, .bee-dash-content span, .bee-dash-content small, .bee-dash-content li, .bee-dash-content a) {
   color: inherit;
 }
 
