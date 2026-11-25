@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { normalizeCustomRolePermissions, normalizeTenantCustomRolePermissions, normalizeRestrictionPermissions, normalizeCustomRoleName, hasPolicyPermission, permissionsForCustomRole, applyPermissionRestrictions } from "../src/core/role-policy.js";
-import { CORE_PERMISSION_CATALOG, CORE_PERMISSION_KEYS } from "../src/core/permission-catalog.js";
+import { CORE_PERMISSION_CATALOG, CORE_PERMISSION_KEYS, composePermissionCatalog } from "../src/core/permission-catalog.js";
 import { COMPANY_ROLE_PERMISSIONS } from "../src/core/tenant-context.js";
 
 test("custom role permission normalization validates, deduplicates and sorts", () => {
@@ -36,8 +36,9 @@ test("the core permission catalogue is unique and covers every built-in role per
 });
 
 test("tenant custom roles accept delegable permissions and reject protected capabilities", () => {
-  const selected = ["documents.read", "files.read", "members.invite", "mail.read", "mail.send"];
+  const selected = ["files.read", "members.invite", "mail.read", "mail.send"];
   assert.deepEqual(normalizeTenantCustomRolePermissions(selected), [...selected].sort());
+  assert.throws(() => normalizeTenantCustomRolePermissions(["documents.read"]), /protected permissions/);
   for (const protectedPermission of ["members.manage", "plugins.manage", "billing.manage", "mail.manage"]) {
     assert.throws(() => normalizeTenantCustomRolePermissions([protectedPermission]), /protected permissions/);
   }
@@ -89,4 +90,23 @@ test("predefined Super Organization roles have safe defaults in source control",
   assert.ok(COMPANY_ROLE_PERMISSIONS.member.includes("members.read"));
   assert.ok(!COMPANY_ROLE_PERMISSIONS.member.includes("members.invite"));
   assert.deepEqual(COMPANY_ROLE_PERMISSIONS.guest, ["plugins.read"]);
+});
+
+
+test("plugin permission manifests compose into a generic catalogue with explicit default grants", () => {
+  const catalogue = composePermissionCatalog([{
+    id: "crm.contacts",
+    permissions: [{
+      key: "crm.contacts.read", module: "crm.contacts", resource: "contacts", action: "read",
+      label: "View contacts", defaultGrants: { owner: true, admin: true, manager: true, member: false }
+    }]
+  }]);
+  const permission = catalogue.find(item => item.key === "crm.contacts.read");
+  assert.ok(permission);
+  assert.equal(permission.module, "crm.contacts");
+  assert.equal(permission.resource, "contacts");
+  assert.equal(permission.action, "read");
+  assert.equal(permission.customRoleAssignable, true);
+  assert.deepEqual(permission.defaultGrants, { owner: true, admin: true, manager: true, member: false });
+  assert.equal(catalogue.some(item => item.key === "documents.read"), false, "module permissions are not hard-coded in Core");
 });
