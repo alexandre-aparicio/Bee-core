@@ -69,8 +69,8 @@ type PluginRecord = {
       </div>
 
       <p *ngIf="loading" class="plugin-settings__state">Loading modules…</p>
-      <p *ngIf="error" class="plugin-settings__error" role="alert">{{error}}</p>
-      <p *ngIf="packageError && !planConfigPlugin" class="plugin-settings__error" role="alert">{{packageError}}</p>
+      <p *ngIf="error" class="plugin-settings__error bee-status--danger" role="alert">{{error}}</p>
+      <p *ngIf="packageError && !planConfigPlugin" class="plugin-settings__error bee-status--danger" role="alert">{{packageError}}</p>
       <p *ngIf="message" class="plugin-settings__message" role="status">{{message}}</p>
 
       <ng-container *ngIf="!loading && !error">
@@ -124,7 +124,7 @@ type PluginRecord = {
             <div class="plugin-settings__meta">
               <span>{{plugin.category || 'Uncategorized'}}</span>
               <span>{{plugin.system ? 'System' : 'Extension'}}</span>
-              <span class="plugin-settings__status" [class.is-installed]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span>
+              <span class="plugin-settings__status" [class.is-installed]="plugin.installed" [class.bee-status--success]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span>
               <span *ngIf="plugin.packageSource" class="plugin-settings__status">{{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</span>
             </div>
           </article>
@@ -138,7 +138,7 @@ type PluginRecord = {
                 <td><button type="button" class="plugin-settings__table-module" (click)="openDetails(plugin)"><span class="plugin-settings__table-icon">{{plugin.system ? '◈' : '▣'}}</span><span><strong>{{plugin.name}}</strong><small>v{{plugin.version}} · {{plugin.description || 'No description'}}</small></span></button></td>
                 <td>{{plugin.system ? 'System' : 'Extension'}}</td>
                 <td>{{plugin.category || 'Uncategorized'}}</td>
-                <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span><small *ngIf="plugin.packageSource"> {{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</small></td>
+                <td><span class="plugin-settings__status" [class.is-installed]="plugin.installed" [class.bee-status--success]="plugin.installed">{{plugin.installed ? 'Installed' : 'Not installed'}}</span><small *ngIf="plugin.packageSource"> {{plugin.packageSource}} · {{plugin.runtimeState || 'registered'}}</small></td>
                 <td>
                   <div class="plugin-settings__menu-wrap">
                     <button type="button" class="plugin-settings__kebab" [attr.aria-label]="'Actions for '+plugin.name" [attr.aria-expanded]="openMenuId===plugin.id" (click)="toggleMenu(plugin.id)">⋮</button>
@@ -164,7 +164,7 @@ type PluginRecord = {
             <button type="button" class="plugin-settings__close" (click)="closePlanConfig()" aria-label="Close plan settings">×</button>
           </header>
           <p class="plugin-settings__plan-description">Choose which subscription plans can access this module. Tenant activation remains managed separately.</p>
-          <p *ngIf="packageError" class="plugin-settings__error" role="alert">{{packageError}}</p>
+          <p *ngIf="packageError" class="plugin-settings__error bee-status--danger" role="alert">{{packageError}}</p>
           <div class="plugin-settings__plan-list">
             <label *ngFor="let plan of platformPlans"><input type="checkbox" [checked]="packagePlanSelections[planPackage.pluginKey]?.includes(plan.id)" (change)="togglePackagePlan(planPackage,plan.id,$any($event.target).checked)"><span><strong>{{plan.name}}</strong><small>{{plan.packageIds?.includes(planPackage.pluginKey) ? 'Currently included' : 'Not included'}}</small></span></label>
             <p *ngIf="!platformPlans.length" class="plugin-settings__state">No subscription plans are available.</p>
@@ -183,7 +183,7 @@ type PluginRecord = {
           </header>
           <p class="plugin-settings__plan-description">Uninstall this plugin separately from every company before removing the global package. Tenant data is not deleted by the global removal.</p>
           <div class="plugin-settings__removal-summary" *ngIf="packageUsageLoading">Checking tenant installations…</div>
-          <p *ngIf="packageUsageError" class="plugin-settings__error" role="alert">{{packageUsageError}}</p>
+          <p *ngIf="packageUsageError" class="plugin-settings__error bee-status--danger" role="alert">{{packageUsageError}}</p>
           <ng-container *ngIf="!packageUsageLoading && packageUsage as usage">
             <div class="plugin-settings__removal-counts">
               <div><strong>{{usage.installedCount}}</strong><span>Tenant installations</span></div>
@@ -201,8 +201,8 @@ type PluginRecord = {
               <h4>Operations still running</h4>
               <div *ngFor="let job of usage.pendingJobs" class="plugin-settings__tenant-row"><span><strong>{{job.tenantName}}</strong><small>{{job.action}}</small></span><span class="plugin-settings__status">{{job.status}}</span></div>
             </div>
-            <div *ngIf="usage.canRemove" class="plugin-settings__removal-ready">No tenant installations or pending operations remain. The package can now be removed.</div>
-            <div *ngIf="!usage.canRemove" class="plugin-settings__removal-blocked">Global removal is blocked until every tenant installation and pending operation is cleared.</div>
+            <div *ngIf="usage.canRemove" class="plugin-settings__removal-ready bee-status--success">No tenant installations or pending operations remain. The package can now be removed.</div>
+            <div *ngIf="!usage.canRemove" class="plugin-settings__removal-blocked bee-status--warning">Global removal is blocked until every tenant installation and pending operation is cleared.</div>
           </ng-container>
           <footer class="plugin-settings__plan-footer">
             <button type="button" class="plugin-settings__cancel" (click)="closePackageRemoval()">Close</button>
