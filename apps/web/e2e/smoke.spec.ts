@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
-  // The application refreshes its session through the HTTP-only-cookie endpoint.
-  // Smoke tests seed a bee-auth fixture in localStorage; mirror that fixture into
-  // a test-only cookie so the mocked refresh endpoint can return the same identity.
+  // Mirror the test's localStorage session fixture into a test-only cookie.
+  // Production authentication continues to use the HTTP-only refresh cookie.
   await page.addInitScript(() => {
     const originalSetItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key: string, value: string): void {
@@ -14,15 +13,25 @@ test.beforeEach(async ({ page }) => {
     };
   });
 
-  await page.route('**/api/auth/refresh', route => {
-    const cookie = route.request().headers().cookie || '';
+  const readSessionFixture = (request: { headers(): Record<string, string> }) => {
+    const cookie = request.headers().cookie || '';
     const fixture = cookie.split(';').map(part => part.trim()).find(part => part.startsWith('bee-test-auth='));
-    let session: { accessToken?: string; tenantId?: string; user?: unknown; platformRole?: string } = {};
     try {
-      if (fixture) session = JSON.parse(decodeURIComponent(fixture.slice('bee-test-auth='.length)));
+      return fixture
+        ? JSON.parse(decodeURIComponent(fixture.slice('bee-test-auth='.length))) as {
+            accessToken?: string;
+            tenantId?: string;
+            user?: { tenantId?: string; roles?: string[] };
+            platformRole?: string;
+          }
+        : {};
     } catch {
-      session = {};
+      return {};
     }
+  };
+
+  await page.route('**/api/auth/refresh', route => {
+    const session = readSessionFixture(route.request());
     if (!session.accessToken) {
       return route.fulfill({
         status: 401,
@@ -35,7 +44,7 @@ test.beforeEach(async ({ page }) => {
       contentType: 'application/json',
       body: JSON.stringify({
         accessToken: session.accessToken,
-        tenantId: session.tenantId,
+        tenantId: session.tenantId || session.user?.tenantId,
         user: session.user,
         platformRole: session.platformRole
       })
@@ -44,19 +53,19 @@ test.beforeEach(async ({ page }) => {
 
   await page.route('**/api/auth/me', route => {
     const token = route.request().headers().authorization || '';
+    const session = readSessionFixture(route.request());
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         authenticated: true,
-        tenantId: 'tenant-demo',
-        platformRole: token === 'Bearer platform-admin-token' ? 'superadmin' : null
+        tenantId: session.tenantId || session.user?.tenantId || 'tenant-demo',
+        platformRole: token === 'Bearer platform-admin-token' ? 'superadmin' : session.platformRole || null
       })
     });
   });
 
-  // The public homepage is the platform's corporate site unless a tenant
-  // domain resolves to a company website.
+  // The default test host represents the platform's corporate website.
   await page.route('**/api/public/tenant', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
