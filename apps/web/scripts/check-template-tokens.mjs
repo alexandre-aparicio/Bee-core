@@ -113,6 +113,7 @@ for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !
 
   for (const [mode, count] of blockCounts) {
     if (count > 1) errors.push(id + ': duplicate ' + mode + ' token blocks (' + count + ')');
+    if (!declaredModes.includes(mode)) errors.push(id + ': ' + mode + ' token block is not declared in appearanceModes');
   }
 
   for (const mode of declaredModes) {
@@ -122,7 +123,9 @@ for (const entry of packageDirs.filter(item => item.isDirectory() && item.name !
       continue;
     }
     const missing = requiredTokens.filter(token => !declared.has(token));
+    const unknown = [...declared].filter(token => !requiredTokens.includes(token)).sort();
     if (missing.length) errors.push(`${id}: ${mode} is missing ${missing.join(', ')}`);
+    if (unknown.length) errors.push(id + ': ' + mode + ' declares tokens outside tokens.contract.css: ' + unknown.join(', '));
   }
   results.push({ id, target, defaultMode, appearanceModes: declaredModes, tokenBlocks: [...blocks.keys()] });
 }
