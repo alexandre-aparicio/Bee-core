@@ -161,6 +161,11 @@
   margin: var(--bee-dashboard-content-margin, 25px auto);
 }
 
+/* Dashboard feature content inherits the package foreground unless a semantic role says otherwise. */
+.bee-dash-content :is(h1, h2, h3, h4, strong, b, label, th, td, p, span, small, li, a) {
+  color: inherit;
+}
+
 .bee-dash-content .panel,
 .bee-dash-content .dash-stat,
 .bee-dash-content .bee-dashboard-card,
