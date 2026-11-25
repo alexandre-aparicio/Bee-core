@@ -11,7 +11,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
  template:`
  <section class="org-roles">
   <header class="org-roles__header org-roles__header--actions"><button type="button" (click)="load()" [disabled]="loading||busy">Refresh</button></header>
-  <p class="org-roles__error" *ngIf="error" role="alert">{{error}}</p><p class="org-roles__success" *ngIf="message" role="status">{{message}}</p>
+  <p class="org-roles__error bee-status--danger" *ngIf="error" role="alert">{{error}}</p><p class="org-roles__success bee-status--success" *ngIf="message" role="status">{{message}}</p>
   <p class="org-roles__notice" *ngIf="!canManage">You can view roles. Only the organization owner or Super Admin can create, edit or delete custom roles.</p>
   <nav class="org-roles__tabs" aria-label="Roles and permissions sections">
    <button type="button" [class.is-active]="activeTab==='system'" [attr.aria-selected]="activeTab==='system'" (click)="activeTab='system'"><span>01</span>System Roles <small>{{systemRoles.length}}</small></button>
@@ -82,7 +82,7 @@ type PermissionOption={key:string;label:string;group:string;action:string;descri
       <article class="org-roles__permission-tile" *ngFor="let item of permissionPageItems(group);trackBy:trackPermission">
        <div class="org-roles__permission-tile-top">
         <span class="org-roles__permission-action">{{item.action}}</span>
-        <span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)">{{canGrant(item)?'Grantable':'Protected'}}</span>
+        <span class="org-roles__permission-state" [class.is-protected]="!canGrant(item)" [class.bee-status--warning]="!canGrant(item)" [class.bee-status--success]="canGrant(item)">{{canGrant(item)?'Grantable':'Protected'}}</span>
        </div>
        <strong>{{item.label}}</strong>
        <p>{{item.description}}</p>
