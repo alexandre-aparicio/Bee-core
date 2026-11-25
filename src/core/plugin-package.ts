@@ -12,6 +12,7 @@ export type BeePluginPermission = {
   label: string;
   description: string;
   defaultGrants: { owner: boolean; admin: boolean; manager: boolean; member: boolean };
+  customRoleAssignable?: boolean;
 };
 
 export type BeePluginMigration = {
