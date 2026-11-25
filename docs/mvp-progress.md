@@ -109,6 +109,7 @@ Explicit transition paths from source review:
 | `base.css` | `[class*=` | 0; all substring compatibility selectors deleted |
 | `base.css` | hex / RGB-HSL / brace balance | 0 / 0 / 96 open = 96 close |
 | `core/appearance-modes.css` | palette literals / `!important` / `[class*=` | 0 / 0 / 0 (previously reviewed) |
+| `apps/web/src/styles.css` | `!important` | 8 retained in the mixed global/public stylesheet; public/global cleanup remains out of scope until Step 6 is authorized |
 | Package styles | hex in Midnight / Paper / Glass | 0 / 0 / 0 (previously reviewed) |
 | Deferred feature overrides | `:host-context` | 3 in Teams Workspace; 22 other selectors had already been removed in prior changes (scope discrepancy recorded above) |
 | F2 source references | `--bee-control-(bg|border|placeholder)` in time tracking and STYLE-GUIDE | 0; uses `--bee-input-*` equivalents |
