@@ -28,7 +28,7 @@ export async function getTenantPluginPermissionCatalog(db: Db, tenantId: string)
   const pluginIds = [...new Set(installations.map(item => item.pluginId).filter(Boolean))];
   if (!pluginIds.length) return [];
   const packages = await db.collection<{ id: string; status: string; permissions?: PermissionDefinition[] }>("plugin_catalog")
-    .find({ id: { $in: pluginIds }, status: "published" }, { projection: { id: 1, permissions: 1, _id: 0 } }).toArray();
+    .find({ id: { $in: pluginIds }, status: { $in: ["published", "installed"] } }, { projection: { id: 1, permissions: 1, _id: 0 } }).toArray();
   return packages.flatMap(pkg => Array.isArray(pkg.permissions)
     ? pkg.permissions.filter(permission => permission && permission.module === pkg.id && typeof permission.key === "string" && typeof permission.label === "string" && permission.defaultGrants).map(permission => ({ ...permission, customRoleAssignable: permission.customRoleAssignable !== false }))
     : []);
