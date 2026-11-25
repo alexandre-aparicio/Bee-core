@@ -30,12 +30,14 @@ export class BeePluginManager {
 
   private createPluginContext(pluginName: string, ctx: BeeContext, requiredServices: readonly string[]): BeeContext {
     const prefix = `[${pluginName}]`;
-    const scopedConfig = Object.fromEntries(requiredServices.filter(key => Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
+    const jwtSecret = String(ctx.config.jwtSecret ?? "");
+    const missingServices = requiredServices.filter(key => key === "sessionIdSecret" ? jwtSecret.length < 32 : !Object.prototype.hasOwnProperty.call(ctx.config, key));
+    if (missingServices.length) throw new Error("Plugin '" + pluginName + "' requires unavailable service(s): " + missingServices.join(", "));
+    const scopedConfig = Object.fromEntries(requiredServices.filter(key => key !== "sessionIdSecret" && Object.prototype.hasOwnProperty.call(ctx.config, key)).map(key => [key, ctx.config[key]]));
     // Resource references use a dedicated key derived from JWT_SECRET. Plugins
     // that serialize IDs never receive the JWT signing secret itself.
     if (requiredServices.includes("sessionIdSecret")) {
-      const jwtSecret = String(ctx.config.jwtSecret ?? "");
-      if (jwtSecret.length >= 32) scopedConfig.sessionIdSecret = createHmac("sha256", jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
+      scopedConfig.sessionIdSecret = createHmac("sha256", jwtSecret).update("bee-core:session-resource-id:v1").digest("hex");
     }
     return Object.freeze({
       ...ctx,
@@ -177,13 +179,14 @@ export class BeePluginManager {
       if (managed.status !== "registered") continue;
       const pluginName = managed.plugin.manifest.name;
       ctx.server.register(async scopedServer => {
-        const pluginContext = this.createPluginContext(pluginName, {
-          ...ctx,
-          server: scopedServer,
-          events: ctx.events.forPlugin(pluginName)
-        }, managed.plugin.manifest.requiredServices ?? []);
-        managed.context = pluginContext;
+        let pluginContext: BeeContext | undefined;
         try {
+          pluginContext = this.createPluginContext(pluginName, {
+            ...ctx,
+            server: scopedServer,
+            events: ctx.events.forPlugin(pluginName)
+          }, managed.plugin.manifest.requiredServices ?? []);
+          managed.context = pluginContext;
           this.dependenciesReady(managed);
           await managed.plugin.initialize?.(pluginContext);
           managed.status = "initialized";
@@ -197,7 +200,7 @@ export class BeePluginManager {
           managed.error = error;
           ctx.logger.error(`Plugin '${pluginName}' failed in its isolated scope; other plugins will continue`, error);
           try {
-            await managed.plugin.stop?.(pluginContext);
+            if (pluginContext) await managed.plugin.stop?.(pluginContext);
           } catch (cleanupError) {
             ctx.logger.warn(`Plugin '${pluginName}' cleanup after failure also failed`, cleanupError);
           }
