@@ -22,14 +22,14 @@ test("plugin scopes isolate routes and filter config keys", async () => {
   let authConfig: Record<string, unknown> | undefined;
   let filesConfig: Record<string, unknown> | undefined;
   const auth: BeePlugin = {
-    manifest: { name: "auth", version: "1" },
+    manifest: { name: "auth", version: "1", requiredServices: ["mongoDbName", "authAdminEmail", "authAdminPassword", "publicBaseDomain", "sessionIdSecret"] },
     initialize(ctx) {
       authConfig = ctx.config as Record<string, unknown>;
       ctx.server.get("/auth-scope-test", async () => ({ plugin: ctx.pluginName }));
     }
   };
   const files: BeePlugin = {
-    manifest: { name: "files", version: "1", dependencies: ["auth"] },
+    manifest: { name: "files", version: "1", dependencies: ["auth"], requiredServices: ["mongoDbName", "fileStoragePath", "sessionIdSecret"] },
     initialize(ctx) {
       filesConfig = ctx.config as Record<string, unknown>;
       ctx.server.get("/files-scope-test", async () => ({ plugin: ctx.pluginName }));
@@ -119,4 +119,11 @@ test("all plugin scopes receive the exact same core MongoClient instance", async
   assert.equal(received.length, 2);
   assert.ok(received.every(client => client === rootContext.mongoClient));
   await server.close();
+});
+
+
+test("plugin manager rejects undeclared host services and duplicate service declarations", () => {
+  const manager = new BeePluginManager();
+  assert.throws(() => manager.register({ manifest: { name: "unsafe", version: "1", requiredServices: ["jwtSecret"] } }), /unsupported required service/);
+  assert.throws(() => manager.register({ manifest: { name: "duplicate", version: "1", requiredServices: ["mongoDbName", "mongoDbName"] } }), /duplicate required services/);
 });
