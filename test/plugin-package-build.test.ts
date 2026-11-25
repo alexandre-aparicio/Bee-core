@@ -96,7 +96,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /action.type==="delete"\?undefined:\{\}/, "DELETE requests must not send an empty JSON body");
         assert.match(script, /unlink/, "the owner UI must retain the unlink action");
         const simulator = await readFile(join(root, "apps/web/src/assets/device-simulator/device-simulator.js"), "utf8");
-        assert.match(simulator, /method:"POST",body:"\\{\\}"/, "the device simulator must send a JSON heartbeat body");
+        assert.match(simulator, /method:"POST",body:"\{\}"/, "the device simulator must send a JSON heartbeat body");
         const bridge = await readFile(join(root, "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
         assert.match(bridge, /if\s*\(body\s*!==\s*undefined\)/, "the package bridge must omit Content-Type when DELETE has no body");
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
