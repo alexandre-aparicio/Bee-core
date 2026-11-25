@@ -90,6 +90,9 @@ async function openDashboard(page, template, mode, path) {
   await expect(page.locator('html')).toHaveAttribute('data-bee-active-template', template);
   await expect(page.locator('html')).toHaveAttribute('data-bee-active-mode', mode);
   await expect(page.locator('.bee-dash-main')).toBeVisible();
+  // The dashboard shell renders before session validation and company loading finish.
+  // Wait for the authenticated tenant to be bound before navigating to role-gated deep links.
+  await expect(page.locator('.bee-dash-company-switcher select')).toHaveValue('tenant-demo');
 }
 
 async function openLogin(page, template, mode) {
