@@ -33,9 +33,13 @@ async function installQualityGate(page: Page, diagnostics: BrowserDiagnostic[]):
   page.on('requestfailed', request => {
     const url = new URL(request.url());
     if (!url.pathname.startsWith('/api/')) return;
+    const failure = request.failure()?.errorText ?? 'unknown network failure';
+    // Page navigations and test teardown can intentionally cancel in-flight
+    // fetches. ERR_ABORTED is a browser cancellation, not an API outage.
+    if (failure === 'net::ERR_ABORTED') return;
     diagnostics.push({
       kind: 'api.requestfailed',
-      detail: request.method() + ' ' + url.pathname + ': ' + (request.failure()?.errorText ?? 'unknown network failure')
+      detail: request.method() + ' ' + url.pathname + ': ' + failure
     });
   });
 }
