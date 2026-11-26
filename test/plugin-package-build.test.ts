@@ -137,8 +137,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
       } else if (item.id === "documents") {
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, ["files"], "Documents may integrate with Files only");
-        const documentsPlugin = await readFile(join(root, "src/plugins/documents/documents.plugin.ts"), "utf8");
-        const documentsService = await readFile(join(root, "src/plugins/documents/documents.service.ts"), "utf8");
+        const documentsPlugin = await readFile(resolve(process.cwd(), "src/plugins/documents/documents.plugin.ts"), "utf8");
+        const documentsService = await readFile(resolve(process.cwd(), "src/plugins/documents/documents.service.ts"), "utf8");
         assert.match(documentsPlugin, /dependencies:\["auth","organizations","files"\]/, "Documents may depend on Files but not on another tenant business package");
         assert.match(documentsService, /await hasPluginEntitlement\(db,tenant\.tenantId,"documents"\).*await isPluginInstalled\(db,tenant\.tenantId,"documents"\).*await isPluginEnabled\(db,tenant\.tenantId,"documents"\)/);
         assert.match(documentsService, /Documents is not entitled, installed or enabled/, "Documents must fail closed when its package access is unavailable");
