@@ -45,7 +45,7 @@ export const RETIRED_PACKAGE_POLICIES = [
 ] as const;
 
 /** One-time package migrations that restore legacy plan-package assignments. */
-export const LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS: readonly Array<{
+export const LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS: ReadonlyArray<{
   pluginId: string;
   run: (db: Db) => Promise<void>;
 }> = [
