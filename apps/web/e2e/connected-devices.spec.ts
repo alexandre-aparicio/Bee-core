@@ -6,7 +6,7 @@ type Fixture = {
   user: { id: string; email: string; roles: string[]; tenantId: string };
 };
 
-async function authenticate(page: any, fixture: Fixture): Promise<void> {
+async function authenticate(page: Page, fixture: Fixture): Promise<void> {
   const serialized = JSON.stringify(fixture);
   await page.context().addCookies([{
     name: "bee-test-auth",
@@ -91,21 +91,4 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
   expect(state.deleteBody).toBeNull();
   expect(state.deleteContentType).toBeUndefined();
   expect(state.runtimeCalls).toBe(0);
-});
-
-test("Connected Devices capability choices remain available when the device registry request fails", async ({ page }) => {
-  await page.setContent(`
-    <bee-connected-devices></bee-connected-devices>
-    <script>
-      const component = document.querySelector('bee-connected-devices');
-      component.accessToken = 'test-token';
-    </script>
-  `);
-  await page.route("**/api/connected-devices", route => route.fulfill({
-    status: 503, contentType: "application/json", body: JSON.stringify({ error: "Device registry temporarily unavailable." })
-  }));
-  // The standalone Angular component test is covered by the application build; this
-  // assertion guards the plugin's advertised capability contract at source level.
-  const source = await page.request.get("/src/app/connected-devices/connected-devices.component.ts").catch(() => null);
-  expect(source === null || source.ok()).toBeTruthy();
 });
