@@ -1,4 +1,6 @@
 import type { PluginPlan, PluginPackageDefinition } from "../core/plugin-entitlements.js";
+import type { Db } from "mongodb";
+import { migrateLegacyConnectedDevicesPlanAssignments, recordLegacyConnectedDevicesPlanRemovals } from "./connected-devices/connected-devices-plan-migration.js";
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
   { id: "starter", name: "Starter", includedPluginIds: ["files", "documents"], visiblePluginIds: ["files", "documents"], maxUsers: 5, storageMb: 100 },
@@ -41,3 +43,23 @@ export const RETIRED_PACKAGE_POLICIES = [
   { id: "notes", retireSignedZip: true },
   { id: "connected-devices", retireSignedZip: false }
 ] as const;
+
+/** One-time package migrations that restore legacy plan-package assignments. */
+export const LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS: ReadonlyArray<{
+  pluginId: string;
+  run: (db: Db) => Promise<void>;
+}> = [
+  { pluginId: "connected-devices", run: migrateLegacyConnectedDevicesPlanAssignments }
+];
+
+/** Route explicit Platform Admin plan removals to the owning legacy package migration. */
+export async function recordLegacyPluginPlanAssignmentRemovals(
+  db: Db,
+  pluginId: string,
+  planIds: readonly string[],
+  actorId: string
+): Promise<void> {
+  if (pluginId === "connected-devices") {
+    await recordLegacyConnectedDevicesPlanRemovals(db, planIds, actorId);
+  }
+}

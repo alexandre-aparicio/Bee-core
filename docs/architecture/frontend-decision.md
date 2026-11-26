@@ -1,35 +1,39 @@
-# Plugin frontend contract decision
+# Plugin frontend architecture decision
 
-## Current mandatory contract (Level A)
+## Current models
 
-The host owns navigation, authentication, tenant context and lifecycle. Feature modules contribute a registration containing:
-
-- stable plugin ID;
-- lazy component loader;
-- navigation entry and optional child sections/routes;
-- input mapping for tenant ID, role, access token and active section;
-- optional English and Spanish catalogues.
-
-The host registry is generic. It does not import or branch on individual module IDs. The module owns its component, navigation metadata and translations. The host passes only the inputs declared by the registration. This is the current implementation boundary for first-party native Angular modules.
-
-## Level B options — not implemented
-
-| Option | Benefits | Costs and risks |
+| Level | Modules | Runtime contract |
 |---|---|---|
-| Sandboxed iframe + signed ZIP (current external-package direction) | Strong DOM/CSS isolation; package-owned runtime; explicit asset and API-prefix allowlists | Cross-frame messaging, accessibility, responsive sizing and theming bridge |
-| Web Components / Custom Elements | Framework-neutral packages; shared document and easier host embedding | CSS leakage unless Shadow DOM is used; Angular interoperability and lifecycle work |
-| Remote ESM / Module Federation | Native-feeling integration and shared runtime | Shared dependency/version conflicts; larger trust boundary; deployment and cache invalidation complexity |
+| A — Native Angular | Documents and Control Horario | Host-registered lazy Angular components. The host owns navigation, authentication, tenant context, lifecycle and translations; each module supplies its component and registration metadata. |
+| B — Sandboxed signed ZIP | Connected Devices | A verified signed ZIP supplies the frontend entrypoint, loaded in an iframe with `sandbox="allow-scripts"`. The frame has no direct credential access and calls APIs only through the host bridge. |
 
-## Host theming contract
+The generic frontend registry is the Level A integration point. It accepts a plugin ID, lazy component loader, navigation metadata, input mapping and optional EN/ES catalogues. It must not import or branch on individual module IDs. Documents and Control Horario are native registrations; Connected Devices is intentionally not an Angular host registration.
 
-The host exposes design tokens through the `--bee-*` CSS custom-property namespace. A future Level B bridge must document supported semantic tokens (surface, text, muted text, border, accent, focus, radius and spacing), inherit the active light/dark theme, and avoid depending on private template selectors. Sandboxed packages should receive only the documented token contract, not unrestricted host styles.
+## When to use each model
+
+Use Level A when a first-party module needs deep Angular composition, shared host navigation, native routing, host-managed translations or close integration with the dashboard lifecycle.
+
+Use Level B when a module is independently packaged and published as a signed ZIP and benefits from a separate DOM/CSS/runtime boundary. The manifest declares its entrypoint, API prefixes and navigation routes. The host validates the frame window and routes permitted API calls; the frame never receives the bearer token.
+
+The current model is an implementation choice, not a permanent classification. Convergence, migration of an existing module, or adoption of another model is an owner decision based on product, security and maintenance needs. Do not migrate modules merely for architectural uniformity.
+
+## Host theming contract for Level B
+
+After a frame sends `bee-plugin:ready`, the host sends `bee-plugin:init` and then `bee-plugin:theme`. The host repeats the theme message whenever the active template or appearance mode changes. The message contains `colorScheme` (`light` or `dark`) and a `tokens` object resolved with `getComputedStyle` from the active host template element. It must not contain raw palette values authored in host code, bearer tokens, JWTs, credentials or other secrets.
+
+The semantic token keys are:
+
+- `surface`, `surface-raised`, `text`, `text-muted`, `border`;
+- `accent`, `accent-text`, `focus-ring`;
+- `status-success`, `status-warning`, `status-danger`, `status-info`;
+- `radius-sm`, `radius-md`, `radius-lg`.
+
+A Level B frame defines safe fallback values for these CSS custom properties (`--bee-*`) and applies received values to its own document. It must validate the message source as its parent. The host must validate incoming messages against the registered frame window. Keep `sandbox="allow-scripts"`; do not add `allow-same-origin`, and do not send credentials in any postMessage payload.
 
 ## Authentication and tenant boundary
 
-The host remains the sole owner of bearer credentials. A remote frame must never receive the raw access token through `postMessage`, URL parameters or iframe attributes. Requests must go through a host-controlled bridge that validates the package ID, tenant, HTTP method and manifest-declared API prefixes. Messages must be schema-validated and accepted only from the registered frame window. The package must not be able to choose an arbitrary origin or API prefix.
+The host remains the sole owner of bearer credentials. Remote requests go through the host-controlled API bridge, which validates the registered package ID, frame source, HTTP method and manifest-declared API prefixes. The frame cannot select an arbitrary origin or API prefix. The bridge returns only the API response, not the host credential.
 
-## Recommendation and owner decision
+## Decision record
 
-Keep Level A as the mandatory first-party contract and use the signed ZIP + sandboxed iframe direction for third-party Level B packages. Add a narrow, versioned host bridge and a documented `--bee-*` token contract before exposing more APIs. Do not implement Web Components or remote ESM until there is a concrete package requiring them.
-
-**Awaiting owner decision:** confirm whether Level B should remain sandboxed iframe-only, or whether first-party modules should also be allowed to ship as Web Components. Level B implementation is not verified and is intentionally out of scope until that decision.
+Level A and Level B are both implemented and in use as described above. Keep the current per-module model until the owner explicitly decides to converge or change it. Web Components, remote ESM and Module Federation are not current production contracts.

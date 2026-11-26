@@ -1,11 +1,13 @@
 | Scope | Status | Evidence / remaining work |
 |---|---|---|
-| Main CI baseline | Done | Run #45699633886, SHA `73e1f29415dcb91f119ffd2b1f8568efd912a88d`: 3/3 jobs green; backend 123/123; Playwright 31/31; 42 screenshots. |
-| Baseline diagnostics | Partial | `docs/main-polish-baseline.md`; browser console errors and TODO/FIXME/HACK count NOT verified (not captured by current gates). |
-| Phase 1 — Retire Team Notes | Done | Main merge `b3aa4c6`; runtime/catalogue/frontend references retired while preserving tenant data; CI run #45706575499 passed. |
-| Phase 2 — Generic plugin contract | Done | PR #220 merged as `d49f7d9`; exact-head CI run #45713713078 passed all 3 jobs (backend, Angular, browser). |
-| Phase 3 — Control Horario | Done | PR #221 merged as `be4d291`; exact-head CI run #45718122238 passed 3/3 jobs. Backend lifecycle/tenant-isolation/schedule/correction integration coverage passed; Playwright 33/33 passed, including member clock/break/clock-out and owner schedule/correction approval flows. |
-| Phase 4 — Connected Devices | NOT verified | Pending; currently has static backend/frontend registrations. |
-| Phase 5 — Quality gates and bug hunt | NOT verified | Pending; console guard, i18n parity, regression coverage and API review. |
-| Phase 6 — Docs and hygiene | NOT verified | Pending. |
-| Human / VPS checks | NOT verified | Signed ZIP publication, install/upgrade/uninstall/reinstall and tenant isolation require owner VPS. |
+| Main CI baseline | Done | CI Run 987, SHA `e4598686`; ZIP-only Connected Devices merge baseline. |
+| Baseline diagnostics | Partial | `docs/main-polish-baseline.md`; TODO/FIXME/HACK count and browser console-error guard remain NOT verified. |
+| Phase 1 — Retire Team Notes | Done | PR #219 merge `b3aa4c6`; tenant data preserved; CI run #45706575499. |
+| Phase 2 — Generic plugin contract | Done | PR #220 merge `d49f7d9`; exact-head CI run #45713713078, 3/3 jobs green. |
+| Phase 3 — Control Horario baseline | Done | PR #221 merge `be4d291`; exact-head CI run #45718122238, 3/3 jobs green. Follow-up cleanup/i18n: NOT verified. |
+| Phase 4 — Connected Devices ZIP-only baseline | Done | CI Run 987, SHA `e4598686`; signed ZIP runtime and tenant-scoped discovery baseline. |
+| Phase 4 follow-ups — A1 plan migration and A2 host theme bridge | Done | Exact-head CI Run #45795256451, SHA `9b590846b19b2171c4cc101361a748379a2efcf9`; backend, Angular and browser 3/3 green, including migration and theme e2e. |
+| Phases 0–2 documentation/architecture corrections | Pending | Group C has not started. |
+| Phase 5 — Quality gates and bug hunt | NOT started | Out of scope for this task. |
+| Phase 6 — Docs and hygiene | NOT started | Out of scope for this task. |
+| Human / VPS checks | NOT verified | Owner must publish signed ZIPs, confirm assignments and existing tenant access, and visually inspect all templates/modes. |
