@@ -99,6 +99,7 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
   await component.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   const device = component.locator("article.bee-device-card").filter({ hasText: "QA Scanner" });
   await device.locator("details.bee-menu summary").click();
+  page.once("dialog", dialog => dialog.accept());
   await device.getByRole("menuitem", { name: "Delete" }).click();
   await expect(component.getByText("Action completed.")).toBeVisible();
   expect(state.deleteCalls).toBe(1);
