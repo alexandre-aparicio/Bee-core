@@ -26,12 +26,13 @@ This spike deliberately does not replace the iframe path with an unverified `imp
 
 ## Implementation status (2026-11-26)
 
-- Added `frontend.remoteEntry` to the signed package manifest contract, with validation that it is a safe `frontend/` path and is included in the asset allowlist. A package cannot declare both an iframe entrypoint and a native remote entry.
-- The marketplace runtime endpoint now returns `transport: native-federation` and `remoteEntry` for packages using the new contract, while preserving the legacy iframe response for existing packages.
-- The signed package asset endpoint permits the declared remote entry in addition to the explicit asset allowlist.
-- The Connected Devices package builder now expects a separately built Native Federation output directory (`BEE_CONNECTED_DEVICES_FEDERATION_DIST`, default `artifacts/connected-devices-federation`) and includes all files under `frontend/` in the signed ZIP. It fails closed if `remoteEntry.json` is missing.
-- Connected Devices package metadata is bumped to `0.2.0` for this new frontend contract.
-- **Not implemented yet:** the Angular 19 federation host bootstrap/configuration, the separately compiled remote project, the typed remote component contract, removal of the static Connected Devices registration, and the native mount/uninstall lifecycle. Do not deploy or pull this branch yet.
+- Added the Native Federation package contract: signed manifests can declare a remote entry, remote name, exposed module and allowlisted frontend assets. Validation rejects unsafe paths, invalid remote identifiers, missing allowlist entries, and mixed iframe/native declarations.
+- Added a separate Angular remote project for Connected Devices, a host federation bootstrap, and a native loadRemoteModule + ViewContainerRef mounting path. Connected Devices component source was moved under `plugins/connected-devices/frontend`; its static core registration and old core component source were removed.
+- The package builder now collects the separate remote build output and includes it in the signed ZIP. The marketplace runtime response includes tenant-session-scoped short-lived asset authorization. The asset endpoint revalidates the session, membership, user, entitlement, installation and enablement; the legacy public asset route rejects native federation packages.
+- Connected Devices backend and package metadata are aligned at `0.2.0`.
+- **Not ready for deployment yet:** `apps/web/package-lock.json` has not been regenerated for the newly pinned dependencies. No build or test was run, as requested. The Native Federation project config and runtime integration remain unverified until the VPS checkpoint.
+- Documents and Files have not been intentionally modified.
+
 
 ## Build-system decision still required
 
