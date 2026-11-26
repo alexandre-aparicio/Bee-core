@@ -2,6 +2,8 @@ import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
+let connectedDevicesQrPromise: Promise<void> | undefined;
+
 type Device = {
   id: string;
   name: string;
@@ -196,6 +198,7 @@ export class BeeConnectedDevicesComponent implements OnChanges {
   @Input() tenantId = "";
   @Input() role = "member";
   @Input() accessToken = "";
+  @Input() assetBaseUrl = "";
   @Input() section = "";
 
   readonly capabilities = CAPABILITIES;
@@ -266,12 +269,25 @@ export class BeeConnectedDevicesComponent implements OnChanges {
     const current = this.grants[deviceId] || [];
     this.grants[deviceId] = checked ? [...current, id] : current.filter(item => item !== id);
   }
+  private loadQrLibrary(): Promise<void> {
+    if (connectedDevicesQrPromise) return connectedDevicesQrPromise;
+    if (!this.assetBaseUrl.startsWith("/api/plugin-packages/")) return Promise.reject(new Error("The Connected Devices QR asset URL is not authorized."));
+    connectedDevicesQrPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = this.assetBaseUrl + "assets/qrcode.min.js";
+      script.async = true;
+      script.onload = () => typeof (window as any).QRCode === "function" ? resolve() : reject(new Error("The Connected Devices QR renderer did not initialize."));
+      script.onerror = () => reject(new Error("Could not load the Connected Devices QR renderer."));
+      document.head.appendChild(script);
+    }).catch(error => { connectedDevicesQrPromise = undefined; throw error; });
+    return connectedDevicesQrPromise;
+  }
   async createPairing(): Promise<void> {
     if (this.busy || !this.selectedCapabilities.length) return;
     this.busy = true; this.error = ""; this.message = "";
     try {
+      await this.loadQrLibrary();
       this.pairing = await this.request("/connected-devices/pairing-challenges", "POST", { requestedCapabilities: this.selectedCapabilities });
-      if (!(window as any).QRCode) throw new Error("The QR generator is not available in this application load.");
       this.changeDetector.detectChanges();
       this.renderQr();
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not generate the pairing code."; }
