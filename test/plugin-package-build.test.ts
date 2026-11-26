@@ -75,8 +75,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /Hola Mundo/);
         assert.match(script, /bee-plugin:ready/);
       } else if (item.id === "connected-devices") {
-        assert.equal(installed.manifest.version, "0.1.3");
-        assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "marketplace", "organizations"]);
+        assert.equal(installed.manifest.version, "0.1.4");
+        assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.deepEqual(installed.manifest.frontend, { routes: [] }, "Connected Devices signed ZIP must carry backend metadata only; Angular navigation is host-registered");
         assert.equal(existsSync(join(installed.packageDirectory, "frontend")), false, "Connected Devices ZIP must not contain frontend assets");
