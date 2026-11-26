@@ -194,7 +194,7 @@ test("member uses the signed ZIP iframe to clock in, manage breaks, view history
 
   await page.getByRole("button", { name: "Historial" }).click();
   await expect(plugin.getByRole("heading", { name: "Historial" })).toBeVisible();
-  await page.getByRole("button", { name: "Solicitudes" }).click();
+  await page.getByRole("button", { name: "Mis solicitudes" }).click();
   await expect(plugin.getByText("Olvidé registrar la entrada")).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
