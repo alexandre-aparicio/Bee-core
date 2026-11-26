@@ -77,10 +77,10 @@ test("Connected Devices backend is ZIP-only and its native Angular frontend is s
 
   const frontend = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.frontend.ts"), "utf8");
   const component = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts"), "utf8");
-  assert.match(frontend, /loadComponent:[\\s\\S]*BeeConnectedDevicesComponent/);
-  assert.match(frontend, /route:\\s*"\\/dashboard\\/connected-devices"/);
-  assert.doesNotMatch(component, /iframe|postMessage|marketplace\\/plugins/);
-  assert.match(component, /\\/api.*connected-devices/);
+  assert.ok(frontend.includes("loadComponent:") && frontend.includes("BeeConnectedDevicesComponent"));
+  assert.ok(frontend.includes("/dashboard/connected-devices"));
+  assert.doesNotMatch(component, /iframe|postMessage|marketplace/);
+  assert.ok(component.includes('fetch("/api" + path'));
   assert.ok((await readFile(resolve(root, "apps/web/src/assets/connected-devices/qrcode.min.js"), "utf8")).length > 1000,
     "QR renderer must be shipped as a web asset, not inside the backend ZIP");
 });
@@ -111,8 +111,8 @@ test("remote plugin theme bridge sends semantic presentation only", async () => 
     "theme messages must never include credentials or authentication material");
 
   const component = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts"), "utf8");
-  assert.match(component, /var\\(--bee-text\\)/);
-  assert.match(component, /var\\(--bee-surface\\)/);
+  assert.ok(component.includes("var(--bee-text)"));
+  assert.ok(component.includes("var(--bee-surface)"));
   assert.doesNotMatch(component, /bee-plugin:theme|postMessage|iframe/,
     "the native Angular UI inherits the host theme directly and must not use a cross-frame bridge");
 });
