@@ -39,7 +39,7 @@ type SettingGroup = { title: string; description: string; fields: string[]; note
             <p class="settings-workspace__notice">Preference controls are not connected to a settings API yet.</p>
           </article>
           <article class="settings-workspace__card settings-workspace__card--defaults">
-            <div class="settings-workspace__card-heading"><span class="bee-company__identity-mark" aria-hidden="true"><bee-icon name="general" size="24px"></bee-icon></span><div><h2>Platform Defaults</h2><p>Global fallback values and policies inherited by modules, tenants and applications unless explicitly overridden.</p></div></div>
+            <div class="settings-workspace__card-heading"><span class="bee-company__identity-mark" aria-hidden="true"><bee-icon name="workflow" size="24px"></bee-icon></span><div><h2>Platform Defaults</h2><p>Global fallback values and policies inherited by modules, tenants and applications unless explicitly overridden.</p></div></div>
             <nav class="settings-workspace__default-tabs" aria-label="Platform Defaults sections">
               @for (tab of defaultTabs; track tab.id) {
                 <button type="button" [class.is-active]="activeDefaultsTab===tab.id" [attr.aria-selected]="activeDefaultsTab===tab.id" (click)="activeDefaultsTab=tab.id"><span>{{tab.number}}</span>{{tab.label}}</button>
