@@ -9,7 +9,7 @@ export const PLUGIN_MANIFEST = {
   requiredServices: ["mongoDbName", "sessionIdSecret"],
   optionalServices: ["fileStoragePath"],
   tenantDependencies: ["files"],
-  activationPolicy: "automatic",
+  activationPolicy: "automatic" as const,
   permissions: [
     { key: "documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
     { key: "documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
