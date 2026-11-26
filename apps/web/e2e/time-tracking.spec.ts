@@ -186,6 +186,12 @@ test("member uses the signed ZIP iframe to clock in, manage breaks, view history
   await correctionDialog.getByRole("button", { name: "Enviar solicitud" }).click();
   await expect(plugin.getByRole("status")).toContainText("Solicitud de corrección enviada.");
   expect(state.myCorrections[0]?.originalAt).toBeTruthy();
+
+  await page.getByRole("button", { name: "Historial" }).click();
+  await expect(plugin.getByRole("heading", { name: "Historial" })).toBeVisible();
+  await page.getByRole("button", { name: "Solicitudes" }).click();
+  await expect(plugin.getByText("Olvidé registrar la entrada")).toBeVisible();
+  expect(browserErrors).toEqual([]);
 });
 
 test("owner can manage schedules and review team corrections from the signed ZIP iframe", async ({ page }) => {
@@ -247,4 +253,5 @@ test("owner can manage schedules and review team corrections from the signed ZIP
   await plugin.getByRole("button", { name: "Aprobar" }).click();
   await expect(plugin.getByRole("status")).toContainText("Corrección aprobada y aplicada.");
   expect(state.teamCorrections[0].status).toBe("approved");
+  expect(browserErrors).toEqual([]);
 });

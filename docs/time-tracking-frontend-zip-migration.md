@@ -65,7 +65,9 @@ The exact available actions must continue to be enforced by the backend; hiding 
 
 ## Validation record
 
-The ZIP frontend and its route metadata are now declared in the signed package. The Angular Time Tracking frontend files and static registration have been removed from the host, while Documents remains registered and unchanged. Remote navigation is derived from package route metadata (including role visibility and localized labels); the iframe receives section, locale and theme context and uses the existing API bridge. The frontend JavaScript syntax was checked directly. Automated CI for the latest branch head is running; browser workflow parity, tenant/role end-to-end coverage and VPS signature/install/visual validation remain unverified.
+The ZIP frontend and its route metadata are declared in the signed package. The Angular Time Tracking frontend files and static registration have been removed from the host, while Documents remains registered and unchanged. Remote navigation is now sourced from the installed signed ZIP manifest (including role visibility and localized labels); the iframe receives section, locale and theme context and uses the existing API bridge. The standalone JavaScript syntax has been checked directly.
+
+The previous CI run #1055 (branch SHA d129b7d) failed on three migration-related issues: package assertions for Control Horario were accidentally placed in the Connected Devices test block; the old i18n tests still read the deleted Angular catalogue; and browser E2E tests still expected a native component instead of the signed ZIP iframe. These have been corrected in the consolidated revision, including E2E coverage that serves the ZIP assets and exercises clock actions, breaks, history, correction requests, schedules and team review. The consolidated revision has not yet been run through CI. VPS signature/install and visual validation remain unverified.
 
 Record each run below with the exact branch SHA and result. Do not mark a check complete based only on a successful build or a test-discovery listing.
 
@@ -74,9 +76,9 @@ Record each run below with the exact branch SHA and result. Do not mark a check 
 | Baseline source inspection | Done |
 | ZIP-only frontend implementation | In progress | Angular frontend and static registration removed; signed ZIP frontend, route metadata and generic host navigation committed. Full browser parity and visual review pending. |
 | ZIP frontend JavaScript syntax | Passed locally | Parsed successfully with the JavaScript engine; this is not a browser E2E test. |
-| Package/signature tests | Pending CI |
-| Remote runtime and bridge tests | Pending CI |
-| Time Tracking browser E2E on ZIP frontend | Pending |
+| Package/signature tests | Pending re-run on consolidated revision |
+| Remote runtime and bridge tests | Pending re-run on consolidated revision |
+| Time Tracking browser E2E on ZIP frontend | Updated to exercise iframe assets and workflows; pending CI |
 | Connected Devices regression | Pending |
 | Documents / Files regression | Pending |
 | VPS build, sign, install and visual validation | Pending |
