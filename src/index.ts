@@ -13,7 +13,7 @@ import type { BeeContext, BeeLogger, BeePlugin, BeePluginRuntimeControl } from "
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { replaceRuntimePlugin, unregisterRuntimePlugin } from "./core/runtime-plugin-registry.js";
 import { syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
-import { migrateLegacyConnectedDevicesPlanAssignments } from "./core/connected-devices-plan-migration.js";
+import { LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS } from "./plugins/plugin-manifest-registry.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
@@ -355,7 +355,7 @@ async function bootstrap(): Promise<void> {
   }
   await persistZipPluginRuntimeState(zipPluginFailures);
   const db = mongoClient.db(environment.mongoDbName);
-  await migrateLegacyConnectedDevicesPlanAssignments(db);
+  for (const migration of LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS) await migration.run(db);
   const automaticPackages = await db.collection("plugin_catalog").find({ activationPolicy: "automatic", codeAvailable: true, status: "published" }).project<{id:string}>({ id: 1, _id: 0 }).toArray();
   for (const item of automaticPackages) await syncAutomaticPluginProvisioning(db, item.id);
   await events.emit("bee.started", { at: new Date().toISOString() });
