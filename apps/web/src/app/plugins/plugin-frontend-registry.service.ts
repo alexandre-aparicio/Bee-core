@@ -35,6 +35,7 @@ export class BeePluginFrontendRegistry {
   private readonly registrations = createFrontendRegistrationMap<BeePluginFrontendRegistration>(PLUGIN_FRONTEND_REGISTRATIONS);
   private readonly remoteNavigation = new Map<string, BeePluginNavigation>();
   private readonly remoteRuntimeRefs = new Map<string, string>();
+  private readonly loadedRemotePlugins = new Set<string>();
 
   /** Navigation for signed ZIP frontends is supplied by the tenant-authorized package catalogue. */
   setRemoteNavigation(entries: Array<{ pluginId: string; runtimeRef?: string; navigation: BeePluginNavigation }>): void {
@@ -54,6 +55,14 @@ export class BeePluginFrontendRegistry {
       this.remoteNavigation.set(pluginId, navigation);
       if (typeof entry.runtimeRef === "string" && entry.runtimeRef.length > 0) this.remoteRuntimeRefs.set(pluginId, entry.runtimeRef);
     }
+  }
+
+  markRemoteLoaded(pluginId: string): void {
+    this.loadedRemotePlugins.add(pluginId);
+  }
+
+  loadedRemotePluginIds(): string[] {
+    return [...this.loadedRemotePlugins];
   }
 
   runtimeReference(pluginId: string): string {
