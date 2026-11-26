@@ -129,8 +129,13 @@ test("remote plugin theme bridge sends semantic presentation only", async () => 
     "theme messages must never include credentials or authentication material");
 
   const component = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts"), "utf8");
-  assert.ok(component.includes("var(--bee-text)"));
-  assert.ok(component.includes("var(--bee-surface)"));
+  const baseStyles = await readFile(resolve(root, "apps/web/src/app/templates/base/base.css"), "utf8");
+  assert.match(component, /class="bee-page-header"/);
+  assert.match(component, /class="bee-stat-card"/);
+  assert.ok(baseStyles.includes("var(--bee-text)"));
+  assert.ok(baseStyles.includes("var(--bee-surface)"));
+  assert.doesNotMatch(component, /styles\s*:/,
+    "Connected Devices must consume shared Base styles instead of declaring feature-local CSS");
   assert.doesNotMatch(component, /bee-plugin:theme|postMessage|iframe/,
     "the native Angular UI inherits the host theme directly and must not use a cross-frame bridge");
 });

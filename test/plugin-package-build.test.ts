@@ -84,14 +84,17 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         const angularFrontend = await readFile(resolve(process.cwd(), "apps/web/src/app/connected-devices/connected-devices.frontend.ts"), "utf8");
         const angularComponent = await readFile(resolve(process.cwd(), "apps/web/src/app/connected-devices/connected-devices.component.ts"), "utf8");
         const frontendRegistry = await readFile(resolve(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
-        const qr = await readFile(resolve(process.cwd(), "apps/web/src/assets/connected-devices/qrcode.min.js"), "utf8");
+        const qr = await readFile(resolve(process.cwd(), "apps/web/src/assets/qrcode.min.js"), "utf8");
         assert.ok(angularFrontend.includes('pluginId: "connected-devices"'));
         assert.match(angularFrontend, /BeeConnectedDevicesComponent/);
         assert.match(frontendRegistry, /connectedDevicesFrontend/);
         assert.match(angularComponent, /pairing-challenges/);
         assert.match(angularComponent, /approve/);
-        assert.match(angularComponent, /ensureQrLibrary/);
-        assert.match(angularComponent, /qrcode.min.js/);
+        assert.match(angularComponent, /window as any\)\.QRCode/);
+        assert.match(angularComponent, /private renderQr\(/);
+        const angularConfig = await readFile(resolve(process.cwd(), "apps/web/angular.json"), "utf8");
+        assert.match(angularConfig, /src\/assets\/qrcode\.min\.js/,
+          "the QR renderer must be loaded by the host Angular application, not duplicated in the plugin ZIP");
         assert.doesNotMatch(angularComponent, /iframe|postMessage|marketplace/);
         assert.doesNotThrow(() => new Script(qr), "the web-bundled QR renderer must be valid JavaScript");
         const simulator = await readFile(resolve(process.cwd(), "apps/web/src/assets/device-simulator/device-simulator.js"), "utf8");
