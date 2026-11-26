@@ -30,13 +30,16 @@ export class AppComponent implements OnInit, OnDestroy {
     } else if (!['/login', '/register', '/forgot', '/invite/accept'].includes(this.path)) void this.loadPublicTenant();
   }
 
-  private readonly handlePluginsChanged = (): void => {
+  private readonly handlePluginsChanged = (event: Event): void => {
+    const detail = (event as CustomEvent<{ pluginId?: string; action?: string }>).detail;
+    const updatedRemoteId = detail?.action === "update" && typeof detail.pluginId === "string" && this.pluginFrontends.loadedRemotePluginIds().includes(detail.pluginId) ? detail.pluginId : "";
     void this.refreshTenantPlugins().then(() => {
       // The settings component can dispatch this event from an async request.
       // Re-enter Angular explicitly so the sidebar is rendered immediately.
       this.zone.run(() => {
         const pluginId = this.pluginFrontends.pluginForSection(this.activeSection);
         if (pluginId && !this.isPluginEnabled(pluginId)) this.navigateSection('dashboard');
+        if (updatedRemoteId) window.location.reload();
       });
     });
   };
