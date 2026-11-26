@@ -195,8 +195,8 @@ app.get<{Params:{pluginId:string;version:string;"*":string}}>("/plugin-packages/
   const packageRecord=await db.collection("platform_plugin_packages").findOne({pluginId,version,status:"installed",source:"zip",runtimeState:"loaded"});
   if(!packageRecord||typeof packageRecord.packageDirectory!=="string")return reply.code(404).send({error:"Plugin asset not found"});
   const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId,version});
-  const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;assets?:string[]}}|undefined;
-  const allowed=new Set([...(manifest?.frontend?.assets??[]),...(manifest?.frontend?.entrypoint?[manifest.frontend.entrypoint]:[])]);
+  const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;remoteEntry?:string;assets?:string[]}}|undefined;
+  const allowed=new Set([...(manifest?.frontend?.assets??[]),...(manifest?.frontend?.entrypoint?[manifest.frontend.entrypoint]:[]),...(manifest?.frontend?.remoteEntry?[manifest.frontend.remoteEntry]:[])]);
   if(!allowed.has(assetPath))return reply.code(404).send({error:"Plugin asset not found"});
   const packageDirectory=resolve(packageRecord.packageDirectory);
   const assetFile=resolve(packageDirectory,assetPath);
