@@ -101,11 +101,6 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /pairing-challenges/);
         assert.match(script, /approve/);
         assert.match(script, /bee-plugin:api-request/);
-        assert.match(script, /function askReviewNote/);
-        assert.match(script, /originalAt,requestedAt:requestedAt\\.toISOString\\(\\),reason/, "correction submissions must retain the original event timestamp");
-        assert.match(script, /aria-labelledby="correction-title"/, "correction form must be exposed as an accessible dialog");
-        assert.match(script, /role="dialog"/, "review notes must use an accessible in-frame dialog, not a blocked browser prompt");
-        assert.doesNotMatch(script, /prompt\(/, "sandboxed plugin frontends must not rely on browser modal prompts");
         assert.match(script, /function showConfirm/);
         assert.match(script, /role="alertdialog"/, "destructive actions must use an accessible warning dialog");
         assert.match(script, /Delete device permanently/);
@@ -144,6 +139,14 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /styles.css/);
         assert.match(script, /bee-plugin:ready/);
         assert.match(script, /bee-plugin:api-request/);
+        assert.ok(script.includes('{sessionId,eventType,originalAt,requestedAt:requestedAt.toISOString(),reason}'), "correction submissions must preserve the original event timestamp");
+        assert.match(script, /function askReviewNote/);
+        assert.match(script, /aria-labelledby="correction-title"/, "correction form must be exposed as an accessible dialog");
+        assert.match(script, /aria-labelledby="review-note-title"/, "rejection notes must use an accessible in-frame dialog");
+        assert.doesNotMatch(script, /prompt\(/, "sandboxed plugin frontends must not rely on browser modal prompts");
+        assert.doesNotMatch(script, /id="tabs"|\$\("tabs"\)/, "the host owns the primary plugin navigation; the iframe must not duplicate it");
+        assert.match(script, /data-subtab="activity"/, "My day must retain the Activity subtab");
+        assert.match(script, /data-subtab="team"/, "managers must retain the separate Team requests subtab");
         for (const endpoint of ["/time-tracking/me/status", "/time-tracking/me/sessions", "/time-tracking/clock-in", "/time-tracking/break-start", "/time-tracking/break-end", "/time-tracking/clock-out", "/time-tracking/me/schedule", "/time-tracking/team/members", "/time-tracking/team/schedules", "/time-tracking/me/corrections", "/time-tracking/team/corrections"]) {
           assert.ok(script.includes(endpoint), "ZIP frontend must call " + endpoint);
         }
