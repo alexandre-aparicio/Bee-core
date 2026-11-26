@@ -52,6 +52,9 @@ jobs:
         run: npm ci
       - name: Build backend
         run: npm run build
+      - name: Count TODO/FIXME/HACK markers (informational)
+        continue-on-error: true
+        run: node scripts/count-debt-markers.mjs
       - name: Tests
         shell: bash
         run: |
