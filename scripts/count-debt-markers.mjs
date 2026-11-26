@@ -4,7 +4,7 @@ import { extname, relative, resolve } from "node:path";
 const root = resolve(process.cwd());
 const scanRoots = ["src", "apps/web/src"];
 const extensions = new Set([".ts", ".html", ".css"]);
-const markerPattern = /\\b(TODO|FIXME|HACK)\\b/g;
+const markerPattern = /\b(TODO|FIXME|HACK)\b/g;
 const counts = { TODO: 0, FIXME: 0, HACK: 0 };
 const filesWithMarkers = [];
 
@@ -28,7 +28,7 @@ for (const scanRoot of scanRoots) await visit(resolve(root, scanRoot));
 const total = counts.TODO + counts.FIXME + counts.HACK;
 process.stdout.write("Debt markers (informational; src + apps/web/src): " +
   "TODO=" + counts.TODO + " FIXME=" + counts.FIXME + " HACK=" + counts.HACK +
-  " TOTAL=" + total + "\\n");
+  " TOTAL=" + total + "\n");
 for (const item of filesWithMarkers.sort((a, b) => a.file.localeCompare(b.file))) {
-  process.stdout.write(item.file + ": " + item.markers + "\\n");
+  process.stdout.write(item.file + ": " + item.markers + "\n");
 }
