@@ -65,12 +65,11 @@ The exact available actions must continue to be enforced by the backend; hiding 
 
 ## Validation record
 
-The ZIP frontend and its route metadata are declared in the signed package. The Angular Time Tracking frontend files and static registration have been removed from the host, while Documents remains registered and unchanged. Remote navigation is now sourced from the installed signed ZIP manifest (including role visibility and localized labels); the iframe receives section, locale and theme context and uses the existing API bridge. The standalone JavaScript syntax has been checked directly.
+The ZIP frontend and its route metadata are declared in the signed package. The Angular Time Tracking frontend files and static registration have been removed from the host, while Documents remains registered and unchanged. Remote navigation is sourced from the installed signed ZIP manifest (including role visibility and localized labels); the iframe receives section, locale and theme context and uses the existing API bridge. The frontend also reports bounded content/modal height to the host so dialogs remain fully clickable without granting the iframe additional sandbox permissions.
 
-The previous CI run #1055 (branch SHA d129b7d) failed on three migration-related issues: package assertions for Control Horario were accidentally placed in the Connected Devices test block; the old i18n tests still read the deleted Angular catalogue; and browser E2E tests still expected a native component instead of the signed ZIP iframe. These were corrected.
+The initial CI runs exposed and the branch corrected: misplaced package assertions, obsolete Angular i18n expectations, native-component browser tests, sandboxed localStorage setup, a localized navigation selector, fixed iframe height, and form submissions blocked by the iframe's deliberate lack of allow-forms. Correction dialogs now use accessible non-form controls, and the host resizes the iframe through a source-validated, bounded bee-plugin:resize message.
 
-CI #1059 (SHA 2f02372) then passed the Angular production build and all 152 backend tests (152 passed, 0 failed, 0 skipped). Its browser suite passed 32 tests and exposed two test-harness issues in the new Time Tracking E2E: the shared auth init script attempted to access localStorage inside the sandboxed iframe, and the member navigation test used "Solicitudes" instead of the route's actual Spanish label "Mis solicitudes". The init script is now restricted to the top-level page, and the member test uses the correct localized label with shorter diagnostic timeouts. These latest test-harness fixes are in commits cd128f9 and 60d0def: the init script now runs only in the top-level page, and the member navigation test selects the signed route label `Mis solicitudes`. The current branch head still needs a fresh CI run. VPS signature/install and visual validation remain unverified.
-
+CI #1064 (branch SHA 6692b6e) passed all three jobs: backend tests 153 passed, 0 failed, 0 skipped; browser suite 34 passed; Angular production build success. The browser suite includes the signed ZIP iframe workflows for clock-in/out, breaks, activity/history, correction submission, team schedule management and correction review. The branch is up to date with main. VPS signature/install and manual visual validation remain unverified.
 Record each run below with the exact branch SHA and result. Do not mark a check complete based only on a successful build or a test-discovery listing.
 
 | Check | Result |
@@ -78,11 +77,11 @@ Record each run below with the exact branch SHA and result. Do not mark a check 
 | Baseline source inspection | Done |
 | ZIP-only frontend implementation | In progress | Angular frontend and static registration removed; signed ZIP frontend, route metadata and generic host navigation committed. Full browser parity and visual review pending. |
 | ZIP frontend JavaScript syntax | Passed locally | Parsed successfully with the JavaScript engine; this is not a browser E2E test. |
-| Package/signature tests | Pending re-run on consolidated revision |
-| Remote runtime and bridge tests | Pending re-run on consolidated revision |
-| Time Tracking browser E2E on ZIP frontend | Updated to exercise iframe assets and workflows; pending CI |
-| Connected Devices regression | Pending |
-| Documents / Files regression | Pending |
+| Package/signature tests | Passed in CI #1064 |
+| Remote runtime and bridge tests | Passed in CI #1064 |
+| Time Tracking browser E2E on ZIP frontend | Passed: included in 34 browser tests in CI #1064 |
+| Connected Devices regression | Passed in the same browser suite; Connected Devices source remains unchanged |
+| Documents / Files regression | Structural registration/Files-boundary assertions passed; manual Documents workflow still pending |
 | VPS build, sign, install and visual validation | Pending |
 
 ## Release safety
