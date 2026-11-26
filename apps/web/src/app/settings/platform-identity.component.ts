@@ -23,7 +23,7 @@ const EMPTY_IDENTITY: PlatformIdentity = {
   template:`
     <section class="identity bee-dashboard-card">
       <div class="identity__heading">
-        <bee-icon class="identity__icon" name="domains" size="20px" aria-hidden="true"></bee-icon><div class="identity__heading-content"><h2>Platform Identity</h2><p><strong>Brand & public presence</strong> · Manage the platform information, visual assets and metadata used by public pages.</p></div>
+        <bee-icon class="identity__icon" name="globe" size="20px" aria-hidden="true"></bee-icon><div class="identity__heading-content"><h2>Platform Identity</h2><p><strong>Brand & public presence</strong> · Manage the platform information, visual assets and metadata used by public pages.</p></div>
         <span class="identity__scope">{{editable ? 'Global settings' : 'Public identity'}}</span>
       </div>
       <nav class="identity__tabs" aria-label="Platform identity sections">
