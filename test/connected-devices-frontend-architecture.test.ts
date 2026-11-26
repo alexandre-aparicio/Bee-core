@@ -11,6 +11,7 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   const outlet = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
   const angular = JSON.parse(await readFile(resolve(root, "apps/web/angular.json"), "utf8"));
   const federation = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.js"), "utf8");
+  const remoteContract = await readFile(resolve(root, "plugins/connected-devices/frontend/src/plugin.component.ts"), "utf8");
   const component = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.ts"), "utf8");
   const remoteQr = await readFile(resolve(root, "plugins/connected-devices/frontend/src/assets/qrcode.min.js"), "utf8");
   const remoteStyles = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.css"), "utf8");
@@ -21,6 +22,9 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   assert.match(hostMain, /initFederation/);
   assert.match(remoteMain, /initFederation/);
   assert.match(outlet, /loadRemoteModule/);
+  assert.match(outlet, /remoteModule\["PluginComponent"\]/);
+  assert.doesNotMatch(outlet, /BeeConnectedDevicesComponent/);
+  assert.match(remoteContract, /as PluginComponent/);
   assert.match(outlet, /ViewContainerRef|createComponent/);
   assert.match(federation, /strictVersion:\s*true/);
   assert.match(federation, /singleton:\s*true/);
