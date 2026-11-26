@@ -274,7 +274,7 @@ test("Control Horario same-version install is idempotent and the 0.2.1 upgrade r
     assert.equal(installExecutions, 1, "the 0.2.1 upgrade must not re-run the 0.2.0 install migration");
     assert.equal(upgradeExecutions, 1, "the new upgrade migration runs once");
     const marketplace = await readFile(join(process.cwd(), "src/plugins/marketplace/marketplace.plugin.ts"), "utf8");
-    assert.match(marketplace, /selectTenantMigrations=\(definition:PluginPackageDefinition,phase:"install"\|"upgrade"\)=>\(definition\.migrations\?\?\)\.filter\(migration=>!migration\.phase\|\|migration\.phase===phase\)/);
+    assert.match(marketplace, /selectTenantMigrations=\(definition:PluginPackageDefinition,phase:"install"\|"upgrade"\)=>\(definition\.migrations\?\?\[\]\)\.filter\(migration=>!migration\.phase\|\|migration\.phase===phase\)/);
   } finally {
     await db.dropDatabase();
     await client.close();
