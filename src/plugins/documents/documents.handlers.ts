@@ -164,6 +164,8 @@ export function createDocumentsHandlers(deps:any) {
    // Existing records keep their folder, title, publication state and access policies.
    const storedFiles=await storage.list(tenant.tenantId);
    for(const file of storedFiles){
+    const fileDecision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"files",resourceType:"file",resourceId:file.id,permission:"read"});
+    if(fileDecision===false)continue;
     const existing=await docs(tenant.tenantId).findOne({fileId:file.id});
     if(existing)continue;
     const createdAt=file.createdAt??new Date();
@@ -171,7 +173,12 @@ export function createDocumentsHandlers(deps:any) {
     await docs(tenant.tenantId).insertOne(imported);
    }
    const rows=await docs(tenant.tenantId).find({folderId}).sort({updatedAt:-1}).limit(200).toArray();const visible=[];
-   for(const item of rows){const parents=await ancestors(tenant.tenantId,item.folderId);if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(await present(item,tenant));}
+   for(const item of rows){
+    const fileDecision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"files",resourceType:"file",resourceId:item.fileId,permission:"read"});
+    if(fileDecision===false)continue;
+    const parents=await ancestors(tenant.tenantId,item.folderId);
+    if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(await present(item,tenant));
+   }
    return {documents:visible};
   },
   documentsPost: async(req:any,reply:any)=>{
