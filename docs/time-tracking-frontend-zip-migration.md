@@ -24,7 +24,7 @@ This is a baseline description, not a claim that the migration is complete.
 
 ## Target architecture
 
-The Control Horario package must include its complete browser frontend (HTML, JavaScript, styles and any required static assets) in the signed ZIP. The host should load the declared frontend entrypoint through the same trusted runtime used for Connected Devices.
+The Control Horario package must include its complete browser frontend (HTML, JavaScript, styles and any required static assets) in the signed ZIP. The host loads the declared frontend entrypoint through the same trusted runtime used for Connected Devices. Remote navigation exposes the four existing Time Tracking sections and passes the host locale to the iframe.
 
 The remote frontend must use the existing host bridge rather than storing credentials independently or calling arbitrary origins. It must receive tenant/user context from the host, use the authorized API bridge for backend requests, and respect host navigation and theme behavior.
 
@@ -65,16 +65,16 @@ The exact available actions must continue to be enforced by the backend; hiding 
 
 ## Validation record
 
-At the time this baseline was documented, no migration-specific test had been run and no ZIP-only Time Tracking implementation had been verified. Existing CI includes a Time Tracking browser test file, but that alone does not prove the ZIP frontend contract.
+The first implementation slice is now present on this branch: the signed-package builder includes the standalone frontend, the host no longer statically registers the Angular Time Tracking component, and the remote runtime receives section and locale context. The frontend JavaScript syntax has been checked directly. GitHub Actions package, Angular and browser checks are pending; no claim of full workflow parity or VPS signature/install validation is made.
 
 Record each run below with the exact branch SHA and result. Do not mark a check complete based only on a successful build or a test-discovery listing.
 
 | Check | Result |
 |---|---|
 | Baseline source inspection | Done |
-| ZIP-only frontend implementation | Pending |
-| Package/signature tests | Pending |
-| Remote runtime and bridge tests | Pending |
+| ZIP-only frontend implementation | Partial | Standalone UI and package declarations committed; full browser parity and visual review pending. |\n| ZIP frontend JavaScript syntax | Passed locally | Parsed successfully with the JavaScript engine; this is not a browser E2E test. |
+| Package/signature tests | Pending CI |
+| Remote runtime and bridge tests | Pending CI |
 | Time Tracking browser E2E on ZIP frontend | Pending |
 | Connected Devices regression | Pending |
 | Documents / Files regression | Pending |
