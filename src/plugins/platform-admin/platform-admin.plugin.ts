@@ -298,6 +298,7 @@ export const platformAdminPlugin:BeePlugin={
    if(!existing&&password.length<12)return reply.code(400).send({error:"A temporary password of at least 12 characters is required for a new account"});
    if(existing&&password&&password.length<12)return reply.code(400).send({error:"A supplied temporary password must contain at least 12 characters"});
    if(existing&&tenantId){const currentMembership=await memberships.findOne({userId:existing.id,tenantId});if(currentMembership?.status==="active")return reply.code(409).send({error:"This user is already an active member of the selected tenant"});}
+   if(role==="owner"&&tenantId){const currentOwner=await memberships.findOne({tenantId,role:"owner",status:"active"});if(currentOwner&&currentOwner.userId!==existing?.id)return reply.code(409).send({error:"The selected tenant already has an active owner"});}
    const now=new Date();
    let target=existing;
    if(!target){
