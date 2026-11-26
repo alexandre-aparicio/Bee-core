@@ -62,6 +62,24 @@ test("Connected Devices backend is ZIP-only and its native Angular frontend is s
   assert.doesNotMatch(builtInPlans, /connected-devices/, "Connected Devices must not be a built-in plan entitlement");
   assert.doesNotMatch(trustedPackages, /id:\s*"connected-devices"/, "Connected Devices must not be seeded as a trusted bundled package");
 
+  const hostAccess = await readFile(resolve(root, "src/index.ts"), "utf8");
+  const marketplace = await readFile(resolve(root, "src/plugins/marketplace/marketplace.plugin.ts"), "utf8");
+  const packagePlugin = await readFile(resolve(root, "src/plugins/connected-devices/connected-devices.plugin.ts"), "utf8");
+  const packageManifest = await readFile(resolve(root, "src/plugins/connected-devices/plugin.manifest.ts"), "utf8");
+  const packageBuilder = await readFile(resolve(root, "scripts/build-plugin-packages.mjs"), "utf8");
+  const runtime = await readFile(resolve(root, "src/core/dynamic-plugin-runtime.ts"), "utf8");
+  assert.match(hostAccess, /pluginServices\\.register\\("core\\.plugin-access"/);
+  assert.doesNotMatch(hostAccess, /marketplace\\.plugin-access|LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS/);
+  assert.doesNotMatch(marketplace, /marketplace\\.plugin-access/);
+  assert.match(packagePlugin, /core\\.plugin-access/);
+  assert.match(packagePlugin, /afterRuntimeLoaded/);
+  assert.doesNotMatch(packagePlugin + packageManifest, /marketplace/);
+  assert.match(runtime, /afterRuntimeLoaded/);
+  assert.match(packageBuilder, /id: "connected-devices"[\\s\\S]*?dependencies: \\[ "auth", "organizations" \\]/);
+  const legacyRegistry = await readFile(resolve(root, "src/plugins/plugin-manifest-registry.ts"), "utf8");
+  assert.doesNotMatch(legacyRegistry, /connected-devices|connectedDevices|LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS/);
+  assert.match(packagePlugin, /migrateLegacyConnectedDevicesPlanAssignments/);
+  assert.match(packageUpload, /admin-plan-selection-v1/);
   const frontendRegistrations = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
   assert.match(frontendRegistrations, /connectedDevicesFrontend/);
   const remoteRegistry = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
@@ -134,7 +152,7 @@ test("generic host paths contain no feature-specific branches outside the explic
     // The backend bootstrap retains the approved Files and Documents native fallbacks.
     "src/index.ts": ["files", "documents"],
     // This is the single source for package metadata and legacy migration policy.
-    "src/plugins/plugin-manifest-registry.ts": ["files", "documents", "connected-devices", "time-tracking", "hello-world"],
+    "src/plugins/plugin-manifest-registry.ts": ["files"],
     // Feature IDs may appear only in the declarative registration list.
     "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents", "time-tracking", "connected-devices"],
     // These generic uses refer to browser file inputs and package archive files, not plugin IDs.
