@@ -196,6 +196,7 @@ app.get<{Params:{pluginId:string;version:string;"*":string}}>("/plugin-packages/
   if(!packageRecord||typeof packageRecord.packageDirectory!=="string")return reply.code(404).send({error:"Plugin asset not found"});
   const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId,version});
   const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;remoteEntry?:string;assets?:string[]}}|undefined;
+  if(manifest?.frontend?.remoteEntry)return reply.code(404).send({error:"Native plugin assets require tenant authorization"});
   const allowed=new Set([...(manifest?.frontend?.assets??[]),...(manifest?.frontend?.entrypoint?[manifest.frontend.entrypoint]:[]),...(manifest?.frontend?.remoteEntry?[manifest.frontend.remoteEntry]:[])]);
   if(!allowed.has(assetPath))return reply.code(404).send({error:"Plugin asset not found"});
   const packageDirectory=resolve(packageRecord.packageDirectory);
@@ -219,21 +220,21 @@ app.get<{Params:{pluginId:string;version:string;assetToken:string;"*":string}}>(
   }
   let claims:any;
   try { claims=app.jwt.verify(assetToken); } catch { return reply.code(404).send({error:"Plugin asset not found"}); }
-  if(claims?.purpose!=="plugin-asset"||claims.pluginId!==pluginId||claims.version!==version||typeof claims.tenantId!=="string"||typeof claims.userId!=="string"){
+  if(claims?.purpose!=="plugin-asset"||claims.pluginId!==pluginId||claims.version!==version||typeof claims.tenantId!=="string"||typeof claims.userId!=="string"||typeof claims.sessionId!=="string"||!["dashboard","backend"].includes(claims.client)){
     return reply.code(404).send({error:"Plugin asset not found"});
   }
   const db=mongoClient.db(environment.mongoDbName);
-  const [tenant,membership,user,entitled,installed,enabled,platformEnabled,packageRecord]=await Promise.all([
-    db.collection("tenants").findOne({id:claims.tenantId,$or:[{status:"active"},{status:null}]},{projection:{_id:1}}),
+  const [session,membership,user,entitled,installed,enabled,platformEnabled,packageRecord]=await Promise.all([
+    db.collection("refresh_sessions").findOne({id:claims.sessionId,userId:claims.userId,tenantId:claims.tenantId,client:claims.client,revokedAt:null,expiresAt:{$gt:new Date()}},{projection:{_id:1}}),
     db.collection("memberships").findOne({tenantId:claims.tenantId,userId:claims.userId,status:"active"},{projection:{_id:1}}),
-    db.collection("users").findOne({id:claims.userId,enabled:true},{projection:{_id:1}}),
+    db.collection("users").findOne({id:claims.userId,enabled:true,allowedClients:claims.client},{projection:{_id:1}}),
     hasPluginEntitlement(db,claims.tenantId,pluginId),
     isPluginInstalled(db,claims.tenantId,pluginId),
     isPluginEnabled(db,claims.tenantId,pluginId),
     isPlatformPluginEnabled(db,pluginId),
     db.collection("platform_plugin_packages").findOne({pluginId,version,status:"installed",source:"zip",runtimeState:"loaded"})
   ]);
-  if(!tenant||!membership||!user||!entitled||!installed||!enabled||!platformEnabled||!packageRecord||typeof packageRecord.packageDirectory!=="string"){
+  if(!session||!membership||!user||!entitled||!installed||!enabled||!platformEnabled||!packageRecord||typeof packageRecord.packageDirectory!=="string"){
     return reply.code(404).send({error:"Plugin asset not found"});
   }
   const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId,version});
