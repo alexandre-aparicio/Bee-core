@@ -2,9 +2,9 @@
 
 ## Result
 
-The repository is **not currently able to load an Angular component from a signed ZIP**. Connected Devices is still statically registered by the web application and its Angular component is compiled as part of the core web build. The ZIP builder now declares a Native Federation remote entry and can package a separately built federation output directory, but that remote build target and Angular host loader are not implemented yet.
+The branch now contains the Native Federation host, the separately built Connected Devices remote, the signed-ZIP frontend packaging path and the generic Angular plugin loader. Connected Devices is no longer statically registered in the core web application; its component, template and scoped styles live under `plugins/connected-devices/frontend`. The implementation is **not yet deployable or validated**: the web package lock is stale, and Angular builder/runtime/CSP integration must be checked during the agreed VPS validation phase.
 
-This spike deliberately does not replace the iframe path with an unverified `import(url)`. Doing so without a compatible Angular compilation and dependency-sharing contract would either fail in production or bundle a second Angular runtime.
+Connected Devices now uses Native Federation rather than an iframe or an unverified plain `import(url)`. Angular and RxJS are shared as strict singletons, and the host lazily loads the signed remote module before mounting its exported Angular component. Legacy iframe transport remains only for compatibility with older packages; it is not the Connected Devices transport.
 
 ## Evidence inspected on 2026-11-26
 
@@ -12,8 +12,8 @@ This spike deliberately does not replace the iframe path with an unverified `imp
 - `apps/web/src/app/plugins/plugin-frontend-registrations.ts` statically imports `connectedDevicesFrontend`.
 - `apps/web/src/app/connected-devices/connected-devices.frontend.ts` lazy-imports `connected-devices.component.ts`. This creates a lazy chunk, but that chunk is still emitted by the core build and is not supplied by the ZIP.
 - `scripts/build-plugin-packages.mjs` defines Connected Devices with `frontend.routes: []`; only Documents currently has a frontend source copied into its ZIP.
-- `plugin-outlet.component.ts` mounts host-compiled Angular components through `ViewContainerRef.createComponent`, but unregistered ZIP frontends are rendered in a sandboxed iframe.
-- The current architecture test explicitly asserts both the static Connected Devices registration and the backend-only ZIP. It must be replaced as part of the migration, not weakened to make a test pass.
+- `plugin-outlet.component.ts` first resolves trusted host registrations, then lazily loads unregistered Native Federation remotes and mounts their Angular component through `ViewContainerRef.createComponent`. The legacy iframe branch remains for legacy ZIP packages only.
+- The Connected Devices architecture guard now asserts that its component and static registration are absent from the core source tree and that the host/remote federation contract is present. It has not been run, per the no-tests-until-VPS agreement.
 
 ## Required target contract
 
@@ -32,7 +32,7 @@ This spike deliberately does not replace the iframe path with an unverified `imp
 - The package builder collects the remote build output and includes the files in the signed ZIP. The marketplace runtime response issues a short-lived token bound to the active tenant session. The asset endpoint revalidates the session, membership, user, entitlement, installation, enablement and loaded package; the legacy public asset route rejects native federation packages.
 - The shell tracks evaluated remotes and reloads after a loaded remote is disabled, uninstalled or upgraded. This is necessary because browser ESM modules cannot be reliably unloaded from the current JavaScript realm.
 - Connected Devices backend and package metadata are aligned at `0.2.0`.
-- **Not ready for deployment:** `apps/web/package-lock.json` still needs regeneration for the new exact-pinned federation dependencies. No builds, tests or CI have been run, as requested. The Angular project configuration and runtime integration remain unverified until the agreed VPS validation phase.
+- **Not ready for deployment:** `apps/web/package-lock.json` is missing five declared development dependencies, including Native Federation and `es-module-shims`; a clean `npm ci` is not ready. No builds, tests or CI have been run, as requested. The Angular project configuration, runtime integration and strict Nginx CSP compatibility remain unverified until the agreed VPS validation phase.
 - The existing Nginx CSP has deliberately not been weakened. The final browser validation must confirm that `es-module-shims` and lazily injected import maps work under the current `script-src 'self'` policy; do not add `unsafe-inline` as a workaround.
 - Documents and Files have not been intentionally modified.
 
@@ -50,4 +50,4 @@ A native Angular plugin runs in the same JavaScript realm and origin as Bee Core
 - Created on branch `refactor/native-angular-plugin-runtime`.
 - Backend package/runtime contract and package builder were changed on this branch. Existing frontend behavior, Documents, Files, and `main` were not changed.
 - No build or test is claimed as passing; the GitHub-connected inspection did not execute the repository toolchain.
-- Next implementation step: add the Angular 19 federation host bootstrap and remote build target, then migrate Connected Devices out of the core bundle. No tests/builds are being run during this implementation phase; validation is deferred to the VPS as requested.
+- Next implementation steps: regenerate the web lockfile, finish the source/security review, and close the remaining packaging/runtime integration gaps. Do not pull or deploy this branch yet. No tests/builds/CI are to run in GitHub; validation remains deferred to the VPS after the implementation is complete.
