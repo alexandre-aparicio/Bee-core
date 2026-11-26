@@ -36,6 +36,7 @@ const CAPABILITIES = [
 @Component({
   selector: "bee-connected-devices",
   standalone: true,
+  styleUrls: ["./connected-devices.component.css"],
   imports: [CommonModule, FormsModule],
   template: `
     <section class="bee-connected-devices">
