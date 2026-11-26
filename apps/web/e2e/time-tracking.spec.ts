@@ -190,7 +190,7 @@ test("member uses the signed ZIP iframe to clock in, manage breaks, view history
   const correctionDialog = plugin.getByRole("dialog");
   await correctionDialog.locator("#reason").fill("Olvidé registrar la entrada");
   const iframe = page.locator('iframe[title="time-tracking plugin"]');
-  const dialogCardHeight = await correctionDialog.locator(".modal-card").evaluate(element => element.getBoundingClientRect().height);
+  const dialogCardHeight = await correctionDialog.evaluate(element => element.getBoundingClientRect().height);
   await expect.poll(() => iframe.evaluate(element => element.clientHeight)).toBeGreaterThanOrEqual(dialogCardHeight + 40);
   await correctionDialog.getByRole("button", { name: "Enviar solicitud" }).click();
   await expect(plugin.getByRole("status")).toContainText("Solicitud de corrección enviada.");

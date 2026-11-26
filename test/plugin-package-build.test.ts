@@ -101,7 +101,6 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /pairing-challenges/);
         assert.match(script, /approve/);
         assert.match(script, /bee-plugin:api-request/);
-        assert.match(script, /function reportHeight/);
         assert.match(script, /function showConfirm/);
         assert.match(script, /role="alertdialog"/, "destructive actions must use an accessible warning dialog");
         assert.match(script, /Delete device permanently/);
@@ -142,6 +141,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /styles.css/);
         assert.match(script, /bee-plugin:ready/);
         assert.match(script, /bee-plugin:api-request/);
+        assert.match(script, /function reportHeight/);
         assert.ok(script.includes('{sessionId,eventType,originalAt,requestedAt:requestedAt.toISOString(),reason}'), "correction submissions must preserve the original event timestamp");
         assert.match(script, /function askReviewNote/);
         assert.match(script, /aria-labelledby="correction-title"/, "correction form must be exposed as an accessible dialog");
