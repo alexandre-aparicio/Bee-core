@@ -1,4 +1,5 @@
 import type { BeePlugin } from "../../core/types.js";
+import type { FilesStorageService } from "../../core/plugin-services.js";
 import type { Document } from "mongodb";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
@@ -134,6 +135,24 @@ export const filesPlugin: BeePlugin = {
     };
     const tenantDirectory = (tenantId: string) => path.join(storageRoot, createHash("sha256").update(tenantId).digest("hex"));
     const storagePath = (tenantId: string, fileId: string) => path.join(tenantDirectory(tenantId), fileId);
+    // Publish a stable storage contract for runtime-dependent plugins such as Documents.
+    // Consumers never need direct access to Files collections or filesystem paths.
+    const storageService: FilesStorageService = {
+      async getMetadata(tenantId, fileId) {
+        if (!/^[0-9a-f-]{36}$/i.test(fileId)) return null;
+        return db.collection<FileRecord>("tenant_files").findOne(
+          { tenantId, id: fileId },
+          { projection: { id: 1, tenantId: 1, originalName: 1, contentType: 1, size: 1, storageKey: 1, uploadedBy: 1, createdAt: 1 } }
+        );
+      },
+      async read(tenantId, fileId) {
+        if (!/^[0-9a-f-]{36}$/i.test(fileId)) throw new Error("Invalid file reference");
+        const file = await db.collection<FileRecord>("tenant_files").findOne({ tenantId, id: fileId });
+        if (!file || file.tenantId !== tenantId || file.id !== file.storageKey) throw new Error("File not found");
+        return readFile(storagePath(tenantId, file.storageKey));
+      }
+    };
+    ctx.services?.register("files.storage", storageService);
     const safeName = (value: string) => {
       let decoded = value;
       try { decoded = decodeURIComponent(value); } catch { /* retain the original header value */ }

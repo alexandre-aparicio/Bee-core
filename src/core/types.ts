@@ -2,6 +2,7 @@ import type { BeeEventBus } from "./event-bus.js";
 import type { FastifyInstance } from "fastify";
 import type { Db, MongoClient } from "mongodb";
 import type { TenantPluginMigration } from "./plugin-migrations.js";
+import type { BeePluginServiceRegistry } from "./plugin-services.js";
 
 export type BeePluginStatus = "registered" | "initialized" | "started" | "stopped" | "failed";
 export type BeeAuthClient = "backend" | "dashboard" | "public";
@@ -29,6 +30,8 @@ export interface BeeContext {
   readonly server: FastifyInstance;
   /** One process-wide MongoDB client shared by every plugin scope. */
   readonly mongoClient: MongoClient;
+  /** Shared typed contracts published by host plugins for declared runtime dependents. */
+  readonly services?: BeePluginServiceRegistry;
   /** Core-owned lifecycle control for signed ZIP runtimes; unavailable inside external plugin scopes. */
   readonly pluginRuntime?: BeePluginRuntimeControl;
 }
