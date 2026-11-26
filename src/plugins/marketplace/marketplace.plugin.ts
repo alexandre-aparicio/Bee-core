@@ -55,6 +55,21 @@ export const marketplacePlugin: BeePlugin = {
           db.collection("users").findOne({ id: userId, enabled: true }, { projection: { _id: 1 } })
         ]);
         return Boolean(tenant && membership && user);
+      },
+      resolveTenantContext: async (user: unknown, sessionSecret: string) => {
+        const tenant = await resolveTenantContext(db, user, {}, sessionSecret);
+        if (!tenant) return null;
+        return { tenantId: tenant.tenantId, userId: tenant.userId, client: tenant.client, role: tenant.role };
+      },
+      getTenantUserSummaries: async (tenantId: string, userIds: string[]) => {
+        const users = await db.collection("users").find({ id: { $in: userIds }, enabled: true }, {
+          projection: { id: 1, name: 1, firstName: 1, lastName: 1, email: 1 }
+        }).toArray();
+        return users.map((user: any) => ({
+          id: String(user.id),
+          name: String(user.name ?? [user.firstName, user.lastName].filter(Boolean).join(" ")).trim(),
+          email: String(user.email ?? "")
+        }));
       }
     });
 
