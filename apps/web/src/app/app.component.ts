@@ -106,14 +106,37 @@ export class AppComponent implements OnInit, OnDestroy {
   setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.i18n.setInstalledModules(this.activePlugins); for (const id of this.activePlugins) { const translations=this.pluginFrontends.resolve(id)?.translations; if (translations) { this.i18n.registerCatalog(id, "en", translations.en); this.i18n.registerCatalog(id, "es", translations.es); } } }
   isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
   private async refreshTenantPlugins(): Promise<void> {
-    if (!this.auth?.accessToken || !this.activeCompanyId) { this.setActivePlugins([]); return; }
+    if (!this.auth?.accessToken || !this.activeCompanyId) {
+      this.pluginFrontends.setRemoteNavigation([]);
+      this.setActivePlugins([]);
+      return;
+    }
     try {
       const response = await fetch(this.api + '/marketplace/plugins', { cache: 'no-store', credentials: 'same-origin', headers: { authorization: 'Bearer ' + this.auth.accessToken } });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not load enabled company plugins');
-      const enabledIds = (Array.isArray(result.plugins) ? result.plugins : []).filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true).map((plugin: any) => String(plugin.pluginKey || plugin.id || '')).filter(Boolean);
+      const enabledPackages = (Array.isArray(result.plugins) ? result.plugins : [])
+        .filter((plugin: any) => plugin?.installed === true && plugin?.enabled !== false && plugin?.entitled === true);
+      const enabledIds = enabledPackages
+        .map((plugin: any) => String(plugin.pluginKey || plugin.id || ''))
+        .filter(Boolean);
+      this.pluginFrontends.setRemoteNavigation(enabledPackages.flatMap((plugin: any) => {
+        const pluginId = String(plugin.pluginKey || '');
+        const route = Array.isArray(plugin.frontendRoutes)
+          ? plugin.frontendRoutes.find((item: any) => typeof item?.path === 'string' && item.path.startsWith('/dashboard/'))?.path
+          : undefined;
+        if (!pluginId || !route || this.pluginFrontends.resolve(pluginId)) return [];
+        const label = String(plugin.name || pluginId);
+        return [{
+          pluginId,
+          navigation: { id: pluginId, label, labelEs: String(plugin.nameEs || label), icon: 'plugins', group: 'WORKSPACE', route }
+        }];
+      }));
       this.setActivePlugins(enabledIds);
-    } catch { this.setActivePlugins([]); }
+    } catch {
+      this.pluginFrontends.setRemoteNavigation([]);
+      this.setActivePlugins([]);
+    }
   }
   t(key: string): string { return this.i18n.t(key); }
   get mode(): 'login'|'register'|'forgot' { return this.path === '/register' ? 'register' : this.path === '/forgot' ? 'forgot' : 'login'; }

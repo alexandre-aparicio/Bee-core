@@ -1,5 +1,16 @@
 # Connected Devices
 
+## Packaging and runtime status (2026-11-25)
+
+Connected Devices is delivered as a signed ZIP package. Its backend entrypoint is loaded by the verified package runtime; the Core bootstrap no longer imports or registers a bundled Connected Devices fallback. The legacy bundled platform record is retired without deleting tenant installation history, device records, pairing challenges or other tenant data. The migration allowlist remains only so an existing bundled record can be replaced by its signed ZIP; the retirement policy does not retire an uploaded ZIP.
+
+The frontend is served from the package's declared `frontend/index.html` entrypoint in the sandboxed remote-plugin iframe. The platform upload stores the verified manifest's frontend routes in the package catalogue, and the tenant marketplace returns those routes only when the tenant is entitled to discover the package. The dashboard builds generic navigation from that metadata; there is no static Angular Connected Devices component or registration.
+
+The device simulator deliberately remains a separate developer/test asset at `apps/web/src/assets/device-simulator/index.html`, not part of the production plugin frontend. It uses the same-origin `/api` path by default. Keep the existing style-guard allowlist for `src/assets/device-simulator/**`, the explicit Capacitor CORS origins and `x-device-pairing-secret` preflight header, and the existing CSP boundaries: the standalone same-origin simulator can reach the API, while sandboxed package frontends use the host API bridge. No wildcard CORS or broader plugin CSP is required.
+
+The automated acceptance covers signed ZIP discovery and installation, tenant isolation (a second tenant without a grant cannot discover, load or invoke the module), the remote frontend warning/delete flow, bodyless DELETE, JSON heartbeat, self-unlink credential invalidation and data preservation. Actual signed ZIP publication and tenant install/upgrade/uninstall/reinstall on the owner VPS remain operational checks.
+
+
 Status: **Phase A implementation in progress** on branch `feat/connected-devices-plugin`. The plugin is optional and independently installed/enabled per tenant. No POS, inventory, GPS tracking or realtime business workflow is included.
 
 ## Product vision

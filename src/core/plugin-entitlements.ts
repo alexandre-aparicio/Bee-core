@@ -28,6 +28,7 @@ export type PluginPackageDefinition = Document & {
   dependencies: string[];
   activationPolicy?: "automatic" | "manual";
   permissions?: BeePluginPermission[];
+  frontendRoutes?: Array<{ path: string; component: string }>;
   migrations?: TenantPluginMigration[];
   codeAvailable: boolean;
   status: "published" | "draft" | "deprecated";
@@ -258,6 +259,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
         version: plugin.version,
         description: plugin.description,
         category: plugin.category,
+        frontendRoutes: Array.isArray(plugin.frontendRoutes) ? plugin.frontendRoutes : [],
         purchasable: plugin.purchasable,
         system: plugin.system,
         activationPolicy: plugin.activationPolicy ?? "manual",

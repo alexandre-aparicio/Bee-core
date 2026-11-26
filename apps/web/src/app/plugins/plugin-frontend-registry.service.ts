@@ -34,6 +34,39 @@ export class BeePluginFrontendRegistry {
   private readonly registrations = new Map<string, BeePluginFrontendRegistration>(
     PLUGIN_FRONTEND_REGISTRATIONS.map(registration => [registration.pluginId, registration])
   );
+  private readonly remoteNavigation = new Map<string, BeePluginNavigation>();
+  private readonly remoteRuntimeRefs = new Map<string, string>();
+
+  /** Navigation for signed ZIP frontends is supplied by the tenant-authorized package catalogue. */
+  setRemoteNavigation(entries: Array<{ pluginId: string; runtimeRef?: string; navigation: BeePluginNavigation }>): void {
+    this.remoteNavigation.clear();
+    this.remoteRuntimeRefs.clear();
+    for (const entry of entries) {
+      const pluginId = String(entry.pluginId ?? "");
+      const navigation = entry.navigation;
+      if (!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId) ||
+          navigation?.id !== pluginId ||
+          typeof navigation.route !== "string" ||
+          !navigation.route.startsWith("/dashboard/") ||
+          navigation.route.startsWith("//") ||
+          navigation.route.includes("..") ||
+          navigation.route.includes("?") ||
+          navigation.route.includes("#")) continue;
+      this.remoteNavigation.set(pluginId, navigation);
+      if (typeof entry.runtimeRef === "string" && entry.runtimeRef.length > 0) this.remoteRuntimeRefs.set(pluginId, entry.runtimeRef);
+    }
+  }
+
+  runtimeReference(pluginId: string): string {
+    return this.remoteRuntimeRefs.get(pluginId) ?? pluginId;
+  }
+
+  private navigationEntries(): Array<[string, BeePluginNavigation]> {
+    return [
+      ...[...this.registrations.values()].map(item => [item.pluginId, item.navigation] as [string, BeePluginNavigation]),
+      ...this.remoteNavigation.entries()
+    ];
+  }
 
   resolve(pluginId: string): BeePluginFrontendRegistration | undefined {
     return this.registrations.get(pluginId);
@@ -41,51 +74,51 @@ export class BeePluginFrontendRegistry {
 
   navigation(activePluginIds: readonly string[]): BeePluginNavigation[] {
     const active = new Set(activePluginIds);
-    return [...this.registrations.values()].filter(item => active.has(item.pluginId)).map(item => item.navigation);
+    return this.navigationEntries().filter(([pluginId]) => active.has(pluginId)).map(([, navigation]) => navigation);
   }
 
   pluginForSection(sectionId: string): string | undefined {
-    for (const item of this.registrations.values()) {
-      if (item.navigation.id === sectionId || item.navigation.children?.some(child => child.id === sectionId)) return item.pluginId;
+    for (const [pluginId, navigation] of this.navigationEntries()) {
+      if (navigation.id === sectionId || navigation.children?.some(child => child.id === sectionId)) return pluginId;
     }
     return undefined;
   }
 
   routeForSection(sectionId: string): string | undefined {
-    for (const item of this.registrations.values()) {
-      if (item.navigation.id === sectionId) return item.navigation.route;
-      const child = item.navigation.children?.find(entry => entry.id === sectionId);
+    for (const [, navigation] of this.navigationEntries()) {
+      if (navigation.id === sectionId) return navigation.route;
+      const child = navigation.children?.find(entry => entry.id === sectionId);
       if (child) return child.route;
     }
     return undefined;
   }
 
   sectionForPath(path: string): string | undefined {
-    for (const item of this.registrations.values()) {
-      if (item.navigation.route === path) return item.navigation.children?.[0]?.id ?? item.navigation.id;
-      if (item.navigation.aliases?.includes(path)) return item.navigation.children?.[0]?.id ?? item.navigation.id;
-      const child = item.navigation.children?.find(entry => entry.route === path);
+    for (const [, navigation] of this.navigationEntries()) {
+      if (navigation.route === path) return navigation.children?.[0]?.id ?? navigation.id;
+      if (navigation.aliases?.includes(path)) return navigation.children?.[0]?.id ?? navigation.id;
+      const child = navigation.children?.find(entry => entry.route === path);
       if (child) return child.id;
     }
     return undefined;
   }
 
   navigationGroupForSection(sectionId: string): string | undefined {
-    for (const item of this.registrations.values()) {
-      if (item.navigation.id === sectionId || item.navigation.children?.some(child => child.id === sectionId)) return item.navigation.id;
+    for (const [, navigation] of this.navigationEntries()) {
+      if (navigation.id === sectionId || navigation.children?.some(child => child.id === sectionId)) return navigation.id;
     }
     return undefined;
   }
 
   defaultSection(navigationId: string): string | undefined {
-    const navigation = this.registrations.get(navigationId)?.navigation;
+    const navigation = this.navigationEntries().find(([pluginId]) => pluginId === navigationId)?.[1];
     return navigation?.children?.[0]?.id ?? navigation?.id;
   }
 
   labelForSection(sectionId: string, language: "en" | "es", role = ""): string | undefined {
-    for (const item of this.registrations.values()) {
-      if (item.navigation.id === sectionId) return language === "es" ? item.navigation.labelEs : item.navigation.label;
-      const child = item.navigation.children?.find(entry => entry.id === sectionId);
+    for (const [, navigation] of this.navigationEntries()) {
+      if (navigation.id === sectionId) return language === "es" ? navigation.labelEs : navigation.label;
+      const child = navigation.children?.find(entry => entry.id === sectionId);
       if (child) return child.labelsByRole?.[role]?.[language] ?? (language === "es" ? child.labelEs : child.label);
     }
     return undefined;

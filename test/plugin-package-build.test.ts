@@ -4,7 +4,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Script } from "node:vm";
 import { buildPluginPackages } from "../scripts/build-plugin-packages.mjs";
@@ -75,7 +75,10 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /Hola Mundo/);
         assert.match(script, /bee-plugin:ready/);
       } else if (item.id === "connected-devices") {
+        assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
+        assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
+        assert.deepEqual(installed.manifest.frontend.routes?.map(route => route.path), ["/dashboard/connected-devices"]);
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/connected-devices"]);
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/qrcode.min.js"));
         const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
@@ -86,6 +89,16 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /pairing-challenges/);
         assert.match(script, /approve/);
         assert.match(script, /bee-plugin:api-request/);
+        assert.match(script, /function showConfirm/);
+        assert.match(script, /role="alertdialog"/, "destructive actions must use an accessible warning dialog");
+        assert.match(script, /Delete device permanently/);
+        assert.match(script, /action.type==="delete"\?"DELETE":"POST"/);
+        assert.match(script, /action.type==="delete"\?undefined:\{\}/, "DELETE requests must not send an empty JSON body");
+        assert.match(script, /unlink/, "the owner UI must retain the unlink action");
+        const simulator = await readFile(resolve(process.cwd(), "apps/web/src/assets/device-simulator/device-simulator.js"), "utf8");
+        assert.match(simulator, /method:"POST",body:"\{\}"/, "the device simulator must send a JSON heartbeat body");
+        const bridge = await readFile(resolve(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+        assert.match(bridge, /if\s*\(body\s*!==\s*undefined\)/, "the package bridge must omit Content-Type when DELETE has no body");
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "time-tracking") {
@@ -122,6 +135,13 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /clock-out/);
         assert.doesNotThrow(() => new Script(script), "the standalone Time Tracking frontend must be valid JavaScript");
       } else if (item.id === "documents") {
+        assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
+        assert.deepEqual(installed.manifest.tenantDependencies, ["files"], "Documents may integrate with Files only");
+        const documentsPlugin = await readFile(resolve(process.cwd(), "src/plugins/documents/documents.plugin.ts"), "utf8");
+        const documentsService = await readFile(resolve(process.cwd(), "src/plugins/documents/documents.service.ts"), "utf8");
+        assert.match(documentsPlugin, /dependencies:\["auth","organizations","files"\]/, "Documents may depend on Files but not on another tenant business package");
+        assert.match(documentsService, /await hasPluginEntitlement\(db,tenant\.tenantId,"documents"\).*await isPluginInstalled\(db,tenant\.tenantId,"documents"\).*await isPluginEnabled\(db,tenant\.tenantId,"documents"\)/);
+        assert.match(documentsService, /Documents is not entitled, installed or enabled/, "Documents must fail closed when its package access is unavailable");
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/files"]);
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));

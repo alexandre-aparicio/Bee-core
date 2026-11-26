@@ -35,3 +35,17 @@ test("backend remains private to the Docker network", () => {
   assert.match(backend, /expose:\s*\n\s+- ["']?3000/);
   assert.doesNotMatch(backend, /\n\s+ports:/, "backend must not publish a host port");
 });
+
+
+test("Connected Devices companion transport keeps the explicit Capacitor CORS and CSP policy", () => {
+  const server = readFileSync(new URL("../src/index.ts", import.meta.url), "utf8");
+  const simulator = readFileSync(new URL("../apps/web/src/assets/device-simulator/device-simulator.js", import.meta.url), "utf8");
+  assert.match(server, /https:\/\/localhost,capacitor:\/\/localhost/, "native simulator origins remain explicit");
+  assert.match(server, /"x-device-pairing-secret"/, "the pairing-secret header remains preflight-allowlisted");
+  assert.match(server, /"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"/);
+  assert.ok(server.includes("const corsAllowedHeaders = new Set([") && server.includes("\"x-device-pairing-secret\""), "the pairing-secret header must remain in the CORS allowlist");
+  assert.doesNotMatch(server, /Access-Control-Allow-Origin[^\n]*\*/);
+  assert.match(nginx, /connect-src 'self'/, "the standalone same-origin simulator can reach the API");
+  assert.match(server, /connect-src 'none'/, "sandboxed package assets must continue to use the host API bridge");
+  assert.match(simulator, /"x-device-pairing-secret":credential/);
+});
