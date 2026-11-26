@@ -189,6 +189,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     const connectedDevicesEntry = alphaPluginList.json().plugins.find((plugin: any) => plugin.pluginKey === "connected-devices");
     assert.ok(connectedDevicesEntry, "a tenant with an explicit grant must discover the signed package");
     assert.deepEqual(connectedDevicesEntry.frontendRoutes, connectedDevicesRoutes);
+    const connectedDevicesPluginId = connectedDevicesEntry.id as string;
     const betaPluginList = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaPluginList.statusCode, 200);
     assert.equal(betaPluginList.json().plugins.some((plugin: any) => plugin.pluginKey === "connected-devices"), false, "a tenant without a grant must not discover the package");
@@ -197,14 +198,14 @@ test("company plans and purchases control plugin visibility, installation and ac
     const betaInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/connected-devices/install", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaInstall.statusCode, 404, "a tenant without a grant must not invoke the package install action");
 
-    const alphaInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/connected-devices/install", headers: { authorization: "Bearer " + alphaToken } });
+    const alphaInstall = await app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(connectedDevicesPluginId) + "/install", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaInstall.statusCode, 202, "a granted tenant can install the signed package: " + JSON.stringify(alphaInstall.json()));
     const connectedDevicesInstallJob = await waitForInstallJob(await resolveJobId(alphaToken, alphaInstall.json().jobId as string));
     assert.equal(connectedDevicesInstallJob.status, "succeeded");
-    const alphaActivate = await app.inject({ method: "PUT", url: "/marketplace/plugins/connected-devices/activation", headers: { authorization: "Bearer " + alphaToken }, payload: { enabled: true } });
+    const alphaActivate = await app.inject({ method: "PUT", url: "/marketplace/plugins/" + encodeURIComponent(connectedDevicesPluginId) + "/activation", headers: { authorization: "Bearer " + alphaToken }, payload: { enabled: true } });
     assert.equal(alphaActivate.statusCode, 200);
     assert.equal(alphaActivate.json().enabled, true);
-    const alphaRuntime = await app.inject({ method: "GET", url: "/marketplace/plugins/connected-devices/runtime", headers: { authorization: "Bearer " + alphaToken } });
+    const alphaRuntime = await app.inject({ method: "GET", url: "/marketplace/plugins/" + encodeURIComponent(connectedDevicesPluginId) + "/runtime", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaRuntime.statusCode, 200);
     assert.equal(alphaRuntime.json().entrypoint, "frontend/index.html");
     assert.deepEqual(alphaRuntime.json().routes, connectedDevicesRoutes);
