@@ -36,9 +36,11 @@ export class BeePluginFrontendRegistry {
   private readonly remoteNavigation = new Map<string, BeePluginNavigation>();
   private readonly remoteRuntimeRefs = new Map<string, string>();
   private readonly loadedRemotePlugins = new Set<string>();
+  private readonly remoteRuntimeCache = new Map<string, { value: unknown; expiresAt: number }>();
 
   /** Navigation for signed ZIP frontends is supplied by the tenant-authorized package catalogue. */
   setRemoteNavigation(entries: Array<{ pluginId: string; runtimeRef?: string; navigation: BeePluginNavigation }>): void {
+    this.remoteRuntimeCache.clear();
     this.remoteNavigation.clear();
     this.remoteRuntimeRefs.clear();
     for (const entry of entries) {
@@ -55,6 +57,20 @@ export class BeePluginFrontendRegistry {
       this.remoteNavigation.set(pluginId, navigation);
       if (typeof entry.runtimeRef === "string" && entry.runtimeRef.length > 0) this.remoteRuntimeRefs.set(pluginId, entry.runtimeRef);
     }
+  }
+
+  getRemoteRuntime(pluginId: string): unknown | undefined {
+    const cached = this.remoteRuntimeCache.get(pluginId);
+    if (!cached) return undefined;
+    if (cached.expiresAt <= Date.now()) {
+      this.remoteRuntimeCache.delete(pluginId);
+      return undefined;
+    }
+    return cached.value;
+  }
+
+  setRemoteRuntime(pluginId: string, value: unknown, ttlMs = 240_000): void {
+    this.remoteRuntimeCache.set(pluginId, { value, expiresAt: Date.now() + ttlMs });
   }
 
   markRemoteLoaded(pluginId: string): void {
