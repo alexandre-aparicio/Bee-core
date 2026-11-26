@@ -47,7 +47,7 @@ function crc32(buffer) {
 function zip(files) {
   const local = [], central = [];
   let offset = 0;
-  for (const [name, data] of [...files.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [name, data] of [...files.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     const nameBytes = Buffer.from(name, "utf8");
     const compressed = deflateRawSync(data, { level: 9 });
     const crc = crc32(data);
