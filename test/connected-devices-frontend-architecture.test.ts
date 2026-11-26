@@ -11,6 +11,7 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   const angular = JSON.parse(await readFile(resolve(root, "apps/web/angular.json"), "utf8"));
   const federation = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.js"), "utf8");
   const component = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.ts"), "utf8");
+  const remoteQr = await readFile(resolve(root, "plugins/connected-devices/frontend/src/assets/qrcode.min.js"), "utf8");
   await assert.rejects(access(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts")));
   await assert.rejects(access(resolve(root, "apps/web/src/app/connected-devices/connected-devices.frontend.ts")));
   assert.doesNotMatch(registrations, /connectedDevicesFrontend|connected-devices/);
@@ -21,6 +22,10 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   assert.match(federation, /singleton:\s*true/);
   assert.match(component, /fetch\("\/api"\s*\+/);
   assert.match(component, /\/connected-devices/);
+  assert.match(component, /assetBaseUrl/);
+  assert.match(component, /loadQrLibrary/);
+  assert.match(outlet, /setInput\("assetBaseUrl"/);
+  assert.ok(remoteQr.length > 10000, "the QR renderer must ship inside the signed plugin ZIP");
   assert.ok(angular.projects["connected-devices-remote"], "Connected Devices must have its own Angular remote build target");
   assert.equal(angular.projects["connected-devices-remote"].architect.build.builder, "@angular-architects/native-federation:build");
 });
@@ -37,5 +42,6 @@ test("Connected Devices signed ZIP declares and packages its federation remote",
   assert.match(plugin, /version:"0\.2\.0"/);
   assert.match(manifest, /version: "0\.2\.0"/);
   assert.match(packageConfig, /\.\/Component/);
+  assert.match(builder, /definition\.frontend\.assets = \[\.\.\.remoteFiles\.keys\(\)\]/);
   await assert.rejects(access(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts")));
 });
