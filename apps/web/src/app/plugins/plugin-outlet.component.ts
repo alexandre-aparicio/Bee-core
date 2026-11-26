@@ -177,7 +177,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     if (cached && typeof cached === "object") return cached as RemotePluginRuntime;
     if (!this.accessToken) return null;
     try {
-      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(pluginId) + "/runtime", {
+      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(this.registry.runtimeReference(pluginId)) + "/runtime", {
         method: "GET",
         credentials: "omit",
         headers: { authorization: "Bearer " + this.accessToken }
