@@ -28,9 +28,9 @@ The Control Horario package must include its complete browser frontend (HTML, Ja
 
 The remote frontend must use the existing host bridge rather than storing credentials independently or calling arbitrary origins. It must receive tenant/user context from the host, use the authorized API bridge for backend requests, and respect host navigation and theme behavior.
 
-The package manifest must declare the route, entrypoint, assets and the API prefixes actually needed by the Time Tracking UI. The package digest and publisher signature must cover every frontend asset.
+The package manifest must declare the route, entrypoint, assets, role-aware navigation metadata and the API prefixes actually needed by the Time Tracking UI. The package digest and publisher signature must cover every frontend asset and its route metadata.
 
-Once parity is proven, remove only the Time Tracking Angular frontend registration and its host imports. Do not remove Documents registration or alter its workspace outlet.
+The branch now removes only the Time Tracking Angular frontend registration, component, API service, styles, template and host translation catalog. The host derives remote navigation generically from signed package route metadata; it contains no Time Tracking-specific navigation branch. Documents registration, component, translation catalog and Files-backed workspace remain untouched.
 
 ## Functional parity checklist
 
@@ -65,14 +65,14 @@ The exact available actions must continue to be enforced by the backend; hiding 
 
 ## Validation record
 
-The first implementation slice is now present on this branch: the signed-package builder includes the standalone frontend, the host no longer statically registers the Angular Time Tracking component, and the remote runtime receives section and locale context. The frontend JavaScript syntax has been checked directly. GitHub Actions package, Angular and browser checks are pending; no claim of full workflow parity or VPS signature/install validation is made.
+The ZIP frontend and its route metadata are now declared in the signed package. The Angular Time Tracking frontend files and static registration have been removed from the host, while Documents remains registered and unchanged. Remote navigation is derived from package route metadata (including role visibility and localized labels); the iframe receives section, locale and theme context and uses the existing API bridge. The frontend JavaScript syntax was checked directly. Automated CI for the latest branch head is running; browser workflow parity, tenant/role end-to-end coverage and VPS signature/install/visual validation remain unverified.
 
 Record each run below with the exact branch SHA and result. Do not mark a check complete based only on a successful build or a test-discovery listing.
 
 | Check | Result |
 |---|---|
 | Baseline source inspection | Done |
-| ZIP-only frontend implementation | Partial | Standalone UI and package declarations committed; full browser parity and visual review pending. |
+| ZIP-only frontend implementation | In progress | Angular frontend and static registration removed; signed ZIP frontend, route metadata and generic host navigation committed. Full browser parity and visual review pending. |
 | ZIP frontend JavaScript syntax | Passed locally | Parsed successfully with the JavaScript engine; this is not a browser E2E test. |
 | Package/signature tests | Pending CI |
 | Remote runtime and bridge tests | Pending CI |
@@ -83,4 +83,4 @@ Record each run below with the exact branch SHA and result. Do not mark a check 
 
 ## Release safety
 
-Do not remove the Angular fallback until the ZIP frontend passes automated and manual parity checks. Build and sign packages on the owner's VPS using the configured publisher key pair; GitHub Actions must not generate or receive the private signing key. Keep the existing tenant data and package rollback path intact.
+Do not merge or release this branch until the ZIP frontend passes automated and manual parity checks. Build and sign package time-tracking version 0.2.2 on the owner's VPS using the configured publisher key pair; GitHub Actions must not generate or receive the private signing key. Keep the existing tenant data and package rollback path intact.
