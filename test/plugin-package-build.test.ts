@@ -12,6 +12,18 @@ import { installSignedPluginZip } from "../src/core/plugin-zip-installer.js";
 
 const distReady = existsSync(join(process.cwd(), "dist/plugins/documents/documents.plugin.js"));
 
+test("Control Horario uses the remote ZIP frontend while Documents stays natively registered", async () => {
+  const registrations = await readFile(resolve(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
+  assert.match(registrations, /documentsFrontend/, "Documents must keep its native Angular workspace registration");
+  assert.doesNotMatch(registrations, /timeTrackingFrontend/, "Control Horario must not be statically registered in the Angular host");
+  const outlet = await readFile(resolve(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+  assert.match(outlet, /loadRemoteRuntime/);
+  assert.match(outlet, /bee-plugin:init/);
+  assert.match(outlet, /bee-plugin:api-request/);
+  const documentsRegistration = await readFile(resolve(process.cwd(), "apps/web/src/app/documents/documents.frontend.ts"), "utf8");
+  assert.match(documentsRegistration, /documents/);
+});
+
 test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifier", { skip: !distReady }, async () => {
   const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 3072 });
   const root = await mkdtemp(join(tmpdir(), "bee-rsa-publisher-packages-"));
