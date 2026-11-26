@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { hasPluginEntitlement, isPluginEnabled, isPluginInstalled } from "../../core/plugin-entitlements.js";
+
 import { createPairingSecrets, hashDeviceSecret, isConnectedDeviceOwnerActive, isDeviceAdministrator, normalizeRequestedCapabilities, publicDevice } from "./connected-devices.service.js";
 import type { ConnectedDeviceRecord } from "./connected-devices.repository.js";
 const clean=(value:unknown,max=80):string=>String(value??"").replace(/[<>\u0000-\u001f]/g,"").trim().slice(0,max);
 
 export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
- const {db,repository,dashboardTenant,authenticateDevice}=deps;
+ const {db,repository,dashboardTenant,authenticateDevice,access}=deps;
  ctx.server.post("/connected-devices/pairing-challenges",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
   let requestedCapabilities:string[];try{requestedCapabilities=normalizeRequestedCapabilities(request.body?.requestedCapabilities??[]);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
@@ -36,13 +36,8 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const token=clean(request.body?.token,256);if(token.length<40)return reply.code(400).send({error:"Invalid pairing token."});
   const challenge=await repository.challenges.findOne({tokenHash:hashDeviceSecret(token),status:"issued",expiresAt:{$gt:new Date()}});
   if(!challenge)return reply.code(410).send({error:"Pairing code is invalid, expired or already used."});
-  const [entitled,installed,enabled]=await Promise.all([hasPluginEntitlement(db,challenge.tenantId,"connected-devices"),isPluginInstalled(db,challenge.tenantId,"connected-devices"),isPluginEnabled(db,challenge.tenantId,"connected-devices")]);
-  const [activeTenant,activeMembership,activeUser]=await Promise.all([
-   db.collection("tenants").findOne({id:challenge.tenantId,$or:[{status:"active"},{status:null}]},{projection:{_id:1}}),
-   db.collection("memberships").findOne({tenantId:challenge.tenantId,userId:challenge.userId,status:"active"},{projection:{_id:1}}),
-   db.collection("users").findOne({id:challenge.userId,enabled:true},{projection:{_id:1}})
-  ]);
-  if(!entitled||!installed||!enabled||!activeTenant||!activeMembership||!activeUser)return reply.code(403).send({error:"Connected Devices, company or pairing user is no longer active."});
+  const [available,ownerActive]=await Promise.all([access.isPluginAvailable(challenge.tenantId,"connected-devices"),access.isTenantUserActive(challenge.tenantId,challenge.userId)]);
+  if(!available||!ownerActive)return reply.code(403).send({error:"Connected Devices, company or pairing user is no longer active."});
   const name=clean(request.body?.name,80),deviceType=clean(request.body?.deviceType,40)||"companion",platform=clean(request.body?.platform,40)||"unknown";
   if(!name)return reply.code(400).send({error:"Device name is required."});
   const {deviceCredential}=createPairingSecrets(),now=new Date(),deviceId=randomUUID();
@@ -56,8 +51,8 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const secret=clean(request.headers["x-device-pairing-secret"],256);if(secret.length<40)return reply.code(401).send({error:"Pairing secret required."});
   const device=await repository.devices.findOne({credentialHash:hashDeviceSecret(secret)});
   if(!device||(device.pairingExpiresAt<=new Date()&&device.status==="pending"))return reply.code(404).send({error:"Pairing request expired."});
-  const [entitled,installed,enabled,ownerActive]=await Promise.all([hasPluginEntitlement(db,device.tenantId,"connected-devices"),isPluginInstalled(db,device.tenantId,"connected-devices"),isPluginEnabled(db,device.tenantId,"connected-devices"),isConnectedDeviceOwnerActive(db,device)]);
-  if(!entitled||!installed||!enabled||!ownerActive){
+  const [available,ownerActive]=await Promise.all([access.isPluginAvailable(device.tenantId,"connected-devices"),isConnectedDeviceOwnerActive(access,device)]);
+  if(!available||!ownerActive){
    if(!ownerActive)await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:{$ne:"revoked"}},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
    return reply.code(403).send({error:"Connected Devices or the device owner membership is no longer active."});
   }
@@ -80,7 +75,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!isDeviceAdministrator(tenant))return reply.code(403).send({error:"Organization administrator approval required."});
   const id=clean(request.params.deviceId,64),device=await repository.devices.findOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:new Date()}});
   if(!device)return reply.code(404).send({error:"Pending device not found or pairing request expired."});
-  if(!await isConnectedDeviceOwnerActive(db,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
+  if(!await isConnectedDeviceOwnerActive(access,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
   let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[]);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
   if(granted.some(capability=>!device.requestedCapabilities.includes(capability)))return reply.code(400).send({error:"Granted capabilities must be a subset of the device request."});
   const now=new Date(),result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:now}},{$set:{status:"active",grantedCapabilities:granted,approvedAt:now,approvedBy:tenant.userId,updatedAt:now}});
