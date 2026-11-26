@@ -15,6 +15,7 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   const federation = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.js"), "utf8");
   const remoteContract = await readFile(resolve(root, "plugins/connected-devices/frontend/src/plugin.component.ts"), "utf8");
   const component = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.ts"), "utf8");
+  const componentHtml = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.html"), "utf8");
   const remoteQr = await readFile(resolve(root, "plugins/connected-devices/frontend/src/assets/qrcode.min.js"), "utf8");
   const remoteStyles = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.css"), "utf8");
   const coreStyles = await readFile(resolve(root, "apps/web/src/app/templates/base/base.css"), "utf8");
@@ -37,7 +38,9 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   assert.match(outlet, /setInput\("assetBaseUrl"/);
   assert.match(outlet, /markRemoteLoaded/);
   assert.ok(remoteQr.length > 10000, "the QR renderer must ship inside the signed plugin ZIP");
+  assert.match(component, /templateUrl:\s*"\.\/connected-devices\.component\.html"/);
   assert.match(component, /styleUrls:\s*\["\.\/connected-devices\.component\.css"\]/);
+  assert.match(componentHtml, /bee-connected-devices/);
   assert.match(remoteStyles, /\.bee-device-card/);
   assert.doesNotMatch(coreStyles, /bee-device-card|bee-pairing/);
   assert.ok(angular.projects["connected-devices-remote"], "Connected Devices must have its own Angular remote build target");
