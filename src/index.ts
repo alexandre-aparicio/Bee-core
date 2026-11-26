@@ -247,7 +247,7 @@ app.get<{Params:{pluginId:string;version:string;assetToken:string;"*":string}}>(
   if(!relativeAsset||relativeAsset.startsWith(".."+sep)||isAbsolute(relativeAsset))return reply.code(404).send({error:"Plugin asset not found"});
   let data:Buffer;
   try{data=await readFile(assetFile);}catch{return reply.code(404).send({error:"Plugin asset not found"});}
-  const contentTypes:Record<string,string>={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".woff2":"font/woff2"};
+  const contentTypes:Record<string,string>={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".mjs":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json",".wasm":"application/wasm",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".avif":"image/avif",".gif":"image/gif",".ico":"image/x-icon",".woff":"font/woff",".woff2":"font/woff2",".ttf":"font/ttf"};
   reply.header("Content-Type",contentTypes[extname(assetPath).toLowerCase()]??"application/octet-stream");
   reply.header("X-Content-Type-Options","nosniff");
   // Asset grants are bearer credentials embedded in the URL. Never let a browser
