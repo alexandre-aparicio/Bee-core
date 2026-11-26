@@ -9,7 +9,8 @@
     "audit:production": "npm audit --omit=dev",
     "audit:styles": "node scripts/audit-styles.mjs src",
     "check:template-tokens": "node scripts/check-template-tokens.mjs",
-    "lint:styles": "npx --yes stylelint@18.1.0 --config stylelint.config.mjs \"src/app/**/*.css\" \"src/assets/**/*.css\" \"src/styles.css\""
+    "lint:styles": "npx --yes stylelint@18.1.0 --config stylelint.config.mjs \"src/app/**/*.css\" \"src/assets/**/*.css\" \"src/styles.css\"",
+    "build:connected-devices-remote": "ng build connected-devices-remote --configuration production"
   },
   "dependencies": {
     "@angular/common": "19.2.15",
