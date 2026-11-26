@@ -16,7 +16,9 @@ const request=(path,method="GET",body=undefined)=>new Promise((resolve,reject)=>
  setTimeout(()=>{if(pending.has(requestId)){pending.delete(requestId);reject(new Error("The request timed out."));}},30000);
 });
 window.addEventListener("message",event=>{
+ if(event.source!==parent)return;
  const data=event.data;if(!data||typeof data!=="object")return;
+ if(data.type==="bee-plugin:theme"){applyHostTheme(data);return;}
  if(data.type==="bee-plugin:init"){role=String(data.role||"member");section=String(data.section||"");void load();return;}
  if(data.type==="bee-plugin:api-response"&&typeof data.requestId==="string"){
   const item=pending.get(data.requestId);if(!item)return;pending.delete(data.requestId);
@@ -24,6 +26,20 @@ window.addEventListener("message",event=>{
  }
 });
 parent.postMessage({type:"bee-plugin:ready"},"*");
+const THEME_TOKENS = ["surface","surface-raised","text","text-muted","border","accent","accent-text","focus-ring","status-success","status-warning","status-danger","status-info","radius-sm","radius-md","radius-lg"];
+function applyHostTheme(message){
+ if(message.colorScheme!=="light"&&message.colorScheme!=="dark")return;
+ const values=message.tokens;
+ if(!values||typeof values!=="object")return;
+ const root=document.documentElement;
+ root.style.colorScheme=message.colorScheme;
+ for(const name of THEME_TOKENS){
+  const value=values[name];
+  if(typeof value==="string"&&value.length>0&&value.length<160&&!/[;{}]/.test(value)){
+   root.style.setProperty("--bee-"+name,value);
+  }
+ }
+}
 function notice(message,kind="message"){const node=$(kind);node.textContent=message;node.hidden=false;if(kind==="message")$("error").hidden=true;else $("message").hidden=true;}
 function clearNotices(){$("message").hidden=true;$("error").hidden=true;}
 function fmtDate(value){if(!value)return "Not connected yet";const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString();}
@@ -38,7 +54,7 @@ function renderQr(){
  $("pairing-payload").textContent=qrPayload;
  $("pairing-expiry").textContent="Expires: "+fmtDate(qrExpiresAt);
  const container=$("qr");container.replaceChildren();
- if(typeof QRCode!=="undefined")new QRCode(container,{text:qrPayload,width:180,height:180,colorDark:"#111111",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel?.M??0});
+ if(typeof QRCode!=="undefined"){const style=getComputedStyle(document.documentElement);new QRCode(container,{text:qrPayload,width:180,height:180,colorDark:style.getPropertyValue("--bee-text").trim()||"#182230",colorLight:style.getPropertyValue("--bee-surface").trim()||"#ffffff",correctLevel:QRCode.CorrectLevel?.M??0});}
  else container.textContent="QR renderer unavailable. Copy the pairing link instead.";
 }
 function selectedGrants(device){return grantsByDevice[device.id]??[];}
