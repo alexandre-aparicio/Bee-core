@@ -138,6 +138,40 @@ export const filesPlugin: BeePlugin = {
     // Publish a stable storage contract for runtime-dependent plugins such as Documents.
     // Consumers never need direct access to Files collections or filesystem paths.
     const storageService: FilesStorageService = {
+      async store(tenantId, input) {
+        if (!tenantId || !input.uploadedBy) throw new Error("Tenant and uploader are required");
+        if (!Buffer.isBuffer(input.data) || input.data.length === 0 || input.data.length > MAX_FILE_SIZE) {
+          throw new Error("File content must be a non-empty buffer no larger than 10 MB");
+        }
+        const contentType = input.contentType.split(";")[0].trim().toLowerCase();
+        if (!ALLOWED_TYPES.has(contentType) || !matchesContentType(contentType, input.data)) {
+          throw new Error("File type is not allowed or content does not match its MIME type");
+        }
+        const originalName = safeName(input.originalName);
+        const reserved = await reserveStorage(tenantId, input.data.length, await getTenantStorageLimitBytes(db, tenantId));
+        if (!reserved) throw new Error("Company storage quota exceeded");
+        const id = randomUUID();
+        const record: FileRecord = {
+          id, tenantId, originalName, contentType, size: input.data.length,
+          checksum: createHash("sha256").update(input.data).digest("hex"),
+          storageKey: id, uploadedBy: input.uploadedBy, createdAt: new Date()
+        };
+        const key = storagePath(tenantId, id);
+        try {
+          await mkdir(tenantDirectory(tenantId), { recursive: true });
+          await writeFile(key, input.data, { flag: "wx", mode: 0o600 });
+          await scopedFiles(tenantId).insertOne(record);
+        } catch (error) {
+          await unlink(key).catch(() => undefined);
+          await releaseStorage(tenantId, input.data.length);
+          throw error;
+        }
+        return {
+          id: record.id, tenantId: record.tenantId, originalName: record.originalName,
+          contentType: record.contentType, size: record.size, storageKey: record.storageKey,
+          uploadedBy: record.uploadedBy, createdAt: record.createdAt
+        };
+      },
       async getMetadata(tenantId, fileId) {
         if (!/^[0-9a-f-]{36}$/i.test(fileId)) return null;
         return db.collection<FileRecord>("tenant_files").findOne(
@@ -150,6 +184,18 @@ export const filesPlugin: BeePlugin = {
         const file = await db.collection<FileRecord>("tenant_files").findOne({ tenantId, id: fileId });
         if (!file || file.tenantId !== tenantId || file.id !== file.storageKey) throw new Error("File not found");
         return readFile(storagePath(tenantId, file.storageKey));
+      },
+      async delete(tenantId, fileId) {
+        if (!/^[0-9a-f-]{36}$/i.test(fileId)) return false;
+        const collection = scopedFiles(tenantId);
+        const file = await collection.findOne({ id: fileId });
+        if (!file) return false;
+        await unlink(storagePath(tenantId, file.storageKey)).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== "ENOENT") throw error;
+        });
+        const deleted = await collection.deleteOne({ id: fileId });
+        if (deleted.deletedCount) await releaseStorage(tenantId, file.size);
+        return deleted.deletedCount === 1;
       }
     };
     ctx.services?.register("files.storage", storageService);
