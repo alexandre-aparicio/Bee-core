@@ -36,7 +36,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
   }
 });
 
-test("four first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
+test("three first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const root = await mkdtemp(join(tmpdir(), "bee-first-party-packages-"));
   try {
@@ -56,7 +56,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
       }),
       /does not match/
     );
-    assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking"]);
+    assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "hello-world", "time-tracking"]);
     for (const item of built) {
       assert.ok(item.bytes > 100);
       const installed = await installSignedPluginZip({
