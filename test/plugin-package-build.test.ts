@@ -129,6 +129,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         ], "navigation section identifiers must travel inside the signed package");
         assert.deepEqual(installed.manifest.frontend.routes[2]?.visibleRoles, ["member", "guest"]);
         assert.equal(installed.manifest.frontend.routes[1]?.labelsByRole?.manager?.es, "Horarios");
+        assert.equal(installed.manifest.frontend.routes[1]?.labelsByRole?.superadmin?.es, "Horarios");
+        assert.equal(installed.manifest.frontend.routes[3]?.labelsByRole?.superadmin?.es, "Incidencias");
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/time-tracking"]);
         assert.deepEqual(installed.manifest.frontend.assets, ["frontend/index.html", "frontend/main.js", "frontend/styles.css"]);
