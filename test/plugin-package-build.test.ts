@@ -85,7 +85,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         const angularComponent = await readFile(resolve(process.cwd(), "apps/web/src/app/connected-devices/connected-devices.component.ts"), "utf8");
         const frontendRegistry = await readFile(resolve(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
         const qr = await readFile(resolve(process.cwd(), "apps/web/src/assets/connected-devices/qrcode.min.js"), "utf8");
-        assert.match(angularFrontend, /pluginId:\\s*"connected-devices"/);
+        assert.ok(angularFrontend.includes('pluginId: "connected-devices"'));
         assert.match(angularFrontend, /BeeConnectedDevicesComponent/);
         assert.match(frontendRegistry, /connectedDevicesFrontend/);
         assert.match(angularComponent, /pairing-challenges/);
