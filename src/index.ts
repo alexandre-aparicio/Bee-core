@@ -121,6 +121,7 @@ const pluginRuntimeControl: BeePluginRuntimeControl = {
     await db.collection("platform_plugin_packages").updateOne({ pluginId, version: item.version }, { $set: { runtimeState: "loaded", runtimeError: null, updatedAt: now } });
     await db.collection("platform_plugin_package_versions").updateOne({ pluginId, version: item.version }, { $set: { runtimeState: "loaded", runtimeError: null, runtimeCheckedAt: now } });
     await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: true, updatedAt: now } });
+    await dynamicPluginRuntime.afterRuntimeLoaded(pluginId);
     logger.info("Plugin runtime lifecycle: package mounted and available", { pluginId, version: plugin.manifest.version, apiPrefixes: plugin.manifest.apiPrefixes ?? [] });
     return { version: plugin.manifest.version };
   },
@@ -310,6 +311,7 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>): Promi
     if (runtimeState === "loaded") {
       await syncAutomaticPluginProvisioning(db, pluginId);
       await syncPluginPackageVersionUpdates(db, pluginId);
+      await dynamicPluginRuntime?.afterRuntimeLoaded(pluginId);
     }
   }
 }
