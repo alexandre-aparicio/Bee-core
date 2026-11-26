@@ -236,3 +236,45 @@ test("Core host services are not treated as tenant-installable package dependenc
   assert.equal(CORE_RUNTIME_PLUGIN_IDS.has("time-tracking"), false);
   assert.equal(CORE_RUNTIME_PLUGIN_IDS.has("hello-world"), false);
 });
+
+test("Control Horario same-version install is idempotent and the 0.2.1 upgrade runs only upgrade migrations", { skip: !migrationMongoUri }, async () => {
+  const client = new MongoClient(migrationMongoUri!);
+  await client.connect();
+  const dbName = "bee_time_tracking_upgrade_" + Date.now();
+  const db = client.db(dbName);
+  let installExecutions = 0;
+  let upgradeExecutions = 0;
+  const installMigration = {
+    id: "001_create_time_tracking_indexes",
+    checksum: "c".repeat(64),
+    phase: "install" as const,
+    up: async () => { installExecutions += 1; },
+    down: async () => {}
+  };
+  const upgradeMigration = {
+    id: "002_time_tracking_0_2_1_upgrade",
+    checksum: "d".repeat(64),
+    phase: "upgrade" as const,
+    up: async () => { upgradeExecutions += 1; },
+    down: async () => {}
+  };
+  try {
+    const firstInstall = await runTenantPluginMigrations(db, "tenant-time-tracking", "time-tracking", [installMigration]);
+    assert.deepEqual(firstInstall, { applied: ["001_create_time_tracking_indexes"], skipped: [] });
+
+    const sameVersion = await runTenantPluginMigrations(db, "tenant-time-tracking", "time-tracking", [installMigration]);
+    assert.deepEqual(sameVersion, { applied: [], skipped: ["001_create_time_tracking_indexes"] });
+    assert.equal(installExecutions, 1, "same-version install must not re-run the existing install migration");
+
+    // Marketplace update selects only migrations tagged for the upgrade phase.
+    const upgrade = await runTenantPluginMigrations(db, "tenant-time-tracking", "time-tracking", [upgradeMigration]);
+    assert.deepEqual(upgrade, { applied: ["002_time_tracking_0_2_1_upgrade"], skipped: [] });
+    assert.equal(installExecutions, 1, "the 0.2.1 upgrade must not re-run the 0.2.0 install migration");
+    assert.equal(upgradeExecutions, 1, "the new upgrade migration runs once");
+    const marketplace = await readFile(join(process.cwd(), "src/plugins/marketplace/marketplace.plugin.ts"), "utf8");
+    assert.match(marketplace, /selectTenantMigrations=\(definition:PluginPackageDefinition,phase:"install"\|"upgrade"\)=>\(definition\.migrations\?\?\)\.filter\(migration=>!migration\.phase\|\|migration\.phase===phase\)/);
+  } finally {
+    await db.dropDatabase();
+    await client.close();
+  }
+});
