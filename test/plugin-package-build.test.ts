@@ -78,7 +78,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.equal(installed.manifest.version, "0.1.4");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
-        assert.deepEqual(installed.manifest.frontend, { routes: [] }, "Connected Devices signed ZIP must carry backend metadata only; Angular navigation is host-registered");
+        assert.deepEqual(installed.manifest.frontend, { routes: [], apiPrefixes: ["/connected-devices"] }, "Connected Devices ZIP must declare its backend API dispatch prefix while Angular navigation stays host-registered");
         assert.equal(existsSync(join(installed.packageDirectory, "frontend")), false, "Connected Devices ZIP must not contain frontend assets");
         assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "Connected Devices signed ZIP must contain its backend entrypoint");
         const angularFrontend = await readFile(resolve(process.cwd(), "apps/web/src/app/connected-devices/connected-devices.frontend.ts"), "utf8");
