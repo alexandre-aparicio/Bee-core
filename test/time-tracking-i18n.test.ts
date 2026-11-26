@@ -27,9 +27,9 @@ test("Control Horario UI and backend error codes resolve to catalogue entries", 
   const component = await readFile(resolve(root, "apps/web/src/app/time-tracking/time-tracking.component.ts"), "utf8");
   const template = await readFile(resolve(root, "apps/web/src/app/time-tracking/time-tracking.component.html"), "utf8");
   const handlers = await readFile(resolve(root, "src/plugins/time-tracking/time-tracking.handlers.ts"), "utf8");
-  const english = catalog.match(/export const TIME_TRACKING_EN = \{([\\s\\S]*?)\} as const;/)?.[1] ?? "";
-  const catalogueKeys = new Set([...english.matchAll(/^\\s*"([^"]+)":/gm)].map(match => match[1]));
-  const referencedKeys = [...(component + "\\n" + template).matchAll(/\\bt\\(\\s*['"]([^'"]+)['"]\\s*\\)/g)].map(match => match[1]);
+  const english = catalog.match(/export const TIME_TRACKING_EN = \{([\s\S]*?)\} as const;/)?.[1] ?? "";
+  const catalogueKeys = new Set([...english.matchAll(/^\s*"([^"]+)":/gm)].map(match => match[1]));
+  const referencedKeys = [...(component + "\n" + template).matchAll(/\bt\(\s*['"]([^'"]+)['"]\s*\)/g)].map(match => match[1]);
   for (const key of referencedKeys) assert.ok(catalogueKeys.has(key), "Missing Control Horario translation: " + key);
 
   const dynamicKeys = [
@@ -40,7 +40,7 @@ test("Control Horario UI and backend error codes resolve to catalogue entries", 
   ];
   for (const key of dynamicKeys) assert.ok(catalogueKeys.has(key), "Missing dynamic Control Horario translation: " + key);
 
-  const errorCodes = [...handlers.matchAll(/errorCode:\\s*"([^"]+)"/g)].map(match => match[1]);
+  const errorCodes = [...handlers.matchAll(/errorCode:\s*"([^"]+)"/g)].map(match => match[1]);
   assert.ok(errorCodes.length > 0, "Backend must expose stable error codes");
   for (const code of errorCodes) assert.ok(catalogueKeys.has("error_" + code), "Missing backend error translation: " + code);
 });
