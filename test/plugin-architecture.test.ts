@@ -55,7 +55,7 @@ test("Connected Devices is ZIP-only and has no Core or Angular static registrati
   }
 
   const manifestRegistry = await readFile(resolve(root, "src/plugins/plugin-manifest-registry.ts"), "utf8");
-  const builtInPlans = manifestRegistry.split("export const TRUSTED_PLUGIN_PACKAGES")[0] ?? "";
+  const builtInPlans = manifestRegistry.slice(manifestRegistry.indexOf("export const BUILT_IN_PLANS"), manifestRegistry.indexOf("export const TRUSTED_PLUGIN_PACKAGES"));
   const trustedPackages = manifestRegistry.split("export const MIGRATABLE_BUILT_IN_PACKAGE_IDS")[0] ?? "";
   assert.doesNotMatch(builtInPlans, /connected-devices/, "Connected Devices must not be a built-in plan entitlement");
   assert.doesNotMatch(trustedPackages, /id:\s*"connected-devices"/, "Connected Devices must not be seeded as a trusted bundled package");
