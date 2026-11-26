@@ -41,7 +41,7 @@ test("Core and host dashboard stay independent from feature package identifiers"
 });
 
 
-test("Connected Devices is ZIP-only and has no Core or Angular static registration", async () => {
+test("Connected Devices backend is ZIP-only and its native Angular frontend is statically registered", async () => {
   const backendBootstrap = await readFile(resolve(root, "src/index.ts"), "utf8");
   assert.doesNotMatch(backendBootstrap, /connectedDevicesPlugin|connected-devices/, "backend bootstrap must not import or register Connected Devices");
 
@@ -63,11 +63,11 @@ test("Connected Devices is ZIP-only and has no Core or Angular static registrati
   assert.doesNotMatch(trustedPackages, /id:\s*"connected-devices"/, "Connected Devices must not be seeded as a trusted bundled package");
 
   const frontendRegistrations = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
-  assert.doesNotMatch(frontendRegistrations, /connected-devices|connectedDevicesFrontend/i);
+  assert.match(frontendRegistrations, /connectedDevicesFrontend/);
   const remoteRegistry = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
   assert.match(remoteRegistry, /setRemoteNavigation/);
   const dashboard = await readFile(resolve(root, "apps/web/src/app/app.component.ts"), "utf8");
-  assert.doesNotMatch(dashboard, /connected-devices|connectedDevicesFrontend/i, "the dashboard root must not know the Connected Devices package ID");
+  assert.doesNotMatch(dashboard, /connected-devices|connectedDevicesFrontend/i, "the dashboard root must consume the generic frontend registry");
   assert.match(dashboard, /setRemoteNavigation/);
   assert.match(dashboard, /frontendRoutes/);
   const packageUpload = await readFile(resolve(root, "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
@@ -75,13 +75,14 @@ test("Connected Devices is ZIP-only and has no Core or Angular static registrati
   const tenantCatalog = await readFile(resolve(root, "src/core/plugin-entitlements.ts"), "utf8");
   assert.match(tenantCatalog, /frontendRoutes: Array.isArray\(plugin.frontendRoutes\)/, "tenant-visible package routes must be projected from the package catalogue");
 
-  for (const file of [
-    "apps/web/src/app/connected-devices/connected-devices-api.service.ts",
-    "apps/web/src/app/connected-devices/connected-devices.component.ts",
-    "apps/web/src/app/connected-devices/connected-devices.frontend.ts"
-  ]) {
-    await assert.rejects(readFile(resolve(root, file), "utf8"), { code: "ENOENT" }, file + " must be removed from the Angular host");
-  }
+  const frontend = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.frontend.ts"), "utf8");
+  const component = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts"), "utf8");
+  assert.ok(frontend.includes("loadComponent:") && frontend.includes("BeeConnectedDevicesComponent"));
+  assert.ok(frontend.includes("/dashboard/connected-devices"));
+  assert.doesNotMatch(component, /iframe|postMessage|marketplace/);
+  assert.ok(component.includes('fetch("/api" + path'));
+  assert.ok((await readFile(resolve(root, "apps/web/src/assets/connected-devices/qrcode.min.js"), "utf8")).length > 1000,
+    "QR renderer must be shipped as a web asset, not inside the backend ZIP");
 });
 
 test("Connected Devices simulator remains a separate developer asset with its security allowances", async () => {
@@ -109,13 +110,11 @@ test("remote plugin theme bridge sends semantic presentation only", async () => 
   assert.doesNotMatch(themeMethods, /accessToken|authorization|credential|secret|jwt/i,
     "theme messages must never include credentials or authentication material");
 
-  const frame = await readFile(resolve(root, "src/plugins/connected-devices/frontend/main.js"), "utf8");
-  assert.match(frame, /event\.source!==parent/);
-  assert.match(frame, /bee-plugin:theme/);
-  assert.match(frame, /setProperty\("--bee-"/);
-  const html = await readFile(resolve(root, "src/plugins/connected-devices/frontend/index.html"), "utf8");
-  assert.match(html, /background:var\(--bee-surface\)/);
-  assert.match(html, /color:var\(--bee-text\)/);
+  const component = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts"), "utf8");
+  assert.ok(component.includes("var(--bee-text)"));
+  assert.ok(component.includes("var(--bee-surface)"));
+  assert.doesNotMatch(component, /bee-plugin:theme|postMessage|iframe/,
+    "the native Angular UI inherits the host theme directly and must not use a cross-frame bridge");
 });
 
 
@@ -137,7 +136,7 @@ test("generic host paths contain no feature-specific branches outside the explic
     // This is the single source for package metadata and legacy migration policy.
     "src/plugins/plugin-manifest-registry.ts": ["files", "documents", "connected-devices", "time-tracking", "hello-world"],
     // Feature IDs may appear only in the declarative registration list.
-    "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents", "time-tracking"],
+    "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents", "time-tracking", "connected-devices"],
     // These generic uses refer to browser file inputs and package archive files, not plugin IDs.
     "src/plugins/platform-admin/platform-admin.plugin.ts": ["files"],
     "apps/web/src/app/plugins/plugin-settings.component.ts": ["files"]
