@@ -124,6 +124,13 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(documentsManifest, /dependencies:\s*\["files"\]/, "Files remains an explicit runtime dependency");
         assert.match(documentsManifest, /tenantDependencies:\s*\[\]/, "Files must not be installed as a tenant dependency of Documents");
         assert.match(documentsManifest, /activationPolicy:\s*"manual"/);
+        assert.doesNotMatch(documentsManifest, /fileStoragePath/, "Documents must not receive Files filesystem configuration");
+        const filesAdapter = await readFile(resolve(process.cwd(), "src/plugins/documents/files-storage.adapter.ts"), "utf8");
+        assert.match(filesAdapter, /this\.files\.getMetadata/);
+        assert.match(filesAdapter, /this\.files\.read/);
+        assert.doesNotMatch(filesAdapter, /tenant_files|readFile|storageKey|storageRoot/, "Documents must not inspect Files collections or physical storage");
+        const filesPluginSource = await readFile(resolve(process.cwd(), "src/plugins/files/files.plugin.ts"), "utf8");
+        assert.match(filesPluginSource, /ctx\.services\?\.register\("files\.storage",\s*storageService\)/, "Files must publish the storage contract");
         const runtimeSource = await readFile(resolve(process.cwd(), "src/index.ts"), "utf8");
         assert.doesNotMatch(runtimeSource, /import\s*\{\s*documentsPlugin\s*\}/, "Documents backend must not be bundled into the host runtime");
         assert.doesNotMatch(runtimeSource, /plugins\.register\(documentsPlugin\)/, "Documents must only load through its signed package");
