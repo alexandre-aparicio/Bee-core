@@ -5,7 +5,7 @@ import { getTenantPluginCatalog } from "../src/core/plugin-entitlements.js";
 import {
   migrateLegacyConnectedDevicesPlanAssignments,
   recordLegacyConnectedDevicesPlanRemovals
-} from "../src/core/connected-devices-plan-migration.js";
+} from "../src/plugins/connected-devices/connected-devices-plan-migration.js";
 
 const uri = process.env.MONGODB_TEST_URI;
 
