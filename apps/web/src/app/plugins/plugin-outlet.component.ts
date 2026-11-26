@@ -98,7 +98,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
             exposedModule: runtime.exposedModule!
           }) as Record<string, unknown>;
           if (sequence !== this.renderSequence) return;
-          const componentType = (remoteModule["BeeConnectedDevicesComponent"] ?? remoteModule["default"]) as Type<unknown> | undefined;
+          const componentType = (remoteModule["PluginComponent"] ?? remoteModule["default"]) as Type<unknown> | undefined;
           if (typeof componentType !== "function") throw new Error("Native plugin did not expose its Angular component");
           const component = this.host.createComponent(componentType);
           this.registry.markRemoteLoaded(pluginId);
