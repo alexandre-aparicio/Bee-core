@@ -9,7 +9,7 @@
 | Build warnings | Angular NG8107 optional-chain warnings (8 occurrences in template compilation); Node DEP0040/DEP0169 deprecations; npm deprecated tar@6.2.1 and glob@10.5.0; GitHub Actions Node 20 deprecation warning. |
 | Playwright console errors | NOT verified: current fixture does not fail on console.error/pageerror/unhandled rejection/API 5xx, and CI logs do not capture browser console events. No such event can be inferred from passing tests. |
 | Flaky tests | None reported by this CI run; single run is not evidence of absence of flakiness. |
-| TODO/FIXME/HACK | NOT verified: GitHub code-search returned incomplete_results=true with zero matches, so it cannot establish a repository-wide count. |
+| TODO/FIXME/HACK | Verified: TODO=0, FIXME=0, HACK=0 (TOTAL=0) across `.ts`, `.html` and `.css` under `src/` and `apps/web/src/`; informational scanner step in CI Run `45802210395`, SHA `20be1dd9a78973076c16f6e2f77aa9eebee01a36`. |
 | Test skips | Backend summary reports 0 todo; skipped-test gate succeeded. Individual conditional integration skips are environment-dependent and need a separate audit. |
 
 | Feature area | Existing coverage | Baseline gap |
