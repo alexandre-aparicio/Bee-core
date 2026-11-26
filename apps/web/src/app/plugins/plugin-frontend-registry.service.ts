@@ -9,7 +9,7 @@ export type BeePluginFrontendContext = {
   section: string;
 };
 
-export type BeePluginNavigationChild = { id: string; label: string; labelEs: string; route: string; visibleRoles?: string[]; labelsByRole?: Record<string,{en:string;es:string}> };
+export type BeePluginNavigationChild = { id: string; label: string; labelEs: string; route: string; visibleRoles?: string[]; labelsByRole?: Record<string,{en?:string;es?:string}> };
 export type BeePluginNavigation = {
   id: string;
   label: string;

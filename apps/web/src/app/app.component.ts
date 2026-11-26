@@ -122,14 +122,27 @@ export class AppComponent implements OnInit, OnDestroy {
         .filter(Boolean);
       this.pluginFrontends.setRemoteNavigation(enabledPackages.flatMap((plugin: any) => {
         const pluginId = String(plugin.pluginKey || '');
-        const route = Array.isArray(plugin.frontendRoutes)
-          ? plugin.frontendRoutes.find((item: any) => typeof item?.path === 'string' && item.path.startsWith('/dashboard/'))?.path
-          : undefined;
+        const routes = Array.isArray(plugin.frontendRoutes)
+          ? plugin.frontendRoutes.filter((item: any) => typeof item?.path === 'string' && item.path.startsWith('/dashboard/'))
+          : [];
+        const route = routes[0]?.path;
         if (!pluginId || !route || this.pluginFrontends.resolve(pluginId)) return [];
         const label = String(plugin.name || pluginId);
+        const children = routes.length > 1 ? routes.map((item: any, index: number) => {
+          const segment = String(item.path).split('/').filter(Boolean).pop() || String(index + 1);
+          const fallbackLabel = segment.replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase());
+          return {
+            id: String(item.id || (pluginId + ':' + index)),
+            label: String(item.label || fallbackLabel),
+            labelEs: String(item.labelEs || item.label || fallbackLabel),
+            route: item.path,
+            ...(Array.isArray(item.visibleRoles) ? { visibleRoles: item.visibleRoles } : {}),
+            ...(item.labelsByRole && typeof item.labelsByRole === 'object' ? { labelsByRole: item.labelsByRole } : {})
+          };
+        }) : [];
         return [{
           pluginId,
-          navigation: { id: pluginId, label, labelEs: String(plugin.nameEs || label), icon: 'plugins', group: 'WORKSPACE', route }
+          navigation: { id: pluginId, label, labelEs: String(plugin.nameEs || label), icon: String(plugin.icon || 'plugins'), group: 'WORKSPACE', route, ...(children.length ? { children } : {}) }
         }];
       }));
       this.setActivePlugins(enabledIds);

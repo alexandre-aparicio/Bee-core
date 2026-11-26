@@ -11,12 +11,12 @@ const timeTrackingIndexes = [
 export const timeTrackingPlugin: BeePlugin = {
   manifest: { requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: [],
     name: "time-tracking",
-    version: "0.2.1",
+    version: "0.2.2",
     description: "Employee time clock, breaks and work-session history",
     dependencies: ["auth", "organizations"],
     scope: "tenant",
     activationPolicy: "automatic",
-    frontend: { routes: [{ path: "/dashboard/time-tracking", component: "bee-time-tracking" }] }
+    frontend: { routes: [] }
   },
   tenantMigrations: [{
     id: "001_create_time_tracking_indexes",

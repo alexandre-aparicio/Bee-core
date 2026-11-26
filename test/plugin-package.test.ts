@@ -28,6 +28,32 @@ test("plugin manifest accepts a complete, versioned and signed package contract"
   assert.doesNotThrow(() => validatePluginManifest(validManifest));
 });
 
+test("signed frontend route metadata validates IDs, localized labels and role visibility", () => {
+  const withNavigation = structuredClone(validManifest);
+  withNavigation.frontend.routes = [{
+    path: "/dashboard/time-tracking/history",
+    component: "time-tracking",
+    id: "time-tracking-history",
+    label: "History",
+    labelEs: "Historial",
+    visibleRoles: ["member", "guest"],
+    labelsByRole: { manager: { en: "Schedules", es: "Horarios" } }
+  }];
+  assert.doesNotThrow(() => validatePluginManifest(withNavigation));
+
+  const invalidId = structuredClone(withNavigation) as any;
+  invalidId.frontend.routes[0].id = "../admin";
+  assert.throws(() => validatePluginManifest(invalidId), /Invalid frontend route registrations/);
+
+  const invalidRoles = structuredClone(withNavigation) as any;
+  invalidRoles.frontend.routes[0].visibleRoles = "manager";
+  assert.throws(() => validatePluginManifest(invalidRoles), /Invalid frontend route registrations/);
+
+  const invalidLabels = structuredClone(withNavigation) as any;
+  invalidLabels.frontend.routes[0].labelsByRole.manager.es = 42;
+  assert.throws(() => validatePluginManifest(invalidLabels), /Invalid frontend route registrations/);
+});
+
 test("plugin manifest rejects unsafe paths, invalid IDs, duplicate permissions and invalid digests", () => {
   assert.throws(() => validatePluginManifest({ ...validManifest, id: "../crm" }), /plugin id/);
   assert.throws(() => validatePluginManifest({ ...validManifest, backend: { entrypoint: "../../etc/passwd" } }), /entrypoint/);

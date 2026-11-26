@@ -12,6 +12,18 @@ import { installSignedPluginZip } from "../src/core/plugin-zip-installer.js";
 
 const distReady = existsSync(join(process.cwd(), "dist/plugins/documents/documents.plugin.js"));
 
+test("Control Horario uses the remote ZIP frontend while Documents stays natively registered", async () => {
+  const registrations = await readFile(resolve(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
+  assert.match(registrations, /documentsFrontend/, "Documents must keep its native Angular workspace registration");
+  assert.doesNotMatch(registrations, /timeTrackingFrontend/, "Control Horario must not be statically registered in the Angular host");
+  const outlet = await readFile(resolve(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+  assert.match(outlet, /loadRemoteRuntime/);
+  assert.match(outlet, /bee-plugin:init/);
+  assert.match(outlet, /bee-plugin:api-request/);
+  const documentsRegistration = await readFile(resolve(process.cwd(), "apps/web/src/app/documents/documents.frontend.ts"), "utf8");
+  assert.match(documentsRegistration, /documents/);
+});
+
 test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifier", { skip: !distReady }, async () => {
   const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 3072 });
   const root = await mkdtemp(join(tmpdir(), "bee-rsa-publisher-packages-"));
@@ -30,7 +42,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
       runtimeVersion: "0.3.1"
     });
     assert.equal(installed.manifest.id, "time-tracking");
-    assert.equal(installed.manifest.version, "0.2.1");
+    assert.equal(installed.manifest.version, "0.2.2");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -102,13 +114,49 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "time-tracking") {
-        assert.equal(installed.manifest.version, "0.2.1", "the package version bump must exercise the tenant upgrade path");
+        assert.equal(installed.manifest.version, "0.2.2", "the package version bump must exercise the tenant upgrade path");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.backend.entrypoint, "dist/backend/index.mjs");
-        assert.deepEqual(installed.manifest.frontend, { routes: [] }, "native Angular frontend must not be declared in the ZIP");
-        assert.equal(existsSync(join(installed.packageDirectory, "frontend")), false, "backend-only Control Horario ZIP must not contain a frontend/ directory");
-        assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend-only manifest must install its runtime entrypoint");
+        assert.deepEqual(installed.manifest.frontend.routes.map(route => route.path), [
+          "/dashboard/time-tracking/my_jorney",
+          "/dashboard/time-tracking/schedule",
+          "/dashboard/time-tracking/history",
+          "/dashboard/time-tracking/requests"
+        ]);
+        assert.deepEqual(installed.manifest.frontend.routes.map(route => route.id), [
+          "time-tracking-day", "time-tracking-schedule", "time-tracking-history", "time-tracking-requests"
+        ], "navigation section identifiers must travel inside the signed package");
+        assert.deepEqual(installed.manifest.frontend.routes[2]?.visibleRoles, ["member", "guest"]);
+        assert.equal(installed.manifest.frontend.routes[1]?.labelsByRole?.manager?.es, "Horarios");
+        assert.equal(installed.manifest.frontend.routes[1]?.labelsByRole?.superadmin?.es, "Horarios");
+        assert.equal(installed.manifest.frontend.routes[3]?.labelsByRole?.superadmin?.es, "Incidencias");
+        assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
+        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/time-tracking"]);
+        assert.deepEqual(installed.manifest.frontend.assets, ["frontend/index.html", "frontend/main.js", "frontend/styles.css"]);
+        const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
+        const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
+        const styles = await readFile(join(installed.packageDirectory, "frontend/styles.css"), "utf8");
+        assert.match(html, /main.js/);
+        assert.match(html, /styles.css/);
+        assert.match(script, /bee-plugin:ready/);
+        assert.match(script, /bee-plugin:api-request/);
+        assert.match(script, /function reportHeight/);
+        assert.ok(script.includes('{sessionId,eventType,originalAt,requestedAt:requestedAt.toISOString(),reason}'), "correction submissions must preserve the original event timestamp");
+        assert.match(script, /function askReviewNote/);
+        assert.match(script, /aria-labelledby="correction-title"/, "correction form must be exposed as an accessible dialog");
+        assert.match(script, /aria-labelledby="review-note-title"/, "rejection notes must use an accessible in-frame dialog");
+        assert.doesNotMatch(script, /prompt\(/, "sandboxed plugin frontends must not rely on browser modal prompts");
+        assert.doesNotMatch(script, /<form|type="submit"/, "sandboxed plugin frontends must not submit forms without the allow-forms sandbox capability");
+        assert.doesNotMatch(script, /id="tabs"|\$\("tabs"\)/, "the host owns the primary plugin navigation; the iframe must not duplicate it");
+        assert.match(script, /data-subtab="activity"/, "My day must retain the Activity subtab");
+        assert.match(script, /data-subtab="team"/, "managers must retain the separate Team requests subtab");
+        for (const endpoint of ["/time-tracking/me/status", "/time-tracking/me/sessions", "/time-tracking/clock-in", "/time-tracking/break-start", "/time-tracking/break-end", "/time-tracking/clock-out", "/time-tracking/me/schedule", "/time-tracking/team/members", "/time-tracking/team/schedules", "/time-tracking/me/corrections", "/time-tracking/team/corrections"]) {
+          assert.ok(script.includes(endpoint), "ZIP frontend must call " + endpoint);
+        }
+        assert.match(styles, /\.tt-page/);
+        assert.doesNotThrow(() => new Script(script), "standalone Time Tracking frontend must be valid JavaScript");
+        assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend entrypoint must remain in the ZIP");
       } else if (item.id === "documents") {
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, ["files"], "Documents may integrate with Files only");
@@ -175,12 +223,16 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
   const pluginSource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.plugin.ts"), "utf8");
   const packageSource = await readFile(join(process.cwd(), "scripts/build-plugin-packages.mjs"), "utf8");
   const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
+  assert.match(entitlementSource, /platform_plugin_package_versions/, "remote navigation metadata must be read from the installed signed ZIP version");
+  assert.match(entitlementSource, /frontendRoutes: zipFrontendRoutes\.get\(plugin\.id\)/, "the marketplace catalogue must expose signed ZIP routes to the host navigation");
+
   const repositorySource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.repository.ts"), "utf8");
   const handlersSource = await readFile(join(process.cwd(), "src/plugins/time-tracking/time-tracking.handlers.ts"), "utf8");
   const platformAdminSource = await readFile(join(process.cwd(), "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
 
   assert.match(pluginSource, /dependencies:\s*\["auth",\s*"organizations"\]/);
   assert.doesNotMatch(pluginSource, /files|FilesStorageAdapter/i);
+  assert.match(pluginSource, /frontend:\s*\{\s*routes:\s*\[\]\s*\}/, "the backend plugin manifest must not advertise the removed Angular component");
   assert.doesNotMatch(entitlementSource, /id: "time-tracking",\s*name: "Control Horario"/, "Control Horario must not remain a trusted bundled marketplace package");
   const manifestRegistrySource = await readFile(join(process.cwd(), "src/plugins/plugin-manifest-registry.ts"), "utf8");
   assert.match(platformAdminSource, /RETIRED_PACKAGE_POLICIES/, "platform startup must consume the central retirement policy");
@@ -193,13 +245,24 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
   assert.match(repositorySource, /membershipsForTenant/);
   assert.doesNotMatch(handlersSource, /new TenantCollection/);
   const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
-  const timeTrackingFrontendSource = await readFile(join(process.cwd(), "apps/web/src/app/time-tracking/time-tracking.frontend.ts"), "utf8");
   const frontendRegistrationsSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
   assert.doesNotMatch(runtimeSource, /import\s*\{\s*timeTrackingPlugin\s*\}/, "Control Horario backend must load from its signed ZIP only");
   assert.doesNotMatch(runtimeSource, /plugins\.register\(timeTrackingPlugin\)/, "Control Horario must not retain a bundled backend fallback");
-  assert.match(timeTrackingFrontendSource, /loadComponent:[\s\S]*BeeTimeTrackingComponent/);
-  assert.match(frontendRegistrationsSource, /timeTrackingFrontend/);
+  assert.doesNotMatch(frontendRegistrationsSource, /timeTrackingFrontend/, "Control Horario must be served by its signed ZIP frontend, not Angular");
+  for (const legacyFrontend of [
+    "apps/web/src/app/time-tracking/time-tracking-api.service.ts",
+    "apps/web/src/app/time-tracking/time-tracking.component.css",
+    "apps/web/src/app/time-tracking/time-tracking.component.html",
+    "apps/web/src/app/time-tracking/time-tracking.component.ts",
+    "apps/web/src/app/time-tracking/time-tracking.frontend.ts",
+    "apps/web/src/app/i18n/catalogs/modules/time-tracking.catalog.ts"
+  ]) {
+    await assert.rejects(readFile(resolve(process.cwd(), legacyFrontend), "utf8"), { code: "ENOENT" },
+      legacyFrontend + " must be removed after the signed ZIP frontend migration");
+  }
   const outletSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+  assert.match(outletSource, /bee-plugin:resize/);
+  assert.match(outletSource, /height >= 240 && height <= 1600/, "remote iframe resizing must be bounded by the host");
   assert.ok(outletSource.indexOf("this.registry.resolve(pluginId)") < outletSource.indexOf("this.loadRemoteRuntime(pluginId)"), "native plugin frontends must render before the remote iframe fallback");
   assert.match(handlersSource, /repository\.sessionsForTenant/);
   assert.match(handlersSource, /repository\.schedulesForTenant/);
