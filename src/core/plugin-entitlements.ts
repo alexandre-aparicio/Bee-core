@@ -180,12 +180,6 @@ export async function getTenantSubscription(db: Db, tenantId: string): Promise<T
       if ((error as { code?: number }).code !== 11000) throw error;
     }
   }
-  const documentsInstalled = await installations.findOne({ pluginId: "documents", status: "installed" });
-  if (!documentsInstalled) {
-    const now = new Date();
-    try { await installations.insertOne({ id: randomUUID(), pluginId: "documents", version: packagesById.get("documents")!.version, status: "installed", installedAt: now, updatedAt: now }); }
-    catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
-  }
   return subscription;
 }
 
