@@ -101,6 +101,9 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /pairing-challenges/);
         assert.match(script, /approve/);
         assert.match(script, /bee-plugin:api-request/);
+        assert.match(script, /function reportHeight/);
+        assert.match(outletSource, /bee-plugin:resize/);
+        assert.match(outletSource, /height >= 240 && height <= 1600/, "remote iframe resizing must be bounded by the host");
         assert.match(script, /function showConfirm/);
         assert.match(script, /role="alertdialog"/, "destructive actions must use an accessible warning dialog");
         assert.match(script, /Delete device permanently/);

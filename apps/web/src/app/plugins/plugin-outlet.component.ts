@@ -92,7 +92,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       frame.loading = "lazy";
       frame.style.width = "100%";
       frame.style.minHeight = "280px";
-      frame.style.height = "720px";
+      frame.style.height = "280px";
       frame.style.border = "0";
       frame.style.display = "block";
       const entrypoint = runtime.entrypoint.split("/").map(encodeURIComponent).join("/");
