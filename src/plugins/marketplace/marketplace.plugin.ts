@@ -383,9 +383,11 @@ export const marketplacePlugin: BeePlugin = {
       if(!globalPackage)return reply.code(404).send({error:"Plugin frontend package is not loaded"});
       const version=String(globalPackage.version??"");
       const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId:plugin.id,version});
-      const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
-      if(!manifest?.frontend?.entrypoint)return reply.code(404).send({error:"Plugin has no packaged frontend"});
-      return {pluginId:plugin.id,version,entrypoint:manifest.frontend.entrypoint,apiPrefixes:manifest.frontend.apiPrefixes??[],routes:manifest.frontend.routes??[]};
+      const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;remoteEntry?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
+      const frontend=manifest?.frontend;
+      if(!frontend?.remoteEntry&&!frontend?.entrypoint)return reply.code(404).send({error:"Plugin has no packaged frontend"});
+      if(frontend.remoteEntry)return {pluginId:plugin.id,version,transport:"native-federation",remoteEntry:frontend.remoteEntry,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
+      return {pluginId:plugin.id,version,transport:"legacy-iframe",entrypoint:frontend.entrypoint,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
     });
     ctx.server.get("/public/tenant/plugins", async (request: any, reply: any) => {
       const hostname = String(request.hostname ?? "").trim().toLowerCase().replace(/\.$/, "");
