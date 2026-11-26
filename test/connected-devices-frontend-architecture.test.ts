@@ -7,6 +7,7 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   const root = process.cwd();
   const registrations = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
   const hostMain = await readFile(resolve(root, "apps/web/src/main.ts"), "utf8");
+  const remoteMain = await readFile(resolve(root, "plugins/connected-devices/frontend/src/main.ts"), "utf8");
   const outlet = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
   const angular = JSON.parse(await readFile(resolve(root, "apps/web/angular.json"), "utf8"));
   const federation = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.js"), "utf8");
@@ -16,6 +17,7 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   await assert.rejects(access(resolve(root, "apps/web/src/app/connected-devices/connected-devices.frontend.ts")));
   assert.doesNotMatch(registrations, /connectedDevicesFrontend|connected-devices/);
   assert.match(hostMain, /initFederation/);
+  assert.match(remoteMain, /initFederation/);
   assert.match(outlet, /loadRemoteModule/);
   assert.match(outlet, /ViewContainerRef|createComponent/);
   assert.match(federation, /strictVersion:\s*true/);
@@ -25,6 +27,7 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   assert.match(component, /assetBaseUrl/);
   assert.match(component, /loadQrLibrary/);
   assert.match(outlet, /setInput\("assetBaseUrl"/);
+  assert.match(outlet, /markRemoteLoaded/);
   assert.ok(remoteQr.length > 10000, "the QR renderer must ship inside the signed plugin ZIP");
   assert.ok(angular.projects["connected-devices-remote"], "Connected Devices must have its own Angular remote build target");
   assert.equal(angular.projects["connected-devices-remote"].architect.build.builder, "@angular-architects/native-federation:build");
