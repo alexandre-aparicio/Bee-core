@@ -185,6 +185,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     try {
       const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(this.registry.runtimeReference(pluginId)) + "/runtime", {
         method: "GET",
+        cache: "no-store",
         credentials: "omit",
         headers: { authorization: "Bearer " + this.accessToken }
       });
