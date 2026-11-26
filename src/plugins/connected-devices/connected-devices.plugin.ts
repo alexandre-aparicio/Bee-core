@@ -13,7 +13,7 @@ export const connectedDevicesPlugin:BeePlugin={
   const access=ctx.services?.get<PluginAccessService>("marketplace.plugin-access");
   if(!access)throw new Error("Connected Devices requires the Marketplace plugin access service.");
   const repository=new ConnectedDevicesRepository(db);await repository.initializeIndexes();
-  const services=createConnectedDevicesServices({db,secret,repository,access});registerConnectedDevicesRoutes(ctx,services);
+  const services=createConnectedDevicesServices({secret,repository,access});registerConnectedDevicesRoutes(ctx,services);
   ctx.logger.info("Connected Devices plugin initialized: secure pairing and tenant device registry ready.");
  }
 };
