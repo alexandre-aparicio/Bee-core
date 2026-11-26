@@ -102,8 +102,6 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /approve/);
         assert.match(script, /bee-plugin:api-request/);
         assert.match(script, /function reportHeight/);
-        assert.match(outletSource, /bee-plugin:resize/);
-        assert.match(outletSource, /height >= 240 && height <= 1600/, "remote iframe resizing must be bounded by the host");
         assert.match(script, /function showConfirm/);
         assert.match(script, /role="alertdialog"/, "destructive actions must use an accessible warning dialog");
         assert.match(script, /Delete device permanently/);
@@ -262,6 +260,8 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
       legacyFrontend + " must be removed after the signed ZIP frontend migration");
   }
   const outletSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+  assert.match(outletSource, /bee-plugin:resize/);
+  assert.match(outletSource, /height >= 240 && height <= 1600/, "remote iframe resizing must be bounded by the host");
   assert.ok(outletSource.indexOf("this.registry.resolve(pluginId)") < outletSource.indexOf("this.loadRemoteRuntime(pluginId)"), "native plugin frontends must render before the remote iframe fallback");
   assert.match(handlersSource, /repository\.sessionsForTenant/);
   assert.match(handlersSource, /repository\.schedulesForTenant/);
