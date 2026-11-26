@@ -69,8 +69,8 @@ test("Connected Devices backend is ZIP-only and its native Angular frontend is s
   const packageBuilder = await readFile(resolve(root, "scripts/build-plugin-packages.mjs"), "utf8");
   const runtime = await readFile(resolve(root, "src/core/dynamic-plugin-runtime.ts"), "utf8");
   assert.ok(hostAccess.includes('pluginServices.register("core.plugin-access"'));
-  assert.doesNotMatch(hostAccess, /marketplace\\.plugin-access|LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS/);
-  assert.doesNotMatch(marketplace, /marketplace\\.plugin-access/);
+  assert.ok(!hostAccess.includes("marketplace.plugin-access") && !hostAccess.includes("LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS"));
+  assert.ok(!marketplace.includes("marketplace.plugin-access"));
   assert.ok(packagePlugin.includes('core.plugin-access'));
   assert.ok(packagePlugin.includes('afterRuntimeLoaded'));
   assert.doesNotMatch(packagePlugin + packageManifest, /marketplace/);
