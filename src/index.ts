@@ -13,8 +13,8 @@ import type { BeeContext, BeeLogger, BeePlugin, BeePluginRuntimeControl } from "
 import { BeePluginServices } from "./core/plugin-services.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { replaceRuntimePlugin, unregisterRuntimePlugin } from "./core/runtime-plugin-registry.js";
-import { syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
-import { LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS } from "./plugins/plugin-manifest-registry.js";
+import { hasPluginEntitlement, isPluginInstalled, isPluginEnabled, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
+import { resolveTenantContext, type TenantClaims } from "./core/tenant-context.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
 import { authPlugin } from "./plugins/auth/auth.plugin.js";
@@ -121,6 +121,7 @@ const pluginRuntimeControl: BeePluginRuntimeControl = {
     await db.collection("platform_plugin_packages").updateOne({ pluginId, version: item.version }, { $set: { runtimeState: "loaded", runtimeError: null, updatedAt: now } });
     await db.collection("platform_plugin_package_versions").updateOne({ pluginId, version: item.version }, { $set: { runtimeState: "loaded", runtimeError: null, runtimeCheckedAt: now } });
     await db.collection("plugin_catalog").updateOne({ id: pluginId }, { $set: { codeAvailable: true, updatedAt: now } });
+    await dynamicPluginRuntime.afterRuntimeLoaded(pluginId);
     logger.info("Plugin runtime lifecycle: package mounted and available", { pluginId, version: plugin.manifest.version, apiPrefixes: plugin.manifest.apiPrefixes ?? [] });
     return { version: plugin.manifest.version };
   },
@@ -136,6 +137,8 @@ const pluginRuntimeControl: BeePluginRuntimeControl = {
   list: () => dynamicPluginRuntime?.list() ?? []
 };
 
+const pluginServices = new BeePluginServices();
+
 const ctx: BeeContext = {
   appName: "Bee-Core",
   version: "0.3.1",
@@ -143,7 +146,7 @@ const ctx: BeeContext = {
   logger,
   server: app,
   mongoClient,
-  services: new BeePluginServices(),
+  services: pluginServices,
   pluginRuntime: pluginRuntimeControl,
   config: Object.freeze({
     environment: environment.environment,
@@ -308,12 +311,48 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>): Promi
     if (runtimeState === "loaded") {
       await syncAutomaticPluginProvisioning(db, pluginId);
       await syncPluginPackageVersionUpdates(db, pluginId);
+      await dynamicPluginRuntime?.afterRuntimeLoaded(pluginId);
     }
   }
 }
 
 async function bootstrap(): Promise<void> {
   await mongoClient.connect();
+  const db = mongoClient.db(environment.mongoDbName);
+  pluginServices.register("core.plugin-access", {
+    isPluginAvailable: async (tenantId: string, pluginId: string) => {
+      const [entitled, installed, enabled] = await Promise.all([
+        hasPluginEntitlement(db, tenantId, pluginId),
+        isPluginInstalled(db, tenantId, pluginId),
+        isPluginEnabled(db, tenantId, pluginId)
+      ]);
+      return entitled && installed && enabled;
+    },
+    isTenantUserActive: async (tenantId: string, userId: string) => {
+      const [tenant, membership, user] = await Promise.all([
+        db.collection("tenants").findOne({ id: tenantId, $or: [{ status: "active" }, { status: null }] }, { projection: { _id: 1 } }),
+        db.collection("memberships").findOne({ tenantId, userId, status: "active" }, { projection: { _id: 1 } }),
+        db.collection("users").findOne({ id: userId, enabled: true }, { projection: { _id: 1 } })
+      ]);
+      return Boolean(tenant && membership && user);
+    },
+    resolveTenantContext: async (user: unknown, sessionSecret: string) => {
+      const tenant = await resolveTenantContext(db, user as TenantClaims, {}, sessionSecret);
+      if (!tenant) return null;
+      return { tenantId: tenant.tenantId, userId: tenant.userId, client: tenant.client, role: tenant.role };
+    },
+    getTenantUserSummaries: async (tenantId: string, userIds: string[]) => {
+      if (!userIds.length) return [];
+      const memberships = await db.collection("memberships").find({ tenantId, userId: { $in: userIds }, status: "active" }, { projection: { userId: 1 } }).toArray();
+      const activeUserIds = memberships.map((membership: any) => membership.userId);
+      const users = await db.collection("users").find({ id: { $in: activeUserIds }, enabled: true }, { projection: { id: 1, name: 1, firstName: 1, lastName: 1, email: 1 } }).toArray();
+      return users.map((user: any) => ({
+        id: String(user.id),
+        name: String(user.name ?? [user.firstName, user.lastName].filter(Boolean).join(" ")).trim(),
+        email: String(user.email ?? "")
+      }));
+    }
+  });
   const platformPackages = mongoClient.db(environment.mongoDbName).collection("platform_plugin_packages");
   const zipPluginFailures = await loadSignedZipPlugins();
   await plugins.mountAll(ctx);
@@ -331,8 +370,6 @@ async function bootstrap(): Promise<void> {
     }
   }
   await persistZipPluginRuntimeState(zipPluginFailures);
-  const db = mongoClient.db(environment.mongoDbName);
-  for (const migration of LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS) await migration.run(db);
   const automaticPackages = await db.collection("plugin_catalog").find({ activationPolicy: "automatic", codeAvailable: true, status: "published" }).project<{id:string}>({ id: 1, _id: 0 }).toArray();
   for (const item of automaticPackages) await syncAutomaticPluginProvisioning(db, item.id);
   await events.emit("bee.started", { at: new Date().toISOString() });

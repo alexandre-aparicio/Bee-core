@@ -40,6 +40,8 @@ export interface BeePlugin {
   manifest: BeePluginManifest;
   initialize?(ctx: BeeContext): Promise<void> | void;
   start?(ctx: BeeContext): Promise<void> | void;
+  /** Plugin-owned one-time or idempotent work after a signed package is persisted as loaded. */
+  afterRuntimeLoaded?(ctx: BeeContext): Promise<void> | void;
   stop?(ctx: BeeContext): Promise<void> | void;
   /** Trusted package hooks run per tenant through the Marketplace lifecycle worker. */
   tenantMigrations?: TenantPluginMigration[];

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MongoClient } from "mongodb";
-import { BUILT_IN_PLANS, MIGRATABLE_BUILT_IN_PACKAGE_IDS, RETIRED_PACKAGE_POLICIES, TRUSTED_PLUGIN_PACKAGES } from "../src/plugins/plugin-manifest-registry.js";
+import { BUILT_IN_PLANS, RETIRED_PACKAGE_POLICIES, TRUSTED_PLUGIN_PACKAGES } from "../src/plugins/plugin-manifest-registry.js";
 import {
   ensurePlatformPluginRegistry,
   listPlatformPluginPackages,
@@ -324,6 +324,5 @@ test("Connected Devices retires only the bundled fallback and preserves ZIP, ten
 test("Connected Devices is not a trusted bundle or built-in plan entitlement", () => {
   assert.equal(TRUSTED_PLUGIN_PACKAGES.some(plugin => plugin.id === "connected-devices"), false);
   assert.equal(BUILT_IN_PLANS.some(plan => plan.visiblePluginIds.includes("connected-devices") || plan.includedPluginIds.includes("connected-devices")), false);
-  assert.ok(RETIRED_PACKAGE_POLICIES.some(policy => policy.id === "connected-devices" && policy.retireSignedZip === false));
-  assert.ok(MIGRATABLE_BUILT_IN_PACKAGE_IDS.has("connected-devices"), "existing bundled installations must remain eligible for a signed ZIP replacement");
+  assert.equal(RETIRED_PACKAGE_POLICIES.some(policy => policy.id === "connected-devices"), false, "legacy feature packages are retired by generic ownership discovery, not a Connected Devices Core exception");
 });

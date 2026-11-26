@@ -22,7 +22,7 @@ import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "../../core/plugin-package.js";
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
-import { MIGRATABLE_BUILT_IN_PACKAGE_IDS, RETIRED_PACKAGE_POLICIES, recordLegacyPluginPlanAssignmentRemovals } from "../plugin-manifest-registry.js";
+import { RETIRED_PACKAGE_POLICIES } from "../plugin-manifest-registry.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
@@ -66,6 +66,13 @@ export const platformAdminPlugin:BeePlugin={
   // Legacy modules must only be available as separately uploaded, signed ZIP packages.
   // Preserve tenant installation history; hide only the old bundled platform record.
   // Retirements are declared once with package metadata; tenant data and history remain intact.
+  // Legacy bundled feature packages are retired generically. Their signed ZIPs
+  // own the runtime; only Core runtime plugins and trusted host packages remain bundled.
+  const legacyBundledPackages=await db.collection("platform_plugin_packages").find({source:"bundled",status:{$ne:"deprecated"}}).project<{pluginId:string}>({pluginId:1,_id:0}).toArray();
+  for(const item of legacyBundledPackages){
+   if(CORE_RUNTIME_PLUGIN_IDS.has(item.pluginId)||getTrustedPluginPackage(item.pluginId))continue;
+   await retireBundledPlatformPackage(db,item.pluginId);
+  }
   for (const policy of RETIRED_PACKAGE_POLICIES) await retireBundledPlatformPackage(db,policy.id,policy.retireSignedZip);
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // AUTH_ADMIN_EMAIL is the installation's immutable bootstrap identity:
@@ -293,7 +300,7 @@ export const platformAdminPlugin:BeePlugin={
      validateManifest:async manifest=>{
       const existing=await packages.findOne({pluginId:manifest.id});
       
-      if(existing&&existing.source!=="zip"&&!MIGRATABLE_BUILT_IN_PACKAGE_IDS.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
+      if(existing&&existing.source!=="zip"&&(CORE_RUNTIME_PLUGIN_IDS.has(manifest.id)||getTrustedPluginPackage(manifest.id)))throw new Error("Plugin ID is reserved by a Core or trusted package");
       if(existing?.version){
        const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
@@ -465,7 +472,13 @@ export const platformAdminPlugin:BeePlugin={
    const available=await plans.find({id:{$in:planIds}}).project<{id:string}>({id:1,_id:0}).toArray();
    if(available.length!==planIds.length)return reply.code(400).send({error:"One or more plan IDs do not exist"});
    const assignments=db.collection("plugin_plan_package_assignments");
-   await recordLegacyPluginPlanAssignmentRemovals(db,pluginId,planIds,actor.id);
+   const planSelectionLedger=db.collection<import("mongodb").Document & {_id:string}>("plugin_plan_package_assignment_migrations");
+   const allPlanRows=await plans.find({}).project<{id:string}>({id:1,_id:0}).toArray();
+   const selectedPlanIds=new Set(planIds);
+   for(const plan of allPlanRows){
+    const key=String(plan.id)+":"+pluginId+":admin-plan-selection-v1";
+    await planSelectionLedger.updateOne({_id:key},{$set:{planId:plan.id,pluginId,state:selectedPlanIds.has(plan.id)?"assigned":"admin-removed",actorId:actor.id,createdAt:new Date()},$setOnInsert:{_id:key}},{upsert:true});
+   }
    await assignments.deleteMany({pluginId,planId:{$nin:planIds}});
    for(const planId of planIds)await assignments.updateOne({planId,pluginId},{$setOnInsert:{planId,pluginId,createdAt:new Date(),createdBy:actor.id}},{upsert:true});
    const queued=await syncAutomaticPluginProvisioning(db,pluginId);

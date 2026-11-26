@@ -4,7 +4,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { claimPluginInstallJob, completePluginInstallJob, renewPluginInstallJobLease, enqueuePluginInstallJob, enqueuePluginUpdateJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
-import { resolveTenantContext, hasTenantPermission, type TenantClaims } from "../../core/tenant-context.js";
+import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
@@ -37,46 +37,6 @@ export const marketplacePlugin: BeePlugin = {
   },
   async initialize(ctx) {
     const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
-    // Publish authorization through a stable host contract. Feature plugins must
-    // not import Marketplace/Core entitlement implementation details.
-    ctx.services?.register("marketplace.plugin-access", {
-      isPluginAvailable: async (tenantId: string, pluginId: string) => {
-        const [entitled, installed, enabled] = await Promise.all([
-          hasPluginEntitlement(db, tenantId, pluginId),
-          isPluginInstalled(db, tenantId, pluginId),
-          isPluginEnabled(db, tenantId, pluginId)
-        ]);
-        return entitled && installed && enabled;
-      },
-      isTenantUserActive: async (tenantId: string, userId: string) => {
-        const [tenant, membership, user] = await Promise.all([
-          db.collection("tenants").findOne({ id: tenantId, $or: [{ status: "active" }, { status: null }] }, { projection: { _id: 1 } }),
-          db.collection("memberships").findOne({ tenantId, userId, status: "active" }, { projection: { _id: 1 } }),
-          db.collection("users").findOne({ id: userId, enabled: true }, { projection: { _id: 1 } })
-        ]);
-        return Boolean(tenant && membership && user);
-      },
-      resolveTenantContext: async (user: unknown, sessionSecret: string) => {
-        const tenant = await resolveTenantContext(db, user as TenantClaims, {}, sessionSecret);
-        if (!tenant) return null;
-        return { tenantId: tenant.tenantId, userId: tenant.userId, client: tenant.client, role: tenant.role };
-      },
-      getTenantUserSummaries: async (tenantId: string, userIds: string[]) => {
-        const memberships = await db.collection("memberships").find({ tenantId, userId: { $in: userIds }, status: "active" }, {
-          projection: { userId: 1 }
-        }).toArray();
-        const activeUserIds = memberships.map((membership: any) => membership.userId);
-        const users = await db.collection("users").find({ id: { $in: activeUserIds }, enabled: true }, {
-          projection: { id: 1, name: 1, firstName: 1, lastName: 1, email: 1 }
-        }).toArray();
-        return users.map((user: any) => ({
-          id: String(user.id),
-          name: String(user.name ?? [user.firstName, user.lastName].filter(Boolean).join(" ")).trim(),
-          email: String(user.email ?? "")
-        }));
-      }
-    });
-
     const getMarketplacePackage = async (pluginId:string):Promise<PluginPackageDefinition|undefined> => {
       const builtIn=getTrustedPluginPackage(pluginId);
       if(builtIn)return builtIn;

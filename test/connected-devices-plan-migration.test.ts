@@ -2,10 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MongoClient } from "mongodb";
 import { getTenantPluginCatalog } from "../src/core/plugin-entitlements.js";
-import {
-  migrateLegacyConnectedDevicesPlanAssignments,
-  recordLegacyConnectedDevicesPlanRemovals
-} from "../src/plugins/connected-devices/connected-devices-plan-migration.js";
+import { migrateLegacyConnectedDevicesPlanAssignments } from "../src/plugins/connected-devices/connected-devices-plan-migration.js";
 
 const uri = process.env.MONGODB_TEST_URI;
 
@@ -68,7 +65,11 @@ test("Connected Devices legacy plan migration is ledgered, idempotent and preser
 
     // This is the same durable marker written by the Platform Admin PUT route
     // before it deletes an assignment omitted from planIds.
-    await recordLegacyConnectedDevicesPlanRemovals(db, ["pro", "enterprise"], "admin-test");
+    await db.collection("plugin_plan_package_assignment_migrations").updateOne(
+      { _id: "starter:connected-devices:admin-plan-selection-v1" },
+      { $set: { planId: "starter", pluginId: "connected-devices", state: "admin-removed", actorId: "admin-test", createdAt: new Date() }, $setOnInsert: { _id: "starter:connected-devices:admin-plan-selection-v1" } },
+      { upsert: true }
+    );
     await assignments.deleteOne({ planId: "starter", pluginId: "connected-devices" });
     await migrateLegacyConnectedDevicesPlanAssignments(db);
     assert.equal(await assignments.findOne({ planId: "starter", pluginId: "connected-devices" }), null,

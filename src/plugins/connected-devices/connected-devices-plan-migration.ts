@@ -33,6 +33,8 @@ export async function migrateLegacyConnectedDevicesPlanAssignments(db: Db): Prom
     const key = planId + ":" + PLUGIN_ID + ":" + MIGRATION_ID;
     const existingLedger = await ledger.findOne({ _id: key });
     if (existingLedger) continue;
+    const adminDecision = await ledger.findOne({ _id: planId + ":" + PLUGIN_ID + ":admin-plan-selection-v1" });
+    if (adminDecision?.state === "admin-removed") continue;
 
     const existingAssignment = await assignments.findOne({ planId, pluginId: PLUGIN_ID });
     if (existingAssignment) {
@@ -62,24 +64,5 @@ export async function migrateLegacyConnectedDevicesPlanAssignments(db: Db): Prom
       const current = await ledger.findOne({ _id: key });
       if (!current) throw error;
     }
-  }
-}
-
-/** Record explicit admin removals so startup migration cannot restore them. */
-export async function recordLegacyConnectedDevicesPlanRemovals(
-  db: Db,
-  planIds: readonly string[],
-  actorId: string
-): Promise<void> {
-  const ledger = db.collection<Ledger>("plugin_plan_package_assignment_migrations");
-  const selected = new Set(planIds);
-  for (const planId of PLANS) {
-    if (selected.has(planId)) continue;
-    const key = planId + ":" + PLUGIN_ID + ":" + MIGRATION_ID;
-    await ledger.updateOne(
-      { _id: key },
-      { $set: { planId, pluginId: PLUGIN_ID, state: "admin-removed", actorId, createdAt: new Date() }, $setOnInsert: { _id: key } },
-      { upsert: true }
-    );
   }
 }
