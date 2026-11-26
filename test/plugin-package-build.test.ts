@@ -102,11 +102,11 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "time-tracking") {
-        assert.equal(installed.manifest.version, "0.2.1", "the package version bump must exercise the tenant upgrade path");
+        assert.equal(installed.manifest.version, "0.2.2", "the package version bump must exercise the tenant upgrade path");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.backend.entrypoint, "dist/backend/index.mjs");
-        assert.deepEqual(installed.manifest.frontend, { routes: [] }, "native Angular frontend must not be declared in the ZIP");
+        assert.deepEqual(installed.manifest.frontend, { routes: [], apiPrefixes: ["/time-tracking"] }, "the backend-only package must declare its API dispatch prefix without declaring a bundled frontend");
         assert.equal(existsSync(join(installed.packageDirectory, "frontend")), false, "backend-only Control Horario ZIP must not contain a frontend/ directory");
         assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend-only manifest must install its runtime entrypoint");
       } else if (item.id === "documents") {
