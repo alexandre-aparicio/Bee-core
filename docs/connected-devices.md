@@ -2,17 +2,15 @@
 
 ## Runtime, packaging and plan migration
 
-Connected Devices is delivered as a signed ZIP package. Its backend entrypoint is loaded by the verified package runtime; Core bootstrap does not import or register a bundled Connected Devices fallback. The frontend is served from the package's declared `frontend/index.html` entrypoint in a sandboxed remote-plugin iframe. The host builds generic navigation from the verified manifest routes. The frame uses the host API bridge and never receives a bearer token.
+Connected Devices is delivered as a signed ZIP package for its backend only. Its backend entrypoint is loaded by the verified package runtime. The ZIP contains no HTML, JavaScript or frontend assets. The dashboard interface is a native Angular standalone component in `apps/web/src/app/connected-devices/`, registered through the same frontend registration contract used by Control Horario in `apps/web/src/app/plugins/plugin-frontend-registrations.ts`. The plugin outlet mounts that component directly; Connected Devices does not use an iframe, the Marketplace runtime endpoint or the plugin API postMessage bridge. The Angular component calls the tenant-scoped `/api/connected-devices` routes with the current dashboard access token. The backend package version is `0.1.3`.
 
 The legacy bundled plan inclusion is restored by a one-time, ledgered migration after the signed ZIP is installed and its runtime is loaded. It creates `plugin_plan_package_assignments` for Starter, Pro and Enterprise only when no assignment or migration-ledger entry exists. Assignments use `source: "legacy-bundled-migration"`. The ledger records pre-existing assignments and explicit Platform Admin removals, so a later startup cannot silently re-add a package removed by an administrator. The migration changes no tenant installation, device, pairing or other tenant data.
 
 **Owner operational step if the ZIP is uploaded after Bee-Core startup:** after uploading and verifying the Connected Devices signed ZIP in Platform Admin, restart Bee-Core once so startup can load the package and run the migration. Then open Platform Admin → Plugins → Connected Devices → Plans and confirm Starter, Pro and Enterprise are assigned. If a restart is not possible, use the same Plans control to assign the intended plans explicitly. Do not delete tenant data or recreate installations as part of this step.
 
-## Host theme bridge
+## Angular frontend and theming
 
-When the frame announces `bee-plugin:ready`, the host sends `bee-plugin:init` followed by `bee-plugin:theme`. It also sends a fresh theme payload whenever the active template or light/dark mode changes. The payload contains `colorScheme` and semantic tokens resolved from the active host element with `getComputedStyle`; it contains no token, JWT, credential or secret.
-
-Supported token keys: `surface`, `surface-raised`, `text`, `text-muted`, `border`, `accent`, `accent-text`, `focus-ring`, `status-success`, `status-warning`, `status-danger`, `status-info`, `radius-sm`, `radius-md` and `radius-lg`. The frame maps these to `--bee-*` CSS variables and uses safe fallbacks until the first theme message. The sandbox remains `allow-scripts` only; the frame accepts messages only from its parent and the host accepts messages only from the registered frame window.
+The native Angular component inherits the dashboard's active theme and semantic `--bee-*` CSS variables directly. It does not need a cross-frame theme bridge, sandbox, iframe messaging or a separate remote frontend runtime. Navigation metadata is supplied by the Angular frontend registration, while API authorization and tenant isolation remain enforced by the signed backend plugin.
 
 The device simulator deliberately remains a separate developer/test asset at `apps/web/src/assets/device-simulator/index.html`, not part of the production plugin frontend. It uses the same-origin `/api` path by default. Keep the existing style-guard allowlist for `src/assets/device-simulator/**`, the explicit Capacitor CORS origins and `x-device-pairing-secret` preflight header, and the existing CSP boundaries: the standalone same-origin simulator can reach the API, while sandboxed package frontends use the host API bridge. No wildcard CORS or broader plugin CSP is required.
 
@@ -179,7 +177,7 @@ All paths below are plugin-owned and are mounted under the normal Bee-Core API p
 | POST | `/connected-devices/device/rotate-credential` | Active device atomically rotates its credential; the new value is returned once. |
 | GET | `/connected-devices/device/me` | Returns the authenticated device's non-secret profile and granted capabilities. |
 
-The backend plugin depends on the shared Auth and Organizations platform plugins only; it has no dependency on TPV, Documents, Inventory or other business extensions. The plugin manager exposes only the database name and derived session-resource secret to this plugin. Dashboard routes re-resolve the active membership and tenant session. Device authentication rechecks plugin entitlement/installation/activation and the linked user's active membership; membership removal causes device access to fail closed and revokes the credential on the next authenticated request. Consumer plugins should use the exported server-side `hasConnectedDeviceCapability` contract after validating their own authenticated tenant context.
+The backend plugin depends on the shared Auth, Organizations and Marketplace access-contract services; it has no dependency on TPV, Documents, Inventory or other business extensions. The plugin manager exposes only the database name and derived session-resource secret to this plugin. Dashboard routes re-resolve the active membership and tenant session. Device authentication rechecks plugin entitlement/installation/activation and the linked user's active membership; membership removal causes device access to fail closed and revokes the credential on the next authenticated request. Consumer plugins should use the exported server-side `hasConnectedDeviceCapability` contract after validating their own authenticated tenant context.
 
 ## Scope and status
 
@@ -206,6 +204,6 @@ Each device card exposes a vertical three-dot action menu. **Unlink** invalidate
 
 ## Device lifecycle confirmation dialogs and JSON request headers
 
-Device lifecycle warnings and destructive-action confirmations are presented in an accessible in-app modal dialog rather than the browser's native `window.confirm`. The modal identifies the selected action and device, provides an explicit cancel path, and uses a danger treatment for irreversible revoke/delete operations. API errors are also surfaced in a modal so warnings are not buried in the device-card layout.
+Device lifecycle actions require an explicit browser confirmation before destructive or access-changing operations. API errors and operation results are displayed inline in the Angular component.
 
 The Connected Devices API client now adds `Content-Type: application/json` only when a request actually has a body. Body-less DELETE requests no longer advertise an empty JSON payload, avoiding Fastify's `FST_ERR_CTP_EMPTY_JSON_BODY` parser error. Mutating POST operations that require an empty JSON payload continue to send an explicit `{}` body.
