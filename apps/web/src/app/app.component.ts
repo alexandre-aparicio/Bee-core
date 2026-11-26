@@ -130,7 +130,7 @@ export class AppComponent implements OnInit, OnDestroy {
         const label = String(plugin.name || pluginId);
         const children = routes.length > 1 ? routes.map((item: any, index: number) => {
           const segment = String(item.path).split('/').filter(Boolean).pop() || String(index + 1);
-          const fallbackLabel = segment.replace(/[-_]+/g, ' ').replace(/\\b\\w/g, (letter: string) => letter.toUpperCase());
+          const fallbackLabel = segment.replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase());
           return {
             id: String(item.id || (pluginId + ':' + index)),
             label: String(item.label || fallbackLabel),
