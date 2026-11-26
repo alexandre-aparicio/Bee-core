@@ -43,8 +43,10 @@ export interface BeeBusinessPluginManifest {
   backend: { entrypoint: string };
   frontend: {
     routes: Array<{ path: string; component: string }>;
-    /** Package-owned HTML entrypoint served inside a sandboxed iframe. */
+    /** Legacy HTML entrypoint. Retained only for existing iframe-based packages during migration. */
     entrypoint?: string;
+    /** Native Angular Federation manifest served from the signed package. */
+    remoteEntry?: string;
     /** Explicit allowlist of files that the package asset endpoint may serve. */
     assets?: string[];
     /** API path prefixes that the host may proxy for this isolated frontend. */
@@ -152,8 +154,11 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   if (!record(item.frontend) || !Array.isArray(item.frontend.routes) || item.frontend.routes.some((route: any) => !record(route) || typeof route.path !== "string" || !route.path.startsWith("/") || route.path.startsWith("//") || route.path.includes("..") || route.path.includes("?") || route.path.includes("#") || typeof route.component !== "string" || !pluginId.test(route.component))) throw new Error("Invalid frontend route registrations");
   const safeFrontendPath = (path: unknown): path is string => typeof path === "string" && path.startsWith("frontend/") && !path.includes("..") && !path.includes("\\") && !path.includes("\0") && !path.startsWith("/");
   if (item.frontend.entrypoint !== undefined && !safeFrontendPath(item.frontend.entrypoint)) throw new Error("Invalid frontend entrypoint");
+  if (item.frontend.remoteEntry !== undefined && !safeFrontendPath(item.frontend.remoteEntry)) throw new Error("Invalid frontend remote entry");
   if (item.frontend.assets !== undefined && (!Array.isArray(item.frontend.assets) || item.frontend.assets.some((path: unknown) => !safeFrontendPath(path)) || new Set(item.frontend.assets).size !== item.frontend.assets.length)) throw new Error("Invalid frontend asset allowlist");
   if (item.frontend.entrypoint && !item.frontend.assets?.includes(item.frontend.entrypoint)) throw new Error("Frontend entrypoint must be present in the asset allowlist");
+  if (item.frontend.remoteEntry && !item.frontend.assets?.includes(item.frontend.remoteEntry)) throw new Error("Frontend remote entry must be present in the asset allowlist");
+  if (item.frontend.remoteEntry && item.frontend.entrypoint) throw new Error("A frontend package cannot declare both an iframe entrypoint and a native remote entry");
   if (item.frontend.apiPrefixes !== undefined && (!Array.isArray(item.frontend.apiPrefixes) || item.frontend.apiPrefixes.some((path: unknown) => typeof path !== "string" || !path.startsWith("/") || path.startsWith("//") || path.includes("..") || path.includes("\\") || path.includes("?") || path.includes("#")) || new Set(item.frontend.apiPrefixes).size !== item.frontend.apiPrefixes.length)) throw new Error("Invalid frontend API prefix allowlist");
   if (new Set(item.frontend.routes.map((route: any) => route.path)).size !== item.frontend.routes.length) throw new Error("Frontend route paths must be unique");
   if (!Array.isArray(item.collections) || item.collections.some((name: unknown) => typeof name !== "string" || !collectionName.test(name))) throw new Error("Invalid tenant collection names");
