@@ -33,6 +33,7 @@ This spike deliberately does not replace the iframe path with an unverified `imp
 - The shell tracks evaluated remotes and reloads after a loaded remote is disabled, uninstalled or upgraded. This is necessary because browser ESM modules cannot be reliably unloaded from the current JavaScript realm.
 - Connected Devices backend and package metadata are aligned at `0.2.0`.
 - **Not ready for deployment:** `apps/web/package-lock.json` still needs regeneration for the new exact-pinned federation dependencies. No builds, tests or CI have been run, as requested. The Angular project configuration and runtime integration remain unverified until the agreed VPS validation phase.
+- The existing Nginx CSP has deliberately not been weakened. The final browser validation must confirm that `es-module-shims` and lazily injected import maps work under the current `script-src 'self'` policy; do not add `unsafe-inline` as a workaround.
 - Documents and Files have not been intentionally modified.
 
 
