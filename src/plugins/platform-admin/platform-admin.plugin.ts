@@ -300,7 +300,7 @@ export const platformAdminPlugin:BeePlugin={
    if(existing&&tenantId){const currentMembership=await memberships.findOne({userId:existing.id,tenantId});if(currentMembership?.status==="active")return reply.code(409).send({error:"This user is already an active member of the selected tenant"});}
    if(role==="owner"&&tenantId){const currentOwner=await memberships.findOne({tenantId,role:"owner",status:"active"});if(currentOwner&&currentOwner.userId!==existing?.id)return reply.code(409).send({error:"The selected tenant already has an active owner"});}
    const now=new Date();
-   let target=existing;
+   let target:User|null=existing;
    if(!target){
     target={id:randomUUID(),name,email,passwordHash:await bcrypt.hash(password,12),roles:["user"],enabled:true,allowedClients:["dashboard","public"],...(tenantId?{tenantId}:{}),createdAt:now,updatedAt:now};
     await users.insertOne(target);
