@@ -28,7 +28,20 @@ export interface StoredFileMetadata {
   createdAt: Date;
 }
 
+export interface StoreFileInput {
+  originalName: string;
+  contentType: string;
+  uploadedBy: string;
+  data: Buffer;
+}
+
+/**
+ * Internal tenant-scoped storage contract for trusted plugins.
+ * Public dashboard uploads still go through the Files HTTP API and its user ACLs.
+ */
 export interface FilesStorageService {
+  store(tenantId: string, input: StoreFileInput): Promise<StoredFileMetadata>;
   getMetadata(tenantId: string, fileId: string): Promise<StoredFileMetadata | null>;
   read(tenantId: string, fileId: string): Promise<Buffer>;
+  delete(tenantId: string, fileId: string): Promise<boolean>;
 }
