@@ -383,12 +383,12 @@ export const marketplacePlugin: BeePlugin = {
       if(!globalPackage)return reply.code(404).send({error:"Plugin frontend package is not loaded"});
       const version=String(globalPackage.version??"");
       const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId:plugin.id,version});
-      const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;remoteEntry?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
+      const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;remoteEntry?:string;remoteName?:string;exposedModule?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
       const frontend=manifest?.frontend;
       if(!frontend?.remoteEntry&&!frontend?.entrypoint)return reply.code(404).send({error:"Plugin has no packaged frontend"});
       if(frontend.remoteEntry){
-        const assetToken=(ctx.server as any).jwt.sign({purpose:"plugin-asset",tenantId:tenant.tenantId,userId:tenant.userId,pluginId:plugin.id,version},{expiresIn:"5m"});
-        return {pluginId:plugin.id,version,transport:"native-federation",remoteEntry:frontend.remoteEntry,assetToken,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
+        const assetToken=(ctx.server as any).jwt.sign({purpose:"plugin-asset",tenantId:tenant.tenantId,userId:tenant.userId,sessionId:tenant.sessionId,client:tenant.client,pluginId:plugin.id,version},{expiresIn:"5m"});
+        return {pluginId:plugin.id,version,transport:"native-federation",remoteEntry:frontend.remoteEntry,remoteName:frontend.remoteName,exposedModule:frontend.exposedModule,assetToken,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
       }
       return {pluginId:plugin.id,version,transport:"legacy-iframe",entrypoint:frontend.entrypoint,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
     });
