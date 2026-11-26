@@ -9,7 +9,7 @@ export const connectedDevicesFrontend: BeePluginFrontendRegistration = {
     label: "Connected Devices",
     labelEs: "Dispositivos conectados",
     icon: "smartphone",
-    group: "PLATFORM",
+    group: "WORKSPACE",
     route: "/dashboard/connected-devices"
   }
 };
