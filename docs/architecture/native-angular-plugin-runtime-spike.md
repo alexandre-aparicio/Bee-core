@@ -2,7 +2,7 @@
 
 ## Result
 
-The repository is **not currently able to load an Angular component from a signed ZIP**. Connected Devices is still statically registered by the web application and its Angular component is compiled as part of the core web build. The ZIP builder declares no Connected Devices frontend assets.
+The repository is **not currently able to load an Angular component from a signed ZIP**. Connected Devices is still statically registered by the web application and its Angular component is compiled as part of the core web build. The ZIP builder now declares a Native Federation remote entry and can package a separately built federation output directory, but that remote build target and Angular host loader are not implemented yet.
 
 This spike deliberately does not replace the iframe path with an unverified `import(url)`. Doing so without a compatible Angular compilation and dependency-sharing contract would either fail in production or bundle a second Angular runtime.
 
@@ -24,6 +24,15 @@ This spike deliberately does not replace the iframe path with an unverified `imp
 5. The host mounts the component in its own Angular view tree (no iframe), owns route/navigation registration, and destroys the component and unregisters routes on uninstall.
 6. Because JavaScript modules cannot be reliably unloaded after evaluation, uninstall must invalidate the module URL/cache and force a controlled application reload before claiming that plugin code has disappeared from the active page.
 
+## Implementation status (2026-11-26)
+
+- Added `frontend.remoteEntry` to the signed package manifest contract, with validation that it is a safe `frontend/` path and is included in the asset allowlist. A package cannot declare both an iframe entrypoint and a native remote entry.
+- The marketplace runtime endpoint now returns `transport: native-federation` and `remoteEntry` for packages using the new contract, while preserving the legacy iframe response for existing packages.
+- The signed package asset endpoint permits the declared remote entry in addition to the explicit asset allowlist.
+- The Connected Devices package builder now expects a separately built Native Federation output directory (`BEE_CONNECTED_DEVICES_FEDERATION_DIST`, default `artifacts/connected-devices-federation`) and includes all files under `frontend/` in the signed ZIP. It fails closed if `remoteEntry.json` is missing.
+- Connected Devices package metadata is bumped to `0.2.0` for this new frontend contract.
+- **Not implemented yet:** the Angular 19 federation host bootstrap/configuration, the separately compiled remote project, the typed remote component contract, removal of the static Connected Devices registration, and the native mount/uninstall lifecycle. Do not deploy or pull this branch yet.
+
 ## Build-system decision still required
 
 The current Angular application builder does not provide a configured remote Angular plugin artifact. A production implementation must choose and test one supported compilation/loading strategy (for example, Native Federation with shared Angular singletons, or a separately compiled Angular plugin library plus an explicit host runtime contract). A plain dynamic import is not sufficient evidence of Angular compatibility, dependency sharing, or unload behavior.
@@ -35,6 +44,6 @@ A native Angular plugin runs in the same JavaScript realm and origin as Bee Core
 ## Scope of this spike
 
 - Created on branch `refactor/native-angular-plugin-runtime`.
-- No production code, existing plugin behavior, Documents, Files, or `main` was changed.
+- Backend package/runtime contract and package builder were changed on this branch. Existing frontend behavior, Documents, Files, and `main` were not changed.
 - No build or test is claimed as passing; the GitHub-connected inspection did not execute the repository toolchain.
-- Next implementation step: add the chosen remote Angular build target and a minimal proof plugin, then prove production build, same Angular singleton, tenant-gated mount, uninstall/reload, and regression tests before migrating Connected Devices.
+- Next implementation step: add the Angular 19 federation host bootstrap and remote build target, then migrate Connected Devices out of the core bundle. No tests/builds are being run during this implementation phase; validation is deferred to the VPS as requested.
