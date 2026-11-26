@@ -233,7 +233,8 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
     "apps/web/src/app/time-tracking/time-tracking.component.css",
     "apps/web/src/app/time-tracking/time-tracking.component.html",
     "apps/web/src/app/time-tracking/time-tracking.component.ts",
-    "apps/web/src/app/time-tracking/time-tracking.frontend.ts"
+    "apps/web/src/app/time-tracking/time-tracking.frontend.ts",
+    "apps/web/src/app/i18n/catalogs/modules/time-tracking.catalog.ts"
   ]) {
     await assert.rejects(readFile(resolve(process.cwd(), legacyFrontend), "utf8"), { code: "ENOENT" },
       legacyFrontend + " must be removed after the signed ZIP frontend migration");
