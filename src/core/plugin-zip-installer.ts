@@ -194,7 +194,6 @@ export async function installSignedPluginZip(options: {
   catch { fail("bee-plugin.json is not valid UTF-8 JSON"); }
   validatePluginManifest(manifestValue);
   const manifest = manifestValue as BeeBusinessPluginManifest;
-  if (manifest.id === "documents") fail("Documents packages are disabled and cannot be installed by this Bee-Core version.");
   const digest = packageDigest(files);
   if (manifest.package.sha256.toLowerCase() !== digest) fail("Package content digest does not match bee-plugin.json");
   const expectedStorageKey = `packages/${manifest.id}/${manifest.version}`;
@@ -281,7 +280,6 @@ export async function verifyStoredPluginDirectory(options: {
   catch { fail("Stored plugin manifest is invalid"); }
   validatePluginManifest(value);
   const manifest = value as BeeBusinessPluginManifest;
-  if (manifest.id === "documents") fail("Documents packages are disabled and cannot be loaded by this Bee-Core version.");
   const digest = packageDigest(files);
   if (manifest.package.sha256.toLowerCase() !== digest) fail("Stored plugin package digest verification failed");
   verifyPublisherSignature(manifest, options.publisherPublicKey);
