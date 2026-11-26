@@ -24,7 +24,7 @@ type PlatformTenant = {id:string;name:string};
       <section class="platform-users__identity bee-dashboard-card" aria-labelledby="platform-users-title">
         <div class="platform-users__identity-heading">
           <span class="platform-users__identity-mark" aria-hidden="true"><bee-icon name="users" size="24px"></bee-icon></span>
-          <div><h2 id="platform-users-title">Platform users</h2><p>Global directory · Manage accounts and tenant access</p></div>
+          <div><h2 id="platform-users-title">Platform users</h2></div>
         </div>
       </section>
 
