@@ -2,7 +2,7 @@
 export const PLUGIN_MANIFEST = {
   id: "documents",
   name: "Documents",
-  version: "0.4.0",
+  version: "0.1.5",
   description: "Tenant document library, folder ACLs and controlled public delivery.",
   category: "platform",
   // Files is a host runtime service dependency, not a tenant package to install.
