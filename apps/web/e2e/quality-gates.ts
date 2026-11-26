@@ -2,7 +2,7 @@ import { test as base, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 type BrowserDiagnostic = {
-  kind: 'console.error' | 'pageerror' | 'api.5xx';
+  kind: 'console.error' | 'pageerror' | 'api.5xx' | 'api.requestfailed';
   detail: string;
 };
 
@@ -30,6 +30,14 @@ async function installQualityGate(page: Page, diagnostics: BrowserDiagnostic[]):
       });
     }
   });
+  page.on('requestfailed', request => {
+    const url = new URL(request.url());
+    if (!url.pathname.startsWith('/api/')) return;
+    diagnostics.push({
+      kind: 'api.requestfailed',
+      detail: request.method() + ' ' + url.pathname + ': ' + (request.failure()?.errorText ?? 'unknown network failure')
+    });
+  });
 }
 
 export const test = base.extend({
@@ -37,7 +45,7 @@ export const test = base.extend({
     const diagnostics: BrowserDiagnostic[] = [];
     await installQualityGate(page, diagnostics);
     await use(page);
-    expect(diagnostics, 'Unexpected browser console errors, uncaught exceptions or API 5xx responses').toEqual([]);
+    expect(diagnostics, 'Unexpected browser console errors, uncaught exceptions, API 5xx responses or failed API requests').toEqual([]);
   }
 });
 
