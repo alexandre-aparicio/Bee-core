@@ -103,7 +103,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /bee-plugin:api-request/);
         assert.match(script, /function askReviewNote/);
         assert.match(script, /role="dialog"/, "review notes must use an accessible in-frame dialog, not a blocked browser prompt");
-        assert.doesNotMatch(script, /prompt\\(/, "sandboxed plugin frontends must not rely on browser modal prompts");
+        assert.doesNotMatch(script, /prompt\(/, "sandboxed plugin frontends must not rely on browser modal prompts");
         assert.match(script, /function showConfirm/);
         assert.match(script, /role="alertdialog"/, "destructive actions must use an accessible warning dialog");
         assert.match(script, /Delete device permanently/);
