@@ -89,9 +89,9 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       if (runtime.transport === "native-federation" && runtime.remoteEntry) {
         try {
           if (!runtime.assetToken) throw new Error("Native plugin asset authorization is missing");
-          const remoteEntryUrl = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" +
-            encodeURIComponent(runtime.version) + "/assets/" + encodeURIComponent(runtime.assetToken) + "/" +
-            runtime.remoteEntry.split("/").map(encodeURIComponent).join("/");
+          const remoteAssetBaseUrl = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" +
+            encodeURIComponent(runtime.version) + "/assets/" + encodeURIComponent(runtime.assetToken) + "/frontend/";
+          const remoteEntryUrl = remoteAssetBaseUrl + runtime.remoteEntry.slice("frontend/".length).split("/").map(encodeURIComponent).join("/");
           const remoteModule = await loadRemoteModule({
             remoteEntry: remoteEntryUrl,
             remoteName: runtime.remoteName!,
@@ -106,6 +106,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
           component.setInput("role", this.role);
           component.setInput("accessToken", this.accessToken);
           component.setInput("section", this.section);
+          component.setInput("assetBaseUrl", remoteAssetBaseUrl);
         } catch (error) {
           console.error("Could not mount native Angular plugin", { pluginId, version: runtime.version, error });
         }
