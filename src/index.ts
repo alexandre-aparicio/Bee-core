@@ -13,7 +13,7 @@ import type { BeeContext, BeeLogger, BeePlugin, BeePluginRuntimeControl } from "
 import { BeePluginServices } from "./core/plugin-services.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { replaceRuntimePlugin, unregisterRuntimePlugin } from "./core/runtime-plugin-registry.js";
-import { hasPluginEntitlement, isPluginInstalled, isPluginEnabled, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
+import { hasPluginEntitlement, isPluginInstalled, isPluginEnabled, isPlatformPluginEnabled, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
 import { resolveTenantContext, type TenantClaims } from "./core/tenant-context.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
@@ -211,6 +211,48 @@ app.get<{Params:{pluginId:string;version:string;"*":string}}>("/plugin-packages/
   reply.header("Content-Security-Policy","default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'");
   return reply.send(data);
 });
+app.get<{Params:{pluginId:string;version:string;assetToken:string;"*":string}}>("/plugin-packages/:pluginId/:version/assets/:assetToken/*",async(request,reply)=>{
+  const {pluginId,version,assetToken}=request.params;
+  const assetPath=String(request.params["*"]??"");
+  if(!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId)||!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\\\")||assetPath.includes("\\0")){
+    return reply.code(404).send({error:"Plugin asset not found"});
+  }
+  let claims:any;
+  try { claims=app.jwt.verify(assetToken); } catch { return reply.code(404).send({error:"Plugin asset not found"}); }
+  if(claims?.purpose!=="plugin-asset"||claims.pluginId!==pluginId||claims.version!==version||typeof claims.tenantId!=="string"||typeof claims.userId!=="string"){
+    return reply.code(404).send({error:"Plugin asset not found"});
+  }
+  const db=mongoClient.db(environment.mongoDbName);
+  const [tenant,membership,user,entitled,installed,enabled,platformEnabled,packageRecord]=await Promise.all([
+    db.collection("tenants").findOne({id:claims.tenantId,$or:[{status:"active"},{status:null}]},{projection:{_id:1}}),
+    db.collection("memberships").findOne({tenantId:claims.tenantId,userId:claims.userId,status:"active"},{projection:{_id:1}}),
+    db.collection("users").findOne({id:claims.userId,enabled:true},{projection:{_id:1}}),
+    hasPluginEntitlement(db,claims.tenantId,pluginId),
+    isPluginInstalled(db,claims.tenantId,pluginId),
+    isPluginEnabled(db,claims.tenantId,pluginId),
+    isPlatformPluginEnabled(db,pluginId),
+    db.collection("platform_plugin_packages").findOne({pluginId,version,status:"installed",source:"zip",runtimeState:"loaded"})
+  ]);
+  if(!tenant||!membership||!user||!entitled||!installed||!enabled||!platformEnabled||!packageRecord||typeof packageRecord.packageDirectory!=="string"){
+    return reply.code(404).send({error:"Plugin asset not found"});
+  }
+  const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId,version});
+  const manifest=versionRecord?.manifest as {frontend?:{remoteEntry?:string;assets?:string[]}}|undefined;
+  const allowed=new Set([...(manifest?.frontend?.assets??[]),...(manifest?.frontend?.remoteEntry?[manifest.frontend.remoteEntry]:[])]);
+  if(!manifest?.frontend?.remoteEntry||!allowed.has(assetPath))return reply.code(404).send({error:"Plugin asset not found"});
+  const packageDirectory=resolve(packageRecord.packageDirectory);
+  const assetFile=resolve(packageDirectory,assetPath);
+  const relativeAsset=relative(packageDirectory,assetFile);
+  if(!relativeAsset||relativeAsset.startsWith(".."+sep)||isAbsolute(relativeAsset))return reply.code(404).send({error:"Plugin asset not found"});
+  let data:Buffer;
+  try{data=await readFile(assetFile);}catch{return reply.code(404).send({error:"Plugin asset not found"});}
+  const contentTypes:Record<string,string>={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".woff2":"font/woff2"};
+  reply.header("Content-Type",contentTypes[extname(assetPath).toLowerCase()]??"application/octet-stream");
+  reply.header("X-Content-Type-Options","nosniff");
+  reply.header("Cache-Control","private, max-age=60");
+  return reply.send(data);
+});
+
 app.get("/", async () => ({
   name: "Bee-Core",
   slogan: "All Is a Plugin",
