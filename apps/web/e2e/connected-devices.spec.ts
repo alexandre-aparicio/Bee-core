@@ -110,6 +110,25 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
 
   const plugin = page.frameLocator('iframe[title="connected-devices plugin"]');
   await expect(plugin.getByRole("heading", { name: "Connected Devices" })).toBeVisible({ timeout: 15000 });
+  const initialTheme = await plugin.locator("body").evaluate(element => ({
+    background: getComputedStyle(element).backgroundColor,
+    text: getComputedStyle(element).color
+  }));
+  await page.evaluate(() => {
+    document.documentElement.dataset["beeActiveTemplate"] = "paper";
+    document.documentElement.dataset["beeActiveMode"] = "dark";
+    document.documentElement.style.setProperty("--bee-surface", "rgb(18, 24, 38)");
+    document.documentElement.style.setProperty("--bee-surface-raised", "rgb(28, 36, 52)");
+    document.documentElement.style.setProperty("--bee-text", "rgb(240, 244, 250)");
+    document.documentElement.style.setProperty("--bee-text-muted", "rgb(180, 190, 205)");
+    document.documentElement.style.setProperty("--bee-accent", "rgb(150, 135, 255)");
+  });
+  await expect.poll(() => plugin.locator("body").evaluate(element => ({
+    background: getComputedStyle(element).backgroundColor,
+    text: getComputedStyle(element).color
+  }))).toEqual({ background: "rgb(18, 24, 38)", text: "rgb(240, 244, 250)" });
+  expect(initialTheme.background).not.toBe("rgb(18, 24, 38)");
+  expect(initialTheme.text).not.toBe("rgb(240, 244, 250)");
   const card = plugin.locator("article.card").filter({ hasText: "QA Scanner" });
   await expect(card).toBeVisible();
 
