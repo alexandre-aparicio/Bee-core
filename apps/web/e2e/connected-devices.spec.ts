@@ -84,7 +84,7 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
         frontendRoutes: routes
       }] };
     } else if (path.endsWith("/marketplace/plugins/connected-devices/runtime")) {
-      body = { pluginId: "connected-devices", version: "0.1.0", entrypoint: "frontend/index.html", apiPrefixes: ["/connected-devices"], routes };
+      body = { pluginId: "connected-devices", version: "0.1.2", entrypoint: "frontend/index.html", apiPrefixes: ["/connected-devices"], routes };
     } else if (path.endsWith("/templates/preferences") || path.endsWith("/templates/public")) {
       body = { selection: { public: "aurora", dashboard: "midnight" }, installedTemplates: ["aurora", "editorial", "studio", "midnight", "paper", "glass"] };
     } else if (path.endsWith("/notifications")) {
@@ -154,9 +154,17 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
 test("Connected Devices capability choices stay visible when the device registry request fails", async ({ page }) => {
   const script = await readFile(resolve(process.cwd(), "../../src/plugins/connected-devices/frontend/main.js"), "utf8");
   await page.addInitScript(() => {
-    if (typeof crypto.randomUUID !== "function") {
-      Object.defineProperty(crypto, "randomUUID", { configurable: true, value: () => "test-request-id" });
-    }
+    const nativeCrypto = window.crypto;
+    Object.defineProperty(window, "crypto", {
+      configurable: true,
+      value: new Proxy(nativeCrypto, {
+        get(target, property) {
+          if (property === "randomUUID") return () => "test-request-id";
+          const value = Reflect.get(target, property, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        }
+      })
+    });
   });
   await page.setContent(`
     <div id="message" hidden></div><div id="error" hidden role="alert"></div>
