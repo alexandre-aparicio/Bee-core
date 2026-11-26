@@ -53,13 +53,13 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
     const url = new URL(route.request().url());
     const path = url.pathname;
     const method = route.request().method();
-    if (path.endsWith("/plugin-packages/connected-devices/0.1.0/assets/frontend/index.html")) {
+    if (path.endsWith("/plugin-packages/connected-devices/0.1.1/assets/frontend/index.html")) {
       return route.fulfill({ status: 200, contentType: "text/html", body: entrypoint });
     }
-    if (path.endsWith("/plugin-packages/connected-devices/0.1.0/assets/frontend/main.js")) {
+    if (path.endsWith("/plugin-packages/connected-devices/0.1.1/assets/frontend/main.js")) {
       return route.fulfill({ status: 200, contentType: "application/javascript", body: script });
     }
-    if (path.endsWith("/plugin-packages/connected-devices/0.1.0/assets/frontend/qrcode.min.js")) {
+    if (path.endsWith("/plugin-packages/connected-devices/0.1.1/assets/frontend/qrcode.min.js")) {
       return route.fulfill({ status: 200, contentType: "application/javascript", body: qr });
     }
 
