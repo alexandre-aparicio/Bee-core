@@ -14,6 +14,12 @@ export class BeeDynamicPluginRuntime {
   list() { return [...this.mounted.entries()].map(([pluginId, entry]) => ({ pluginId, version: entry.plugin.manifest.version, apiPrefixes: [...entry.apiPrefixes] })); }
   has(pluginId: string): boolean { return this.mounted.has(pluginId); }
 
+  async afterRuntimeLoaded(pluginId: string): Promise<void> {
+    const mounted = this.mounted.get(pluginId);
+    if (!mounted) throw new Error("Plugin runtime is not mounted: " + pluginId);
+    await mounted.plugin.afterRuntimeLoaded?.(mounted.context);
+  }
+
   async mount(plugin: BeePlugin): Promise<void> {
     const pluginId = plugin.manifest?.name;
     if (!pluginId || !plugin.manifest.version) throw new Error("External plugin requires a stable ID and version");
