@@ -28,7 +28,6 @@ export async function migrateLegacyConnectedDevicesPlanAssignments(db: Db): Prom
 
   const assignments = db.collection("plugin_plan_package_assignments");
   const ledger = db.collection<Ledger>("plugin_plan_package_assignment_migrations");
-  await ledger.createIndex({ _id: 1 }, { unique: true, name: "plugin_plan_assignment_migration_unique" });
 
   for (const planId of PLANS) {
     const key = planId + ":" + PLUGIN_ID + ":" + MIGRATION_ID;
