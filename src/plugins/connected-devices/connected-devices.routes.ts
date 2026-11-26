@@ -66,8 +66,8 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!canManage)filter.ownerUserId=tenant.userId;
   const devices=await repository.devices.find(filter).sort({createdAt:-1}).limit(200).toArray();
   const ownerIds=[...new Set(devices.map((device:ConnectedDeviceRecord)=>device.ownerUserId))];
-  const owners=canManage&&ownerIds.length?await db.collection("users").find({id:{$in:ownerIds}},{projection:{id:1,email:1,name:1,firstName:1,lastName:1}}).toArray():[];
-  const ownerById=new Map(owners.map((owner:any)=>[owner.id,{name:String(owner.name??[owner.firstName,owner.lastName].filter(Boolean).join(" ")).trim(),email:String(owner.email??"")} ]));
+  const owners=canManage&&ownerIds.length?await access.getTenantUserSummaries(tenant.tenantId,ownerIds):[];
+  const ownerById=new Map(owners.map((owner:any)=>[owner.id,{name:owner.name,email:owner.email}]));
   return {devices:devices.map((device:ConnectedDeviceRecord)=>({...publicDevice(device),...(canManage?{owner:ownerById.get(device.ownerUserId)??{name:"Former member",email:""}}:{})})),canManage};
  });
  ctx.server.post("/connected-devices/:deviceId/approve",async(request:any,reply:any)=>{
