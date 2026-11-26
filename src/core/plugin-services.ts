@@ -7,7 +7,7 @@ export class BeePluginServices implements BeePluginServiceRegistry {
   private readonly services = new Map<string, unknown>();
 
   register<T>(key: string, service: T): void {
-    if (!/^[a-z][a-z0-9.-]*\\.[a-z][a-z0-9.-]*$/.test(key)) throw new Error("Invalid plugin service key: " + key);
+    if (!/^[a-z][a-z0-9.-]*\.[a-z][a-z0-9.-]*$/.test(key)) throw new Error("Invalid plugin service key: " + key);
     if (this.services.has(key)) throw new Error("Plugin service is already registered: " + key);
     this.services.set(key, service);
   }
