@@ -5,7 +5,7 @@ export const PLUGIN_MANIFEST = {
   version: "0.1.4",
   description: "Tenant device pairing, identity and capability grants.",
   category: "platform",
-  dependencies: ["auth", "organizations", "marketplace"],
+  dependencies: ["auth", "organizations"],
   requiredServices: ["mongoDbName", "sessionIdSecret"],
   optionalServices: [],
   tenantDependencies: [],
