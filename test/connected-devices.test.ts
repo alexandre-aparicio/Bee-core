@@ -1,7 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {CONNECTED_DEVICE_CAPABILITIES,createPairingSecrets,hashDeviceSecret,isConnectedDeviceOwnerActive,isDeviceAdministrator,normalizeRequestedCapabilities,publicDevice} from "../src/plugins/connected-devices/connected-devices.service.js";
-import type {Db} from "mongodb";
 test("capability requests are unique, bounded and restricted to the supported vocabulary",()=>{
  assert.deepEqual(normalizeRequestedCapabilities(["scanner.use","scanner.use","catalog.read"]),["scanner.use","catalog.read"]);
  assert.throws(()=>normalizeRequestedCapabilities(["admin.root"]),/not supported/);
@@ -35,13 +34,12 @@ test("only tenant owners and admins can manage the tenant device registry",()=>{
  assert.equal(isDeviceAdministrator(context("manager")),false);
  assert.equal(isDeviceAdministrator(context("member")),false);
 });
-test("device access requires an active user, membership and tenant",async()=>{
+test("device owner activity is delegated to the host access contract",async()=>{
  const device:any={tenantId:"tenant-1",ownerUserId:"user-1"};
- const makeDb=(membership:any,user:any,tenant:any)=>({
-  collection:(name:string)=>({findOne:async()=>name==="memberships"?membership:name==="users"?user:tenant})
- }) as unknown as Db;
- assert.equal(await isConnectedDeviceOwnerActive(makeDb({_id:1},{_id:1},{_id:1}),device),true);
- assert.equal(await isConnectedDeviceOwnerActive(makeDb(null,{_id:1},{_id:1}),device),false);
- assert.equal(await isConnectedDeviceOwnerActive(makeDb({_id:1},null,{_id:1}),device),false);
- assert.equal(await isConnectedDeviceOwnerActive(makeDb({_id:1},{_id:1},null),device),false);
+ const calls:Array<[string,string]>=[];
+ const access={isTenantUserActive:async(tenantId:string,userId:string)=>{calls.push([tenantId,userId]);return true;}};
+ assert.equal(await isConnectedDeviceOwnerActive(access as any,device),true);
+ assert.deepEqual(calls,[["tenant-1","user-1"]]);
+ access.isTenantUserActive=async()=>false;
+ assert.equal(await isConnectedDeviceOwnerActive(access as any,device),false);
 });
