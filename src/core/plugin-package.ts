@@ -47,6 +47,10 @@ export interface BeeBusinessPluginManifest {
     entrypoint?: string;
     /** Native Angular Federation manifest served from the signed package. */
     remoteEntry?: string;
+    /** Native Federation remote registry name. */
+    remoteName?: string;
+    /** Exposed federation module (for example ./Component). */
+    exposedModule?: string;
     /** Explicit allowlist of files that the package asset endpoint may serve. */
     assets?: string[];
     /** API path prefixes that the host may proxy for this isolated frontend. */
@@ -155,6 +159,9 @@ export function validatePluginManifest(value: unknown): asserts value is BeeBusi
   const safeFrontendPath = (path: unknown): path is string => typeof path === "string" && path.startsWith("frontend/") && !path.includes("..") && !path.includes("\\") && !path.includes("\0") && !path.startsWith("/");
   if (item.frontend.entrypoint !== undefined && !safeFrontendPath(item.frontend.entrypoint)) throw new Error("Invalid frontend entrypoint");
   if (item.frontend.remoteEntry !== undefined && !safeFrontendPath(item.frontend.remoteEntry)) throw new Error("Invalid frontend remote entry");
+  if (item.frontend.remoteName !== undefined && !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(item.frontend.remoteName)) throw new Error("Invalid frontend remote name");
+  if (item.frontend.exposedModule !== undefined && !/^\\.\\/[A-Za-z0-9_./-]+$/.test(item.frontend.exposedModule)) throw new Error("Invalid frontend exposed module");
+  if (item.frontend.remoteEntry && (!item.frontend.remoteName || !item.frontend.exposedModule)) throw new Error("Native Federation requires remoteName and exposedModule");
   if (item.frontend.assets !== undefined && (!Array.isArray(item.frontend.assets) || item.frontend.assets.some((path: unknown) => !safeFrontendPath(path)) || new Set(item.frontend.assets).size !== item.frontend.assets.length)) throw new Error("Invalid frontend asset allowlist");
   if (item.frontend.entrypoint && !item.frontend.assets?.includes(item.frontend.entrypoint)) throw new Error("Frontend entrypoint must be present in the asset allowlist");
   if (item.frontend.remoteEntry && !item.frontend.assets?.includes(item.frontend.remoteEntry)) throw new Error("Frontend remote entry must be present in the asset allowlist");
