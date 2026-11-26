@@ -29,6 +29,8 @@ jobs:
         run: npm run build
       - name: Install web dependencies for the federation remote
         run: npm ci --prefix apps/web
+      - name: Build Connected Devices federation remote
+        run: npm --prefix apps/web run build:connected-devices-remote
       - name: Require the configured package signing key
         shell: bash
         run: |
