@@ -25,9 +25,9 @@ The plugin outlet registers those catalogs when the installed module is mounted.
 Use the standalone `beeT` pipe in templates:
 
 ```html
-<h2>{{ 'notes:title' | beeT }}</h2>
+<h2>{{ 'my-module:title' | beeT }}</h2>
 ```
 
-Or inject `BeeI18nService` and call `t('notes:title')` from TypeScript. Core keys use the `core` namespace; settings keys use `settings:key`.
+Or inject `BeeI18nService` and call `t('my-module:title')` from TypeScript. Core keys use the `core` namespace; settings keys use `settings:key`.
 
 Missing keys fall back to English, then to the key itself. Catalogs should use stable semantic keys rather than translated text as identifiers.

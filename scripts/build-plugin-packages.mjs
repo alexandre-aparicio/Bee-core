@@ -1,7 +1,8 @@
 import { createHash, createPrivateKey, createPublicKey, sign, verify as verifySignature } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { deflateRawSync } from "node:zlib";
+import { pathToFileURL } from "node:url";
 
 const ROOT = resolve(process.cwd());
 const DIST = join(ROOT, "dist");
@@ -14,22 +15,26 @@ const PACKAGES = [
   { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], requiredServices: [], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } }
 ];
 
-const PACKAGE_PERMISSIONS = {
-  "connected-devices": [
-    { key: "connected-devices.read", module: "connected-devices", resource: "devices", action: "read", label: "View connected devices", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
-    { key: "connected-devices.manage", module: "connected-devices", resource: "devices", action: "manage", label: "Manage connected devices", defaultGrants: { owner: true, admin: true, manager: false, member: false } }
-  ],
-  "time-tracking": [
-    { key: "time-tracking.read", module: "time-tracking", resource: "records", action: "read", label: "View time records", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
-    { key: "time-tracking.clock", module: "time-tracking", resource: "clock", action: "create", label: "Register working time", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
-    { key: "time-tracking.manage", module: "time-tracking", resource: "records", action: "manage", label: "Manage time records", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
-  ],
-  documents: [
-    { key: "documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
-    { key: "documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
-  ],
-  "hello-world": []
-};
+
+
+async function discoverPluginManifests(distDir) {
+  const sourceRoot = join(ROOT, "src", "plugins");
+  const folders = await readdir(sourceRoot, { withFileTypes: true });
+  const manifests = new Map();
+  for (const folder of folders.filter(item => item.isDirectory())) {
+    const sourceFolder = join(sourceRoot, folder.name);
+    const sourceFiles = await readdir(sourceFolder);
+    if (!sourceFiles.includes("plugin.manifest.ts")) continue;
+    const compiledPath = join(distDir, "plugins", folder.name, "plugin.manifest.js");
+    const loaded = await import(pathToFileURL(compiledPath).href);
+    const manifest = loaded.PLUGIN_MANIFEST ?? loaded.default;
+    if (!manifest || manifest.id !== folder.name || !Array.isArray(manifest.permissions)) {
+      throw new Error("Invalid plugin-owned manifest in " + folder.name);
+    }
+    manifests.set(manifest.id, manifest);
+  }
+  return manifests;
+}
 
 function crc32(buffer) {
   let crc = 0xffffffff;
@@ -132,7 +137,13 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
   const output = resolve(outputDir);
   await mkdir(output, { recursive: true });
   const results = [];
+  const pluginManifests = await discoverPluginManifests(distDir);
   for (const definition of PACKAGES) {
+    const pluginManifest = pluginManifests.get(definition.id);
+    if (definition.id !== "hello-world" && !pluginManifest) throw new Error("Missing plugin-owned manifest for " + definition.id);
+    if (pluginManifest && ["name", "version", "description", "category", "activationPolicy"].some(key => pluginManifest[key] !== definition[key])) {
+      throw new Error("Package metadata drift between builder and plugin-owned manifest for " + definition.id);
+    }
     const entry = resolve(distDir, definition.entry), entryRelative = relative(resolve(distDir), entry);
     const files = await collectModuleGraph(entryRelative, distDir);
     const wrapperPath = "dist/backend/index.mjs";
@@ -157,7 +168,7 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
       requiredServices: definition.requiredServices ?? [],
       optionalServices: definition.optionalServices ?? [],
       tenantDependencies: definition.tenantDependencies,
-      permissions: PACKAGE_PERMISSIONS[definition.id] ?? [], backend: { entrypoint: wrapperPath }, frontend: definition.frontend ?? { routes: [] },
+      permissions: pluginManifest?.permissions ?? [], backend: { entrypoint: wrapperPath }, frontend: definition.frontend ?? { routes: [] },
       collections: [], migrations: definition.migrations ?? [], settingsSchema: { type: "object", properties: {} },
       package: { sha256: "", signature: "", storageKey: "packages/" + definition.id + "/" + definition.version }
     };

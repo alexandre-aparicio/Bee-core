@@ -66,8 +66,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     this.remoteHost.nativeElement.replaceChildren();
 
     for (const pluginId of this.pluginIds) {
-      // Use the same native host-component mechanism as the working Documents
-      // frontend. Only plugins without a host registration use the remote runtime.
+      // Prefer a registered native host component; only unregistered plugins use the remote runtime.
       const registration = this.registry.resolve(pluginId);
       if (registration) {
         if (registration.translations) {

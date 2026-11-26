@@ -1,5 +1,6 @@
 import { Injectable, type Type } from "@angular/core";
 import { PLUGIN_FRONTEND_REGISTRATIONS } from "./plugin-frontend-registrations";
+import { createFrontendRegistrationMap } from "./plugin-frontend-registration-map";
 
 export type BeePluginFrontendContext = {
   tenantId: string;
@@ -31,9 +32,7 @@ export type BeePluginFrontendRegistration = {
 /** Generic host contract. Feature modules own and contribute their registrations. */
 @Injectable({ providedIn: "root" })
 export class BeePluginFrontendRegistry {
-  private readonly registrations = new Map<string, BeePluginFrontendRegistration>(
-    PLUGIN_FRONTEND_REGISTRATIONS.map(registration => [registration.pluginId, registration])
-  );
+  private readonly registrations = createFrontendRegistrationMap<BeePluginFrontendRegistration>(PLUGIN_FRONTEND_REGISTRATIONS);
   private readonly remoteNavigation = new Map<string, BeePluginNavigation>();
   private readonly remoteRuntimeRefs = new Map<string, string>();
 
