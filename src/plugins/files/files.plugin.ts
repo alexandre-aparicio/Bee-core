@@ -140,6 +140,8 @@ export const filesPlugin: BeePlugin = {
     const storageService: FilesStorageService = {
       async store(tenantId, input) {
         if (!tenantId || !input.uploadedBy) throw new Error("Tenant and uploader are required");
+        const uploaderMembership = await db.collection("memberships").findOne({ tenantId, userId: input.uploadedBy, status: "active" }, { projection: { _id: 1 } });
+        if (!uploaderMembership) throw new Error("Uploader must have an active membership in the target tenant");
         if (!Buffer.isBuffer(input.data) || input.data.length === 0 || input.data.length > MAX_FILE_SIZE) {
           throw new Error("File content must be a non-empty buffer no larger than 10 MB");
         }
