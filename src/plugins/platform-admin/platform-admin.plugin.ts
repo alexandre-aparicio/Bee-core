@@ -25,7 +25,7 @@ import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js"
 import { RETIRED_PACKAGE_POLICIES } from "../plugin-manifest-registry.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
-type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
+type User={_id?:import("mongodb").ObjectId;id:string;name?:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
 type Membership={id:string;userId:string;tenantId:string;role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom";status:"active"|"invited"|"suspended";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string};
 export const platformAdminPlugin:BeePlugin={
@@ -246,6 +246,76 @@ export const platformAdminPlugin:BeePlugin={
   });
   ctx.server.get("/platform/me",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;return {platformAdmin:true,role:"super_admin",email:user.email};});
   ctx.server.get("/platform/companies",async(req,reply)=>{const user=await guard(req,reply);if(!user)return;const list=await companies.find({kind:{$ne:"super"}}).sort({createdAt:-1}).toArray();return {companies:await Promise.all(list.map(async c=>({id:mask(req.platformSession!,c.id,"tenant"),name:c.name,slug:c.slug??null,status:c.status??"active",createdAt:c.createdAt,membersCount:await memberships.countDocuments({tenantId:c.id,status:"active"})}))) };});
+  ctx.server.get("/platform/users",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const [allUsers,allMemberships,allTenants]=await Promise.all([
+    users.find({}).project<{id:string;name?:string;email:string;enabled:boolean;createdAt:Date}>({id:1,name:1,email:1,enabled:1,createdAt:1,_id:0}).sort({createdAt:-1}).toArray(),
+    memberships.find({}).toArray(),
+    companies.find({}).project<{id:string;name:string;kind?:string}>({id:1,name:1,kind:1,_id:0}).toArray()
+   ]);
+   const tenantNames=new Map(allTenants.map(item=>[item.id,item.name]));
+   const membershipsByUser=new Map<string,Membership[]>();
+   for(const membership of allMemberships){const rows=membershipsByUser.get(membership.userId)??[];rows.push(membership);membershipsByUser.set(membership.userId,rows);}
+   return {users:allUsers.map(item=>{
+    const rows=membershipsByUser.get(item.id)??[];
+    const selected=rows.find(row=>row.role==="super_admin"&&row.status==="active")??rows.find(row=>row.status==="active")??rows[0];
+    const tenantIds=[...new Set(rows.map(row=>row.tenantId))];
+    const tenantNamesForUser=tenantIds.map(id=>tenantNames.get(id)).filter((name):name is string=>Boolean(name));
+    return {
+     id:mask(req.platformSession!,item.id,"user"),name:item.name??"",email:item.email,
+     role:selected?.role??(item.roles?.includes("admin")?"admin":"member"),
+     status:!item.enabled?"disabled":selected?.status??"active",
+     tenantId:selected?mask(req.platformSession!,selected.tenantId,"tenant"):null,
+     tenantName:tenantNamesForUser.join(", ")||null,
+     createdAt:item.createdAt
+    };
+   })};
+  });
+  ctx.server.post<{Body:{name?:string;email?:string;tenantId?:string;role?:string;password?:string}}>("/platform/users",async(req,reply)=>{
+   const actor=await guard(req,reply);if(!actor)return;
+   const name=String(req.body?.name??"").trim(),email=String(req.body?.email??"").trim().toLowerCase();
+   const role=String(req.body?.role??"member").trim();
+   const password=String(req.body?.password??"");
+   if(name.length<2||name.length>120||!/^\\S+@\\S+\\.\\S+$/.test(email))return reply.code(400).send({error:"A valid name and email are required"});
+   if(!["owner","admin","manager","member","guest","superadmin"].includes(role))return reply.code(400).send({error:"Unsupported platform user role"});
+   if(password.length<12)return reply.code(400).send({error:"A temporary password of at least 12 characters is required"});
+   let tenantId="";
+   try{
+    if(role==="superadmin"){
+     if(req.body?.tenantId)return reply.code(400).send({error:"Superadmins belong to the Super Organization, not a tenant"});
+     const root=await companies.findOne({kind:"super",status:"active"});
+     if(!root)return reply.code(503).send({error:"Super Organization is unavailable"});
+     tenantId=root.id;
+    }else if(typeof req.body?.tenantId==="string"&&req.body.tenantId.trim()){
+     tenantId=unmaskResourceId(req.body.tenantId.trim(),"tenant",req.platformSession!,sessionIdSecret);
+     const tenant=await companies.findOne({id:tenantId,kind:{$ne:"super"},status:"active"});
+     if(!tenant)return reply.code(404).send({error:"Tenant not found or unavailable"});
+    }
+   }catch{return reply.code(404).send({error:"Tenant not found"});}
+   const existing=await users.findOne({email});
+   if(existing&&!existing.enabled)return reply.code(409).send({error:"This user account is disabled"});
+   const now=new Date();
+   let target=existing;
+   if(!target){
+    target={id:randomUUID(),name,email,passwordHash:await bcrypt.hash(password,12),roles:["user"],enabled:true,allowedClients:["dashboard","public"],...(tenantId?{tenantId}:{}),createdAt:now,updatedAt:now};
+    await users.insertOne(target);
+   }else{
+    await users.updateOne({id:target.id},{$set:{name,updatedAt:now}});
+    target={...target,name,updatedAt:now};
+   }
+   if(tenantId){
+    const nextRole=role==="superadmin"?"super_admin":role as Membership["role"];
+    const existingMembership=await memberships.findOne({userId:target.id,tenantId});
+    if(existingMembership?.status==="active")return reply.code(409).send({error:"This user is already an active member of the selected tenant"});
+    await memberships.updateOne(
+     {userId:target.id,tenantId},
+     {$set:{role:nextRole,status:"active",updatedAt:now},$setOnInsert:{id:randomUUID(),userId:target.id,tenantId,createdAt:now}},
+     {upsert:true}
+    );
+   }
+   await recordPlatformAudit({actorId:actor.id,action:"user.created",tenantId:tenantId||undefined,resourceType:"user",resourceId:target.id,metadata:{email,role}});
+   return reply.code(201).send({user:{id:mask(req.platformSession!,target.id,"user"),name,email,role,status:"active",tenantId:tenantId?mask(req.platformSession!,tenantId,"tenant"):null,tenantName:tenantId?(await companies.findOne({id:tenantId}))?.name??null:null}});
+  });
   ctx.server.post<{Body:{name?:string;slug?:string;ownerEmail?:string;ownerPassword?:string}}>("/platform/companies",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const name=String(req.body?.name??"").trim();const ownerEmail=String(req.body?.ownerEmail??"").trim().toLowerCase();
