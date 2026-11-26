@@ -9,7 +9,7 @@ const root = process.cwd();
 test("first-party package manifests are owned by plugin folders and consumed by registry and ZIP builder", async () => {
   const pluginFolders = await readdir(resolve(root, "src/plugins"), { withFileTypes: true });
   const folderNames = new Set(pluginFolders.filter(item => item.isDirectory()).map(item => item.name));
-  for (const pluginId of ["documents", "time-tracking", "connected-devices"]) {
+  for (const pluginId of ["time-tracking", "connected-devices"]) {
     assert.ok(folderNames.has(pluginId), "plugin folder must exist: " + pluginId);
     const manifest = await readFile(resolve(root, "src/plugins", pluginId, "plugin.manifest.ts"), "utf8");
     assert.match(manifest, /export const PLUGIN_MANIFEST/);
@@ -25,9 +25,7 @@ test("first-party package manifests are owned by plugin folders and consumed by 
   assert.match(builder, /permissions: pluginManifest\?\.permissions/);
   assert.doesNotMatch(builder, /PACKAGE_PERMISSIONS/, "permission arrays must not be duplicated in the package builder");
 
-  const documents = PLUGIN_MANIFESTS.documents;
-  const trustedDocuments = TRUSTED_PLUGIN_PACKAGES.find(item => item.id === "documents");
-  assert.ok(trustedDocuments);
-  assert.deepEqual(trustedDocuments.permissions, documents.permissions,
-    "the platform registry must consume the same Documents manifest as the ZIP builder");
+  assert.equal("documents" in PLUGIN_MANIFESTS, false, "Documents must not be registered as a built-in platform manifest");
+  assert.equal(TRUSTED_PLUGIN_PACKAGES.some(item => item.id === "documents"), false,
+    "Documents must not be seeded as a trusted built-in package");
 });
