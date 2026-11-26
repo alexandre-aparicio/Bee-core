@@ -151,8 +151,8 @@ test("generic host paths contain no feature-specific branches outside the explic
   const allowed: Record<string, readonly string[]> = {
     // The backend bootstrap retains the approved Files and Documents native fallbacks.
     "src/index.ts": ["files", "documents"],
-    // This is the single source for package metadata and legacy migration policy.
-    "src/plugins/plugin-manifest-registry.ts": ["files"],
+    // The registry contains only host package metadata and generic retirement exceptions.
+    "src/plugins/plugin-manifest-registry.ts": ["files", "time-tracking"],
     // Feature IDs may appear only in the declarative registration list.
     "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents", "time-tracking", "connected-devices"],
     // These generic uses refer to browser file inputs and package archive files, not plugin IDs.
