@@ -126,8 +126,8 @@ export class BeeConnectedDevicesComponent implements OnChanges {
     this.busy = true; this.error = ""; this.message = "";
     try {
       this.pairing = await this.request("/connected-devices/pairing-challenges", "POST", { requestedCapabilities: this.selectedCapabilities });
-      // The QRCode.js library is bundled by Angular (angular.json scripts).
-      // Render only after *ngIf has created the QR container in the view.
+      // Wait for Angular's globally bundled qrcode.min.js and for *ngIf to create the QR container.
+      await this.ensureQrLibrary();
       this.changeDetector.detectChanges();
       this.renderQr();
     } catch (error) { this.error = error instanceof Error ? error.message : "No se pudo generar el código QR."; }
@@ -137,6 +137,12 @@ export class BeeConnectedDevicesComponent implements OnChanges {
     if (!this.pairing) return;
     try { await this.request("/connected-devices/pairing-challenges/" + encodeURIComponent(this.pairing.challengeId) + "/cancel", "POST", {}); this.pairing = null; this.changeDetector.detectChanges(); this.message = "Código de vinculación cancelado."; }
     catch (error) { this.error = error instanceof Error ? error.message : "No se pudo cancelar el código."; }
+  }
+  private async ensureQrLibrary(): Promise<void> {
+    // qrcode.min.js is bundled globally by apps/web/angular.json.
+    // Do not inject a second script or request a non-existent asset URL.
+    if ((window as any).QRCode) return;
+    throw new Error("El generador QR (qrcode.min.js) no está disponible en esta carga de la aplicación.");
   }
   private renderQr(): void {
     const container = this.qrContainer?.nativeElement;
