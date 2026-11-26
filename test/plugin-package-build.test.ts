@@ -229,7 +229,7 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
   assert.doesNotMatch(runtimeSource, /import\s*\{\s*timeTrackingPlugin\s*\}/, "Control Horario backend must load from its signed ZIP only");
   assert.doesNotMatch(runtimeSource, /plugins\.register\(timeTrackingPlugin\)/, "Control Horario must not retain a bundled backend fallback");
   assert.match(timeTrackingFrontendSource, /loadComponent:[\s\S]*BeeTimeTrackingComponent/);
-  assert.match(frontendRegistrationsSource, /timeTrackingFrontend/);
+  assert.doesNotMatch(frontendRegistrationsSource, /timeTrackingFrontend/, "Control Horario must be served by its signed ZIP frontend, not Angular");
   const outletSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
   assert.ok(outletSource.indexOf("this.registry.resolve(pluginId)") < outletSource.indexOf("this.loadRemoteRuntime(pluginId)"), "native plugin frontends must render before the remote iframe fallback");
   assert.match(handlersSource, /repository\.sessionsForTenant/);
