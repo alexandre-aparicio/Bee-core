@@ -154,7 +154,13 @@
               "zone.js"
             ],
             "tsConfig": "../../plugins/connected-devices/frontend/tsconfig.app.json",
-            "assets": [],
+            "assets": [
+              {
+                "glob": "qrcode.min.js",
+                "input": "../../plugins/connected-devices/frontend/src/assets",
+                "output": "assets"
+              }
+            ],
             "styles": []
           },
           "configurations": {
