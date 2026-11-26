@@ -55,7 +55,7 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
       }] };
     } else if (path.endsWith("/marketplace/plugins/connected-devices/runtime")) {
       state.runtimeCalls += 1;
-      body = { pluginId: "connected-devices", version: "0.1.2", entrypoint: "frontend/index.html", apiPrefixes: ["/connected-devices"] };
+      body = { pluginId: "connected-devices", version: "0.1.5", entrypoint: "frontend/index.html", apiPrefixes: ["/connected-devices"] };
     } else if (path.endsWith("/templates/preferences") || path.endsWith("/templates/public")) {
       body = { selection: { public: "aurora", dashboard: "midnight" }, installedTemplates: ["aurora", "editorial", "studio", "midnight", "paper", "glass"] };
     } else if (path.endsWith("/notifications")) {
@@ -80,13 +80,27 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
   await page.getByRole("button", { name: "Connected Devices" }).click();
 
   const component = page.locator("bee-connected-devices");
-  await expect(component.getByRole("heading", { name: "Dispositivos conectados" })).toBeVisible({ timeout: 15000 });
+  await expect(component.getByRole("heading", { name: "Connected devices" })).toBeVisible({ timeout: 15000 });
   await expect(page.locator('iframe[title="connected-devices plugin"]')).toHaveCount(0);
+  await expect(component.locator(".bee-stat-card")).toHaveCount(4);
   await expect(component.getByText("QA Scanner")).toBeVisible();
-  const device = component.locator("article.cd-device").filter({ hasText: "QA Scanner" });
-  page.once("dialog", dialog => dialog.accept());
-  await device.getByRole("button", { name: "Eliminar" }).click();
-  await expect(component.getByText("Acción completada.")).toBeVisible();
+
+  await component.getByRole("searchbox", { name: "Search devices" }).fill("QA");
+  await expect(component.getByText("QA Scanner")).toBeVisible();
+  await component.getByRole("searchbox", { name: "Search devices" }).fill("no-match");
+  await expect(component.getByText("No matching devices")).toBeVisible();
+  await component.getByRole("button", { name: "Clear filters" }).click();
+  await component.getByRole("button", { name: "Table view" }).click();
+  await expect(component.locator(".bee-table-wrap table tbody tr")).toHaveCount(1);
+  await component.getByRole("button", { name: "Card view" }).click();
+
+  await component.getByRole("button", { name: "New device" }).click();
+  await expect(component.getByRole("dialog", { name: "New device" })).toBeVisible();
+  await component.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+  const device = component.locator("article.bee-device-card").filter({ hasText: "QA Scanner" });
+  await device.locator("details.bee-menu summary").click();
+  await device.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(component.getByText("Action completed.")).toBeVisible();
   expect(state.deleteCalls).toBe(1);
   expect(state.deleteBody).toBeNull();
   expect(state.deleteContentType).toBeUndefined();
