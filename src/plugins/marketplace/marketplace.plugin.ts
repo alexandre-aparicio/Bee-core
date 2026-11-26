@@ -376,6 +376,7 @@ export const marketplacePlugin: BeePlugin = {
     });
 
     ctx.server.get<{Params:{pluginId:string}}>("/marketplace/plugins/:pluginId/runtime",async(request:any,reply:any)=>{
+      reply.header("Cache-Control","private, no-store");
       const tenant=await authenticate(request,reply);if(!tenant)return;
       if(!["dashboard","backend"].includes(tenant.client))return reply.code(403).send({error:"Plugin frontends require an interactive company session"});
       const plugin=(await getTenantPluginCatalog(db,tenant.tenantId)).find(item=>item.id===request.params.pluginId);
