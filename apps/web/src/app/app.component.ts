@@ -128,24 +128,21 @@ export class AppComponent implements OnInit, OnDestroy {
         const route = routes[0]?.path;
         if (!pluginId || !route || this.pluginFrontends.resolve(pluginId)) return [];
         const label = String(plugin.name || pluginId);
-        const timeTrackingSections = [
-          { suffix: '/my_jorney', id: 'time-tracking-day', en: 'My day', es: 'Mi jornada' },
-          { suffix: '/schedule', id: 'time-tracking-schedule', en: 'My schedule', es: 'Mi horario' },
-          { suffix: '/history', id: 'time-tracking-history', en: 'History', es: 'Historial' },
-          { suffix: '/requests', id: 'time-tracking-requests', en: 'Requests', es: 'Solicitudes' }
-        ];
-        const children = pluginId === 'time-tracking' ? routes.map((item: any) => {
-          const section = timeTrackingSections.find(entry => item.path.endsWith(entry.suffix));
-          return section ? {
-            id: section.id, label: section.en, labelEs: section.es, route: item.path,
-            ...(section.id === 'time-tracking-history' ? { visibleRoles: ['member', 'guest'] } : {}),
-            ...(section.id === 'time-tracking-schedule' ? { labelsByRole: { owner: { en: 'Schedules', es: 'Horarios' }, admin: { en: 'Schedules', es: 'Horarios' }, manager: { en: 'Schedules', es: 'Horarios' }, super_admin: { en: 'Schedules', es: 'Horarios' } } } : {}),
-            ...(section.id === 'time-tracking-requests' ? { labelsByRole: { owner: { en: 'Incidents', es: 'Incidencias' }, admin: { en: 'Incidents', es: 'Incidencias' }, manager: { en: 'Incidents', es: 'Incidencias' }, super_admin: { en: 'Incidents', es: 'Incidencias' } } } : {})
-          } : null;
-        }).filter(Boolean) : [];
+        const children = routes.length > 1 ? routes.map((item: any, index: number) => {
+          const segment = String(item.path).split('/').filter(Boolean).pop() || String(index + 1);
+          const fallbackLabel = segment.replace(/[-_]+/g, ' ').replace(/\\b\\w/g, (letter: string) => letter.toUpperCase());
+          return {
+            id: String(item.id || (pluginId + ':' + index)),
+            label: String(item.label || fallbackLabel),
+            labelEs: String(item.labelEs || item.label || fallbackLabel),
+            route: item.path,
+            ...(Array.isArray(item.visibleRoles) ? { visibleRoles: item.visibleRoles } : {}),
+            ...(item.labelsByRole && typeof item.labelsByRole === 'object' ? { labelsByRole: item.labelsByRole } : {})
+          };
+        }) : [];
         return [{
           pluginId,
-          navigation: { id: pluginId, label, labelEs: String(plugin.nameEs || label), icon: pluginId === 'time-tracking' ? 'activity' : 'plugins', group: 'WORKSPACE', route, ...(children.length ? { children } : {}) }
+          navigation: { id: pluginId, label, labelEs: String(plugin.nameEs || label), icon: String(plugin.icon || 'plugins'), group: 'WORKSPACE', route, ...(children.length ? { children } : {}) }
         }];
       }));
       this.setActivePlugins(enabledIds);
