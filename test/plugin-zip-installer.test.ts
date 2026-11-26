@@ -48,7 +48,7 @@ function zip(files: Array<{name:string;data:Buffer;mode?:number}>): Buffer {
   end.writeUInt32LE(centralBytes.length,12);end.writeUInt32LE(offset,16);
   return Buffer.concat([...local,centralBytes,end]);
 }
-function signedArchive() {
+function signedArchive(pluginId = "demo.crm") {
   const {publicKey,privateKey}=generateKeyPairSync("ed25519");
   const files=new Map<string,Buffer>([
     ["dist/backend/index.mjs",Buffer.from("export const plugin = true;")],
@@ -56,9 +56,9 @@ function signedArchive() {
   ]);
   const digest=packageDigest(files);
   const manifest:any={
-    id:"demo.crm",name:"Demo CRM",version:"1.0.0",publisher:"Bee Projects",description:"Test package",category:"crm",
+    id:pluginId,name:pluginId==="documents"?"Documents":"Demo CRM",version:"1.0.0",publisher:"Bee Projects",description:"Test package",category:"crm",
     activationPolicy:"manual",compatibility:{minRuntimeVersion:"0.3.0"},
-    dependencies:[],permissions:[{key:"demo.crm.read",module:"demo.crm",resource:"records",action:"read",label:"Read CRM records",defaultGrants:{owner:true,admin:true,manager:true,member:false}}],
+    dependencies:[],permissions:[{key:pluginId+".read",module:pluginId,resource:"records",action:"read",label:"Read records",defaultGrants:{owner:true,admin:true,manager:true,member:false}}],
     backend:{entrypoint:"dist/backend/index.mjs"},frontend:{routes:[]},collections:["demo_crm_records"],migrations:[],settingsSchema:{type:"object"},
     package:{sha256:digest,signature:"",storageKey:"packages/demo.crm/1.0.0"}
   };
@@ -105,5 +105,13 @@ test("plugin ZIP rejects symbolic links and unsupported archive entries",async()
   const unsafe=zip([{name:"README.md",data:Buffer.from("link"),mode:0o120777}]);
   try{
     await assert.rejects(installSignedPluginZip({archive:unsafe,storageRoot:root,publisherPublicKey:fixture.publicKey,runtimeVersion:"0.3.1"}),/symbolic links/);
+  }finally{await rm(root,{recursive:true,force:true});}
+});
+
+
+test("plugin ZIP rejects every Documents version even when publisher-signed",async()=>{
+  const fixture=signedArchive("documents");const root=await mkdtemp(join(tmpdir(),"bee-plugin-installer-documents-"));
+  try{
+    await assert.rejects(installSignedPluginZip({archive:fixture.archive,storageRoot:root,publisherPublicKey:fixture.publicKey,runtimeVersion:"0.3.1"}),/Documents packages are disabled/);
   }finally{await rm(root,{recursive:true,force:true});}
 });
