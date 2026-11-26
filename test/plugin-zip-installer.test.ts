@@ -60,7 +60,7 @@ function signedArchive(pluginId = "demo.crm") {
     activationPolicy:"manual",compatibility:{minRuntimeVersion:"0.3.0"},
     dependencies:[],permissions:[{key:pluginId+".read",module:pluginId,resource:"records",action:"read",label:"Read records",defaultGrants:{owner:true,admin:true,manager:true,member:false}}],
     backend:{entrypoint:"dist/backend/index.mjs"},frontend:{routes:[]},collections:["demo_crm_records"],migrations:[],settingsSchema:{type:"object"},
-    package:{sha256:digest,signature:"",storageKey:"packages/demo.crm/1.0.0"}
+    package:{sha256:digest,signature:"",storageKey:`packages/${pluginId}/1.0.0`}
   };
   const payload=Buffer.from(["bee-plugin-package-v1",manifest.id,manifest.version,manifest.publisher,digest].join("\n"));
   manifest.package.signature=sign(null,payload,privateKey).toString("base64");
@@ -109,9 +109,13 @@ test("plugin ZIP rejects symbolic links and unsupported archive entries",async()
 });
 
 
-test("plugin ZIP rejects every Documents version even when publisher-signed",async()=>{
+test("publisher-signed Documents ZIP can be explicitly installed",async()=>{
   const fixture=signedArchive("documents");const root=await mkdtemp(join(tmpdir(),"bee-plugin-installer-documents-"));
   try{
-    await assert.rejects(installSignedPluginZip({archive:fixture.archive,storageRoot:root,publisherPublicKey:fixture.publicKey,runtimeVersion:"0.3.1"}),/Documents packages are disabled/);
+    const installed=await installSignedPluginZip({archive:fixture.archive,storageRoot:root,publisherPublicKey:fixture.publicKey,runtimeVersion:"0.3.1"});
+    assert.equal(installed.manifest.id,"documents");
+    assert.equal(installed.manifest.activationPolicy,"manual");
+    assert.equal(installed.storageKey,"packages/documents/1.0.0");
+    assert.equal(await readFile(join(installed.packageDirectory,"dist/backend/index.mjs"),"utf8"),"export const plugin = true;");
   }finally{await rm(root,{recursive:true,force:true});}
 });

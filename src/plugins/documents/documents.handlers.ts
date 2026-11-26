@@ -160,8 +160,25 @@ export function createDocumentsHandlers(deps:any) {
    let folderId:string|null=null;const folderRef=clean(req.query?.folderId,2048);
    if(folderRef){try{folderId=unref(folderRef,"folder",tenant);}catch{return reply.code(404).send({error:"Folder not found"});}
     const parents=await ancestors(tenant.tenantId,folderId);if(!await canAccess(tenant,"folder",folderId,"read",parents.slice(1)))return reply.code(404).send({error:"Folder not found"});}
+   // Discover files created by other trusted modules and add them to the Documents root catalog.
+   // Existing records keep their folder, title, publication state and access policies.
+   const storedFiles=await storage.list(tenant.tenantId);
+   for(const file of storedFiles){
+    const fileDecision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"files",resourceType:"file",resourceId:file.id,permission:"read"});
+    if(fileDecision===false)continue;
+    const existing=await docs(tenant.tenantId).findOne({fileId:file.id});
+    if(existing)continue;
+    const createdAt=file.createdAt??new Date();
+    const imported:BeeDocument={id:randomUUID(),tenantId:tenant.tenantId,fileId:file.id,folderId:null,title:file.originalName,description:"",tags:[],visibility:"private",publicId:null,publishedAt:null,createdBy:file.uploadedBy,createdAt,updatedAt:createdAt};
+    await docs(tenant.tenantId).insertOne(imported);
+   }
    const rows=await docs(tenant.tenantId).find({folderId}).sort({updatedAt:-1}).limit(200).toArray();const visible=[];
-   for(const item of rows){const parents=await ancestors(tenant.tenantId,item.folderId);if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(await present(item,tenant));}
+   for(const item of rows){
+    const fileDecision=await evaluateResourceAccess(db,{tenantId:tenant.tenantId,userId:tenant.userId,pluginId:"files",resourceType:"file",resourceId:item.fileId,permission:"read"});
+    if(fileDecision===false)continue;
+    const parents=await ancestors(tenant.tenantId,item.folderId);
+    if(await canAccess(tenant,"document",item.id,"read",parents))visible.push(await present(item,tenant));
+   }
    return {documents:visible};
   },
   documentsPost: async(req:any,reply:any)=>{

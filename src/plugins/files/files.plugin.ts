@@ -181,6 +181,13 @@ export const filesPlugin: BeePlugin = {
           { projection: { id: 1, tenantId: 1, originalName: 1, contentType: 1, size: 1, storageKey: 1, uploadedBy: 1, createdAt: 1 } }
         );
       },
+      async list(tenantId) {
+        if (!tenantId) throw new Error("Tenant is required");
+        return db.collection<FileRecord>("tenant_files").find(
+          { tenantId },
+          { projection: { id: 1, tenantId: 1, originalName: 1, contentType: 1, size: 1, storageKey: 1, uploadedBy: 1, createdAt: 1 } }
+        ).sort({ createdAt: -1 }).limit(500).toArray();
+      },
       async read(tenantId, fileId) {
         if (!/^[0-9a-f-]{36}$/i.test(fileId)) throw new Error("Invalid file reference");
         const file = await db.collection<FileRecord>("tenant_files").findOne({ tenantId, id: fileId });

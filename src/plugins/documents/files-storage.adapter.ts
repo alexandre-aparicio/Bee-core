@@ -12,6 +12,10 @@ export class FilesStorageAdapter {
     return this.files.getMetadata(tenantId, fileId);
   }
 
+  list(tenantId: string): Promise<StoredFileMetadata[]> {
+    return this.files.list(tenantId);
+  }
+
   async read(tenantId: string, file: StoredFileMetadata): Promise<Buffer> {
     if (file.tenantId !== tenantId || !/^[0-9a-f-]{36}$/i.test(file.id)) {
       throw new Error("Invalid tenant file reference");

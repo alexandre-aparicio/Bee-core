@@ -74,6 +74,10 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     assert.equal(internalStored.tenantId, "files-alpha");
     assert.equal(internalStored.originalName, "internal-document.txt");
     assert.deepEqual(await storage.read("files-alpha", internalStored.id), Buffer.from("stored through the Files service"));
+    const internalList = await storage.list("files-alpha");
+    assert.equal(internalList.length, 1);
+    assert.equal(internalList[0].id, internalStored.id);
+    assert.deepEqual(await storage.list("files-beta"), [], "Files listing must remain tenant-scoped");
     assert.equal(await storage.getMetadata("files-beta", internalStored.id), null, "metadata lookup must be tenant-scoped");
     await assert.rejects(() => storage.read("files-beta", internalStored.id), /File not found/);
     assert.equal(await storage.delete("files-beta", internalStored.id), false, "a tenant cannot delete another tenant's file");

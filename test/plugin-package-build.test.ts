@@ -36,7 +36,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
   }
 });
 
-test("three first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
+test("four first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const root = await mkdtemp(join(tmpdir(), "bee-first-party-packages-"));
   try {
@@ -56,7 +56,7 @@ test("three first-party modules build as independently signed ZIP packages", { s
       }),
       /does not match/
     );
-    assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "hello-world", "time-tracking"]);
+    assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking"]);
     for (const item of built) {
       assert.ok(item.bytes > 100);
       const installed = await installSignedPluginZip({
@@ -111,22 +111,23 @@ test("three first-party modules build as independently signed ZIP packages", { s
         assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend-only manifest must install its runtime entrypoint");
       } else if (item.id === "documents") {
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
-        assert.equal(installed.manifest.version, "0.4.0", "clean package builds must publish the current Documents version, never the stale 0.1.0 release");
+        assert.equal(installed.manifest.version, "0.1.5", "clean package builds must publish the current Documents version, never the stale 0.1.0 release");
         assert.deepEqual(installed.manifest.tenantDependencies, [], "Files is a host runtime dependency and must not be installed as a tenant package dependency");
         assert.equal(installed.manifest.activationPolicy, "manual", "Documents must be installed explicitly, not auto-provisioned with Files");
         const documentsPlugin = await readFile(resolve(process.cwd(), "src/plugins/documents/documents.plugin.ts"), "utf8");
         const documentsService = await readFile(resolve(process.cwd(), "src/plugins/documents/documents.service.ts"), "utf8");
         assert.match(documentsPlugin, /dependencies:\["auth","organizations","files"\]/, "Documents may depend on the host Files service");
-        assert.match(documentsPlugin, /version:"0\.4\.0"/, "the backend entrypoint must report the same current package version");
+        assert.match(documentsPlugin, /version:"0\.1\.5"/, "the backend entrypoint must report the same current package version");
         assert.match(documentsPlugin, /activationPolicy:"manual"/, "Documents must be independently installed, not auto-provisioned with Files");
         const documentsManifest = await readFile(resolve(process.cwd(), "src/plugins/documents/plugin.manifest.ts"), "utf8");
-        assert.match(documentsManifest, /version:\s*"0\.4\.0"/);
+        assert.match(documentsManifest, /version:\s*"0\.1\.5"/);
         assert.match(documentsManifest, /dependencies:\s*\["files"\]/, "Files remains an explicit runtime dependency");
         assert.match(documentsManifest, /tenantDependencies:\s*\[\]/, "Files must not be installed as a tenant dependency of Documents");
         assert.match(documentsManifest, /activationPolicy:\s*"manual"/);
         assert.doesNotMatch(documentsManifest, /fileStoragePath/, "Documents must not receive Files filesystem configuration");
         const filesAdapter = await readFile(resolve(process.cwd(), "src/plugins/documents/files-storage.adapter.ts"), "utf8");
         assert.match(filesAdapter, /this\.files\.getMetadata/);
+        assert.match(filesAdapter, /this\.files\.list/, "Documents must discover files created by other modules through Files service");
         assert.match(filesAdapter, /this\.files\.read/);
         assert.doesNotMatch(filesAdapter, /tenant_files|readFile|storageKey|storageRoot/, "Documents must not inspect Files collections or physical storage");
         const filesPluginSource = await readFile(resolve(process.cwd(), "src/plugins/files/files.plugin.ts"), "utf8");
@@ -138,7 +139,7 @@ test("three first-party modules build as independently signed ZIP packages", { s
         assert.match(documentsService, /await hasPluginEntitlement\(db,tenant\.tenantId,"documents"\).*await isPluginInstalled\(db,tenant\.tenantId,"documents"\).*await isPluginEnabled\(db,tenant\.tenantId,"documents"\)/);
         assert.match(documentsService, /Documents is not entitled, installed or enabled/, "Documents must fail closed when its package access is unavailable");
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
-        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/files"], "Documents may call the host Files API without owning or installing Files");
+        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/public/documents"], "Documents may call the host Files API without owning or installing Files");
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
         const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
         const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");

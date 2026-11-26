@@ -11,7 +11,8 @@ const RUNTIME_VERSION = process.env.BEE_RUNTIME_VERSION ?? "0.3.1";
 const PACKAGES = [
   { id: "connected-devices", name: "Connected Devices", version: "0.1.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants.", frontendSource: "src/plugins/connected-devices/frontend", frontend: { routes: [{ path: "/dashboard/connected-devices", component: "connected-devices" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js", "frontend/qrcode.min.js"], apiPrefixes: ["/connected-devices"] } },
   { id: "time-tracking", name: "Control Horario", version: "0.2.1", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }] },
-  { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], requiredServices: [], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } }
+  { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], requiredServices: [], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } },
+  { id: "documents", name: "Documents", version: "0.1.5", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery.", frontendSource: "src/plugins/documents/frontend", frontend: { routes: [{ path: "/dashboard/documents", component: "documents" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/documents", "/public/documents"] } }
 ];
 
 
@@ -106,7 +107,7 @@ function canonicalPayload(manifest) {
   return Buffer.from(["bee-plugin-package-v1", manifest.id, manifest.version, manifest.publisher, manifest.package.sha256].join("\n"), "utf8");
 }
 function exportName(id) {
-  return { "connected-devices": "connectedDevicesPlugin", "time-tracking": "timeTrackingPlugin", "hello-world": "helloWorldPlugin" }[id];
+  return { "connected-devices": "connectedDevicesPlugin", "time-tracking": "timeTrackingPlugin", "hello-world": "helloWorldPlugin", documents: "documentsPlugin" }[id];
 }
 
 export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputDir = OUTPUT, distDir = DIST, runtimeVersion = RUNTIME_VERSION }) {
@@ -193,6 +194,10 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) {
-  const results = await buildPluginPackages({ privateKeyPem: process.env.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY ?? "", publicKeyPem: process.env.BEE_PLUGIN_PUBLISHER_PUBLIC_KEY ?? "" });
+  const privateKeyPath = resolve(process.env.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY_FILE ?? "secrets/plugin-publisher-private.pem");
+  const publicKeyPath = resolve(process.env.BEE_PLUGIN_PUBLISHER_PUBLIC_KEY_FILE ?? "secrets/plugin-publisher-public.pem");
+  const privateKeyPem = process.env.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY ?? await readFile(privateKeyPath, "utf8").catch(() => "");
+  const publicKeyPem = process.env.BEE_PLUGIN_PUBLISHER_PUBLIC_KEY ?? await readFile(publicKeyPath, "utf8").catch(() => "");
+  const results = await buildPluginPackages({ privateKeyPem, publicKeyPem });
   for (const result of results) process.stdout.write(JSON.stringify(result) + "\n");
 }

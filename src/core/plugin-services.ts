@@ -42,6 +42,7 @@ export interface StoreFileInput {
 export interface FilesStorageService {
   store(tenantId: string, input: StoreFileInput): Promise<StoredFileMetadata>;
   getMetadata(tenantId: string, fileId: string): Promise<StoredFileMetadata | null>;
+  list(tenantId: string): Promise<StoredFileMetadata[]>;
   read(tenantId: string, fileId: string): Promise<Buffer>;
   delete(tenantId: string, fileId: string): Promise<boolean>;
 }
