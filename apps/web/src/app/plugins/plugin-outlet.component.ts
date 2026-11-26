@@ -97,11 +97,17 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
             remoteName: runtime.remoteName!,
             exposedModule: runtime.exposedModule!
           }) as Record<string, unknown>;
-          if (sequence !== this.renderSequence) return;
+          // A resolved remote has already evaluated ESM in this realm, even if its
+          // view is now stale. Track it before any early return so uninstall/revoke
+          // can force a host reload and discard the evaluated module graph.
+          this.registry.markRemoteLoaded(pluginId);
+          if (sequence !== this.renderSequence) {
+            if (!this.pluginIds.includes(pluginId)) window.location.reload();
+            return;
+          }
           const componentType = (remoteModule["PluginComponent"] ?? remoteModule["default"]) as Type<unknown> | undefined;
           if (typeof componentType !== "function") throw new Error("Native plugin did not expose its Angular component");
           const component = this.host.createComponent(componentType);
-          this.registry.markRemoteLoaded(pluginId);
           component.setInput("tenantId", this.tenantId);
           component.setInput("role", this.role);
           component.setInput("accessToken", this.accessToken);
