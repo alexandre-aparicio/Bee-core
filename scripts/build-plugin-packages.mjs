@@ -199,5 +199,5 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.
   const privateKeyPem = process.env.BEE_PLUGIN_PUBLISHER_PRIVATE_KEY ?? await readFile(privateKeyPath, "utf8").catch(() => "");
   const publicKeyPem = process.env.BEE_PLUGIN_PUBLISHER_PUBLIC_KEY ?? await readFile(publicKeyPath, "utf8").catch(() => "");
   const results = await buildPluginPackages({ privateKeyPem, publicKeyPem });
-  for (const result of results) process.stdout.write(JSON.stringify(result) + "\\n");
+  for (const result of results) process.stdout.write(JSON.stringify(result) + "\n");
 }
