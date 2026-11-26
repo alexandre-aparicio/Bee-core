@@ -139,6 +139,7 @@ test("generic host paths contain no feature-specific branches outside the explic
     // Feature IDs may appear only in the declarative registration list.
     "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents", "time-tracking"],
     // These generic uses refer to browser file inputs and package archive files, not plugin IDs.
+    "src/plugins/platform-admin/platform-admin.plugin.ts": ["files"],
     "apps/web/src/app/plugins/plugin-settings.component.ts": ["files"]
   };
   const identifiers = ["documents", "files", "connected-devices", "time-tracking"];
