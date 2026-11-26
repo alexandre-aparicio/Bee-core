@@ -147,6 +147,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /aria-labelledby="correction-title"/, "correction form must be exposed as an accessible dialog");
         assert.match(script, /aria-labelledby="review-note-title"/, "rejection notes must use an accessible in-frame dialog");
         assert.doesNotMatch(script, /prompt\(/, "sandboxed plugin frontends must not rely on browser modal prompts");
+        assert.doesNotMatch(script, /<form|type="submit"/, "sandboxed plugin frontends must not submit forms without the allow-forms sandbox capability");
         assert.doesNotMatch(script, /id="tabs"|\$\("tabs"\)/, "the host owns the primary plugin navigation; the iframe must not duplicate it");
         assert.match(script, /data-subtab="activity"/, "My day must retain the Activity subtab");
         assert.match(script, /data-subtab="team"/, "managers must retain the separate Team requests subtab");
