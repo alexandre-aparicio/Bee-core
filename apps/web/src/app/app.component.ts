@@ -147,13 +147,17 @@ export class AppComponent implements OnInit, OnDestroy {
         .filter(Boolean);
       this.pluginFrontends.setRemoteNavigation(enabledPackages.flatMap((plugin: any) => {
         const pluginId = String(plugin.pluginKey || '');
+        // The catalogue's public id is session-masked. Keep it as the runtime
+        // reference; the pluginKey remains the stable internal frontend id.
+        const runtimeRef = String(plugin.id || '');
         const route = Array.isArray(plugin.frontendRoutes)
           ? plugin.frontendRoutes.find((item: any) => typeof item?.path === 'string' && item.path.startsWith('/dashboard/'))?.path
           : undefined;
-        if (!pluginId || !route || this.pluginFrontends.resolve(pluginId)) return [];
+        if (!pluginId || !runtimeRef || !route || this.pluginFrontends.resolve(pluginId)) return [];
         const label = String(plugin.name || pluginId);
         return [{
           pluginId,
+          runtimeRef,
           navigation: { id: pluginId, label, labelEs: String(plugin.nameEs || label), icon: 'plugins', group: 'WORKSPACE', route }
         }];
       }));
