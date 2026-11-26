@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { CORE_RUNTIME_PLUGIN_IDS, validatePluginManifest, satisfiesPluginVersion, type BeeBusinessPluginManifest } from "../src/core/plugin-package.js";
 import { resolvePluginDependencyOrder } from "../src/core/plugin-entitlements.js";
 
