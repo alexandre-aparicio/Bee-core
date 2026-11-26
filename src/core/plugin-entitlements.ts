@@ -28,7 +28,7 @@ export type PluginPackageDefinition = Document & {
   dependencies: string[];
   activationPolicy?: "automatic" | "manual";
   permissions?: BeePluginPermission[];
-  frontendRoutes?: Array<{ path: string; component: string }>;
+  frontendRoutes?: Array<{ path: string; component: string; id?: string; label?: string; labelEs?: string; visibleRoles?: string[]; labelsByRole?: Record<string, { en?: string; es?: string }> }>;
   migrations?: TenantPluginMigration[];
   codeAvailable: boolean;
   status: "published" | "draft" | "deprecated";
