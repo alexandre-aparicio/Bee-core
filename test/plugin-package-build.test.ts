@@ -30,7 +30,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
       runtimeVersion: "0.3.1"
     });
     assert.equal(installed.manifest.id, "time-tracking");
-    assert.equal(installed.manifest.version, "0.2.0");
+    assert.equal(installed.manifest.version, "0.2.1");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -102,38 +102,13 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.doesNotThrow(() => new Script(script), "the standalone Connected Devices frontend must be valid JavaScript");
         assert.doesNotThrow(() => new Script(qr), "the bundled QR renderer must be valid JavaScript");
       } else if (item.id === "time-tracking") {
+        assert.equal(installed.manifest.version, "0.2.1", "the package version bump must exercise the tenant upgrade path");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
-        assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
-        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/time-tracking"]);
-        assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
-        const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
-        const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
-        assert.equal(html, await readFile(join(process.cwd(), "src/plugins/time-tracking/frontend/index.html"), "utf8"), "the ZIP must contain the exact current standalone HTML");
-        assert.equal(script, await readFile(join(process.cwd(), "src/plugins/time-tracking/frontend/main.js"), "utf8"), "the ZIP must contain the exact current standalone frontend and all its functionality");
-        assert.match(html, /Control horario/);
-        assert.match(script, /clock-in/);
-        assert.match(script, /team\/schedules/);
-        assert.match(script, /team\/corrections/);
-        assert.match(script, /submitCorrection/);
-        assert.match(script, /saveSchedule/);
-        assert.match(script, /confirmReview/);
-        assert.match(script, /renderReviewModal/);
-        assert.match(script, /my-day/);
-        assert.match(script, /historyPanel/);
-        assert.match(script, /schedulePanel/);
-        assert.match(script, /requestsPanel/);
-        assert.match(script, /\/time-tracking\/me\/status/);
-        assert.match(script, /\/time-tracking\/me\/sessions/);
-        assert.match(script, /\/time-tracking\/me\/corrections/);
-        assert.match(script, /\/time-tracking\/team\/members/);
-        assert.match(script, /\/time-tracking\/team\/schedules/);
-        assert.match(script, /\/time-tracking\/team\/corrections/);
-        assert.match(script, /clock-in/);
-        assert.match(script, /break-start/);
-        assert.match(script, /break-end/);
-        assert.match(script, /clock-out/);
-        assert.doesNotThrow(() => new Script(script), "the standalone Time Tracking frontend must be valid JavaScript");
+        assert.equal(installed.manifest.backend.entrypoint, "dist/backend/index.mjs");
+        assert.deepEqual(installed.manifest.frontend, { routes: [] }, "native Angular frontend must not be declared in the ZIP");
+        assert.equal(existsSync(join(installed.packageDirectory, "frontend")), false, "backend-only Control Horario ZIP must not contain a frontend/ directory");
+        assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend-only manifest must install its runtime entrypoint");
       } else if (item.id === "documents") {
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, ["files"], "Documents may integrate with Files only");
