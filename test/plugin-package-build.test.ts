@@ -111,14 +111,16 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend-only manifest must install its runtime entrypoint");
       } else if (item.id === "documents") {
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
-        assert.deepEqual(installed.manifest.tenantDependencies, ["files"], "Documents may integrate with Files only");
+        assert.equal(installed.manifest.version, "0.4.0", "clean package builds must publish the current Documents version, never the stale 0.1.0 release");
+        assert.deepEqual(installed.manifest.tenantDependencies, [], "Files is a host runtime dependency and must not be installed as a tenant package dependency");
+        assert.equal(installed.manifest.activationPolicy, "manual", "Documents must be installed explicitly, not auto-provisioned with Files");
         const documentsPlugin = await readFile(resolve(process.cwd(), "src/plugins/documents/documents.plugin.ts"), "utf8");
         const documentsService = await readFile(resolve(process.cwd(), "src/plugins/documents/documents.service.ts"), "utf8");
         assert.match(documentsPlugin, /dependencies:\["auth","organizations","files"\]/, "Documents may depend on Files but not on another tenant business package");
         assert.match(documentsService, /await hasPluginEntitlement\(db,tenant\.tenantId,"documents"\).*await isPluginInstalled\(db,tenant\.tenantId,"documents"\).*await isPluginEnabled\(db,tenant\.tenantId,"documents"\)/);
         assert.match(documentsService, /Documents is not entitled, installed or enabled/, "Documents must fail closed when its package access is unavailable");
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
-        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/files"]);
+        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/documents", "/files"], "Documents may call the host Files API without owning or installing Files");
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
         const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
         const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
