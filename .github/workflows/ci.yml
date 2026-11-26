@@ -52,6 +52,18 @@ jobs:
         run: npm ci
       - name: Build backend
         run: npm run build
+      - name: Verify signed Documents package generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p secrets
+          trap 'rm -rf secrets artifacts' EXIT
+          openssl genpkey -algorithm ed25519 -out secrets/plugin-publisher-private.pem
+          openssl pkey -in secrets/plugin-publisher-private.pem -pubout -out secrets/plugin-publisher-public.pem
+          node scripts/build-plugin-packages.mjs
+          unzip -t artifacts/plugin-packages/documents-0.1.5.zip
+          unzip -p artifacts/plugin-packages/documents-0.1.5.zip bee-plugin.json > /tmp/documents-manifest.json
+          node -e 'const m=require("/tmp/documents-manifest.json"); if(m.id!=="documents"||m.version!=="0.1.5"||m.package.signature==="PENDING_PUBLISHER_SIGNATURE"||!m.dependencies.some(d=>d.pluginId==="files")) process.exit(1); console.log("Documents 0.1.5 signed package verified")'
       - name: Count TODO/FIXME/HACK markers (informational)
         continue-on-error: true
         run: node scripts/count-debt-markers.mjs
