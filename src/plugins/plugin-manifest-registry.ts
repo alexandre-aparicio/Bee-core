@@ -2,13 +2,11 @@ import type { PluginPlan, PluginPackageDefinition } from "../core/plugin-entitle
 import type { Db } from "mongodb";
 import { migrateLegacyConnectedDevicesPlanAssignments, recordLegacyConnectedDevicesPlanRemovals } from "./connected-devices/connected-devices-plan-migration.js";
 import { PLUGIN_MANIFEST as CONNECTED_DEVICES_MANIFEST } from "./connected-devices/plugin.manifest.js";
-import { PLUGIN_MANIFEST as DOCUMENTS_MANIFEST } from "./documents/plugin.manifest.js";
 import { PLUGIN_MANIFEST as TIME_TRACKING_MANIFEST } from "./time-tracking/plugin.manifest.js";
 
 /** Per-plugin manifests are owned by their plugin folders and composed here for platform consumers. */
 export const PLUGIN_MANIFESTS = {
   "connected-devices": CONNECTED_DEVICES_MANIFEST,
-  documents: DOCUMENTS_MANIFEST,
   "time-tracking": TIME_TRACKING_MANIFEST
 };
 
@@ -33,20 +31,10 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     codeAvailable: true,
     status: "published"
   },
-  {
-    ...PLUGIN_MANIFESTS.documents,
-    visibleInPlans: ["starter", "pro", "enterprise"],
-    includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false,
-    system: true,
-    codeAvailable: true,
-    status: "published"
-  },
-
 ];
 
 /** Single source for legacy package migration and permanent retirement policy. */
-export const MIGRATABLE_BUILT_IN_PACKAGE_IDS = new Set(["connected-devices", "time-tracking", "documents", "hello-world"]);
+export const MIGRATABLE_BUILT_IN_PACKAGE_IDS = new Set(["connected-devices", "time-tracking", "hello-world"]);
 export const RETIRED_PACKAGE_POLICIES = [
   { id: "hello-world", retireSignedZip: false },
   { id: "time-tracking", retireSignedZip: false },

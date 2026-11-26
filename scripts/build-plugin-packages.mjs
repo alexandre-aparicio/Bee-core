@@ -11,7 +11,6 @@ const RUNTIME_VERSION = process.env.BEE_RUNTIME_VERSION ?? "0.3.1";
 const PACKAGES = [
   { id: "connected-devices", name: "Connected Devices", version: "0.1.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants.", frontendSource: "src/plugins/connected-devices/frontend", frontend: { routes: [{ path: "/dashboard/connected-devices", component: "connected-devices" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js", "frontend/qrcode.min.js"], apiPrefixes: ["/connected-devices"] } },
   { id: "time-tracking", name: "Control Horario", version: "0.2.1", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }] },
-  { id: "documents", name: "Documents", version: "0.4.0", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], requiredServices: ["mongoDbName", "sessionIdSecret"], optionalServices: [], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery.", frontendSource: "src/plugins/documents/frontend", frontend: { routes: [{ path: "/dashboard/documents", component: "documents" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/documents", "/files"] } },
   { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], requiredServices: [], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } }
 ];
 
@@ -107,7 +106,7 @@ function canonicalPayload(manifest) {
   return Buffer.from(["bee-plugin-package-v1", manifest.id, manifest.version, manifest.publisher, manifest.package.sha256].join("\n"), "utf8");
 }
 function exportName(id) {
-  return { "connected-devices": "connectedDevicesPlugin", "time-tracking": "timeTrackingPlugin", documents: "documentsPlugin", "hello-world": "helloWorldPlugin" }[id];
+  return { "connected-devices": "connectedDevicesPlugin", "time-tracking": "timeTrackingPlugin", "hello-world": "helloWorldPlugin" }[id];
 }
 
 export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputDir = OUTPUT, distDir = DIST, runtimeVersion = RUNTIME_VERSION }) {
