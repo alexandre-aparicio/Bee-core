@@ -31,16 +31,12 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private readonly handlePluginsChanged = (): void => {
-    const previouslyLoadedRemotes = this.pluginFrontends.loadedRemotePluginIds();
     void this.refreshTenantPlugins().then(() => {
       // The settings component can dispatch this event from an async request.
       // Re-enter Angular explicitly so the sidebar is rendered immediately.
       this.zone.run(() => {
         const pluginId = this.pluginFrontends.pluginForSection(this.activeSection);
         if (pluginId && !this.isPluginEnabled(pluginId)) this.navigateSection('dashboard');
-        // Native ESM imports cannot be unloaded from the current JS realm. Once a loaded
-        // remote is disabled/uninstalled, a full shell reload clears its module graph.
-        if (previouslyLoadedRemotes.some(id => !this.isPluginEnabled(id))) window.location.reload();
       });
     });
   };
@@ -107,7 +103,29 @@ export class AppComponent implements OnInit, OnDestroy {
   companyError = '';
   companyBusy = false;
   activePlugins: string[] = [];
-  setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.i18n.setInstalledModules(this.activePlugins); for (const id of this.activePlugins) { const translations=this.pluginFrontends.resolve(id)?.translations; if (translations) { this.i18n.registerCatalog(id, "en", translations.en); this.i18n.registerCatalog(id, "es", translations.es); } } }
+  setActivePlugins(pluginIds: string[]): void {
+    const next = [...new Set(pluginIds)];
+    const removedLoadedRemote = this.pluginFrontends.loadedRemotePluginIds().filter(id => this.activePlugins.includes(id) && !next.includes(id));
+    this.activePlugins = next;
+    this.i18n.setInstalledModules(this.activePlugins);
+    for (const id of this.activePlugins) {
+      const translations = this.pluginFrontends.resolve(id)?.translations;
+      if (translations) {
+        this.i18n.registerCatalog(id, "en", translations.en);
+        this.i18n.registerCatalog(id, "es", translations.es);
+      }
+    }
+    if (removedLoadedRemote.length) {
+      if (removedLoadedRemote.includes(this.activeSection)) {
+        window.history.replaceState({}, "", "/dashboard");
+        this.path = "/dashboard";
+        this.activeSection = "dashboard";
+      }
+      // A loaded ESM remote cannot be unloaded in-place. Reload the host after
+      // its tenant activation is revoked so no remote code remains in the JS realm.
+      window.location.reload();
+    }
+  }
   isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
   private async refreshTenantPlugins(): Promise<void> {
     if (!this.auth?.accessToken || !this.activeCompanyId) {
