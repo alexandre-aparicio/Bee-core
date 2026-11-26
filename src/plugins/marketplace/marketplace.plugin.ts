@@ -386,7 +386,10 @@ export const marketplacePlugin: BeePlugin = {
       const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;remoteEntry?:string;apiPrefixes?:string[];routes?:Array<{path:string;component:string}>}}|undefined;
       const frontend=manifest?.frontend;
       if(!frontend?.remoteEntry&&!frontend?.entrypoint)return reply.code(404).send({error:"Plugin has no packaged frontend"});
-      if(frontend.remoteEntry)return {pluginId:plugin.id,version,transport:"native-federation",remoteEntry:frontend.remoteEntry,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
+      if(frontend.remoteEntry){
+        const assetToken=(ctx.server as any).jwt.sign({purpose:"plugin-asset",tenantId:tenant.tenantId,userId:tenant.userId,pluginId:plugin.id,version},{expiresIn:"5m"});
+        return {pluginId:plugin.id,version,transport:"native-federation",remoteEntry:frontend.remoteEntry,assetToken,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
+      }
       return {pluginId:plugin.id,version,transport:"legacy-iframe",entrypoint:frontend.entrypoint,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
     });
     ctx.server.get("/public/tenant/plugins", async (request: any, reply: any) => {
