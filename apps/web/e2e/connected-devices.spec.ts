@@ -61,7 +61,7 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
     } else if (path.endsWith("/notifications")) {
       body = { notifications: [] };
     } else if (path.endsWith("/i18n/preferences") || path.endsWith("/users/me/preferences")) {
-      body = { effectiveLanguage: "es", requestedLanguage: "es" };
+      body = { effectiveLanguage: "en", requestedLanguage: "en" };
     } else if (path.endsWith("/connected-devices") && method === "GET") {
       body = { devices: state.devices, canManage: true };
     } else if (path.endsWith("/connected-devices/device-e2e") && method === "DELETE") {
