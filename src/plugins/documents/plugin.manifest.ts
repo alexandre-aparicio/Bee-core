@@ -8,7 +8,6 @@ export const PLUGIN_MANIFEST = {
   // Files is a host runtime service dependency, not a tenant package to install.
   dependencies: ["files"],
   requiredServices: ["mongoDbName", "sessionIdSecret"],
-  optionalServices: ["fileStoragePath"],
   tenantDependencies: [],
   activationPolicy: "manual" as const,
   permissions: [
