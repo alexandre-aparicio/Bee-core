@@ -138,9 +138,18 @@ export const authPlugin:BeePlugin={
   });
 
   const adminEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase(),adminPassword=String(ctx.config.authAdminPassword??"");
-  if(adminEmail&&adminPassword){
-   if(adminPassword.length<12)throw new Error("Auth: bootstrap admin password must be at least 12 characters.");
-   await users.updateOne({email:adminEmail},{$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,tenantId:defaultTenantId,createdAt:new Date(),updatedAt:new Date()}},{upsert:true});
+  if(adminEmail){
+   if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(adminEmail))throw new Error("Auth: AUTH_ADMIN_EMAIL must be a valid email address.");
+   const existingBootstrap=await users.findOne({email:adminEmail});
+   if(!existingBootstrap){
+    if(adminPassword.length<12)throw new Error("Auth: AUTH_ADMIN_PASSWORD must contain at least 12 characters to create the configured bootstrap administrator.");
+    const now=new Date();
+    await users.updateOne({email:adminEmail},{$setOnInsert:{id:"bootstrap-admin",email:adminEmail,passwordHash:await bcrypt.hash(adminPassword,12),roles:["admin"],enabled:true,allowedClients:validClients,tenantId:defaultTenantId,createdAt:now,updatedAt:now}},{upsert:true});
+   }else{
+    // Preserve the existing password and tenant data, but keep the configured
+    // installation identity enabled and able to access the dashboard.
+    await users.updateOne({id:existingBootstrap.id},{$set:{enabled:true,email:adminEmail,updatedAt:new Date()},$addToSet:{allowedClients:"dashboard"}});
+   }
    ctx.logger.info("Auth bootstrap administrator ensured (existing account credentials are not overwritten).");
   }
   const issue=(u:Pick<UserRecord,"id"|"email"|"roles"|"tenantId"|"platformRole">,client:ClientType,tenantId:string,sessionId:string,expiresAt:Date):string=>{const payload:JwtPayload={sub:maskUserId(u.id,{sessionId,expiresAt},sessionIdSecret),email:u.email,roles:u.roles,...(u.platformRole?{platformRole:u.platformRole}:{}),tenantRef:maskTenantId(tenantId,{sessionId,expiresAt},sessionIdSecret),client,aud:"bee-core",iss:"bee-core",sid:sessionId};return ctx.server.jwt.sign(payload);};
