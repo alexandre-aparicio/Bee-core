@@ -78,7 +78,7 @@ export async function recordLegacyConnectedDevicesPlanRemovals(
     const key = planId + ":" + PLUGIN_ID + ":" + MIGRATION_ID;
     await ledger.updateOne(
       { _id: key },
-      { $set: { _id: key, planId, pluginId: PLUGIN_ID, state: "admin-removed", actorId, createdAt: new Date() } },
+      { $set: { planId, pluginId: PLUGIN_ID, state: "admin-removed", actorId, createdAt: new Date() }, $setOnInsert: { _id: key } },
       { upsert: true }
     );
   }
