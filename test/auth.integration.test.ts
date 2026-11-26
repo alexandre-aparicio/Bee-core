@@ -524,6 +524,7 @@ function totpCodeAt(secret:string,step:number):string {
 
 
 test("clean installation: AUTH_ADMIN_EMAIL is provisioned as Super Admin on first startup", { skip: !uri }, async () => {
+  assert.ok(platformAdminPlugin.manifest.optionalServices?.includes("authAdminEmail"),"platform-admin must explicitly receive AUTH_ADMIN_EMAIL through its isolated plugin context");
   const dbName="bee_core_bootstrap_admin_test_"+Date.now();
   const client=new MongoClient(uri!);await client.connect();
   const db=client.db(dbName);
