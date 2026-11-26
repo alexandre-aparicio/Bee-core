@@ -143,7 +143,7 @@ export const TIME_TRACKING_EN = {
 
 export const TIME_TRACKING_ES = {
   "eyebrow": "ESPACIO DE TRABAJO / PERSONAS",
-  "title": "Control horario",
+  "title": "Control Horario",
   "description": "Registra tu jornada, consulta horarios y gestiona correcciones.",
   "refresh": "Actualizar",
   "my_space": "MI ESPACIO",
