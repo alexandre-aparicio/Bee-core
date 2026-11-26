@@ -28,7 +28,7 @@ async function collectFrontendDistribution(sourceDirectory) {
         await visit(absolute);
       } else if (entry.isFile()) {
         const relativePath = relative(root, absolute).split(sep).join("/");
-        if (!relativePath || relativePath.startsWith("../") || relativePath.includes("\\\\") || relativePath.includes("\\0")) {
+        if (!relativePath || relativePath.startsWith("../") || relativePath.includes("\\") || relativePath.includes("\0")) {
           throw new Error("Federation output contains an unsafe path");
         }
         files.set("frontend/" + relativePath, await readFile(absolute));
