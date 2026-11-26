@@ -2,15 +2,24 @@ import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
-type Device = {
-  id: string; name: string; deviceType: string; platform: string; appVersion?: string;
-  requestedCapabilities: string[]; grantedCapabilities: string[]; status: string;
-  owner?: { name?: string; email?: string }; lastSeenAt?: string;
+type Dispositivo = {
+  id: string;
+  name: string;
+  deviceType: string;
+  platform: string;
+  appVersion?: string;
+  requestedPermisos: string[];
+  grantedPermisos: string[];
+  status: string;
+  owner?: { name?: string; email?: string };
+  lastSeenAt?: string;
+  createdAt?: string;
 };
 type Pairing = { challengeId: string; qrPayload: string; expiresAt: string };
+type DispositivoView = "cards" | "table";
 
 const CAPABILITIES = [
-  { id: "device.status.write", label: "Estado del dispositivo" },
+  { id: "device.status.write", label: "Dispositivo status" },
   { id: "scanner.use", label: "Escáner" },
   { id: "camera.capture", label: "Cámara" },
   { id: "catalog.read", label: "Consultar catálogo" },
@@ -23,78 +32,214 @@ const CAPABILITIES = [
 ] as const;
 
 @Component({
-  selector: "bee-connected-devices",
+  selector: "bee-connected-dispositivos",
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="cd-page">
-      <header class="cd-header">
-        <div><p class="cd-eyebrow">BEE PROJECTS / PLATFORM</p><h1>Dispositivos conectados</h1>
-        <p>Vincula dispositivos y controla de forma granular los permisos de cada uno.</p></div>
-        <button type="button" class="cd-button" (click)="load()" [disabled]="loading || busy">Actualizar</button>
+    <section class="bee-connected-dispositivos">
+      <div *ngIf="error" class="bee-status--danger" role="alert">{{error}}</div>
+      <div *ngIf="message" class="bee-status--success" role="status">{{message}}</div>
+
+      <header class="bee-page-header">
+        <div>
+          <span class="bee-eyebrow">ESPACIO DE TRABAJO / PLATAFORMA</span>
+          <h2>Dispositivos conectados</h2>
+          <p>Registra dispositivos, consulta su estado de conexión y administra sus permisos en Bee-core.</p>
+        </div>
+        <button type="button" class="bee-button bee-button--secondary" (click)="load()" [disabled]="loading || busy">Actualizar</button>
       </header>
-      <p *ngIf="error" class="cd-alert cd-error" role="alert">{{error}}</p>
-      <p *ngIf="message" class="cd-alert cd-success" role="status">{{message}}</p>
-      <section class="cd-panel">
-        <div class="cd-panel-heading"><div><h2>Vincular un dispositivo</h2><p>Selecciona los permisos que solicitará el nuevo dispositivo.</p></div></div>
-        <div class="cd-capabilities">
-          <label *ngFor="let capability of capabilities"><input type="checkbox" [checked]="selectedCapabilities.includes(capability.id)" (change)="toggleCapability(capability.id, $any($event.target).checked)"><span>{{capability.label}}</span></label>
-        </div>
-        <div class="cd-actions"><button class="cd-button cd-primary" type="button" (click)="createPairing()" [disabled]="busy || selectedCapabilities.length===0">Generar código de vinculación</button></div>
-        <div *ngIf="pairing" class="cd-pairing">
-          <div><strong>Escanea este QR desde la app</strong><p>Abre la app Bee en el dispositivo que quieras vincular y escanea el código antes de que caduque.</p></div>
-          <div #qrContainer class="cd-qr" role="img" aria-label="Código QR para vincular el dispositivo"></div>
-          <code>{{pairing.qrPayload}}</code>
-          <small>Caduca: {{pairing.expiresAt | date:'medium'}}</small>
-          <div class="cd-actions"><button class="cd-button" type="button" (click)="copyPairing()">Copiar código</button><button class="cd-button cd-danger" type="button" (click)="cancelPairing()">Cancelar código</button></div>
-        </div>
+
+      <section class="bee-stat-grid" aria-label="Resumen de dispositivos">
+        <article class="bee-stat-card"><span>Total de dispositivos</span><strong>{{dispositivos.length}}</strong><small>Registrados en esta organización</small></article>
+        <article class="bee-stat-card"><span>Activos</span><strong>{{activeCount}}</strong><small>Autorizados y disponibles</small></article>
+        <article class="bee-stat-card"><span>Pendientes de aprobación</span><strong>{{pendingCount}}</strong><small>Esperando revisión de permisos</small></article>
+        <article class="bee-stat-card"><span>Requieren atención</span><strong>{{attentionCount}}</strong><small>Suspenderidos, revocados o caducados</small></article>
       </section>
-      <section class="cd-panel">
-        <div class="cd-panel-heading"><div><h2>Dispositivos registrados</h2><p>Revisa su estado y los permisos concedidos.</p></div><span class="cd-count">{{devices.length}}</span></div>
-        <p *ngIf="loading">Cargando dispositivos…</p>
-        <p *ngIf="!loading && !devices.length" class="cd-empty">Todavía no hay dispositivos vinculados.</p>
-        <article class="cd-device" *ngFor="let device of devices">
-          <div class="cd-device-head"><div class="cd-device-icon">▣</div><div class="cd-device-title"><h3>{{device.name}}</h3><p>{{device.deviceType}} · {{device.platform}}<span *ngIf="device.appVersion"> · {{device.appVersion}}</span></p><small *ngIf="canManage">Propietario: {{device.owner?.name || device.owner?.email || 'Miembro anterior'}}</small></div><span class="cd-status" [attr.data-status]="device.status">{{statusLabel(device.status)}}</span></div>
-          <div class="cd-grants" *ngIf="device.status==='pending' && canManage">
-            <strong>Permisos solicitados</strong>
-            <label *ngFor="let capability of device.requestedCapabilities"><input type="checkbox" [checked]="grants[device.id]?.includes(capability)" (change)="toggleGrant(device.id, capability, $any($event.target).checked)">{{capability}}</label>
-            <button type="button" class="cd-button cd-primary" (click)="approve(device)" [disabled]="busy || !(grants[device.id]?.length)">Aprobar permisos seleccionados</button>
+
+      <section class="bee-directory">
+        <header class="bee-section-heading">
+          <div><h3>Dispositivos de la organización</h3><p>{{filteredDispositivos.length}} of {{dispositivos.length}} dispositivos</p></div>
+          <button type="button" class="bee-button bee-button--secondary" (click)="load()" [disabled]="loading">Actualizar list</button>
+        </header>
+
+        <div class="bee-toolbar" aria-label="Dispositivo directory controls">
+          <div class="bee-toolbar__filters">
+            <label class="bee-search">
+              <span aria-hidden="true">⌕</span>
+              <input type="search" [(ngModel)]="search" name="deviceSearch" placeholder="Search dispositivos…" aria-label="Search dispositivos">
+              <button *ngIf="search" type="button" (click)="search=''" aria-label="Clear search">×</button>
+            </label>
+            <select class="bee-filter" [(ngModel)]="statusFilter" name="deviceEstado" aria-label="Filter dispositivos by status">
+              <option value="all">Todos los estados</option><option value="active">Activos</option><option value="pending">Pendiente</option>
+              <option value="suspendered">Suspenderido</option><option value="revoked">Revocado</option><option value="desvinculared">Desvinculado</option><option value="expired">Caducado</option>
+            </select>
+            <select class="bee-filter" [(ngModel)]="typeFilter" name="deviceType" aria-label="Filter dispositivos by type">
+              <option value="all">Todos los tipos</option>
+              <option *ngFor="let type of deviceTypes" [value]="type">{{type}}</option>
+            </select>
           </div>
-          <div class="cd-grants" *ngIf="device.status!=='pending'"><strong>Permisos concedidos</strong><span *ngIf="!device.grantedCapabilities?.length">Ninguno</span><span class="cd-chip" *ngFor="let capability of device.grantedCapabilities">{{capability}}</span></div>
-          <footer class="cd-device-footer"><span>Última conexión: {{device.lastSeenAt ? (device.lastSeenAt | date:'medium') : 'Nunca'}}</span><div class="cd-actions">
-            <button *ngIf="canManage && device.status==='active'" class="cd-button" type="button" (click)="act(device,'suspend')">Suspender</button>
-            <button *ngIf="canManage && device.status==='suspended'" class="cd-button" type="button" (click)="act(device,'activate')">Reactivar</button>
-            <button *ngIf="!['unlinked','revoked'].includes(device.status)" class="cd-button" type="button" (click)="act(device,'unlink')">Desvincular</button>
-            <button *ngIf="canManage && !['unlinked','revoked'].includes(device.status)" class="cd-button cd-danger" type="button" (click)="act(device,'revoke')">Revocar acceso</button>
-            <button *ngIf="canManage" class="cd-button cd-danger" type="button" (click)="act(device,'delete')">Eliminar</button>
-          </div></footer>
-        </article>
+          <div class="bee-toolbar__actions">
+            <div class="bee-view-toggle" role="group" aria-label="Modo de visualización">
+              <button type="button" [class.is-active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'" aria-label="Vista de tarjetas" title="Vista de tarjetas">▦</button>
+              <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Vista de tabla" title="Vista de tabla">☷</button>
+            </div>
+            <button *ngIf="canManage" type="button" class="bee-button bee-button--primary" (click)="openCreate()">＋ Nuevo dispositivo</button>
+          </div>
+        </div>
+
+        <div *ngIf="loading && !dispositivos.length" class="bee-empty-state" role="status">Loading dispositivos…</div>
+        <div *ngIf="!loading && !dispositivos.length" class="bee-empty-state">
+          <strong>No dispositivos connected yet</strong><span>Genera un código QR para registrar tu primer dispositivo.</span>
+          <button *ngIf="canManage" type="button" class="bee-button bee-button--primary" (click)="openCreate()">Nuevo dispositivo</button>
+        </div>
+        <div *ngIf="dispositivos.length && !filteredDispositivos.length" class="bee-empty-state">
+          <strong>No matching dispositivos</strong><span>Prueba con otra búsqueda o filtros.</span>
+          <button type="button" class="bee-button bee-button--secondary" (click)="clearFilters()">Limpiar filtros</button>
+        </div>
+
+        <div class="bee-card-grid" *ngIf="filteredDispositivos.length && view==='cards'">
+          <article class="bee-dashboard-card bee-device-card" *ngFor="let device of filteredDispositivos; trackBy: trackDispositivo">
+            <header class="bee-device-card__header">
+              <span class="bee-device-card__icon" aria-hidden="true">▣</span>
+              <div class="bee-device-card__identity"><h4>{{device.name}}</h4><p>{{device.deviceType}} · {{device.platform}}</p></div>
+              <span class="bee-badge" [ngClass]="statusClass(device.status)">{{statusLabel(device.status)}}</span>
+            </header>
+            <div class="bee-device-card__details">
+              <div><span>Propietario</span><strong>{{device.owner?.name || device.owner?.email || '—'}}</strong></div>
+              <div><span>Última conexión</span><strong>{{device.lastSeenAt ? (device.lastSeenAt | date:'medium') : 'Nunca'}}</strong></div>
+              <div><span>Permisos concedidos</span><strong>{{device.grantedPermisos?.length || 0}}</strong></div>
+            </div>
+            <div class="bee-device-card__capabilities">
+              <span *ngFor="let capability of (device.grantedPermisos || []).slice(0,3)" class="bee-badge">{{capability}}</span>
+              <span *ngIf="(device.grantedPermisos || []).length>3" class="bee-badge">+{{device.grantedPermisos.length-3}}</span>
+              <span *ngIf="!device.grantedPermisos?.length" class="bee-text-muted">No hay permisos concedidos</span>
+            </div>
+            <div *ngIf="device.status==='pending' && canManage" class="bee-device-card__approval">
+              <strong>Permisos solicitados</strong>
+              <label *ngFor="let capability of device.requestedPermisos">
+                <input type="checkbox" [checked]="grants[device.id]?.includes(capability)" (change)="toggleGrant(device.id,capability,$any($event.target).checked)">
+                {{capability}}
+              </label>
+              <button type="button" class="bee-button bee-button--primary" (click)="approve(device)" [disabled]="busy || !grants[device.id]?.length">Aprobar selección</button>
+            </div>
+            <footer class="bee-device-card__footer">
+              <span class="bee-text-muted">{{device.appVersion || device.deviceType}}</span>
+              <details class="bee-menu" *ngIf="canManage">
+                <summary aria-label="Acciones del dispositivo">⋮</summary>
+                <div role="menu">
+                  <button *ngIf="device.status==='active'" type="button" role="menuitem" (click)="act(device,'suspender')">Suspender</button>
+                  <button *ngIf="device.status==='suspendered'" type="button" role="menuitem" (click)="act(device,'activate')">Reactivar</button>
+                  <button *ngIf="!['desvinculared','revoked','expired'].includes(device.status)" type="button" role="menuitem" (click)="act(device,'desvincular')">Desvincular</button>
+                  <button *ngIf="!['desvinculared','revoked','expired'].includes(device.status)" type="button" role="menuitem" (click)="act(device,'revoke')">Revocar acceso</button>
+                  <button type="button" role="menuitem" class="bee-menu__danger" (click)="act(device,'eliminar')">Eliminar</button>
+                </div>
+              </details>
+            </footer>
+          </article>
+        </div>
+
+        <div class="bee-table-wrap" *ngIf="filteredDispositivos.length && view==='table'">
+          <table>
+            <thead><tr><th>Dispositivo</th><th>Propietario</th><th>Estado</th><th>Permisos</th><th>Última conexión</th><th *ngIf="canManage">Acciones</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let device of filteredDispositivos; trackBy: trackDispositivo">
+                <td><strong>{{device.name}}</strong><small class="bee-text-muted">{{device.deviceType}} · {{device.platform}}</small></td>
+                <td>{{device.owner?.name || device.owner?.email || '—'}}</td>
+                <td><span class="bee-badge" [ngClass]="statusClass(device.status)">{{statusLabel(device.status)}}</span></td>
+                <td>{{device.grantedPermisos?.length || 0}}</td>
+                <td>{{device.lastSeenAt ? (device.lastSeenAt | date:'medium') : 'Nunca'}}</td>
+                <td *ngIf="canManage"><details class="bee-menu"><summary aria-label="Acciones del dispositivo">⋮</summary><div role="menu">
+                  <button *ngIf="device.status==='active'" type="button" role="menuitem" (click)="act(device,'suspender')">Suspender</button>
+                  <button *ngIf="device.status==='suspendered'" type="button" role="menuitem" (click)="act(device,'activate')">Reactivar</button>
+                  <button *ngIf="!['desvinculared','revoked','expired'].includes(device.status)" type="button" role="menuitem" (click)="act(device,'desvincular')">Desvincular</button>
+                  <button *ngIf="!['desvinculared','revoked','expired'].includes(device.status)" type="button" role="menuitem" (click)="act(device,'revoke')">Revocar acceso</button>
+                  <button type="button" role="menuitem" class="bee-menu__danger" (click)="act(device,'eliminar')">Eliminar</button>
+                </div></details></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
+
+      <div class="bee-modal-overlay" *ngIf="modalOpen" (click)="closeModal()">
+        <section class="bee-modal" role="dialog" aria-modal="true" aria-labelledby="device-modal-title" (click)="$event.stopPropagation()" (keydown.escape)="closeModal()" tabindex="-1">
+          <header class="bee-modal__header"><div><span class="bee-eyebrow">REGISTRO DE DISPOSITIVO</span><h3 id="device-modal-title">Nuevo dispositivo</h3><p>Selecciona los permisos que podrá solicitar el dispositivo. Seguirán requiriendo aprobación explícita.</p></div>
+            <button type="button" class="bee-icon-button" (click)="closeModal()" aria-label="Cerrar dialog">×</button>
+          </header>
+          <div *ngIf="!pairing" class="bee-modal__body">
+            <strong>Permisos solicitados</strong>
+            <div class="bee-choice-grid">
+              <label *ngFor="let capability of capabilities"><input type="checkbox" [checked]="selectedPermisos.includes(capability.id)" (change)="toggleCapability(capability.id,$any($event.target).checked)">{{capability.label}}</label>
+            </div>
+            <p class="bee-text-muted">El código QR es válido durante cinco minutos. Escanearlo no concede acceso hasta que un administrador apruebe el dispositivo.</p>
+          </div>
+          <div *ngIf="pairing" class="bee-modal__body bee-pairing">
+            <strong>Escanea este código QR desde la aplicación del dispositivo</strong>
+            <div #qrContainer class="bee-pairing__qr" role="img" aria-label="Dispositivo pairing QR code"></div>
+            <code>{{pairing.qrPayload}}</code>
+            <span class="bee-text-muted">Caduca {{pairing.expiresAt | date:'medium'}}</span>
+            <button type="button" class="bee-button bee-button--secondary" (click)="copyPairing()">Copiar código de vinculación</button>
+          </div>
+          <footer class="bee-modal__footer">
+            <button type="button" class="bee-button bee-button--secondary" (click)="closeModal()">Cerrar</button>
+            <button *ngIf="!pairing" type="button" class="bee-button bee-button--primary" (click)="createPairing()" [disabled]="busy || !selectedPermisos.length">{{busy ? 'Generando…' : 'Generar código QR'}}</button>
+            <button *ngIf="pairing" type="button" class="bee-button bee-button--danger" (click)="cancelPairing()" [disabled]="busy">Cancelar vinculación</button>
+          </footer>
+        </section>
+      </div>
     </section>
-  `,
-  styles: [`
-    :host{display:block;color:var(--bee-text)}.cd-page{max-width:1120px;margin:0 auto;padding:24px;display:grid;gap:20px}.cd-header,.cd-panel-heading,.cd-device-head,.cd-device-footer,.cd-actions{display:flex;align-items:center;justify-content:space-between;gap:14px}.cd-header h1{margin:4px 0;font-size:28px}.cd-header p,.cd-panel-heading p{margin:4px 0;color:var(--bee-text-muted)}.cd-eyebrow{font-size:11px;letter-spacing:.12em;font-weight:700;color:var(--bee-accent)}.cd-panel{border:1px solid var(--bee-border);border-radius:16px;background:var(--bee-surface-raised);padding:20px}.cd-panel h2{font-size:18px;margin:0}.cd-capabilities{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:20px 0}.cd-capabilities label,.cd-grants label{display:flex;align-items:center;gap:9px}.cd-button{border:1px solid var(--bee-border);border-radius:9px;background:var(--bee-surface);color:var(--bee-text);padding:9px 13px;cursor:pointer}.cd-button:disabled{opacity:.5;cursor:not-allowed}.cd-primary{background:var(--bee-accent);border-color:var(--bee-accent);color:var(--bee-accent-text)}.cd-danger{color:var(--bee-status-danger)}.cd-pairing{margin-top:18px;padding:16px;border:1px dashed var(--bee-border);border-radius:12px;display:grid;gap:10px}.cd-qr{display:flex;justify-content:center;min-height:180px}.cd-pairing code{overflow-wrap:anywhere;padding:12px;background:var(--bee-surface);border-radius:8px}.cd-count{border-radius:99px;background:var(--bee-surface);padding:4px 10px}.cd-device{border-top:1px solid var(--bee-border);padding:18px 0}.cd-device-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:var(--bee-surface);font-size:22px}.cd-device-title{flex:1}.cd-device-title h3{margin:0 0 4px}.cd-device-title p,.cd-device-title small{margin:0;color:var(--bee-text-muted)}.cd-status,.cd-chip{border-radius:99px;padding:5px 9px;background:var(--bee-surface);font-size:12px}.cd-status[data-status=active]{color:var(--bee-status-success)}.cd-status[data-status=pending]{color:var(--bee-status-warning)}.cd-status[data-status=suspended],.cd-status[data-status=revoked]{color:var(--bee-status-danger)}.cd-grants{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0;padding:14px;border-radius:10px;background:var(--bee-surface)}.cd-grants strong{width:100%}.cd-device-footer{margin-top:12px;color:var(--bee-text-muted);font-size:12px;flex-wrap:wrap}.cd-alert{padding:12px 14px;border-radius:10px}.cd-error{background:var(--bee-surface);color:var(--bee-status-danger)}.cd-success{background:var(--bee-surface);color:var(--bee-status-success)}.cd-empty{padding:20px;text-align:center;color:var(--bee-text-muted)}@media(max-width:650px){.cd-page{padding:14px}.cd-header,.cd-device-head{align-items:flex-start;flex-wrap:wrap}.cd-device-footer{align-items:flex-start;flex-direction:column}}
-  `]
+  `
 })
-export class BeeConnectedDevicesComponent implements OnChanges {
+export class BeeConnectedDispositivosComponent implements OnChanges {
   @ViewChild("qrContainer") private qrContainer?: ElementRef<HTMLDivElement>;
   constructor(private readonly changeDetector: ChangeDetectorRef) {}
   @Input() tenantId = "";
   @Input() role = "member";
   @Input() accessToken = "";
   @Input() section = "";
+
   readonly capabilities = CAPABILITIES;
-  devices: Device[] = [];
-  selectedCapabilities: string[] = ["device.status.write"];
+  dispositivos: Dispositivo[] = [];
+  selectedPermisos: string[] = ["device.status.write"];
   grants: Record<string, string[]> = {};
   pairing: Pairing | null = null;
+  search = "";
+  statusFilter = "all";
+  typeFilter = "all";
+  view: DispositivoView = "cards";
+  modalOpen = false;
   canManage = false;
   loading = false;
   busy = false;
   error = "";
   message = "";
 
+  get activeCount(): number { return this.dispositivos.filter(device => device.status === "active").length; }
+  get pendingCount(): number { return this.dispositivos.filter(device => device.status === "pending").length; }
+  get attentionCount(): number { return this.dispositivos.filter(device => ["suspendered", "revoked", "expired"].includes(device.status)).length; }
+  get deviceTypes(): string[] { return [...new Set(this.dispositivos.map(device => device.deviceType).filter(Boolean))].sort(); }
+  get filteredDispositivos(): Dispositivo[] {
+    const term = this.search.trim().toLowerCase();
+    return this.dispositivos.filter(device => {
+      const matchesTerm = !term || [device.name, device.deviceType, device.platform, device.owner?.name, device.owner?.email].some(value => String(value || "").toLowerCase().includes(term));
+      return matchesTerm && (this.statusFilter === "all" || device.status === this.statusFilter) && (this.typeFilter === "all" || device.deviceType === this.typeFilter);
+    });
+  }
+
   ngOnChanges(): void { if (this.accessToken) void this.load(); }
+  trackDispositivo(_index: number, device: Dispositivo): string { return device.id; }
+  clearFilters(): void { this.search = ""; this.statusFilter = "all"; this.typeFilter = "all"; }
+  openCreate(): void {
+    this.error = ""; this.message = ""; this.pairing = null;
+    this.selectedPermisos = ["device.status.write"];
+    this.modalOpen = true;
+  }
+  closeModal(): void {
+    if (this.busy) return;
+    this.modalOpen = false;
+    this.pairing = null;
+    this.changeDetector.detectChanges();
+  }
   private async request(path: string, method = "GET", body?: unknown): Promise<any> {
     const response = await fetch("/api" + path, {
       method, credentials: "omit",
@@ -102,77 +247,71 @@ export class BeeConnectedDevicesComponent implements OnChanges {
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "La solicitud de dispositivos conectados ha fallado (" + response.status + ").");
+    if (!response.ok) throw new Error(payload.error || "Connected Dispositivos request failed (" + response.status + ").");
     return payload;
   }
   async load(): Promise<void> {
     if (!this.accessToken || this.loading) return;
     this.loading = true; this.error = "";
     try {
-      const result = await this.request("/connected-devices");
-      this.devices = Array.isArray(result.devices) ? result.devices : [];
+      const result = await this.request("/connected-dispositivos");
+      this.dispositivos = Array.isArray(result.dispositivos) ? result.dispositivos : [];
       this.canManage = Boolean(result.canManage);
-      for (const device of this.devices) if (device.status === "pending" && !this.grants[device.id]) this.grants[device.id] = [...(device.requestedCapabilities || [])];
-    } catch (error) { this.error = error instanceof Error ? error.message : "No se pudieron cargar los dispositivos."; }
+      for (const device of this.dispositivos) if (device.status === "pending" && !this.grants[device.id]) this.grants[device.id] = [...(device.requestedPermisos || [])];
+    } catch (error) { this.error = error instanceof Error ? error.message : "Could not load dispositivos."; }
     finally { this.loading = false; }
   }
-  toggleCapability(id: string, checked: boolean): void { this.selectedCapabilities = checked ? [...this.selectedCapabilities, id] : this.selectedCapabilities.filter(item => item !== id); }
+  toggleCapability(id: string, checked: boolean): void { this.selectedPermisos = checked ? [...this.selectedPermisos, id] : this.selectedPermisos.filter(item => item !== id); }
   toggleGrant(deviceId: string, id: string, checked: boolean): void {
     const current = this.grants[deviceId] || [];
     this.grants[deviceId] = checked ? [...current, id] : current.filter(item => item !== id);
   }
   async createPairing(): Promise<void> {
-    if (this.busy || !this.selectedCapabilities.length) return;
+    if (this.busy || !this.selectedPermisos.length) return;
     this.busy = true; this.error = ""; this.message = "";
     try {
-      this.pairing = await this.request("/connected-devices/pairing-challenges", "POST", { requestedCapabilities: this.selectedCapabilities });
-      // Wait for Angular's globally bundled qrcode.min.js and for *ngIf to create the QR container.
-      await this.ensureQrLibrary();
+      this.pairing = await this.request("/connected-dispositivos/pairing-challenges", "POST", { requestedPermisos: this.selectedPermisos });
+      if (!(window as any).QRCode) throw new Error("El generador QR no está disponible en esta carga de la aplicación.");
       this.changeDetector.detectChanges();
       this.renderQr();
-    } catch (error) { this.error = error instanceof Error ? error.message : "No se pudo generar el código QR."; }
+    } catch (error) { this.error = error instanceof Error ? error.message : "No se pudo generar el código de vinculación."; }
     finally { this.busy = false; }
-  }
-  async cancelPairing(): Promise<void> {
-    if (!this.pairing) return;
-    try { await this.request("/connected-devices/pairing-challenges/" + encodeURIComponent(this.pairing.challengeId) + "/cancel", "POST", {}); this.pairing = null; this.changeDetector.detectChanges(); this.message = "Código de vinculación cancelado."; }
-    catch (error) { this.error = error instanceof Error ? error.message : "No se pudo cancelar el código."; }
-  }
-  private async ensureQrLibrary(): Promise<void> {
-    // qrcode.min.js is bundled globally by apps/web/angular.json.
-    // Do not inject a second script or request a non-existent asset URL.
-    if ((window as any).QRCode) return;
-    throw new Error("El generador QR (qrcode.min.js) no está disponible en esta carga de la aplicación.");
   }
   private renderQr(): void {
     const container = this.qrContainer?.nativeElement;
     if (!container || !this.pairing) return;
     container.replaceChildren();
     const qr = (window as any).QRCode;
-    if (!qr) { container.textContent = "No se pudo mostrar el QR. Copia el código de vinculación."; return; }
+    if (!qr) return;
     const style = getComputedStyle(document.documentElement);
     new qr(container, {
-      text: this.pairing.qrPayload, width: 180, height: 180,
+      text: this.pairing.qrPayload, width: 190, height: 190,
       colorDark: style.getPropertyValue("--bee-text").trim(),
       colorLight: style.getPropertyValue("--bee-surface").trim(),
       correctLevel: qr.CorrectLevel?.M ?? 0
     });
+  }
+  async cancelPairing(): Promise<void> {
+    if (!this.pairing) return;
+    await this.runAction(() => this.request("/connected-dispositivos/pairing-challenges/" + encodeURIComponent(this.pairing!.challengeId) + "/cancel", "POST", {}), "Código de vinculación cancelado.");
+    this.pairing = null;
+    this.changeDetector.detectChanges();
   }
   async copyPairing(): Promise<void> {
     if (!this.pairing) return;
     try { await navigator.clipboard.writeText(this.pairing.qrPayload); this.message = "Código copiado."; }
     catch { this.error = "No se pudo copiar el código. Selecciónalo manualmente."; }
   }
-  async approve(device: Device): Promise<void> {
-    const grantedCapabilities = this.grants[device.id] || [];
-    if (!grantedCapabilities.length) return;
-    await this.runAction(() => this.request("/connected-devices/" + encodeURIComponent(device.id) + "/approve", "POST", { grantedCapabilities }), "Dispositivo aprobado.");
+  async approve(device: Dispositivo): Promise<void> {
+    const grantedPermisos = this.grants[device.id] || [];
+    if (!grantedPermisos.length) return;
+    await this.runAction(() => this.request("/connected-dispositivos/" + encodeURIComponent(device.id) + "/approve", "POST", { grantedPermisos }), "Dispositivo approved.");
   }
-  async act(device: Device, action: "suspend" | "activate" | "unlink" | "revoke" | "delete"): Promise<void> {
-    const descriptions: Record<string, string> = { suspend: "suspender", activate: "reactivar", unlink: "desvincular", revoke: "revocar el acceso a", delete: "eliminar" };
-    if (!window.confirm("¿Confirmas " + descriptions[action] + " el dispositivo " + device.name + "?")) return;
-    const path = "/connected-devices/" + encodeURIComponent(device.id) + (action === "delete" ? "" : "/" + action);
-    await this.runAction(() => this.request(path, action === "delete" ? "DELETE" : "POST", action === "delete" ? undefined : {}), "Acción completada.");
+  async act(device: Dispositivo, action: "suspender" | "activate" | "desvincular" | "revoke" | "eliminar"): Promise<void> {
+    const labels: Record<string, string> = { suspender: "suspender", activate: "reactivar", desvincular: "desvincular", revoke: "revocar el acceso a", eliminar: "eliminar" };
+    if (!window.confirm("¿Confirmas " + labels[action] + " " + device.name + "?")) return;
+    const path = "/connected-dispositivos/" + encodeURIComponent(device.id) + (action === "eliminar" ? "" : "/" + action);
+    await this.runAction(() => this.request(path, action === "eliminar" ? "DELETE" : "POST", action === "eliminar" ? undefined : {}), "Acción completada.");
   }
   private async runAction(action: () => Promise<unknown>, success: string): Promise<void> {
     if (this.busy) return;
@@ -181,5 +320,13 @@ export class BeeConnectedDevicesComponent implements OnChanges {
     catch (error) { this.error = error instanceof Error ? error.message : "No se pudo completar la operación."; }
     finally { this.busy = false; }
   }
-  statusLabel(status: string): string { return ({ active: "Activo", pending: "Pendiente", suspended: "Suspendido", revoked: "Revocado", unlinked: "Desvinculado" } as Record<string, string>)[status] || status; }
+  statusLabel(status: string): string {
+    return ({ active: "Activos", pending: "Pendiente", suspendered: "Suspenderido", revoked: "Revocado", desvinculared: "Desvinculado", expired: "Caducado" } as Record<string, string>)[status] || status;
+  }
+  statusClass(status: string): string {
+    if (status === "active") return "bee-badge--success";
+    if (status === "pending") return "bee-badge--warning";
+    if (["suspendered", "revoked", "expired"].includes(status)) return "bee-badge--danger";
+    return "";
+  }
 }

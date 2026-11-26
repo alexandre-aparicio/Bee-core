@@ -207,3 +207,12 @@ Each device card exposes a vertical three-dot action menu. **Unlink** invalidate
 Device lifecycle actions require an explicit browser confirmation before destructive or access-changing operations. API errors and operation results are displayed inline in the Angular component.
 
 The Connected Devices API client now adds `Content-Type: application/json` only when a request actually has a body. Body-less DELETE requests no longer advertise an empty JSON payload, avoiding Fastify's `FST_ERR_CTP_EMPTY_JSON_BODY` parser error. Mutating POST operations that require an empty JSON payload continue to send an explicit `{}` body.
+
+
+## Dashboard 0.1.5 — organization-style device directory
+
+Version 0.1.5 updates only the native Angular dashboard experience and plugin version metadata. The Connected Devices workspace now follows the Organization directory interaction pattern: a page heading, four summary metrics, search, status and device-type filters, cards/table view selection, and a New device action that opens a modal for capability selection and QR pairing. Device approval and lifecycle actions remain connected to the existing plugin API.
+
+The module consumes shared directory, statistic, card, badge, table, menu, button and dialog primitives from `apps/web/src/app/templates/base/base.css`. It does not declare component-local visual styles. These primitives use the existing semantic `--bee-*` tokens so the active template continues to control the visual treatment. The backend routes, tenant authorization, pairing token model, credential handling and device lifecycle semantics are unchanged.
+
+Automated browser coverage must verify the heading, summary cards, search/filtering, card/table switching, modal opening and QR generation/cancellation, device approval, and bodyless DELETE behavior. Visual verification across all six templates and Light/Dark modes remains a separate acceptance check.
