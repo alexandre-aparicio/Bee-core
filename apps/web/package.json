@@ -33,6 +33,9 @@
     "@playwright/test": "1.65.1",
     "typescript": "5.8.3",
     "@angular-architects/native-federation": "19.0.23",
-    "es-module-shims": "2.8.4"
+    "es-module-shims": "2.8.4",
+    "@angular/animations": "19.2.15",
+    "@angular-devkit/build-angular": "19.2.15",
+    "@softarc/native-federation-node": "3.5.6"
   }
 }
