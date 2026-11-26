@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { BeeIconComponent } from '../core/icons/bee-icon.component';
 
 type IdentityTab = 'brand' | 'assets' | 'seo';
 type PlatformIdentity = {
@@ -18,11 +19,11 @@ const EMPTY_IDENTITY: PlatformIdentity = {
 @Component({
   selector:'bee-platform-identity',
   standalone:true,
-  imports:[CommonModule,FormsModule],
+  imports:[CommonModule,FormsModule,BeeIconComponent],
   template:`
     <section class="identity bee-dashboard-card">
       <div class="identity__heading">
-        <span class="identity__icon">◈</span><div class="identity__heading-content"><h2>Platform Identity</h2><p><strong>Brand & public presence</strong> · Manage the platform information, visual assets and metadata used by public pages.</p></div>
+        <bee-icon class="identity__icon" name="globe" size="20px" aria-hidden="true"></bee-icon><div class="identity__heading-content"><h2>Platform Identity</h2><p><strong>Brand & public presence</strong> · Manage the platform information, visual assets and metadata used by public pages.</p></div>
         <span class="identity__scope">{{editable ? 'Global settings' : 'Public identity'}}</span>
       </div>
       <nav class="identity__tabs" aria-label="Platform identity sections">
@@ -105,7 +106,7 @@ const EMPTY_IDENTITY: PlatformIdentity = {
   `,
   styles:[`
     :host{display:block;min-width:0;color:inherit}.identity{min-width:0;padding:0;border:1px solid var(--bee-border);border-radius:14px;background:var(--bee-surface);overflow:hidden}
-    .identity__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:19px 20px 15px}.identity__icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:12px;background:var(--bee-accent);color:var(--bee-accent-text);font-size:19px}.identity__heading-content{flex:1;min-width:0}.identity__heading h2{font-size:17px;margin:2px 0 5px;font-weight:600;line-height:1.35}.identity__heading p,.identity__section-title p,.identity__social p{font-size:12px;line-height:1.55;opacity:.68;margin:0}.identity__heading p strong{font-weight:600;opacity:1}.identity__scope{border:1px solid var(--bee-border);border-radius:30px;padding:6px 9px;font-size:10px;white-space:nowrap;opacity:.7}
+    .identity__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:19px 20px 15px}.identity__icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;width:20px;height:20px;color:var(--bee-text-muted);margin-top:2px}.identity__heading-content{flex:1;min-width:0}.identity__heading h2{font-size:17px;margin:2px 0 5px;font-weight:600;line-height:1.35}.identity__heading p,.identity__section-title p,.identity__social p{font-size:12px;line-height:1.55;opacity:.68;margin:0}.identity__heading p strong{font-weight:600;opacity:1}.identity__scope{border:1px solid var(--bee-border);border-radius:30px;padding:6px 9px;font-size:10px;white-space:nowrap;opacity:.7}
     .identity__tabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--bee-border);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--bee-accent) transparent;scrollbar-gutter:stable}.identity__tabs::-webkit-scrollbar{height:3px}.identity__tabs::-webkit-scrollbar-track{background:transparent}.identity__tabs::-webkit-scrollbar-thumb{background:var(--bee-accent);border-radius:999px}.identity__tabs::-webkit-scrollbar-thumb:hover{background:var(--bee-accent)}.identity__tabs button{flex:1;min-width:max-content;display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;font:600 11px Arial,sans-serif;opacity:.62;cursor:pointer}.identity__tabs button span{font-size:9px;opacity:.55}.identity__tabs button.is-active{border-bottom-color:var(--bee-accent);opacity:1;color:var(--bee-accent)}
     .identity__panel{padding:19px 20px;min-width:0}.identity__section-title{display:flex;justify-content:space-between;gap:12px;margin-bottom:16px}.identity__section-title h3,.identity__social h3{font-size:15px;font-weight:600;line-height:1.35;margin:0 0 5px}.identity__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.identity__brand-grid{grid-template-columns:repeat(12,minmax(0,1fr))}.identity__brand-grid>label:nth-child(-n+3){grid-column:span 4}.identity__brand-grid>label:nth-child(4){grid-column:1/-1}.identity__brand-grid>label:nth-child(n+5){grid-column:span 3}.identity__grid label,.identity__asset{display:grid;gap:6px;min-width:0;font:600 11px Arial,sans-serif}.identity__wide{grid-column:1/-1}.identity input:not([type=checkbox]),.identity textarea,.identity select{width:100%;box-sizing:border-box;min-width:0;padding:9px 10px;border:1px solid var(--bee-border);border-radius:8px;background:var(--bee-bg);color:inherit;font:12px Arial,sans-serif}.identity textarea{resize:vertical}.identity input:disabled,.identity textarea:disabled,.identity select:disabled{opacity:.65}.identity label small{font-size:9px;opacity:.55;font-weight:400}
     .identity__asset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.identity__asset{padding:12px;border:1px solid var(--bee-border);border-radius:10px;background:var(--bee-bg)}.identity__asset>small{font-size:9px;opacity:.6;font-weight:400}.identity__asset-preview{display:flex;align-items:center;justify-content:center;min-height:64px;max-height:100px;padding:8px;border:1px dashed var(--bee-border);border-radius:7px}.identity__asset-preview img{max-width:100%;max-height:78px;object-fit:contain}.identity__asset-preview span{font-size:10px;opacity:.6}
