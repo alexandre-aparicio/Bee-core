@@ -1,10 +1,10 @@
-import type { Db } from "mongodb";
+import type { Db, Document } from "mongodb";
 
 const PLANS = ["starter", "pro", "enterprise"] as const;
 const PLUGIN_ID = "connected-devices";
 const MIGRATION_ID = "connected-devices-legacy-plan-inclusion-v1";
 
-type Ledger = {
+type Ledger = Document & {
   _id: string;
   planId: string;
   pluginId: string;
