@@ -7,6 +7,7 @@ import { NOTIFICATIONS_EN, NOTIFICATIONS_ES } from './catalogs/modules/notificat
 import { MAIL_EN, MAIL_ES } from './catalogs/modules/mail.catalog';
 import { FILES_EN, FILES_ES } from './catalogs/modules/files.catalog';
 import { PLATFORM_ADMIN_EN, PLATFORM_ADMIN_ES } from './catalogs/modules/platform-admin.catalog';
+import { TIME_TRACKING_EN, TIME_TRACKING_ES } from './catalogs/modules/time-tracking.catalog';
 
 export type BeeLanguage = 'en' | 'es';
 export interface BeeLanguageOption { code: BeeLanguage; label: string; nativeLabel: string; }
@@ -21,7 +22,7 @@ export interface BeeLanguagePreferences {
 @Injectable({ providedIn: 'root' })
 export class BeeI18nService {
   private readonly catalogs = new Map<string, Record<string, string>>();
-  private readonly activeNamespaces = new Set<string>(['core', 'settings', 'organization', 'marketplace', 'notifications', 'mail', 'platform-admin']);
+  private readonly activeNamespaces = new Set<string>(['core', 'settings', 'organization', 'marketplace', 'notifications', 'mail', 'platform-admin', 'time-tracking']);
   locale: BeeLanguage = 'en';
   preferences: BeeLanguagePreferences | null = null;
 
@@ -36,6 +37,8 @@ export class BeeI18nService {
     this.registerCatalog('mail', 'en', MAIL_EN); this.registerCatalog('mail', 'es', MAIL_ES);
     this.registerCatalog('files', 'en', FILES_EN); this.registerCatalog('files', 'es', FILES_ES);
     this.registerCatalog('platform-admin', 'en', PLATFORM_ADMIN_EN); this.registerCatalog('platform-admin', 'es', PLATFORM_ADMIN_ES);
+    this.registerCatalog('time-tracking', 'en', TIME_TRACKING_EN);
+    this.registerCatalog('time-tracking', 'es', TIME_TRACKING_ES);
     this.applyDocumentLanguage();
   }
 
@@ -53,6 +56,7 @@ export class BeeI18nService {
     this.activeNamespaces.add('notifications');
     this.activeNamespaces.add('mail');
     this.activeNamespaces.add('platform-admin');
+    this.activeNamespaces.add('time-tracking');
     for (const id of moduleIds) this.activeNamespaces.add(String(id).toLowerCase());
   }
 

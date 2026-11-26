@@ -2,6 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, Input, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { TimeTrackingApiService } from "./time-tracking-api.service";
+import { BeeI18nService } from "../i18n/bee-i18n.service";
 type ClockEvent={type:string;occurredAt:string;source:string};
 type TimeSession={id:string;status:"working"|"on_break"|"closed";startedAt:string;endedAt:string|null;events:ClockEvent[]};
 type TeamMember={userId:string;email:string;role:string};
@@ -10,7 +11,9 @@ type Schedule={userId:string;timezone:string;days:Array<{day:number;start:string
 type Correction={id:string;sessionId:string;userEmail?:string;eventType:"clock_in"|"clock_out";originalAt:string;requestedAt:string;reason:string;status:string;createdAt:string;reviewNote?:string};
 @Component({selector:"bee-time-tracking",standalone:true,providers:[TimeTrackingApiService],imports:[CommonModule,FormsModule],templateUrl:"./time-tracking.component.html",styleUrls:["./time-tracking.component.css"]})
 export class BeeTimeTrackingComponent implements OnInit {
- constructor(private readonly api:TimeTrackingApiService){}
+ constructor(private readonly api:TimeTrackingApiService,private readonly i18n:BeeI18nService){}
+ t(key:string):string{return this.i18n.t("time-tracking:"+key);}
+ weekday(day:number):string{const names=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];return this.t("weekday_"+(names[day]??"sunday"));}
  @Input() tenantId=""; @Input() role="member"; @Input() accessToken=""; @Input() section="";
  session:TimeSession|null=null; mySchedule:Schedule|null=null; history:TimeSession[]=[]; corrections:Correction[]=[]; teamCorrections:Correction[]=[]; members:TeamMember[]=[];
  loading=false; busy=false; error=""; message=""; activeSection:"my-day"|"schedule"|"history"|"requests"="my-day"; activeSubTab:"status"|"activity"|"mine"|"team"="status";
@@ -27,7 +30,7 @@ export class BeeTimeTrackingComponent implements OnInit {
    const [status,history,corrections,schedule]=await Promise.all([this.request("/time-tracking/me/status"),this.request("/time-tracking/me/sessions?limit=30"),this.request("/time-tracking/me/corrections"),this.request("/time-tracking/me/schedule")]);
    this.session=status.session??null;this.history=history.sessions??[];this.corrections=corrections.corrections??[];this.mySchedule=schedule.schedule??null;
    if(this.canManage)await this.loadTeam();
-  }catch(error){this.error=error instanceof Error?error.message:"Could not load time tracking";}finally{this.loading=false;}
+  }catch(error){this.error=error instanceof Error?error.message:this.t("error_load");}finally{this.loading=false;}
  }
  async loadTeam():Promise<void>{
   const [members,corrections]=await Promise.all([this.request("/time-tracking/team/members"),this.request("/time-tracking/team/corrections?status=pending")]);
@@ -37,11 +40,11 @@ export class BeeTimeTrackingComponent implements OnInit {
  }
  async act(action:"clock-in"|"break-start"|"break-end"|"clock-out"):Promise<void>{
   if(this.busy)return;this.busy=true;this.error="";this.message="";
-  try{await this.request("/time-tracking/"+action,"POST",{operationId:crypto.randomUUID(),source:"web"});await this.load();this.message=({"clock-in":"Entrada registrada.","break-start":"Pausa iniciada.","break-end":"Pausa finalizada.","clock-out":"Salida registrada."} as Record<string,string>)[action];}
-  catch(error){this.error=error instanceof Error?error.message:"Could not register the action";}finally{this.busy=false;}
+  try{await this.request("/time-tracking/"+action,"POST",{operationId:crypto.randomUUID(),source:"web"});await this.load();this.message=this.t(({"clock-in":"action_clock_in_success","break-start":"action_break_start_success","break-end":"action_break_end_success","clock-out":"action_clock_out_success"} as Record<string,string>)[action]);}
+  catch(error){this.error=error instanceof Error?error.message:this.t("error_action");}finally{this.busy=false;}
  }
- get elapsed():string{if(!this.session)return "—";const end=this.session.endedAt?new Date(this.session.endedAt).getTime():Date.now();const mins=Math.floor(Math.max(0,end-new Date(this.session.startedAt).getTime())/60000);return Math.floor(mins/60)+" h "+String(mins%60).padStart(2,"0")+" min";}
- label(type:string):string{return ({clock_in:"Entrada",break_start:"Inicio de pausa",break_end:"Fin de pausa",clock_out:"Salida"} as Record<string,string>)[type]??type;}
+ get elapsed():string{if(!this.session)return "—";const end=this.session.endedAt?new Date(this.session.endedAt).getTime():Date.now();const mins=Math.floor(Math.max(0,end-new Date(this.session.startedAt).getTime())/60000);return Math.floor(mins/60)+this.t("hour_abbreviation")+" "+String(mins%60).padStart(2,"0")+" "+this.t("minutes");}
+ label(type:string):string{const key=({clock_in:"event_clock_in",break_start:"event_break_start",break_end:"event_break_end",clock_out:"event_clock_out"} as Record<string,string>)[type];return key?this.t(key):type;}
  trackEvent(index:number,event:ClockEvent):string{return event.type+event.occurredAt+index;}
  openCorrection(session:TimeSession,eventType:"clock_in"|"clock_out",originalAt:string):void{
   this.correctionTarget={sessionId:session.id,eventType,originalAt};this.requestedAt=this.toLocalInput(originalAt);this.correctionReason="";this.message="";this.error="";
@@ -51,21 +54,21 @@ export class BeeTimeTrackingComponent implements OnInit {
  async submitCorrection():Promise<void>{
   if(!this.correctionTarget||!this.requestedAt||this.correctionReason.trim().length<5)return;
   this.busy=true;this.error="";this.message="";
-  try{await this.request("/time-tracking/me/corrections","POST",{...this.correctionTarget,requestedAt:new Date(this.requestedAt).toISOString(),reason:this.correctionReason.trim()});this.closeCorrection();await this.load();this.message="Solicitud de corrección enviada para su revisión.";}
-  catch(error){this.error=error instanceof Error?error.message:"No se pudo enviar la solicitud";}finally{this.busy=false;}
+  try{await this.request("/time-tracking/me/corrections","POST",{...this.correctionTarget,requestedAt:new Date(this.requestedAt).toISOString(),reason:this.correctionReason.trim()});this.closeCorrection();await this.load();this.message=this.t("correction_submitted");}
+  catch(error){this.error=error instanceof Error?error.message:this.t("error_submit_correction");}finally{this.busy=false;}
  }
- async selectMember(userId:string):Promise<void>{this.selectedUserId=userId;this.scheduleDraft=this.emptySchedule();this.timezone="Europe/Madrid";try{const result=await this.request("/time-tracking/team/schedules");const schedule=(result.schedules??[]).find((item:Schedule)=>item.userId===userId) as Schedule|undefined;if(schedule){this.timezone=schedule.timezone;for(const day of schedule.days){this.scheduleDraft[day.day]={...day,enabled:true};}}}catch(error){this.error=error instanceof Error?error.message:"No se pudo cargar el horario";}}
+ async selectMember(userId:string):Promise<void>{this.selectedUserId=userId;this.scheduleDraft=this.emptySchedule();this.timezone="Europe/Madrid";try{const result=await this.request("/time-tracking/team/schedules");const schedule=(result.schedules??[]).find((item:Schedule)=>item.userId===userId) as Schedule|undefined;if(schedule){this.timezone=schedule.timezone;for(const day of schedule.days){this.scheduleDraft[day.day]={...day,enabled:true};}}}catch(error){this.error=error instanceof Error?error.message:this.t("error_load_schedule");}}
  private emptySchedule():ScheduleDay[]{return Array.from({length:7},(_,day)=>({day,enabled:false,start:"09:00",end:"17:00",breakMinutes:0}));}
  async saveSchedule():Promise<void>{
   if(!this.selectedUserId)return;const days=this.scheduleDraft.filter(day=>day.enabled).map(({day,start,end,breakMinutes})=>({day,start,end,breakMinutes}));
   this.busy=true;this.error="";this.message="";
-  try{await this.request("/time-tracking/team/schedules/"+encodeURIComponent(this.selectedUserId),"PUT",{timezone:this.timezone,days});this.message="Horario guardado."; }
-  catch(error){this.error=error instanceof Error?error.message:"No se pudo guardar el horario";}finally{this.busy=false;}
+  try{await this.request("/time-tracking/team/schedules/"+encodeURIComponent(this.selectedUserId),"PUT",{timezone:this.timezone,days});this.message=this.t("schedule_saved"); }
+  catch(error){this.error=error instanceof Error?error.message:this.t("error_save_schedule");}finally{this.busy=false;}
  }
  async reviewCorrection(item:Correction,decision:"approved"|"rejected"):Promise<void>{
-  const reviewNote=decision==="rejected"?(typeof prompt==="function"?prompt("Motivo del rechazo (opcional):")??"": ""):"";
+  const reviewNote=decision==="rejected"?(typeof prompt==="function"?prompt(this.t("reject_reason_prompt"))??"": ""):"";
   this.busy=true;this.error="";this.message="";
-  try{await this.request("/time-tracking/team/corrections/"+encodeURIComponent(item.id),"PATCH",{decision,reviewNote});await this.load();this.message=decision==="approved"?"Corrección aprobada y aplicada.":"Solicitud rechazada.";}
-  catch(error){this.error=error instanceof Error?error.message:"No se pudo revisar la solicitud";}finally{this.busy=false;}
+  try{await this.request("/time-tracking/team/corrections/"+encodeURIComponent(item.id),"PATCH",{decision,reviewNote});await this.load();this.message=this.t(decision==="approved"?"correction_approved":"correction_rejected");}
+  catch(error){this.error=error instanceof Error?error.message:this.t("error_review_correction");}finally{this.busy=false;}
  }
 }
