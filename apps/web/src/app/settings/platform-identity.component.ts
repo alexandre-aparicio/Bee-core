@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BeeIconComponent } from '../core/icons/bee-icon.component';
-import { BeeIconComponent } from '../core/icons/bee-icon.component';
 
 type IdentityTab = 'brand' | 'assets' | 'seo';
 type PlatformIdentity = {
