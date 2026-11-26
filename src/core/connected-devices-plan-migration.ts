@@ -72,7 +72,6 @@ export async function recordLegacyConnectedDevicesPlanRemovals(
   actorId: string
 ): Promise<void> {
   const ledger = db.collection<Ledger>("plugin_plan_package_assignment_migrations");
-  await ledger.createIndex({ _id: 1 }, { unique: true, name: "plugin_plan_assignment_migration_unique" });
   const selected = new Set(planIds);
   for (const planId of PLANS) {
     if (selected.has(planId)) continue;
