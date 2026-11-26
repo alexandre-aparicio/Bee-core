@@ -521,6 +521,41 @@ function totpCodeAt(secret:string,step:number):string {
   return String(binary%1_000_000).padStart(6,"0");
 }
 
+
+
+test("clean installation: AUTH_ADMIN_EMAIL is provisioned as Super Admin on first startup", { skip: !uri }, async () => {
+  const dbName="bee_core_bootstrap_admin_test_"+Date.now();
+  const client=new MongoClient(uri!);await client.connect();
+  const db=client.db(dbName);
+  const fileStoragePath=await mkdtemp(path.join(tmpdir(),"bee-bootstrap-admin-test-"));
+  const app=Fastify();app.register(jwt,{secret:"01234567890123456789012345678901"});
+  const logger:BeeLogger={info(){},warn(){},error(){}};
+  const ctx:BeeContext={appName:"Bee test",version:"test",events:new BeeEventBus(),logger,server:app,mongoClient:client,config:{jwtSecret:"01234567890123456789012345678901",authMfaEncryptionKey:Buffer.alloc(32,7).toString("base64"),mongoUri:uri!,mongoDbName:dbName,fileStoragePath,authAdminEmail:"admin@example.test",authAdminPassword:"Bootstrap-password-12345"}};
+  try{
+    await authPlugin.initialize?.(ctx);
+    await organizationsPlugin.initialize?.(ctx);
+    await platformAdminPlugin.initialize?.(ctx);
+    const user=await db.collection("users").findOne({email:"admin@example.test",enabled:true});
+    assert.ok(user,"AUTH_ADMIN_EMAIL must create an enabled account on an empty database");
+    const superOrg=await db.collection("tenants").findOne({kind:"super",status:"active"});
+    assert.ok(superOrg,"first startup must create the Super Organization");
+    assert.equal(user!.tenantId,superOrg!.id,"bootstrap account must be moved to the Super Organization before requests are accepted");
+    const membership=await db.collection("memberships").findOne({userId:user!.id,tenantId:superOrg!.id,status:"active"});
+    assert.equal(membership?.role,"super_admin","bootstrap account must receive the reserved Super Admin membership");
+    assert.ok(user!.allowedClients.includes("dashboard"),"bootstrap account must be able to access the dashboard");
+    await app.ready();
+    const login=await app.inject({method:"POST",url:"/auth/login",payload:{email:"admin@example.test",password:"Bootstrap-password-12345",client:"dashboard"}});
+    assert.equal(login.statusCode,200);
+    assert.equal(login.json().mfaSetupRequired,true,"first Super Admin login must start mandatory authenticator enrollment");
+    const setup=await app.inject({method:"POST",url:"/auth/mfa/setup",headers:{authorization:"Bearer "+login.json().accessToken}});
+    assert.equal(setup.statusCode,200,"first Super Admin login must be able to create its authenticator QR setup");
+    assert.match(setup.json().provisioningUri,/otpauth:\/\/totp\//);
+  }finally{
+    await app.close().catch(()=>undefined);
+    await db.dropDatabase();await client.close();await rm(fileStoragePath,{recursive:true,force:true});
+  }
+});
+
 test("super organization migration: reserved membership retains mandatory MFA and global scope", { skip: !uri }, async () => {
   const dbName="bee_core_super_org_test_"+Date.now();
   const client=new MongoClient(uri!);await client.connect();
