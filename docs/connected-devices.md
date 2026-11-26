@@ -1,17 +1,24 @@
 # Connected Devices
 
-## Packaging and runtime status (2026-11-25)
+## Runtime, packaging and plan migration
 
-Connected Devices is delivered as a signed ZIP package. Its backend entrypoint is loaded by the verified package runtime; the Core bootstrap no longer imports or registers a bundled Connected Devices fallback. The legacy bundled platform record is retired without deleting tenant installation history, device records, pairing challenges or other tenant data. The migration allowlist remains only so an existing bundled record can be replaced by its signed ZIP; the retirement policy does not retire an uploaded ZIP.
+Connected Devices is delivered as a signed ZIP package. Its backend entrypoint is loaded by the verified package runtime; Core bootstrap does not import or register a bundled Connected Devices fallback. The frontend is served from the package's declared `frontend/index.html` entrypoint in a sandboxed remote-plugin iframe. The host builds generic navigation from the verified manifest routes. The frame uses the host API bridge and never receives a bearer token.
 
-The frontend is served from the package's declared `frontend/index.html` entrypoint in the sandboxed remote-plugin iframe. The platform upload stores the verified manifest's frontend routes in the package catalogue, and the tenant marketplace returns those routes only when the tenant is entitled to discover the package. The dashboard builds generic navigation from that metadata; there is no static Angular Connected Devices component or registration.
+The legacy bundled plan inclusion is restored by a one-time, ledgered migration after the signed ZIP is installed and its runtime is loaded. It creates `plugin_plan_package_assignments` for Starter, Pro and Enterprise only when no assignment or migration-ledger entry exists. Assignments use `source: "legacy-bundled-migration"`. The ledger records pre-existing assignments and explicit Platform Admin removals, so a later startup cannot silently re-add a package removed by an administrator. The migration changes no tenant installation, device, pairing or other tenant data.
+
+**Owner operational step if the ZIP is uploaded after Bee-Core startup:** after uploading and verifying the Connected Devices signed ZIP in Platform Admin, restart Bee-Core once so startup can load the package and run the migration. Then open Platform Admin → Plugins → Connected Devices → Plans and confirm Starter, Pro and Enterprise are assigned. If a restart is not possible, use the same Plans control to assign the intended plans explicitly. Do not delete tenant data or recreate installations as part of this step.
+
+## Host theme bridge
+
+When the frame announces `bee-plugin:ready`, the host sends `bee-plugin:init` followed by `bee-plugin:theme`. It also sends a fresh theme payload whenever the active template or light/dark mode changes. The payload contains `colorScheme` and semantic tokens resolved from the active host element with `getComputedStyle`; it contains no token, JWT, credential or secret.
+
+Supported token keys: `surface`, `surface-raised`, `text`, `text-muted`, `border`, `accent`, `accent-text`, `focus-ring`, `status-success`, `status-warning`, `status-danger`, `status-info`, `radius-sm`, `radius-md` and `radius-lg`. The frame maps these to `--bee-*` CSS variables and uses safe fallbacks until the first theme message. The sandbox remains `allow-scripts` only; the frame accepts messages only from its parent and the host accepts messages only from the registered frame window.
 
 The device simulator deliberately remains a separate developer/test asset at `apps/web/src/assets/device-simulator/index.html`, not part of the production plugin frontend. It uses the same-origin `/api` path by default. Keep the existing style-guard allowlist for `src/assets/device-simulator/**`, the explicit Capacitor CORS origins and `x-device-pairing-secret` preflight header, and the existing CSP boundaries: the standalone same-origin simulator can reach the API, while sandboxed package frontends use the host API bridge. No wildcard CORS or broader plugin CSP is required.
 
-The automated acceptance covers signed ZIP discovery and installation, tenant isolation (a second tenant without a grant cannot discover, load or invoke the module), the remote frontend warning/delete flow, bodyless DELETE, JSON heartbeat, self-unlink credential invalidation and data preservation. Actual signed ZIP publication and tenant install/upgrade/uninstall/reinstall on the owner VPS remain operational checks.
+Actual signed ZIP publication, the one-time plan confirmation, tenant installation/upgrade/uninstall/reinstall, and visual checks of the frame in every template and mode remain owner-side operational checks. The code-level checks are automated in CI.
 
-
-Status: **Phase A implementation in progress** on branch `feat/connected-devices-plugin`. The plugin is optional and independently installed/enabled per tenant. No POS, inventory, GPS tracking or realtime business workflow is included.
+Status: **Phase A implementation** — the plugin is optional and independently installed/enabled per tenant. No POS, inventory, GPS tracking or realtime business workflow is included.
 
 ## Product vision
 
