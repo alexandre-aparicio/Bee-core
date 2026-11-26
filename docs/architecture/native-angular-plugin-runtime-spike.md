@@ -39,7 +39,7 @@ Connected Devices now uses Native Federation rather than an iframe or an unverif
 
 ## Build-system decision
 
-Native Federation v3 with the Angular 19 adapter line is the selected implementation path for this prototype. It is not production-approved until the dependency lock is regenerated and the host/remote ZIP is validated on the VPS. The contract is lazy remote registration from an authorized ZIP URL, strict shared Angular singletons, and Angular `ViewContainerRef` mounting. A plain dynamic import is not used as a substitute for dependency sharing.
+Native Federation v3 with the Angular 19 adapter line is the selected implementation path for this prototype. It is not production-approved until the dependency lock and host/remote ZIP are validated on the VPS. The contract is lazy remote registration from an authorized ZIP URL, strict shared Angular singletons, and Angular `ViewContainerRef` mounting. A plain dynamic import is not used as a substitute for dependency sharing.
 
 ## Security boundary
 
