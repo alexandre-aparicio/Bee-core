@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 type Fixture = { accessToken: string; tenantId: string; user: { id: string; email: string; roles: string[]; tenantId: string } };
 
@@ -28,7 +29,7 @@ function installApiMocks(page: Page, fixture: Fixture, state: any): Promise<void
       };
       const entry = allowedAssets[asset];
       if (!entry) return route.fulfill({ status: 404, body: "Not found" });
-      const bytes = await readFile(new URL("../../../src/plugins/time-tracking/frontend/" + entry.file, import.meta.url));
+      const bytes = await readFile(resolve(process.cwd(), "../../src/plugins/time-tracking/frontend", entry.file));
       return route.fulfill({
         status: 200,
         contentType: entry.contentType,

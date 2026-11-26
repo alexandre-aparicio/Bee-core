@@ -250,7 +250,11 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const zipVersionRecords = loadedZipPackages.length
     ? await db.collection("platform_plugin_package_versions")
         .find({ $or: loadedZipPackages.map(item => ({ pluginId: item.pluginId, version: item.version })) })
-        .project<{ pluginId: string; version: string; manifest?: { frontend?: { routes?: Array<{ path: string; component: string; id?: string; label?: string; labelEs?: string; visibleRoles?: string[]; labelsByRole?: Record<string, { en?: string; es?: string }> }> } }> }>({ pluginId: 1, version: 1, manifest: 1, _id: 0 })
+        .project<{
+          pluginId: string;
+          version: string;
+          manifest?: { frontend?: { routes?: PluginPackageDefinition["frontendRoutes"] } };
+        }>({ pluginId: 1, version: 1, manifest: 1, _id: 0 })
         .toArray()
     : [];
   const zipFrontendRoutes = new Map<string, PluginPackageDefinition["frontendRoutes"]>();
