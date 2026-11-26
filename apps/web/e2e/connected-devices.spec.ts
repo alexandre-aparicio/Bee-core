@@ -149,3 +149,37 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
   expect(state.deleteBody).toBeNull();
   expect(state.deleteContentType).toBeUndefined();
 });
+
+
+test("Connected Devices capability choices stay visible when the device registry request fails", async ({ page }) => {
+  const script = await readFile(resolve(process.cwd(), "../../src/plugins/connected-devices/frontend/main.js"), "utf8");
+  await page.setContent(`
+    <div id="message" hidden></div><div id="error" hidden role="alert"></div>
+    <div id="capabilities" class="capabilities"></div>
+    <button id="create-pairing"></button><button id="refresh"></button>
+    <button id="cancel-pairing"></button><button id="copy-payload"></button>
+    <div id="loading"></div><div id="empty" hidden></div><div id="devices" hidden></div>
+    <div id="pairing" hidden></div><code id="pairing-payload"></code>
+    <small id="pairing-expiry"></small><div id="qr"></div><div id="modal-root"></div>
+  `);
+  await page.evaluate(() => {
+    window.addEventListener("message", event => {
+      const data = event.data;
+      if (data?.type === "bee-plugin:ready") {
+        window.postMessage({ type: "bee-plugin:init", role: "member" }, "*");
+      } else if (data?.type === "bee-plugin:api-request") {
+        window.postMessage({
+          type: "bee-plugin:api-response",
+          requestId: data.requestId,
+          status: 503,
+          payload: { error: "Device registry temporarily unavailable." }
+        }, "*");
+      }
+    });
+  });
+  await page.addScriptTag({ content: script });
+  await expect(page.locator("[data-request-cap]")).toHaveCount(10);
+  await expect(page.getByText("Camera capture")).toBeVisible();
+  await expect(page.getByText("Share location")).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("Device registry temporarily unavailable.");
+});
