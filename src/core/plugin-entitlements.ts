@@ -238,10 +238,29 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
   const superOrganization = Boolean(await db.collection("tenants").findOne({ id: tenantId, kind: "super" }, { projection: { id: 1, _id: 0 } }));
   const platformPackages = await db.collection("platform_plugin_packages")
     .find(superOrganization ? {} : { pluginId: { $in: [...new Set([...effectivePlan.visiblePluginIds, ...planAssignedIds, ...purchasedIds, ...manualGrantIds])] } })
-    .project<{pluginId:string;globallyEnabled?:boolean}>({pluginId:1,globallyEnabled:1,_id:0}).toArray();
+    .project<{pluginId:string;globallyEnabled?:boolean;source?:string;status?:string;runtimeState?:string;version?:string}>({pluginId:1,globallyEnabled:1,source:1,status:1,runtimeState:1,version:1,_id:0}).toArray();
   const platformPackageIds = new Set(platformPackages.map(item => item.pluginId));
   const visibleIds = [...new Set([...effectivePlan.visiblePluginIds, ...planAssignedIds, ...purchasedIds, ...manualGrantIds, ...(superOrganization ? [...platformPackageIds] : [])])];
   const globallyEnabledByPlugin = new Map(platformPackages.map(item => [item.pluginId, item.globallyEnabled !== false]));
+  // Navigation for remote frontends must come from the signed ZIP manifest, not
+  // a stale or incomplete marketplace catalogue copy.
+  const loadedZipPackages = platformPackages.filter(item =>
+    item.source === "zip" && item.status === "installed" && item.runtimeState === "loaded" && typeof item.version === "string"
+  );
+  const zipVersionRecords = loadedZipPackages.length
+    ? await db.collection("platform_plugin_package_versions")
+        .find({ pluginId: { $in: loadedZipPackages.map(item => item.pluginId) } })
+        .project<{ pluginId: string; version: string; manifest?: { frontend?: { routes?: Array<{ path: string; component: string; id?: string; label?: string; labelEs?: string; visibleRoles?: string[]; labelsByRole?: Record<string, { en?: string; es?: string }> }> } }> }>({ pluginId: 1, version: 1, manifest: 1, _id: 0 })
+        .toArray()
+    : [];
+  const zipFrontendRoutes = new Map<string, PluginPackageDefinition["frontendRoutes"]>();
+  for (const installedPackage of loadedZipPackages) {
+    const versionRecord = zipVersionRecords.find(record =>
+      record.pluginId === installedPackage.pluginId && record.version === installedPackage.version
+    );
+    const routes = versionRecord?.manifest?.frontend?.routes;
+    if (Array.isArray(routes)) zipFrontendRoutes.set(installedPackage.pluginId, routes);
+  }
   const catalog = await db.collection<PluginPackageDefinition>("plugin_catalog")
     .find({ id: { $in: visibleIds }, status: "published", codeAvailable: true })
     .sort({ name: 1 })
@@ -259,7 +278,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
         version: plugin.version,
         description: plugin.description,
         category: plugin.category,
-        frontendRoutes: Array.isArray(plugin.frontendRoutes) ? plugin.frontendRoutes : [],
+        frontendRoutes: zipFrontendRoutes.get(plugin.id) ?? (Array.isArray(plugin.frontendRoutes) ? plugin.frontendRoutes : []),
         purchasable: plugin.purchasable,
         system: plugin.system,
         activationPolicy: plugin.activationPolicy ?? "manual",

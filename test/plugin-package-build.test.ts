@@ -199,6 +199,9 @@ test("four first-party modules build as independently signed ZIP packages", { sk
 
 test("Hello Mundo is not registered or advertised as a bundled plugin", async () => {
   const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
+  assert.match(entitlementSource, /platform_plugin_package_versions/, "remote navigation metadata must be read from the installed signed ZIP version");
+  assert.match(entitlementSource, /frontendRoutes: zipFrontendRoutes\.get\(plugin\.id\)/, "the marketplace catalogue must expose signed ZIP routes to the host navigation");
+
   const entitlementSource = await readFile(join(process.cwd(), "src/core/plugin-entitlements.ts"), "utf8");
   const registrySource = await readFile(join(process.cwd(), "src/core/platform-plugin-registry.ts"), "utf8");
   const platformAdminSource = await readFile(join(process.cwd(), "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
