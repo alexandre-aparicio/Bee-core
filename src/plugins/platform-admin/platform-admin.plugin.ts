@@ -249,7 +249,7 @@ export const platformAdminPlugin:BeePlugin={
   ctx.server.get("/platform/users",async(req,reply)=>{
    const actor=await guard(req,reply);if(!actor)return;
    const [allUsers,allMemberships,allTenants]=await Promise.all([
-    users.find({}).project<{id:string;name?:string;email:string;enabled:boolean;createdAt:Date}>({id:1,name:1,email:1,enabled:1,createdAt:1,_id:0}).sort({createdAt:-1}).toArray(),
+    users.find({}).project<{id:string;name?:string;email:string;roles?:string[];enabled:boolean;createdAt:Date}>({id:1,name:1,email:1,roles:1,enabled:1,createdAt:1,_id:0}).sort({createdAt:-1}).toArray(),
     memberships.find({}).toArray(),
     companies.find({}).project<{id:string;name:string;kind?:string}>({id:1,name:1,kind:1,_id:0}).toArray()
    ]);
