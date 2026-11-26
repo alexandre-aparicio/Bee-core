@@ -4,7 +4,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { TenantCollection } from "../../core/tenant-collection.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { claimPluginInstallJob, completePluginInstallJob, renewPluginInstallJobLease, enqueuePluginInstallJob, enqueuePluginUpdateJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
-import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
+import { resolveTenantContext, hasTenantPermission, type TenantClaims } from "../../core/tenant-context.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
@@ -57,7 +57,7 @@ export const marketplacePlugin: BeePlugin = {
         return Boolean(tenant && membership && user);
       },
       resolveTenantContext: async (user: unknown, sessionSecret: string) => {
-        const tenant = await resolveTenantContext(db, user, {}, sessionSecret);
+        const tenant = await resolveTenantContext(db, user as TenantClaims, {}, sessionSecret);
         if (!tenant) return null;
         return { tenantId: tenant.tenantId, userId: tenant.userId, client: tenant.client, role: tenant.role };
       },
