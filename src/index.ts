@@ -10,6 +10,7 @@ import { BeePluginManager } from "./core/plugin-manager.js";
 import { BeeDynamicPluginRuntime } from "./core/dynamic-plugin-runtime.js";
 import { validateEnvironment } from "./core/environment.js";
 import type { BeeContext, BeeLogger, BeePlugin, BeePluginRuntimeControl } from "./core/types.js";
+import { BeePluginServices } from "./core/plugin-services.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { replaceRuntimePlugin, unregisterRuntimePlugin } from "./core/runtime-plugin-registry.js";
 import { syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
@@ -142,6 +143,7 @@ const ctx: BeeContext = {
   logger,
   server: app,
   mongoClient,
+  services: new BeePluginServices(),
   pluginRuntime: pluginRuntimeControl,
   config: Object.freeze({
     environment: environment.environment,
