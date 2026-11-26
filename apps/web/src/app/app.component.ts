@@ -122,14 +122,25 @@ export class AppComponent implements OnInit, OnDestroy {
         .filter(Boolean);
       this.pluginFrontends.setRemoteNavigation(enabledPackages.flatMap((plugin: any) => {
         const pluginId = String(plugin.pluginKey || '');
-        const route = Array.isArray(plugin.frontendRoutes)
-          ? plugin.frontendRoutes.find((item: any) => typeof item?.path === 'string' && item.path.startsWith('/dashboard/'))?.path
-          : undefined;
+        const routes = Array.isArray(plugin.frontendRoutes)
+          ? plugin.frontendRoutes.filter((item: any) => typeof item?.path === 'string' && item.path.startsWith('/dashboard/'))
+          : [];
+        const route = routes[0]?.path;
         if (!pluginId || !route || this.pluginFrontends.resolve(pluginId)) return [];
         const label = String(plugin.name || pluginId);
+        const timeTrackingSections = [
+          { suffix: '/my_jorney', id: 'time-tracking-day', en: 'My day', es: 'Mi jornada' },
+          { suffix: '/schedule', id: 'time-tracking-schedule', en: 'My schedule', es: 'Mi horario' },
+          { suffix: '/history', id: 'time-tracking-history', en: 'History', es: 'Historial' },
+          { suffix: '/requests', id: 'time-tracking-requests', en: 'Requests', es: 'Solicitudes' }
+        ];
+        const children = pluginId === 'time-tracking' ? routes.map((item: any) => {
+          const section = timeTrackingSections.find(entry => item.path.endsWith(entry.suffix));
+          return section ? { id: section.id, label: section.en, labelEs: section.es, route: item.path } : null;
+        }).filter(Boolean) : [];
         return [{
           pluginId,
-          navigation: { id: pluginId, label, labelEs: String(plugin.nameEs || label), icon: 'plugins', group: 'WORKSPACE', route }
+          navigation: { id: pluginId, label, labelEs: String(plugin.nameEs || label), icon: pluginId === 'time-tracking' ? 'activity' : 'plugins', group: 'WORKSPACE', route, ...(children.length ? { children } : {}) }
         }];
       }));
       this.setActivePlugins(enabledIds);
