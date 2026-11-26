@@ -224,12 +224,20 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
   assert.match(repositorySource, /membershipsForTenant/);
   assert.doesNotMatch(handlersSource, /new TenantCollection/);
   const runtimeSource = await readFile(join(process.cwd(), "src/index.ts"), "utf8");
-  const timeTrackingFrontendSource = await readFile(join(process.cwd(), "apps/web/src/app/time-tracking/time-tracking.frontend.ts"), "utf8");
   const frontendRegistrationsSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
-  assert.doesNotMatch(runtimeSource, /import\s*\{\s*timeTrackingPlugin\s*\}/, "Control Horario backend must load from its signed ZIP only");
-  assert.doesNotMatch(runtimeSource, /plugins\.register\(timeTrackingPlugin\)/, "Control Horario must not retain a bundled backend fallback");
-  assert.match(timeTrackingFrontendSource, /loadComponent:[\s\S]*BeeTimeTrackingComponent/);
+  assert.doesNotMatch(runtimeSource, /import\\s*\\{\\s*timeTrackingPlugin\\s*\\}/, "Control Horario backend must load from its signed ZIP only");
+  assert.doesNotMatch(runtimeSource, /plugins\\.register\\(timeTrackingPlugin\\)/, "Control Horario must not retain a bundled backend fallback");
   assert.doesNotMatch(frontendRegistrationsSource, /timeTrackingFrontend/, "Control Horario must be served by its signed ZIP frontend, not Angular");
+  for (const legacyFrontend of [
+    "apps/web/src/app/time-tracking/time-tracking-api.service.ts",
+    "apps/web/src/app/time-tracking/time-tracking.component.css",
+    "apps/web/src/app/time-tracking/time-tracking.component.html",
+    "apps/web/src/app/time-tracking/time-tracking.component.ts",
+    "apps/web/src/app/time-tracking/time-tracking.frontend.ts"
+  ]) {
+    await assert.rejects(readFile(resolve(process.cwd(), legacyFrontend), "utf8"), { code: "ENOENT" },
+      legacyFrontend + " must be removed after the signed ZIP frontend migration");
+  }
   const outletSource = await readFile(join(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
   assert.ok(outletSource.indexOf("this.registry.resolve(pluginId)") < outletSource.indexOf("this.loadRemoteRuntime(pluginId)"), "native plugin frontends must render before the remote iframe fallback");
   assert.match(handlersSource, /repository\.sessionsForTenant/);
