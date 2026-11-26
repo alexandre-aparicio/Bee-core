@@ -13,9 +13,9 @@ export const PLUGIN_MANIFESTS = {
 };
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
-  { id: "starter", name: "Starter", includedPluginIds: ["files", "documents"], visiblePluginIds: ["files", "documents"], maxUsers: 5, storageMb: 100 },
-  { id: "pro", name: "Pro", includedPluginIds: ["files", "documents"], visiblePluginIds: ["files", "documents"], maxUsers: 25, storageMb: 1024 },
-  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files", "documents"], visiblePluginIds: ["files", "documents"], maxUsers: null, storageMb: 10240 }
+  { id: "starter", name: "Starter", includedPluginIds: ["files"], visiblePluginIds: ["files"], maxUsers: 5, storageMb: 100 },
+  { id: "pro", name: "Pro", includedPluginIds: ["files"], visiblePluginIds: ["files"], maxUsers: 25, storageMb: 1024 },
+  { id: "enterprise", name: "Enterprise", includedPluginIds: ["files"], visiblePluginIds: ["files"], maxUsers: null, storageMb: 10240 }
 ];
 
 export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
