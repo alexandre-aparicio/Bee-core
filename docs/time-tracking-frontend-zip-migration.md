@@ -72,7 +72,8 @@ Record each run below with the exact branch SHA and result. Do not mark a check 
 | Check | Result |
 |---|---|
 | Baseline source inspection | Done |
-| ZIP-only frontend implementation | Partial | Standalone UI and package declarations committed; full browser parity and visual review pending. |\n| ZIP frontend JavaScript syntax | Passed locally | Parsed successfully with the JavaScript engine; this is not a browser E2E test. |
+| ZIP-only frontend implementation | Partial | Standalone UI and package declarations committed; full browser parity and visual review pending. |
+| ZIP frontend JavaScript syntax | Passed locally | Parsed successfully with the JavaScript engine; this is not a browser E2E test. |
 | Package/signature tests | Pending CI |
 | Remote runtime and bridge tests | Pending CI |
 | Time Tracking browser E2E on ZIP frontend | Pending |
