@@ -27,6 +27,8 @@ jobs:
       - run: npm ci
       - name: Build backend
         run: npm run build
+      - name: Install web dependencies for the federation remote
+        run: npm ci --prefix apps/web
       - name: Require the configured package signing key
         shell: bash
         run: |
