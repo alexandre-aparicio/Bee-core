@@ -16,7 +16,7 @@ const ICONS: Record<string, string> = {
   settings: 'lucideSettings', plugins: 'lucidePuzzle', general: 'lucideSettings',
   tenants: 'lucideBuilding2', integrations: 'lucidePlug', plans: 'lucideCreditCard',
   security: 'lucideLock', infrastructure: 'lucideServer', localization: 'lucideLanguages',
-  themes: 'lucidePalette', domains: 'lucideGlobe', workflow: 'lucideWorkflow',
+  themes: 'lucidePalette', globe: 'lucideGlobe', domains: 'lucideGlobe', workflow: 'lucideWorkflow',
   clock: 'lucideClock', calendar: 'lucideCalendarDays', history: 'lucideHistory', 'clipboard-list': 'lucideClipboardList',
   documentation: 'lucideFileText', home: 'lucideHouse', menu: 'lucideMenu',
   logout: 'lucideLogOut', search: 'lucideSearch', refresh: 'lucideRefreshCw', plus: 'lucidePlus', chevronDown: 'lucideChevronDown', chevronRight: 'lucideChevronRight',
