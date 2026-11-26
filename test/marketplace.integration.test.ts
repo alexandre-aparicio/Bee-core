@@ -16,6 +16,8 @@ import { TRUSTED_PLUGIN_PACKAGES, type PluginPackageDefinition } from "../src/co
 import { unmaskResourceId } from "../src/core/session-id.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import { BeePluginServices } from "../src/core/plugin-services.js";
+import { hasPluginEntitlement, isPluginInstalled, isPluginEnabled } from "../src/core/plugin-entitlements.js";
+import { resolveTenantContext, type TenantClaims } from "../src/core/tenant-context.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
 const uri = process.env.MONGODB_TEST_URI;
@@ -102,6 +104,39 @@ test("company plans and purchases control plugin visibility, installation and ac
   };
 
   try {
+    ctx.services!.register("core.plugin-access", {
+      isPluginAvailable: async (tenantId: string, pluginId: string) => {
+        const [entitled, installed, enabled] = await Promise.all([
+          hasPluginEntitlement(db, tenantId, pluginId),
+          isPluginInstalled(db, tenantId, pluginId),
+          isPluginEnabled(db, tenantId, pluginId)
+        ]);
+        return entitled && installed && enabled;
+      },
+      isTenantUserActive: async (tenantId: string, userId: string) => {
+        const [tenant, membership, user] = await Promise.all([
+          db.collection("tenants").findOne({ id: tenantId, status: "active" }, { projection: { _id: 1 } }),
+          db.collection("memberships").findOne({ tenantId, userId, status: "active" }, { projection: { _id: 1 } }),
+          db.collection("users").findOne({ id: userId, enabled: true }, { projection: { _id: 1 } })
+        ]);
+        return Boolean(tenant && membership && user);
+      },
+      resolveTenantContext: async (user: unknown, sessionSecret: string) => {
+        const tenant = await resolveTenantContext(db, user as TenantClaims, {}, sessionSecret);
+        return tenant ? { tenantId: tenant.tenantId, userId: tenant.userId, client: tenant.client, role: tenant.role } : null;
+      },
+      getTenantUserSummaries: async (tenantId: string, userIds: string[]) => {
+        if (!userIds.length) return [];
+        const memberships = await db.collection("memberships").find({ tenantId, userId: { $in: userIds }, status: "active" }, { projection: { userId: 1 } }).toArray();
+        const activeUserIds = memberships.map((membership: any) => membership.userId);
+        const users = await db.collection("users").find({ id: { $in: activeUserIds }, enabled: true }, { projection: { id: 1, name: 1, firstName: 1, lastName: 1, email: 1 } }).toArray();
+        return users.map((user: any) => ({
+          id: String(user.id),
+          name: String(user.name ?? [user.firstName, user.lastName].filter(Boolean).join(" ")).trim(),
+          email: String(user.email ?? "")
+        }));
+      }
+    });
     registerRuntimePlugin(connectedDevicesRuntimeFixture);
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
@@ -163,8 +198,8 @@ test("company plans and purchases control plugin visibility, installation and ac
     });
     const connectedDevicesRepository = new ConnectedDevicesRepository(db);
     await connectedDevicesRepository.initializeIndexes();
-    const access = ctx.services!.get<any>("marketplace.plugin-access");
-    assert.ok(access, "Marketplace must publish the host access contract before feature routes are registered");
+    const access = ctx.services!.get<any>("core.plugin-access");
+    assert.ok(access, "Core must publish the host access contract independently of Marketplace");
     const connectedDevicesServices = createConnectedDevicesServices({ secret: String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret), repository: connectedDevicesRepository, access });
     registerConnectedDevicesRoutes({ server: app, logger } as any, {
       ...connectedDevicesServices,
