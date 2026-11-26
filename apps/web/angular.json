@@ -12,7 +12,10 @@
           "builder": "@angular-architects/native-federation:build",
           "options": {
             "projectName": "bee-core-web",
-            "tsConfig": "tsconfig.federation.json"
+            "tsConfig": "tsconfig.federation.json",
+            "esmsInitOptions": {
+              "nonce": "__BEE_CSP_NONCE__"
+            }
           },
           "configurations": {
             "production": {
