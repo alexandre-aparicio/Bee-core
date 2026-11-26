@@ -26,17 +26,19 @@ This spike deliberately does not replace the iframe path with an unverified `imp
 
 ## Implementation status (2026-11-26)
 
-- Added the Native Federation package contract: signed manifests can declare a remote entry, remote name, exposed module and allowlisted frontend assets. Validation rejects unsafe paths, invalid remote identifiers, missing allowlist entries, and mixed iframe/native declarations.
-- Added a separate Angular remote project for Connected Devices, a host federation bootstrap, and a native loadRemoteModule + ViewContainerRef mounting path. Connected Devices component source was moved under `plugins/connected-devices/frontend`; its static core registration and old core component source were removed.
-- The package builder now collects the separate remote build output and includes it in the signed ZIP. The marketplace runtime response includes tenant-session-scoped short-lived asset authorization. The asset endpoint revalidates the session, membership, user, entitlement, installation and enablement; the legacy public asset route rejects native federation packages.
+- Added the Native Federation v3 Angular 19 package contract: signed manifests declare `remoteEntry`, `remoteName`, `exposedModule`, and an explicit allowlist of remote files. Manifest validation rejects unsafe asset paths, malformed remote identifiers, missing allowlist entries, and mixed iframe/native declarations.
+- Added the Angular 19 Native Federation host bootstrap and a separate Connected Devices remote project. The remote has its own bootstrap, shares Angular/RxJS as strict singletons, and exposes the standalone Connected Devices component. The component source now lives under `plugins/connected-devices/frontend`; the former core component and static registration are removed.
+- The QR renderer used by Connected Devices is copied into the remote source and included in the signed ZIP. The remote receives a short-lived authorized asset base URL and preloads its QR asset while the grant is fresh. Bee Core still retains its own QR script for the independent MFA screen.
+- The package builder collects the remote build output and includes the files in the signed ZIP. The marketplace runtime response issues a short-lived token bound to the active tenant session. The asset endpoint revalidates the session, membership, user, entitlement, installation, enablement and loaded package; the legacy public asset route rejects native federation packages.
+- The shell tracks evaluated remotes and reloads after a loaded remote is disabled, uninstalled or upgraded. This is necessary because browser ESM modules cannot be reliably unloaded from the current JavaScript realm.
 - Connected Devices backend and package metadata are aligned at `0.2.0`.
-- **Not ready for deployment yet:** `apps/web/package-lock.json` has not been regenerated for the newly pinned dependencies. No build or test was run, as requested. The Native Federation project config and runtime integration remain unverified until the VPS checkpoint.
+- **Not ready for deployment:** `apps/web/package-lock.json` still needs regeneration for the new exact-pinned federation dependencies. No builds, tests or CI have been run, as requested. The Angular project configuration and runtime integration remain unverified until the agreed VPS validation phase.
 - Documents and Files have not been intentionally modified.
 
 
-## Build-system decision still required
+## Build-system decision
 
-The current Angular application builder does not provide a configured remote Angular plugin artifact. A production implementation must choose and test one supported compilation/loading strategy (for example, Native Federation with shared Angular singletons, or a separately compiled Angular plugin library plus an explicit host runtime contract). A plain dynamic import is not sufficient evidence of Angular compatibility, dependency sharing, or unload behavior.
+Native Federation v3 with the Angular 19 adapter line is the selected implementation path for this prototype. It is not production-approved until the dependency lock is regenerated and the host/remote ZIP is validated on the VPS. The contract is lazy remote registration from an authorized ZIP URL, strict shared Angular singletons, and Angular `ViewContainerRef` mounting. A plain dynamic import is not used as a substitute for dependency sharing.
 
 ## Security boundary
 
