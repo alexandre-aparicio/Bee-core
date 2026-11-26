@@ -5,7 +5,7 @@ import { BeeIconComponent } from '../core/icons/bee-icon.component';
 
 type PlatformUser = {
   id:string; userId?:string; name?:string; email:string; role?:string; status?:string;
-  tenantId?:string|null; tenantName?:string|null; companyName?:string|null; createdAt?:string;
+  tenantId?:string|null; tenantIds?:string[]; tenantName?:string|null; companyName?:string|null; createdAt?:string;
 };
 type PlatformTenant = {id:string;name:string};
 
@@ -93,7 +93,7 @@ type PlatformTenant = {id:string;name:string};
             <label>Full name<input name="name" [(ngModel)]="form.name" required maxlength="120" placeholder="User name"></label>
             <label>Email address<input name="email" type="email" [(ngModel)]="form.email" required maxlength="254" placeholder="name@company.com"></label>
             <label>Tenant<select name="tenantId" [(ngModel)]="form.tenantId"><option value="">No tenant / platform only</option><option *ngFor="let tenant of tenants" [value]="tenant.id">{{tenant.name}}</option></select></label>
-            <label>Role<select name="role" [(ngModel)]="form.role"><option value="employee">Employee</option><option value="manager">Manager</option><option value="admin">Admin</option><option value="owner">Owner</option><option value="superadmin">Superadmin</option></select></label>
+            <label>Role<select name="role" [(ngModel)]="form.role"><option value="member">Member</option><option value="manager">Manager</option><option value="admin">Admin</option><option value="owner">Owner</option><option value="superadmin">Superadmin</option></select></label>
             <label>Temporary password<input name="password" type="password" [(ngModel)]="form.password" minlength="12" autocomplete="new-password" placeholder="Required for a new account"></label>
             <p class="platform-users__form-error" *ngIf="modalError" role="alert">{{modalError}}</p>
             <footer class="platform-users__modal-actions"><button type="button" class="platform-users__cancel" (click)="closeCreate()" [disabled]="saving">Cancel</button><button type="submit" [disabled]="saving">{{saving?'Creating…':'Create user'}}</button></footer>
@@ -172,7 +172,7 @@ export class PlatformUsersComponent implements OnInit {
   private readonly api='/api';
   users:PlatformUser[]=[];tenants:PlatformTenant[]=[];
   loading=false;saving=false;error='';success='';search='';tenantFilter='';viewMode:'cards'|'list'='cards';createModalOpen=false;modalError='';
-  form={name:'',email:'',tenantId:'',role:'employee',password:''};
+  form={name:'',email:'',tenantId:'',role:'member',password:''};
 
   ngOnInit():void{void this.load();}
   private headers():Record<string,string>{return {'content-type':'application/json'};}
@@ -180,7 +180,7 @@ export class PlatformUsersComponent implements OnInit {
   get filteredUsers():PlatformUser[]{
     const query=this.search.trim().toLocaleLowerCase();
     return this.users.filter(user=>{
-      const matchesTenant=!this.tenantFilter||(this.tenantFilter==='__unassigned'?!user.tenantId:user.tenantId===this.tenantFilter);
+      const matchesTenant=!this.tenantFilter||(this.tenantFilter==='__unassigned'?!user.tenantId:(user.tenantIds||[user.tenantId||'']).includes(this.tenantFilter));
       const matchesQuery=!query||[user.name||'',user.email,user.role||'',user.status||'',user.tenantName||'',user.companyName||''].join(' ').toLocaleLowerCase().includes(query);
       return matchesTenant&&matchesQuery;
     });
