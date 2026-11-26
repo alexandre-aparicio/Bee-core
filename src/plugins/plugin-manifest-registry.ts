@@ -22,7 +22,7 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
   },
 ];
 
-/** Single source for legacy package migration and permanent retirement policy. */
+/** Explicit retirement exceptions for signed package IDs. */
 export const RETIRED_PACKAGE_POLICIES = [
   { id: "notes", retireSignedZip: true },
 ] as const;
