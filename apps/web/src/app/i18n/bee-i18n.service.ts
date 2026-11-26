@@ -7,6 +7,7 @@ import { NOTIFICATIONS_EN, NOTIFICATIONS_ES } from './catalogs/modules/notificat
 import { MAIL_EN, MAIL_ES } from './catalogs/modules/mail.catalog';
 import { FILES_EN, FILES_ES } from './catalogs/modules/files.catalog';
 import { PLATFORM_ADMIN_EN, PLATFORM_ADMIN_ES } from './catalogs/modules/platform-admin.catalog';
+import { TIME_TRACKING_EN, TIME_TRACKING_ES } from './catalogs/modules/time-tracking.catalog';
 
 export type BeeLanguage = 'en' | 'es';
 export interface BeeLanguageOption { code: BeeLanguage; label: string; nativeLabel: string; }
@@ -36,6 +37,8 @@ export class BeeI18nService {
     this.registerCatalog('mail', 'en', MAIL_EN); this.registerCatalog('mail', 'es', MAIL_ES);
     this.registerCatalog('files', 'en', FILES_EN); this.registerCatalog('files', 'es', FILES_ES);
     this.registerCatalog('platform-admin', 'en', PLATFORM_ADMIN_EN); this.registerCatalog('platform-admin', 'es', PLATFORM_ADMIN_ES);
+    this.registerCatalog('time-tracking', 'en', TIME_TRACKING_EN);
+    this.registerCatalog('time-tracking', 'es', TIME_TRACKING_ES);
     this.applyDocumentLanguage();
   }
 
