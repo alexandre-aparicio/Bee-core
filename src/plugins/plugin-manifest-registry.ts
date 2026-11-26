@@ -1,12 +1,8 @@
 import type { PluginPlan, PluginPackageDefinition } from "../core/plugin-entitlements.js";
-import type { Db } from "mongodb";
-import { migrateLegacyConnectedDevicesPlanAssignments, recordLegacyConnectedDevicesPlanRemovals } from "./connected-devices/connected-devices-plan-migration.js";
-import { PLUGIN_MANIFEST as CONNECTED_DEVICES_MANIFEST } from "./connected-devices/plugin.manifest.js";
 import { PLUGIN_MANIFEST as TIME_TRACKING_MANIFEST } from "./time-tracking/plugin.manifest.js";
 
 /** Per-plugin manifests are owned by their plugin folders and composed here for platform consumers. */
 export const PLUGIN_MANIFESTS = {
-  "connected-devices": CONNECTED_DEVICES_MANIFEST,
   "time-tracking": TIME_TRACKING_MANIFEST
 };
 
@@ -34,30 +30,8 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
 ];
 
 /** Single source for legacy package migration and permanent retirement policy. */
-export const MIGRATABLE_BUILT_IN_PACKAGE_IDS = new Set(["connected-devices", "time-tracking", "hello-world"]);
 export const RETIRED_PACKAGE_POLICIES = [
   { id: "hello-world", retireSignedZip: false },
   { id: "time-tracking", retireSignedZip: false },
   { id: "notes", retireSignedZip: true },
-  { id: "connected-devices", retireSignedZip: false }
 ] as const;
-
-/** One-time package migrations that restore legacy plan-package assignments. */
-export const LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS: ReadonlyArray<{
-  pluginId: string;
-  run: (db: Db) => Promise<void>;
-}> = [
-  { pluginId: "connected-devices", run: migrateLegacyConnectedDevicesPlanAssignments }
-];
-
-/** Route explicit Platform Admin plan removals to the owning legacy package migration. */
-export async function recordLegacyPluginPlanAssignmentRemovals(
-  db: Db,
-  pluginId: string,
-  planIds: readonly string[],
-  actorId: string
-): Promise<void> {
-  if (pluginId === "connected-devices") {
-    await recordLegacyConnectedDevicesPlanRemovals(db, planIds, actorId);
-  }
-}
