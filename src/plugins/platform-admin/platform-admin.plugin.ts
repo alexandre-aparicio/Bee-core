@@ -266,6 +266,7 @@ export const platformAdminPlugin:BeePlugin={
      role:selected?.role??(item.roles?.includes("admin")?"admin":"member"),
      status:!item.enabled?"disabled":selected?.status??"active",
      tenantId:selected?mask(req.platformSession!,selected.tenantId,"tenant"):null,
+     tenantIds:tenantIds.map(id=>mask(req.platformSession!,id,"tenant")),
      tenantName:tenantNamesForUser.join(", ")||null,
      createdAt:item.createdAt
     };
