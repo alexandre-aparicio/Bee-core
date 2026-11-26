@@ -7,7 +7,7 @@ export class BeePluginServices implements BeePluginServiceRegistry {
   private readonly services = new Map<string, unknown>();
 
   register<T>(key: string, service: T): void {
-    if (!/^[a-z][a-z0-9.-]*\.[a-z][a-z0-9.-]*$/.test(key)) throw new Error("Invalid plugin service key: " + key);
+    if (!/^[a-z][a-z0-9.-]*\\.[a-z][a-z0-9.-]*$/.test(key)) throw new Error("Invalid plugin service key: " + key);
     if (this.services.has(key)) throw new Error("Plugin service is already registered: " + key);
     this.services.set(key, service);
   }
@@ -28,7 +28,20 @@ export interface StoredFileMetadata {
   createdAt: Date;
 }
 
+export interface StoreFileInput {
+  originalName: string;
+  contentType: string;
+  uploadedBy: string;
+  data: Buffer;
+}
+
+/**
+ * Internal tenant-scoped storage contract for trusted plugins.
+ * Public dashboard uploads still go through the Files HTTP API and its user ACLs.
+ */
 export interface FilesStorageService {
+  store(tenantId: string, input: StoreFileInput): Promise<StoredFileMetadata>;
   getMetadata(tenantId: string, fileId: string): Promise<StoredFileMetadata | null>;
   read(tenantId: string, fileId: string): Promise<Buffer>;
+  delete(tenantId: string, fileId: string): Promise<boolean>;
 }
