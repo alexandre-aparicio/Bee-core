@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Db } from "mongodb";
-import { resolveTenantContext, type TenantContext } from "../../core/tenant-context.js";
+import type { PluginTenantContext } from "../../core/plugin-services.js";
 import type { PluginAccessService } from "../../core/plugin-services.js";
 import { ConnectedDevicesRepository, type ConnectedDeviceRecord } from "./connected-devices.repository.js";
 
@@ -16,7 +16,7 @@ export function normalizeRequestedCapabilities(value:unknown):string[]{
  if(result.some(item=>!CONNECTED_DEVICE_CAPABILITIES.includes(item as ConnectedDeviceCapability)))throw new Error("One or more requested capabilities are not supported.");
  return result;
 }
-export function isDeviceAdministrator(tenant:TenantContext):boolean{return tenant.role==="owner"||tenant.role==="admin"||tenant.role==="super_admin";}
+export function isDeviceAdministrator(tenant:PluginTenantContext):boolean{return tenant.role==="owner"||tenant.role==="admin"||tenant.role==="super_admin";}
 export function publicDevice(device:ConnectedDeviceRecord){
  return {id:device.id,name:device.name,deviceType:device.deviceType,platform:device.platform,appVersion:device.appVersion,
  requestedCapabilities:device.requestedCapabilities,grantedCapabilities:device.grantedCapabilities,
@@ -31,7 +31,7 @@ export function createConnectedDevicesServices(input:{db:Db;secret:string;reposi
  const dashboardTenant=async(request:any,reply:any):Promise<TenantContext|null>=>{
   try{
    await request.jwtVerify();
-   const tenant=await resolveTenantContext(db,request.user,{},secret);
+   const tenant=await access.resolveTenantContext(request.user,secret);
    if(!tenant||tenant.client!=="dashboard"){reply.code(401).send({error:"Dashboard session required"});return null;}
    const available=await access.isPluginAvailable(tenant.tenantId,"connected-devices");
    if(!available){reply.code(403).send({error:"Connected Devices is not entitled, installed or enabled for this company."});return null;}
