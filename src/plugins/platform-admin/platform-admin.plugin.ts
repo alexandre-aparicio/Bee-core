@@ -23,7 +23,7 @@ import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "../../core/plug
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
 import { MIGRATABLE_BUILT_IN_PACKAGE_IDS, RETIRED_PACKAGE_POLICIES } from "../plugin-manifest-registry.js";
-import { recordLegacyConnectedDevicesPlanRemovals } from "../../core/connected-devices-plan-migration.js";
+import { recordLegacyConnectedDevicesPlanRemovals } from "../connected-devices/connected-devices-plan-migration.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
