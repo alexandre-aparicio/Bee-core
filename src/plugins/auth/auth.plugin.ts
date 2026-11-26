@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { type Collection, type Db } from "mongodb";
 import { createHash, createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
 import { createTotpSecret, provisioningUri, verifyTotp } from "../../core/totp.js";
-import { resolveTenantContext } from "../../core/tenant-context.js";
+import { resolveTenantContext, type TenantContext } from "../../core/tenant-context.js";
 import { maskTenantId, maskUserId, unmaskUserId } from "../../core/session-id.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
@@ -283,6 +283,10 @@ export const authPlugin:BeePlugin={
     return tenantContext;
    }catch{reply.code(401).send({error:"Unauthorized"});return null;}
   };
+  // resolveTenantContext only emits super_admin for the verified Super Organization
+  // membership and enforces recent MFA before returning that role.
+  const canManageTenantAppearance=(tenantContext:TenantContext):boolean=>
+   tenantContext.role==="owner"||tenantContext.role==="admin"||tenantContext.role==="super_admin";
   ctx.server.get("/templates/public",async(req)=>{
    const host=String(req.hostname??"").trim().toLowerCase().replace(/:\d+$/,"").replace(/\.$/,"");
    const publicBaseDomain=String(ctx.config.publicBaseDomain??"beecore.beeprojects.net").trim().toLowerCase().replace(/^\.+|\.+$/g,"");
@@ -295,7 +299,7 @@ export const authPlugin:BeePlugin={
   ctx.server.put<{Body:{domains?:string[]}}>("/tenants/domains",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
    const tenantId=tenantContext.tenantId;
-   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
+   if(!canManageTenantAppearance(tenantContext))return reply.code(403).send({error:"Organization administrator or Super Admin required"});
    const domains=req.body?.domains;
    if(!Array.isArray(domains)||domains.some(domain=>typeof domain!=="string"||!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain.trim())))return reply.code(400).send({error:"Provide valid domain names"});
    const normalized=[...new Set(domains.map(domain=>domain.trim().toLowerCase()))];
@@ -319,7 +323,7 @@ export const authPlugin:BeePlugin={
   ctx.server.post<{Body:{templateId?:string}}>("/templates/install",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
    const tenantId=tenantContext.tenantId;
-   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
+   if(!canManageTenantAppearance(tenantContext))return reply.code(403).send({error:"Organization administrator or Super Admin required"});
    const templateId=String(req.body?.templateId??"");
    if(!templateCatalog.some(item=>item.id===templateId))return reply.code(404).send({error:"Template package not found"});
    await templatePreferences.updateOne({tenantId},{$addToSet:{installedTemplates:templateId},$set:{updatedAt:new Date()}},{upsert:true});
@@ -331,7 +335,7 @@ export const authPlugin:BeePlugin={
   ctx.server.delete<{Params:{templateId:string}}>("/templates/install/:templateId",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
    const tenantId=tenantContext.tenantId;
-   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
+   if(!canManageTenantAppearance(tenantContext))return reply.code(403).send({error:"Organization administrator or Super Admin required"});
    const templateId=req.params.templateId;
    const packageInfo=templateCatalog.find(item=>item.id===templateId);
    if(!packageInfo)return reply.code(404).send({error:"Template package not found"});
@@ -353,7 +357,7 @@ export const authPlugin:BeePlugin={
   ctx.server.put<{Body:{public?:string;dashboard?:string}}>("/templates/preferences",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
    const tenantId=tenantContext.tenantId;
-   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
+   if(!canManageTenantAppearance(tenantContext))return reply.code(403).send({error:"Organization administrator or Super Admin required"});
    const body=req.body??{};
    const current=await templatePreferences.findOne({tenantId});
    const installed=new Set(getInstalledTemplates(current));
@@ -374,7 +378,7 @@ export const authPlugin:BeePlugin={
   ctx.server.put<{Body:{tokens?:Record<string,string>}}>("/templates/theme",async(req,reply)=>{
    const tenantContext=await readTemplateTenant(req,reply);if(!tenantContext)return;
    const tenantId=tenantContext.tenantId;
-   if(tenantContext.role!=="owner"&&tenantContext.role!=="admin")return reply.code(403).send({error:"Tenant administrator required"});
+   if(!canManageTenantAppearance(tenantContext))return reply.code(403).send({error:"Organization administrator or Super Admin required"});
    const input=req.body?.tokens;
    if(!input||typeof input!=="object"||Array.isArray(input)||!Object.keys(input).length)return reply.code(400).send({error:"Theme tokens are required"});
    for(const [key,value] of Object.entries(input)){
