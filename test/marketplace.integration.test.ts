@@ -352,7 +352,7 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const betaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaCatalog.statusCode, 200);
-    assert.deepEqual(betaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["connected devices", "documents", "private files", "team workspace"]);
+    assert.deepEqual(betaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["documents", "private files", "team workspace"]);
     const betaItemsPluginRef = betaCatalog.json().plugins.find((plugin: { pluginKey: string }) => plugin.pluginKey === "workspace").id as string;
     const betaItemsInstallAttempts = await Promise.all([
       app.inject({ method: "POST", url: "/marketplace/plugins/" + encodeURIComponent(betaItemsPluginRef) + "/install", headers: { authorization: "Bearer " + betaToken } }),
