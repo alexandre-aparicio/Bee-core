@@ -11,22 +11,30 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
  template:`
  <section class="platform-admin">
    @if (!managedTenantId) {
-     <div class="platform-admin__toolbar">
-       <div class="platform-admin__toolbar-actions">
-         <div class="platform-admin__view-toggle" aria-label="Company display">
-           <button type="button" [class.is-active]="viewMode==='cards'" [attr.aria-pressed]="viewMode==='cards'" (click)="viewMode='cards'" title="Card view">▦</button>
-           <button type="button" [class.is-active]="viewMode==='list'" [attr.aria-pressed]="viewMode==='list'" (click)="viewMode='list'" title="List view">☷</button>
+     <div class="plugin-settings__toolbar">
+       <div class="plugin-settings__toolbar-filters">
+         <div class="plugin-settings__search">
+           <span aria-hidden="true">⌕</span>
+           <input type="search" [value]="search" (input)="search=$any($event.target).value" placeholder="Search tenants…" aria-label="Search tenants">
+           <button *ngIf="search" type="button" (click)="search=''" aria-label="Clear search">×</button>
          </div>
-         <button type="button" class="platform-admin__create-trigger" (click)="openCreate()">＋ New tenant</button>
+       </div>
+       <div class="plugin-settings__toolbar-actions">
+         <div class="plugin-settings__views" role="group" aria-label="Tenant display mode">
+           <button type="button" [class.is-active]="viewMode==='cards'" [attr.aria-pressed]="viewMode==='cards'" (click)="viewMode='cards'" aria-label="Card view" title="Card view"><span aria-hidden="true">▦</span></button>
+           <button type="button" [class.is-active]="viewMode==='list'" [attr.aria-pressed]="viewMode==='list'" (click)="viewMode='list'" aria-label="Table view" title="Table view"><span aria-hidden="true">☷</span></button>
+         </div>
+         <button type="button" class="plugin-settings__upload" (click)="openCreate()">＋ New tenant</button>
        </div>
      </div>
      @if(error){<p class="platform-admin__error bee-status--danger">{{error}}</p>}
      @if(success){<p class="platform-admin__success bee-status--success">{{success}}</p>}
      @if(loading){<div class="platform-admin__empty">Loading companies…</div>}
      @else if(!companies.length){<div class="platform-admin__empty">No tenants have been created yet.</div>}
+     @else if(!filteredCompanies.length){<div class="platform-admin__empty">No tenants match your search.</div>}
      @else if(viewMode==='cards'){
        <div class="platform-admin__cards">
-         @for(c of companies;track c.id){
+         @for(c of filteredCompanies;track c.id){
            <article class="platform-company-card">
              <div class="platform-company-card__top">
                <span class="platform-company-card__mark">{{c.name.charAt(0).toUpperCase()}}</span>
@@ -147,7 +155,8 @@ export class PlatformAdminComponent implements OnInit {
  companies:PlatformCompany[]=[];
 
  pluginBusyId='';name='';slug='';ownerEmail='';ownerPassword='';busy=false;loading=false;error='';success='';tenantTab:'general'|'users'|'plugins'='general';tenantUsers:Array<{userId:string;email:string;role:string;status:string;createdAt?:string}>=[];tenantPlugins:Array<{id:string;name:string;description:string;version:string;installed:boolean;enabled:boolean;status:string;system:boolean;dependencies?:string[];entitled?:boolean;accessSource?:string|null;activationPolicy?:string}>=[];usersLoading=false;tenantPluginsLoading=false;
- viewMode:'cards'|'list'='cards';showCreateModal=false;openMenuId='';
+ viewMode:'cards'|'list'='cards';search='';showCreateModal=false;openMenuId='';
+ get filteredCompanies():PlatformCompany[]{const query=this.search.trim().toLocaleLowerCase();if(!query)return this.companies;return this.companies.filter(company=>[company.name,company.slug||'',company.id,company.status].join(' ').toLocaleLowerCase().includes(query));}
  get managedCompany():PlatformCompany|undefined{return this.companies.find(company=>company.id===this.managedTenantId);}
  ngOnInit(){void this.load();}
  private headers(){return {authorization:'Bearer '+this.token};}
