@@ -20,7 +20,6 @@ import { authPlugin } from "./plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "./plugins/organizations/organizations.plugin.js";
 import { teamsPlugin } from "./plugins/teams/teams.plugin.js";
 import { filesPlugin } from "./plugins/files/files.plugin.js";
-import { documentsPlugin } from "./plugins/documents/documents.plugin.js";
 import { marketplacePlugin } from "./plugins/marketplace/marketplace.plugin.js";
 import { notificationsPlugin } from "./plugins/notifications/notifications.plugin.js";
 import { mailPlugin } from "./plugins/mail/mail.plugin.js";
@@ -316,17 +315,7 @@ async function bootstrap(): Promise<void> {
   const platformPackages = mongoClient.db(environment.mongoDbName).collection("platform_plugin_packages");
   const uploadedPackages = await platformPackages.find({ source: "zip", status: "installed" }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
   const uploadedIds = new Set(uploadedPackages.map(item => item.pluginId));
-  if (!uploadedIds.has("documents")) plugins.register(documentsPlugin);
-
   const zipPluginFailures = await loadSignedZipPlugins();
-  const builtinFallbacks = new Map([["documents", documentsPlugin]]);
-  for (const [pluginId, plugin] of builtinFallbacks) {
-    if (zipPluginFailures.has(pluginId) && !plugins.list().some(item => item.name === pluginId)) {
-      plugins.register(plugin);
-      logger.warn("Plugin runtime lifecycle: using built-in fallback after ZIP load failure", { pluginId, error: zipPluginFailures.get(pluginId) });
-    }
-  }
-
   await plugins.mountAll(ctx);
   for (const [pluginId, plugin] of preparedZipPlugins) {
     try {
