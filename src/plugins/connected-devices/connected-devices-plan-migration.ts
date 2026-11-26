@@ -34,7 +34,7 @@ export async function migrateLegacyConnectedDevicesPlanAssignments(db: Db): Prom
     const existingLedger = await ledger.findOne({ _id: key });
     if (existingLedger) continue;
     const adminDecision = await ledger.findOne({ _id: planId + ":" + PLUGIN_ID + ":admin-plan-selection-v1" });
-    if (adminDecision) continue;
+    if (adminDecision?.state === "admin-removed") continue;
 
     const existingAssignment = await assignments.findOne({ planId, pluginId: PLUGIN_ID });
     if (existingAssignment) {
