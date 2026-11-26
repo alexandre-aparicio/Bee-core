@@ -34,7 +34,7 @@ jobs:
             echo "::error::Configure the BEE_PLUGIN_PUBLISHER_PRIVATE_KEY repository secret before building release packages."
             exit 1
           fi
-      - name: Build four signed ZIP packages
+      - name: Build three signed ZIP packages
         run: npm run build:plugin-packages
       - uses: actions/upload-artifact@v4
         with:
