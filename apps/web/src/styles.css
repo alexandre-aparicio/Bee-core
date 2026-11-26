@@ -356,7 +356,7 @@ html body .settings-page.settings-page{display:block;width:100%;max-width:none;m
 
 
 /* Tenant list toolbar follows the Plugins settings toolbar visual language. */
-.platform-admin .plugin-settings__toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:14px;margin:0 0 22px;min-width:0}
+.platform-admin .plugin-settings__toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 22px;min-width:0}.platform-admin .plugin-settings__toolbar-filters{width:50%;max-width:50%;flex:0 1 50%}.platform-admin .plugin-settings__toolbar-actions{width:auto;flex:0 0 auto}
 .platform-admin .plugin-settings__toolbar-filters{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:8px;width:100%;min-width:0}
 .platform-admin .plugin-settings__toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;width:100%;min-width:0}
 .platform-admin .plugin-settings__search{display:flex;align-items:center;gap:8px;width:100%;min-width:0;height:36px;padding:0 10px;border:1px solid var(--bee-border);border-radius:8px;background:var(--bee-surface);color:var(--bee-text-muted);box-sizing:border-box}
@@ -373,4 +373,4 @@ html body .settings-page.settings-page{display:block;width:100%;max-width:none;m
 .platform-admin .plugin-settings__upload{display:inline-flex;min-height:38px;align-items:center;justify-content:center;gap:8px;padding:8px 13px;border:1px solid var(--bee-border);border-radius:9px;background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:600;line-height:1.2;white-space:nowrap;cursor:pointer;transition:background-color .16s ease,border-color .16s ease,transform .16s ease}
 .platform-admin .plugin-settings__upload:hover:not(:disabled){background:color-mix(in srgb,var(--bee-accent) 10%,transparent);border-color:color-mix(in srgb,var(--bee-accent) 55%,var(--bee-border))}
 .platform-admin .plugin-settings__upload:active:not(:disabled){transform:translateY(1px)}
-@media(max-width:760px){.platform-admin .plugin-settings__toolbar{grid-template-columns:1fr;gap:10px}.platform-admin .plugin-settings__toolbar-filters,.platform-admin .plugin-settings__toolbar-actions{width:100%}.platform-admin .plugin-settings__toolbar-actions{justify-content:flex-end}}
+@media(max-width:760px){.platform-admin .plugin-settings__toolbar{flex-direction:column;align-items:stretch;gap:10px}.platform-admin .plugin-settings__toolbar-filters{width:100%;max-width:100%;flex-basis:auto}.platform-admin .plugin-settings__toolbar-actions{width:100%;justify-content:flex-end}}
