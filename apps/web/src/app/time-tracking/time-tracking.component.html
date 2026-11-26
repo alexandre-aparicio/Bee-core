@@ -14,7 +14,7 @@
     </nav>
     <ng-container *ngIf="activeSubTab==='status'">
      <section class="tt-clock"><div class="tt-clock__top"><span>{{t('current_status')}}</span><span class="tt-status" [class.tt-status--working]="session?.status==='working'" [class.tt-status--break]="session?.status==='on_break'">{{session?.status==='working'?t('status_working'):session?.status==='on_break'?t('status_on_break'):t('status_idle')}}</span></div>
-      <div class="tt-clock__time">{{session?elapsed:'{{t('ready_to_start')}}'}}</div><p *ngIf="session">{{t('entry_registered')}} {{session.startedAt | date:'short'}}</p><p *ngIf="!session">{{t('begin_work_prompt')}}</p>
+      <div class="tt-clock__time">{{session?elapsed:t('ready_to_start')}}</div><p *ngIf="session">{{t('entry_registered')}} {{session.startedAt | date:'short'}}</p><p *ngIf="!session">{{t('begin_work_prompt')}}</p>
       <div class="tt-actions"><button *ngIf="!session" type="button" class="tt-primary" (click)="act('clock-in')" [disabled]="busy">{{t('clock_in')}}</button><ng-container *ngIf="session?.status==='working'"><button type="button" class="tt-secondary" (click)="act('break-start')" [disabled]="busy">{{t('start_break')}}</button><button type="button" class="tt-primary" (click)="act('clock-out')" [disabled]="busy">{{t('clock_out')}}</button></ng-container><button *ngIf="session?.status==='on_break'" type="button" class="tt-primary" (click)="act('break-end')" [disabled]="busy">{{t('end_break')}}</button></div>
      </section>
      <section *ngIf="session" class="tt-history"><div class="tt-section-heading"><div><h3>{{t('current_session')}}</h3><p>{{t('server_time_notice')}}</p></div></div><div *ngIf="session.events?.length" class="tt-events"><article *ngFor="let event of session.events;let i=index;trackBy:trackEvent" class="tt-event"><span class="tt-event__dot"></span><div><strong>{{label(event.type)}}</strong><small>{{event.occurredAt | date:'medium'}}</small></div><span class="tt-event__source">{{t('web_source')}}</span></article></div><p *ngIf="!session.events?.length">{{t('no_activity')}}</p></section>
@@ -37,14 +37,14 @@
      </section>
     </ng-container>
     <ng-container *ngIf="!canManage">
-     <section class="tt-history"><div class="tt-section-heading"><div><h3>{{t('assigned_schedule')}}</h3><p>{{mySchedule?.timezone || '{{t('timezone_not_configured')}}'}}</p></div></div>
+     <section class="tt-history"><div class="tt-section-heading"><div><h3>{{t('assigned_schedule')}}</h3><p>{{mySchedule?.timezone || t('timezone_not_configured')}}</p></div></div>
       <ng-container *ngIf="mySchedule?.days?.length;else noSchedule"><article *ngFor="let day of mySchedule?.days" class="tt-history-row"><strong>{{weekday(day.day)}}</strong><span>{{day.start}} – {{day.end}}</span><small>{{t('planned_break')}} {{day.breakMinutes}} {{t('minutes')}}</small></article></ng-container>
       <ng-template #noSchedule><p>{{t('no_schedule')}}</p></ng-template>
      </section>
     </ng-container>
    </ng-container>
    <ng-container *ngIf="activeSection==='history' && !canManage">
-    <div class="tt-content-heading"><div><p class="tt-eyebrow">MI INFORMACIÓN</p><h2>{{t('history')}}</h2><p>{{t('history_description')}}</p></div></div>
+    <div class="tt-content-heading"><div><p class="tt-eyebrow">{{t('my_information')}}</p><h2>{{t('history')}}</h2><p>{{t('history_description')}}</p></div></div>
     <section class="tt-history"><div class="tt-section-heading"><div><h3>{{t('registered_sessions')}}</h3><p>{{t('last_30_sessions')}}</p></div></div><article *ngFor="let item of history" class="tt-history-row"><div><strong>{{item.startedAt | date:'mediumDate'}}</strong><small>{{item.startedAt | date:'shortTime'}} – {{item.endedAt | date:'shortTime'}}</small></div><div class="tt-row-actions"><span class="tt-status">{{t('closed')}}</span><button type="button" class="tt-link" (click)="openCorrection(item,'clock_in',item.startedAt)">{{t('correct_entry')}}</button><button *ngIf="item.endedAt" type="button" class="tt-link" (click)="openCorrection(item,'clock_out',item.endedAt)">{{t('correct_exit')}}</button></div></article><p *ngIf="!history.length">{{t('no_previous_sessions')}}</p></section>
    </ng-container>
    <ng-container *ngIf="activeSection==='requests'">
