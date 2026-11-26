@@ -136,7 +136,12 @@ export class AppComponent implements OnInit, OnDestroy {
         ];
         const children = pluginId === 'time-tracking' ? routes.map((item: any) => {
           const section = timeTrackingSections.find(entry => item.path.endsWith(entry.suffix));
-          return section ? { id: section.id, label: section.en, labelEs: section.es, route: item.path } : null;
+          return section ? {
+            id: section.id, label: section.en, labelEs: section.es, route: item.path,
+            ...(section.id === 'time-tracking-history' ? { visibleRoles: ['member', 'guest'] } : {}),
+            ...(section.id === 'time-tracking-schedule' ? { labelsByRole: { owner: { en: 'Schedules', es: 'Horarios' }, admin: { en: 'Schedules', es: 'Horarios' }, manager: { en: 'Schedules', es: 'Horarios' }, super_admin: { en: 'Schedules', es: 'Horarios' } } } : {}),
+            ...(section.id === 'time-tracking-requests' ? { labelsByRole: { owner: { en: 'Incidents', es: 'Incidencias' }, admin: { en: 'Incidents', es: 'Incidencias' }, manager: { en: 'Incidents', es: 'Incidencias' }, super_admin: { en: 'Incidents', es: 'Incidencias' } } } : {})
+          } : null;
         }).filter(Boolean) : [];
         return [{
           pluginId,
