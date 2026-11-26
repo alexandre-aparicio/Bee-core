@@ -472,7 +472,7 @@ export const platformAdminPlugin:BeePlugin={
    const available=await plans.find({id:{$in:planIds}}).project<{id:string}>({id:1,_id:0}).toArray();
    if(available.length!==planIds.length)return reply.code(400).send({error:"One or more plan IDs do not exist"});
    const assignments=db.collection("plugin_plan_package_assignments");
-   const planSelectionLedger=db.collection("plugin_plan_package_assignment_migrations");
+   const planSelectionLedger=db.collection<import("mongodb").Document & {_id:string}>("plugin_plan_package_assignment_migrations");
    const allPlanRows=await plans.find({}).project<{id:string}>({id:1,_id:0}).toArray();
    const selectedPlanIds=new Set(planIds);
    for(const plan of allPlanRows){
