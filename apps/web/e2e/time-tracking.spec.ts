@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 type Fixture = { accessToken: string; tenantId: string; user: { id: string; email: string; roles: string[]; tenantId: string } };
 
@@ -16,9 +17,32 @@ function installApiMocks(page: Page, fixture: Fixture, state: any): Promise<void
     const url = new URL(route.request().url());
     const path = url.pathname;
     const method = route.request().method();
+
+    const assetPrefix = "/api/plugin-packages/time-tracking/0.2.2/assets/frontend/";
+    if (path.startsWith(assetPrefix)) {
+      const asset = path.slice(assetPrefix.length);
+      const allowedAssets: Record<string, { file: string; contentType: string }> = {
+        "index.html": { file: "index.html", contentType: "text/html; charset=utf-8" },
+        "main.js": { file: "main.js", contentType: "text/javascript; charset=utf-8" },
+        "styles.css": { file: "styles.css", contentType: "text/css; charset=utf-8" }
+      };
+      const entry = allowedAssets[asset];
+      if (!entry) return route.fulfill({ status: 404, body: "Not found" });
+      const bytes = await readFile(new URL("../../../src/plugins/time-tracking/frontend/" + entry.file, import.meta.url));
+      return route.fulfill({
+        status: 200,
+        contentType: entry.contentType,
+        headers: {
+          "access-control-allow-origin": "*",
+          "x-content-type-options": "nosniff",
+          "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'"
+        },
+        body: bytes
+      });
+    }
+
     let status = 200;
     let body: any = {};
-
     if (path.endsWith("/auth/refresh")) {
       body = { accessToken: fixture.accessToken, tenantId: fixture.tenantId, user: fixture.user, platformRole: null };
     } else if (path.endsWith("/auth/me")) {
@@ -28,7 +52,18 @@ function installApiMocks(page: Page, fixture: Fixture, state: any): Promise<void
     } else if (path.endsWith("/companies/active/permissions")) {
       body = { permissions: fixture.user.roles.includes("admin") ? ["time-tracking.read", "time-tracking.clock", "time-tracking.manage"] : ["time-tracking.read", "time-tracking.clock"] };
     } else if (path.endsWith("/marketplace/plugins")) {
-      body = { plugins: [{ id: "time-tracking", pluginKey: "time-tracking", installed: true, enabled: true, entitled: true }] };
+      body = { plugins: [{
+        id: "time-tracking", pluginKey: "time-tracking", name: "Control Horario",
+        installed: true, enabled: true, entitled: true,
+        frontendRoutes: [
+          { path: "/dashboard/time-tracking/my_jorney", component: "time-tracking", id: "time-tracking-day", label: "My day", labelEs: "Mi jornada" },
+          { path: "/dashboard/time-tracking/schedule", component: "time-tracking", id: "time-tracking-schedule", label: "My schedule", labelEs: "Mi horario", labelsByRole: { owner: { en: "Schedules", es: "Horarios" }, admin: { en: "Schedules", es: "Horarios" }, manager: { en: "Schedules", es: "Horarios" }, super_admin: { en: "Schedules", es: "Horarios" }, superadmin: { en: "Schedules", es: "Horarios" } } },
+          { path: "/dashboard/time-tracking/history", component: "time-tracking", id: "time-tracking-history", label: "History", labelEs: "Historial", visibleRoles: ["member", "guest"] },
+          { path: "/dashboard/time-tracking/requests", component: "time-tracking", id: "time-tracking-requests", label: "My requests", labelEs: "Mis solicitudes", labelsByRole: { owner: { en: "Incidents", es: "Incidencias" }, admin: { en: "Incidents", es: "Incidencias" }, manager: { en: "Incidents", es: "Incidencias" }, super_admin: { en: "Incidents", es: "Incidencias" }, superadmin: { en: "Incidents", es: "Incidencias" } } }
+        ]
+      }] };
+    } else if (path.endsWith("/marketplace/plugins/time-tracking/runtime")) {
+      body = { pluginId: "time-tracking", version: "0.2.2", entrypoint: "frontend/index.html", apiPrefixes: ["/time-tracking"], routes: [] };
     } else if (path.endsWith("/templates/preferences") || path.endsWith("/templates/public")) {
       body = { selection: { public: "aurora", dashboard: "midnight" }, installedTemplates: ["aurora", "editorial", "studio", "midnight", "paper", "glass"] };
     } else if (path.endsWith("/notifications")) {
@@ -39,7 +74,13 @@ function installApiMocks(page: Page, fixture: Fixture, state: any): Promise<void
       body = { session: state.session?.active ? state.session : null };
     } else if (path.endsWith("/time-tracking/me/sessions")) {
       body = { sessions: state.history };
-    } else if (path.endsWith("/time-tracking/me/corrections")) {
+    } else if (path.endsWith("/time-tracking/me/corrections") && method === "POST") {
+      const payload = route.request().postDataJSON();
+      const correction = { id: "correction-request-e2e", ...payload, status: "pending", createdAt: new Date().toISOString() };
+      state.myCorrections.unshift(correction);
+      status = 201;
+      body = { correction };
+    } else if (path.endsWith("/time-tracking/me/corrections") && method === "GET") {
       body = { corrections: state.myCorrections };
     } else if (path.endsWith("/time-tracking/me/schedule")) {
       body = { schedule: state.mySchedule };
@@ -47,19 +88,32 @@ function installApiMocks(page: Page, fixture: Fixture, state: any): Promise<void
       body = { members: state.members };
     } else if (path.endsWith("/time-tracking/team/schedules")) {
       body = { schedules: state.schedules };
-    } else if (path.endsWith("/time-tracking/team/corrections")) {
+    } else if (path.endsWith("/time-tracking/team/corrections") && method === "GET") {
       body = { corrections: state.teamCorrections.filter((item: any) => item.status === "pending") };
     } else if (path.endsWith("/time-tracking/clock-in") && method === "POST") {
       const now = new Date().toISOString();
       state.session = { id: "session-e2e", status: "working", active: true, startedAt: now, endedAt: null, events: [{ type: "clock_in", occurredAt: now, source: "web" }] };
-      status = 201; body = { session: state.session };
+      status = 201;
+      body = { session: state.session };
     } else if (path.endsWith("/time-tracking/break-start") && method === "POST") {
-      const now = new Date().toISOString(); state.session.status = "on_break"; state.session.events.push({ type: "break_start", occurredAt: now, source: "web" }); body = { session: state.session };
+      const now = new Date().toISOString();
+      state.session.status = "on_break";
+      state.session.events.push({ type: "break_start", occurredAt: now, source: "web" });
+      body = { session: state.session };
     } else if (path.endsWith("/time-tracking/break-end") && method === "POST") {
-      const now = new Date().toISOString(); state.session.status = "working"; state.session.events.push({ type: "break_end", occurredAt: now, source: "web" }); body = { session: state.session };
+      const now = new Date().toISOString();
+      state.session.status = "working";
+      state.session.events.push({ type: "break_end", occurredAt: now, source: "web" });
+      body = { session: state.session };
     } else if (path.endsWith("/time-tracking/clock-out") && method === "POST") {
-      const now = new Date().toISOString(); state.session.status = "closed"; state.session.active = false; state.session.endedAt = now; state.session.events.push({ type: "clock_out", occurredAt: now, source: "web" }); state.history.unshift(state.session); body = { session: state.session };
-    } else if (/\/time-tracking\/team\/schedules\/[^/]+$/.test(path) && method === "PUT") {
+      const now = new Date().toISOString();
+      state.session.status = "closed";
+      state.session.active = false;
+      state.session.endedAt = now;
+      state.session.events.push({ type: "clock_out", occurredAt: now, source: "web" });
+      state.history.unshift(state.session);
+      body = { session: state.session };
+    } else if (path.includes("/time-tracking/team/schedules/") && method === "PUT") {
       const userId = decodeURIComponent(path.split("/").pop() || "");
       const payload = route.request().postDataJSON();
       state.schedules = state.schedules.filter((item: any) => item.userId !== userId);
@@ -85,9 +139,9 @@ function fixture(role: "member" | "owner"): Fixture {
   };
 }
 
-test("member can clock in, start/end a break and clock out without a remote iframe", async ({ page }) => {
+test("member uses the signed ZIP iframe to clock in, manage breaks, view history and request a correction", async ({ page }) => {
   const auth = fixture("member");
-  const state = { session: null as any, history: [] as any[], myCorrections: [], mySchedule: null, members: [], schedules: [], teamCorrections: [] as any[] };
+  const state = { session: null as any, history: [] as any[], myCorrections: [] as any[], mySchedule: null, members: [], schedules: [], teamCorrections: [] as any[] };
   const browserErrors: string[] = [];
   page.on("pageerror", error => browserErrors.push(error.stack || error.message));
   page.on("console", message => { if (message.type() === "error") browserErrors.push(message.text()); });
@@ -98,35 +152,43 @@ test("member can clock in, start/end a break and clock out without a remote ifra
   await page.getByRole("button", { name: /Control Horario/ }).click();
   await page.getByRole("button", { name: "Mi jornada" }).click();
 
+  const plugin = page.frameLocator('iframe[title="time-tracking plugin"]');
   try {
-    await expect(page.getByRole("heading", { name: "Mi jornada" })).toBeVisible({ timeout: 15000 });
+    await expect(plugin.getByRole("heading", { name: "Control Horario" })).toBeVisible({ timeout: 15000 });
   } catch (error) {
     const body = await page.locator("body").innerText();
     await page.screenshot({ path: "test-results/template-screenshots/time-tracking-member-debug.png", fullPage: true });
-    throw new Error(String(error) + "\\nURL: " + page.url() + "\\nBODY: " + body + "\\nBROWSER ERRORS: " + browserErrors.join(" | "));
+    throw new Error(String(error) + "\nURL: " + page.url() + "\nBODY: " + body + "\nBROWSER ERRORS: " + browserErrors.join(" | "));
   }
-  await expect(page.getByRole("button", { name: "Fichar entrada" })).toBeVisible();
-  await expect(page.locator('iframe[title="time-tracking plugin"]')).toHaveCount(0);
+  await expect(page.locator('iframe[title="time-tracking plugin"]')).toHaveCount(1);
+  await expect(plugin.getByRole("button", { name: "Fichar entrada" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Fichar entrada" }).click();
-  await expect(page.getByText("Trabajando")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Iniciar pausa" })).toBeVisible();
+  await plugin.getByRole("button", { name: "Fichar entrada" }).click();
+  await expect(plugin.getByRole("heading", { name: "Trabajando" })).toBeVisible();
+  await expect(plugin.getByRole("button", { name: "Iniciar pausa" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Iniciar pausa" }).click();
-  await expect(page.getByText("En pausa")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Finalizar pausa" })).toBeVisible();
+  await plugin.getByRole("button", { name: "Iniciar pausa" }).click();
+  await expect(plugin.getByRole("heading", { name: "En pausa" })).toBeVisible();
+  await expect(plugin.getByRole("button", { name: "Finalizar pausa" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Finalizar pausa" }).click();
-  await expect(page.getByText("Trabajando")).toBeVisible();
+  await plugin.getByRole("button", { name: "Finalizar pausa" }).click();
+  await expect(plugin.getByRole("heading", { name: "Trabajando" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Fichar salida" }).click();
-  await expect(page.getByRole("button", { name: "Fichar entrada" })).toBeVisible();
+  await plugin.getByRole("button", { name: "Fichar salida" }).click();
+  await expect(plugin.getByRole("button", { name: "Fichar entrada" })).toBeVisible();
   await expect.poll(() => state.history[0]?.events?.map((event: any) => event.type)).toEqual(["clock_in", "break_start", "break_end", "clock_out"]);
-  await page.getByRole("button", { name: "Actividad" }).click();
-  await expect(page.getByText("Actividad reciente")).toBeVisible();
+
+  await plugin.getByRole("button", { name: "Actividad" }).click();
+  await expect(plugin.getByRole("heading", { name: "Actividad reciente" })).toBeVisible();
+  await plugin.getByRole("button", { name: "Corregir entrada" }).click();
+  const correctionDialog = plugin.getByRole("dialog");
+  await correctionDialog.locator("#reason").fill("Olvidé registrar la entrada");
+  await correctionDialog.getByRole("button", { name: "Enviar solicitud" }).click();
+  await expect(plugin.getByRole("status")).toContainText("Solicitud de corrección enviada.");
+  expect(state.myCorrections[0]?.originalAt).toBeTruthy();
 });
 
-test("owner can save a weekly schedule and approve a team correction", async ({ page }) => {
+test("owner can manage schedules and review team corrections from the signed ZIP iframe", async ({ page }) => {
   test.setTimeout(60000);
   page.setDefaultTimeout(6000);
   page.setDefaultNavigationTimeout(8000);
@@ -153,36 +215,36 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
   await expect(page.locator(".bee-dash-company-switcher select")).toHaveValue(auth.tenantId, { timeout: 15000 });
   await page.getByRole("button", { name: /Control Horario/ }).click();
   const scheduleNav = page.getByRole("button", { name: /^(Horarios|Schedules|Mi horario|My schedule)$/ });
+  const plugin = page.frameLocator('iframe[title="time-tracking plugin"]');
   try {
     await expect(scheduleNav).toBeVisible({ timeout: 5000 });
   } catch (error) {
-    throw new Error(String(error) + "\\nOWNER NAVIGATION: " + await page.locator("body").innerText() + "\\nBROWSER ERRORS: " + browserErrors.join(" | "));
+    throw new Error(String(error) + "\nOWNER NAVIGATION: " + await page.locator("body").innerText() + "\nBROWSER ERRORS: " + browserErrors.join(" | "));
   }
   await scheduleNav.click();
 
   try {
-    await expect(page.getByRole("heading", { name: "Planificación de horarios" })).toBeVisible({ timeout: 15000 });
+    await expect(plugin.getByRole("heading", { name: "Planificación de horarios" })).toBeVisible({ timeout: 15000 });
   } catch (error) {
     const body = await page.locator("body").innerText();
     await page.screenshot({ path: "test-results/template-screenshots/time-tracking-owner-debug.png", fullPage: true });
-    throw new Error(String(error) + "\\nURL: " + page.url() + "\\nBODY: " + body + "\\nBROWSER ERRORS: " + browserErrors.join(" | "));
+    throw new Error(String(error) + "\nURL: " + page.url() + "\nBODY: " + body + "\nBROWSER ERRORS: " + browserErrors.join(" | "));
   }
-  await page.locator(".tt-content select").selectOption("masked-member-e2e", { timeout: 5000 });
-  await expect(page.getByRole("button", { name: "Guardar horario" })).toBeEnabled();
-  await page.getByRole("checkbox", { name: "Activar lunes" }).check();
-  const mondayRow = page.locator(".tt-table tbody tr").filter({ hasText: "Lunes" });
+  await plugin.locator("#member").selectOption("masked-member-e2e", { timeout: 5000 });
+  await expect(plugin.getByRole("button", { name: "Guardar horario" })).toBeEnabled();
+  await plugin.locator('input[type="checkbox"][data-day="1"]').check();
+  const mondayRow = plugin.locator("#content table tbody tr").filter({ hasText: "Lunes" });
   await mondayRow.locator('input[type="time"]').nth(0).fill("08:30");
   await mondayRow.locator('input[type="time"]').nth(1).fill("16:30");
-  await page.getByRole("button", { name: "Guardar horario" }).click();
-  await expect(page.getByRole("status")).toContainText("Horario guardado.");
+  await plugin.getByRole("button", { name: "Guardar horario" }).click();
+  await expect(plugin.getByRole("status")).toContainText("Horario guardado.");
   expect(state.schedules[0].timezone).toBe("Europe/Madrid");
   expect(state.schedules[0].days).toEqual([{ day: 1, start: "08:30", end: "16:30", breakMinutes: 0 }]);
 
   await page.getByRole("button", { name: "Incidencias" }).click();
-  await expect(page.getByRole("heading", { name: "Incidencias" })).toBeVisible();
-  await page.getByRole("button", { name: /Solicitudes del equipo/ }).click();
-  await expect(page.getByText("member@example.test · Entrada")).toBeVisible();
-  await page.getByRole("button", { name: "Aprobar" }).click();
-  await expect(page.getByRole("status")).toContainText("Corrección aprobada y aplicada.");
+  await plugin.getByRole("button", { name: /Solicitudes del equipo/ }).click();
+  await expect(plugin.getByText("member@example.test · Entrada")).toBeVisible();
+  await plugin.getByRole("button", { name: "Aprobar" }).click();
+  await expect(plugin.getByRole("status")).toContainText("Corrección aprobada y aplicada.");
   expect(state.teamCorrections[0].status).toBe("approved");
 });
