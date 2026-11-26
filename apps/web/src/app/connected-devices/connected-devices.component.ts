@@ -77,7 +77,8 @@ const CAPABILITIES = [
   `]
 })
 export class BeeConnectedDevicesComponent implements OnChanges {
-  @ViewChild("qrContainer") private qrContainer?: ElementRef<HTMLDivElement>;\n  constructor(private readonly changeDetector: ChangeDetectorRef) {}
+  @ViewChild("qrContainer") private qrContainer?: ElementRef<HTMLDivElement>;
+  constructor(private readonly changeDetector: ChangeDetectorRef) {}
   @Input() tenantId = "";
   @Input() role = "member";
   @Input() accessToken = "";
