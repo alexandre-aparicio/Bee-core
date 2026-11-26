@@ -60,7 +60,7 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
      } @else {
        <div class="platform-admin__table-wrap"><table class="platform-admin__table">
          <thead><tr><th>Tenant</th><th>Subdomain</th><th>Members</th><th>Status</th><th>Actions</th></tr></thead>
-         <tbody>@for(c of companies;track c.id){<tr>
+         <tbody>@for(c of filteredCompanies;track c.id){<tr>
            <td><strong>{{c.name}}</strong><small>{{c.id}}</small></td>
            <td>{{c.slug || '—'}}</td><td>{{c.membersCount ?? 0}}</td>
            <td><span class="platform-company-status" [class.is-suspended]="c.status==='suspended'">{{c.status}}</span></td>
