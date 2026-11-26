@@ -21,6 +21,7 @@ const EMPTY_PROFILE: CompanyProfile = {
   imports: [CommonModule, FormsModule, BeeIconComponent],
   template: `
     <section class="bee-company">
+      <div class="settings-page__eyebrow">Organization / Company</div>
       @if (loading) {
         <div class="bee-company__loading" role="status">
           <span class="bee-company__spinner" aria-hidden="true"></span>
