@@ -29,3 +29,11 @@
 - Guarded the obsolete Android-only workaround for undefined `this` and explicitly assigned the library to `globalThis.QRCode` so existing global consumers retain access.
 - Fix committed as `ceb7bd6096219cac6955c0d4744efffba339ec90`.
 - The reported `@angular/platform-browser` import-map resolution error is not marked fixed; it must be rechecked after the VPS frontend rebuild. No tests, builds, or GitHub CI were run.
+
+
+### VPS federation bootstrap diagnosis — 2026-11-27
+- VPS output confirms `remoteEntry.json`, `importmap.json`, and the shared `@angular/platform-browser` bundle all exist and return HTTP 200; the package is present in both federation metadata and the import map. Missing shared metadata/assets are therefore not the cause of the reported bare-specifier resolution failure.
+- The served `index.html` showed the federation-generated `main-*.js` entry as a classic `<script>`, while the builder-generated `scripts-*.js` bundle was `type="module-shim"`. The main entry uses dynamic `import()`, which in a classic script follows the browser's native module resolver rather than es-module-shims' shim import map.
+- Native Federation v3 builder documentation specifies that the generated main entry must be rewritten to `type="module-shim"`; es-module-shims documentation also explains that shim mode only processes `module-shim` / `importmap-shim` tags and that native dynamic import does not use the shim import map.
+- Added a narrowly scoped Nginx HTML substitution for the generated `<script src="main-...` tag, converting it to `type="module-shim"`. It preserves the hashed filename, existing script body, CSP nonce substitution, and strict CSP policy.
+- Commit: `3295d0e5dff63d36dcb50ff0b176b0bff4289775`. This is a source-level correction only. No tests, builds, or GitHub CI were run; VPS rebuild and browser verification remain pending.
