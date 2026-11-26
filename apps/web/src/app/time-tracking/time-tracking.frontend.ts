@@ -10,10 +10,10 @@ export const timeTrackingFrontend: BeePluginFrontendRegistration = {
   navigation: {
     id: "time-tracking", label: TIME_TRACKING_EN.title, labelEs: TIME_TRACKING_ES.title, icon: "activity", group: "WORKSPACE", aliases: ["/dashboard/time-tracking"],
     children: [
-      { id: "time-tracking-day", label: "My day", labelEs: "Mi jornada", route: "/dashboard/time-tracking/my_jorney" },
-      { id: "time-tracking-schedule", label: "My schedule", labelEs: "Mi horario", route: "/dashboard/time-tracking/schedule", labelsByRole: { owner: { en: "Schedules", es: "Horarios" }, admin: { en: "Schedules", es: "Horarios" }, manager: { en: "Schedules", es: "Horarios" }, super_admin: { en: "Schedules", es: "Horarios" } } },
-      { id: "time-tracking-history", label: "My history", labelEs: "Mi historial", route: "/dashboard/time-tracking/history", visibleRoles: ["member", "guest"] },
-      { id: "time-tracking-requests", label: "My requests", labelEs: "Mis solicitudes", route: "/dashboard/time-tracking/requests", labelsByRole: { owner: { en: "Incidents", es: "Incidencias" }, admin: { en: "Incidents", es: "Incidencias" }, manager: { en: "Incidents", es: "Incidencias" }, super_admin: { en: "Incidents", es: "Incidencias" } } }
+      { id: "time-tracking-day", label: TIME_TRACKING_EN.my_day, labelEs: TIME_TRACKING_ES.my_day, route: "/dashboard/time-tracking/my_jorney" },
+      { id: "time-tracking-schedule", label: TIME_TRACKING_EN.my_schedule, labelEs: TIME_TRACKING_ES.my_schedule, route: "/dashboard/time-tracking/schedule", labelsByRole: { owner: { en: TIME_TRACKING_EN.nav_schedules, es: TIME_TRACKING_ES.nav_schedules }, admin: { en: TIME_TRACKING_EN.nav_schedules, es: TIME_TRACKING_ES.nav_schedules }, manager: { en: TIME_TRACKING_EN.nav_schedules, es: TIME_TRACKING_ES.nav_schedules }, super_admin: { en: TIME_TRACKING_EN.nav_schedules, es: TIME_TRACKING_ES.nav_schedules } } },
+      { id: "time-tracking-history", label: TIME_TRACKING_EN.history, labelEs: TIME_TRACKING_ES.history, route: "/dashboard/time-tracking/history", visibleRoles: ["member", "guest"] },
+      { id: "time-tracking-requests", label: TIME_TRACKING_EN.my_requests, labelEs: TIME_TRACKING_ES.my_requests, route: "/dashboard/time-tracking/requests", labelsByRole: { owner: { en: TIME_TRACKING_EN.nav_incidents, es: TIME_TRACKING_ES.nav_incidents }, admin: { en: TIME_TRACKING_EN.nav_incidents, es: TIME_TRACKING_ES.nav_incidents }, manager: { en: TIME_TRACKING_EN.nav_incidents, es: TIME_TRACKING_ES.nav_incidents }, super_admin: { en: TIME_TRACKING_EN.nav_incidents, es: TIME_TRACKING_ES.nav_incidents } } }
     ]
   }
 };
