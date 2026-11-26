@@ -153,19 +153,7 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
 
 test("Connected Devices capability choices stay visible when the device registry request fails", async ({ page }) => {
   const script = await readFile(resolve(process.cwd(), "../../src/plugins/connected-devices/frontend/main.js"), "utf8");
-  await page.addInitScript(() => {
-    const nativeCrypto = window.crypto;
-    Object.defineProperty(window, "crypto", {
-      configurable: true,
-      value: new Proxy(nativeCrypto, {
-        get(target, property) {
-          if (property === "randomUUID") return () => "test-request-id";
-          const value = Reflect.get(target, property, target);
-          return typeof value === "function" ? value.bind(target) : value;
-        }
-      })
-    });
-  });
+  const browserScript = script.replaceAll("crypto.randomUUID()", '"test-request-id"');
   await page.setContent(`
     <div id="message" hidden></div><div id="error" hidden role="alert"></div>
     <div id="capabilities" class="capabilities"></div>
@@ -190,7 +178,7 @@ test("Connected Devices capability choices stay visible when the device registry
       }
     });
   });
-  await page.addScriptTag({ content: script });
+  await page.addScriptTag({ content: browserScript });
   await expect(page.locator("[data-request-cap]")).toHaveCount(10);
   await expect(page.getByText("Camera capture")).toBeVisible();
   await expect(page.getByText("Share location")).toBeVisible();
