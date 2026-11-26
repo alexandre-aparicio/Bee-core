@@ -3,7 +3,7 @@ import { BeePluginFrontendRegistry } from "./plugin-frontend-registry.service";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
 
 type RemotePluginRuntime = { pluginId: string; version: string; entrypoint: string; apiPrefixes: string[] };
-type RemoteFrame = { pluginId: string; apiPrefixes: string[] };
+type RemoteFrame = { pluginId: string; apiPrefixes: string[]; ready: boolean };
 
 @Component({
   selector: "bee-plugin-outlet",
@@ -99,7 +99,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       frame.src = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" + encodeURIComponent(runtime.version) + "/assets/" + entrypoint;
       this.remoteHost.nativeElement.appendChild(frame);
       const frameWindow = frame.contentWindow;
-      if (frameWindow) this.frames.set(frameWindow, { pluginId, apiPrefixes: runtime.apiPrefixes });
+      if (frameWindow) this.frames.set(frameWindow, { pluginId, apiPrefixes: runtime.apiPrefixes, ready: false });
     }
   }
 
@@ -142,7 +142,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     const signature = JSON.stringify({ templateId, mode, ...payload });
     if (signature === this.lastThemeSignature) return;
     this.lastThemeSignature = signature;
-    for (const target of this.frames.keys()) this.postTheme(target);
+    for (const [target, frame] of this.frames) if (frame.ready) this.postTheme(target);
   }
 
   private async loadRemoteRuntime(pluginId: string): Promise<RemotePluginRuntime | null> {
@@ -171,6 +171,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     const message = event.data as Record<string, unknown>;
     const target = event.source as Window;
     if (message["type"] === "bee-plugin:ready") {
+      this.frames.set(target, { ...frame, ready: true });
       target.postMessage({ type: "bee-plugin:init", role: this.role, section: this.section }, "*");
       this.postTheme(target);
       return;
