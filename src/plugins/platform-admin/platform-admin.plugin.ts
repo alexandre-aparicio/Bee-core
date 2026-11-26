@@ -278,7 +278,6 @@ export const platformAdminPlugin:BeePlugin={
    const password=String(req.body?.password??"");
    if(name.length<2||name.length>120||!/^\\S+@\\S+\\.\\S+$/.test(email))return reply.code(400).send({error:"A valid name and email are required"});
    if(!["owner","admin","manager","member","guest","superadmin"].includes(role))return reply.code(400).send({error:"Unsupported platform user role"});
-   if(password.length<12)return reply.code(400).send({error:"A temporary password of at least 12 characters is required"});
    let tenantId="";
    try{
     if(role==="superadmin"){
@@ -294,6 +293,10 @@ export const platformAdminPlugin:BeePlugin={
    }catch{return reply.code(404).send({error:"Tenant not found"});}
    const existing=await users.findOne({email});
    if(existing&&!existing.enabled)return reply.code(409).send({error:"This user account is disabled"});
+   if(role==="superadmin"&&existing)return reply.code(409).send({error:"An existing account cannot be promoted to platform superadmin through this form"});
+   if(!existing&&password.length<12)return reply.code(400).send({error:"A temporary password of at least 12 characters is required for a new account"});
+   if(existing&&password&&password.length<12)return reply.code(400).send({error:"A supplied temporary password must contain at least 12 characters"});
+   if(existing&&tenantId){const currentMembership=await memberships.findOne({userId:existing.id,tenantId});if(currentMembership?.status==="active")return reply.code(409).send({error:"This user is already an active member of the selected tenant"});}
    const now=new Date();
    let target=existing;
    if(!target){
@@ -305,8 +308,6 @@ export const platformAdminPlugin:BeePlugin={
    }
    if(tenantId){
     const nextRole=role==="superadmin"?"super_admin":role as Membership["role"];
-    const existingMembership=await memberships.findOne({userId:target.id,tenantId});
-    if(existingMembership?.status==="active")return reply.code(409).send({error:"This user is already an active member of the selected tenant"});
     await memberships.updateOne(
      {userId:target.id,tenantId},
      {$set:{role:nextRole,status:"active",updatedAt:now},$setOnInsert:{id:randomUUID(),userId:target.id,tenantId,createdAt:now}},
