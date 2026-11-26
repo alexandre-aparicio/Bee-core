@@ -324,6 +324,5 @@ test("Connected Devices retires only the bundled fallback and preserves ZIP, ten
 test("Connected Devices is not a trusted bundle or built-in plan entitlement", () => {
   assert.equal(TRUSTED_PLUGIN_PACKAGES.some(plugin => plugin.id === "connected-devices"), false);
   assert.equal(BUILT_IN_PLANS.some(plan => plan.visiblePluginIds.includes("connected-devices") || plan.includedPluginIds.includes("connected-devices")), false);
-  assert.ok(RETIRED_PACKAGE_POLICIES.some(policy => policy.id === "connected-devices" && policy.retireSignedZip === false));
   assert.equal(RETIRED_PACKAGE_POLICIES.some(policy => policy.id === "connected-devices"), false, "legacy feature packages are retired by generic ownership discovery, not a Connected Devices Core exception");
 });
