@@ -3,7 +3,7 @@ export const PLUGIN_MANIFEST = {
   id: "documents",
   name: "Documents",
   version: "0.1.0",
-  description: "Shared document library with folder-level team access and controlled public delivery",
+  description: "Tenant document library, folder ACLs and controlled public delivery.",
   category: "platform",
   dependencies: ["auth", "organizations", "files"],
   requiredServices: ["mongoDbName", "sessionIdSecret"],
