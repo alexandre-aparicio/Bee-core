@@ -156,8 +156,8 @@ export class BeeConnectedDevicesComponent implements OnChanges {\n  @ViewChild("
     const style = getComputedStyle(document.documentElement);
     new qr(container, {
       text: this.pairing.qrPayload, width: 180, height: 180,
-      colorDark: style.getPropertyValue("--bee-text").trim() || "rgb(24,34,48)",
-      colorLight: style.getPropertyValue("--bee-surface").trim() || "rgb(255,255,255)",
+      colorDark: style.getPropertyValue("--bee-text").trim(),
+      colorLight: style.getPropertyValue("--bee-surface").trim(),
       correctLevel: qr.CorrectLevel?.M ?? 0
     });
   }
