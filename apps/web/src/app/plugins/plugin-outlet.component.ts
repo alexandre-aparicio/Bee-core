@@ -173,6 +173,8 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   private async loadRemoteRuntime(pluginId: string): Promise<RemotePluginRuntime | null> {
+    const cached = this.registry.getRemoteRuntime(pluginId);
+    if (cached && typeof cached === "object") return cached as RemotePluginRuntime;
     if (!this.accessToken) return null;
     try {
       const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(pluginId) + "/runtime", {
@@ -190,6 +192,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       } else if (typeof value.entrypoint !== "string" || !value.entrypoint.startsWith("frontend/")) {
         return null;
       }
+      this.registry.setRemoteRuntime(pluginId, value, 240_000);
       return value as RemotePluginRuntime;
     } catch {
       return null;
