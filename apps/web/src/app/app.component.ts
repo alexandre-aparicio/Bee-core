@@ -31,12 +31,16 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private readonly handlePluginsChanged = (): void => {
+    const previouslyLoadedRemotes = this.pluginFrontends.loadedRemotePluginIds();
     void this.refreshTenantPlugins().then(() => {
       // The settings component can dispatch this event from an async request.
       // Re-enter Angular explicitly so the sidebar is rendered immediately.
       this.zone.run(() => {
         const pluginId = this.pluginFrontends.pluginForSection(this.activeSection);
         if (pluginId && !this.isPluginEnabled(pluginId)) this.navigateSection('dashboard');
+        // Native ESM imports cannot be unloaded from the current JS realm. Once a loaded
+        // remote is disabled/uninstalled, a full shell reload clears its module graph.
+        if (previouslyLoadedRemotes.some(id => !this.isPluginEnabled(id))) window.location.reload();
       });
     });
   };
