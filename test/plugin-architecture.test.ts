@@ -95,3 +95,23 @@ test("Connected Devices simulator remains a separate developer asset with its se
   assert.match(server, /"x-device-pairing-secret"/);
   assert.match(server, /"POST"/);
 });
+
+test("remote plugin theme bridge sends semantic presentation only", async () => {
+  const outlet = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+  assert.match(outlet, /type:\s*"bee-plugin:theme"/);
+  assert.match(outlet, /getComputedStyle\(host\)/);
+  assert.match(outlet, /surface-raised/);
+  assert.match(outlet, /status-success/);
+  const themeMethods = outlet.slice(outlet.indexOf("private themePayload()"), outlet.indexOf("private async loadRemoteRuntime"));
+  assert.match(themeMethods, /postMessage\(\{ type: "bee-plugin:theme"/);
+  assert.doesNotMatch(themeMethods, /accessToken|authorization|credential|secret|jwt/i,
+    "theme messages must never include credentials or authentication material");
+
+  const frame = await readFile(resolve(root, "src/plugins/connected-devices/frontend/main.js"), "utf8");
+  assert.match(frame, /event\.source!==parent/);
+  assert.match(frame, /bee-plugin:theme/);
+  assert.match(frame, /setProperty\("--bee-"/);
+  const html = await readFile(resolve(root, "src/plugins/connected-devices/frontend/index.html"), "utf8");
+  assert.match(html, /background:var\(--bee-surface\)/);
+  assert.match(html, /color:var\(--bee-text\)/);
+});
