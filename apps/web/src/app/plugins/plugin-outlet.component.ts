@@ -3,7 +3,7 @@ import { loadRemoteModule } from "@angular-architects/native-federation";
 import { BeePluginFrontendRegistry } from "./plugin-frontend-registry.service";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
 
-type RemotePluginRuntime = { pluginId: string; version: string; transport: "native-federation" | "legacy-iframe"; remoteEntry?: string; assetToken?: string; entrypoint?: string; apiPrefixes: string[] };
+type RemotePluginRuntime = { pluginId: string; version: string; transport: "native-federation" | "legacy-iframe"; remoteEntry?: string; remoteName?: string; exposedModule?: string; assetToken?: string; entrypoint?: string; apiPrefixes: string[] };
 type RemoteFrame = { pluginId: string; apiPrefixes: string[]; ready: boolean };
 
 @Component({
@@ -94,8 +94,8 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
             runtime.remoteEntry.split("/").map(encodeURIComponent).join("/");
           const remoteModule = await loadRemoteModule({
             remoteEntry: remoteEntryUrl,
-            remoteName: pluginId,
-            exposedModule: "./Component"
+            remoteName: runtime.remoteName!,
+            exposedModule: runtime.exposedModule!
           }) as Record<string, unknown>;
           if (sequence !== this.renderSequence) return;
           const componentType = (remoteModule["BeeConnectedDevicesComponent"] ?? remoteModule["default"]) as Type<unknown> | undefined;
@@ -184,7 +184,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
           !["native-federation", "legacy-iframe"].includes(String(value.transport)) ||
           !Array.isArray(value.apiPrefixes) || value.apiPrefixes.some(prefix => typeof prefix !== "string")) return null;
       if (value.transport === "native-federation") {
-        if (typeof value.remoteEntry !== "string" || !value.remoteEntry.startsWith("frontend/") || typeof value.assetToken !== "string" || value.assetToken.length < 20) return null;
+        if (typeof value.remoteEntry !== "string" || !value.remoteEntry.startsWith("frontend/") || typeof value.assetToken !== "string" || value.assetToken.length < 20 || typeof value.remoteName !== "string" || !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value.remoteName) || typeof value.exposedModule !== "string" || !value.exposedModule.startsWith("./")) return null;
       } else if (typeof value.entrypoint !== "string" || !value.entrypoint.startsWith("frontend/")) {
         return null;
       }
