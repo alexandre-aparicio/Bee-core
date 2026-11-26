@@ -1,8 +1,9 @@
-import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, ViewContainerRef } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, Type, ViewChild, ViewContainerRef } from "@angular/core";
+import { loadRemoteModule } from "@angular-architects/native-federation";
 import { BeePluginFrontendRegistry } from "./plugin-frontend-registry.service";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
 
-type RemotePluginRuntime = { pluginId: string; version: string; entrypoint: string; apiPrefixes: string[] };
+type RemotePluginRuntime = { pluginId: string; version: string; transport: "native-federation" | "legacy-iframe"; remoteEntry?: string; entrypoint?: string; apiPrefixes: string[] };
 type RemoteFrame = { pluginId: string; apiPrefixes: string[]; ready: boolean };
 
 @Component({
@@ -85,6 +86,30 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       const runtime = await this.loadRemoteRuntime(pluginId);
       if (sequence !== this.renderSequence) return;
       if (!runtime) continue;
+      if (runtime.transport === "native-federation" && runtime.remoteEntry) {
+        try {
+          const remoteEntryUrl = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" +
+            encodeURIComponent(runtime.version) + "/assets/" +
+            runtime.remoteEntry.split("/").map(encodeURIComponent).join("/");
+          const remoteModule = await loadRemoteModule({
+            remoteEntry: remoteEntryUrl,
+            remoteName: pluginId,
+            exposedModule: "./Component"
+          }) as Record<string, unknown>;
+          if (sequence !== this.renderSequence) return;
+          const componentType = (remoteModule["BeeConnectedDevicesComponent"] ?? remoteModule["default"]) as Type<unknown> | undefined;
+          if (typeof componentType !== "function") throw new Error("Native plugin did not expose its Angular component");
+          const component = this.host.createComponent(componentType);
+          component.setInput("tenantId", this.tenantId);
+          component.setInput("role", this.role);
+          component.setInput("accessToken", this.accessToken);
+          component.setInput("section", this.section);
+        } catch (error) {
+          console.error("Could not mount native Angular plugin", { pluginId, version: runtime.version, error });
+        }
+        continue;
+      }
+      if (!runtime.entrypoint) continue;
       const frame = document.createElement("iframe");
       frame.title = pluginId + " plugin";
       frame.setAttribute("sandbox", "allow-scripts");
@@ -154,9 +179,14 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       });
       if (!response.ok) return null;
       const value = await response.json() as Partial<RemotePluginRuntime>;
-      if (value.pluginId !== pluginId || typeof value.version !== "string" || typeof value.entrypoint !== "string" ||
-          !value.entrypoint.startsWith("frontend/") || !Array.isArray(value.apiPrefixes) ||
-          value.apiPrefixes.some(prefix => typeof prefix !== "string")) return null;
+      if (value.pluginId !== pluginId || typeof value.version !== "string" ||
+          !["native-federation", "legacy-iframe"].includes(String(value.transport)) ||
+          !Array.isArray(value.apiPrefixes) || value.apiPrefixes.some(prefix => typeof prefix !== "string")) return null;
+      if (value.transport === "native-federation") {
+        if (typeof value.remoteEntry !== "string" || !value.remoteEntry.startsWith("frontend/")) return null;
+      } else if (typeof value.entrypoint !== "string" || !value.entrypoint.startsWith("frontend/")) {
+        return null;
+      }
       return value as RemotePluginRuntime;
     } catch {
       return null;
