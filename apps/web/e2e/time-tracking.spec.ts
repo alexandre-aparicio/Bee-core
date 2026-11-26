@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from './quality-gates';
 
 type Fixture = { accessToken: string; tenantId: string; user: { id: string; email: string; roles: string[]; tenantId: string } };
 
