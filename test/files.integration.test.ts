@@ -11,6 +11,7 @@ import { authPlugin } from "../src/plugins/auth/auth.plugin.js";
 import { organizationsPlugin } from "../src/plugins/organizations/organizations.plugin.js";
 import { filesPlugin } from "../src/plugins/files/files.plugin.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
+import { BeePluginServices, type FilesStorageService } from "../src/core/plugin-services.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
 const uri = process.env.MONGODB_TEST_URI;
@@ -44,6 +45,7 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     appName: "Bee files test",
     version: "test",
     events: new BeeEventBus(),
+    services: new BeePluginServices(),
     logger,
     server: app,
     mongoClient: client,
@@ -61,6 +63,23 @@ test("private files and images are isolated by active company", { skip: !uri }, 
     await authPlugin.initialize?.(ctx);
     await organizationsPlugin.initialize?.(ctx);
     await filesPlugin.initialize?.(ctx);
+    const storage = ctx.services?.get<FilesStorageService>("files.storage");
+    assert.ok(storage, "Files must publish its internal storage lifecycle contract");
+    const internalStored = await storage.store("files-alpha", {
+      originalName: "internal-document.txt",
+      contentType: "text/plain",
+      uploadedBy: "files-owner-alpha",
+      data: Buffer.from("stored through the Files service")
+    });
+    assert.equal(internalStored.tenantId, "files-alpha");
+    assert.equal(internalStored.originalName, "internal-document.txt");
+    assert.deepEqual(await storage.read("files-alpha", internalStored.id), Buffer.from("stored through the Files service"));
+    assert.equal(await storage.getMetadata("files-beta", internalStored.id), null, "metadata lookup must be tenant-scoped");
+    await assert.rejects(() => storage.read("files-beta", internalStored.id), /File not found/);
+    assert.equal(await storage.delete("files-beta", internalStored.id), false, "a tenant cannot delete another tenant's file");
+    assert.equal(await storage.delete("files-alpha", internalStored.id), true);
+    assert.equal(await storage.getMetadata("files-alpha", internalStored.id), null);
+    assert.equal(await storage.delete("files-alpha", internalStored.id), false, "deleting an absent file is idempotent");
     await app.ready();
 
     const login = async (email: string) => {
