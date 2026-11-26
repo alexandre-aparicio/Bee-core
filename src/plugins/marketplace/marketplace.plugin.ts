@@ -62,7 +62,11 @@ export const marketplacePlugin: BeePlugin = {
         return { tenantId: tenant.tenantId, userId: tenant.userId, client: tenant.client, role: tenant.role };
       },
       getTenantUserSummaries: async (tenantId: string, userIds: string[]) => {
-        const users = await db.collection("users").find({ id: { $in: userIds }, enabled: true }, {
+        const memberships = await db.collection("memberships").find({ tenantId, userId: { $in: userIds }, status: "active" }, {
+          projection: { userId: 1 }
+        }).toArray();
+        const activeUserIds = memberships.map((membership: any) => membership.userId);
+        const users = await db.collection("users").find({ id: { $in: activeUserIds }, enabled: true }, {
           projection: { id: 1, name: 1, firstName: 1, lastName: 1, email: 1 }
         }).toArray();
         return users.map((user: any) => ({
