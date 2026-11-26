@@ -53,13 +53,13 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
     const url = new URL(route.request().url());
     const path = url.pathname;
     const method = route.request().method();
-    if (path.endsWith("/plugin-packages/connected-devices/0.1.1/assets/frontend/index.html")) {
+    if (path.endsWith("/plugin-packages/connected-devices/0.1.2/assets/frontend/index.html")) {
       return route.fulfill({ status: 200, contentType: "text/html", body: entrypoint });
     }
-    if (path.endsWith("/plugin-packages/connected-devices/0.1.1/assets/frontend/main.js")) {
+    if (path.endsWith("/plugin-packages/connected-devices/0.1.2/assets/frontend/main.js")) {
       return route.fulfill({ status: 200, contentType: "application/javascript", body: script });
     }
-    if (path.endsWith("/plugin-packages/connected-devices/0.1.1/assets/frontend/qrcode.min.js")) {
+    if (path.endsWith("/plugin-packages/connected-devices/0.1.2/assets/frontend/qrcode.min.js")) {
       return route.fulfill({ status: 200, contentType: "application/javascript", body: qr });
     }
 
@@ -153,6 +153,11 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
 
 test("Connected Devices capability choices stay visible when the device registry request fails", async ({ page }) => {
   const script = await readFile(resolve(process.cwd(), "../../src/plugins/connected-devices/frontend/main.js"), "utf8");
+  await page.addInitScript(() => {
+    if (typeof crypto.randomUUID !== "function") {
+      Object.defineProperty(crypto, "randomUUID", { configurable: true, value: () => "test-request-id" });
+    }
+  });
   await page.setContent(`
     <div id="message" hidden></div><div id="error" hidden role="alert"></div>
     <div id="capabilities" class="capabilities"></div>
