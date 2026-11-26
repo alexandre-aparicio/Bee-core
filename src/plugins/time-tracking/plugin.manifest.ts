@@ -2,7 +2,7 @@
 export const PLUGIN_MANIFEST = {
   id: "time-tracking",
   name: "Control Horario",
-  version: "0.2.1",
+  version: "0.2.2",
   description: "Employee time clock, breaks and work-session history.",
   category: "productivity",
   dependencies: ["auth", "organizations"],

@@ -162,7 +162,7 @@ const ctx: BeeContext = {
 dynamicPluginRuntime = new BeeDynamicPluginRuntime(() => ctx, environment.jwtSecret, () => plugins.list());
 
 // Host services stay in Core. Tenant-facing packages load from verified signed ZIPs.
-// Documents is intentionally disabled until its standalone Files-backed package is released.
+// Documents is intentionally absent from clean installs and becomes loadable only after its signed ZIP is installed.
 plugins.register(helloPlugin);
 plugins.register(authPlugin);
 plugins.register(organizationsPlugin);
@@ -233,7 +233,6 @@ async function loadSignedZipPlugin(item: any): Promise<BeePlugin> {
   if (typeof item.pluginId !== "string" || typeof item.version !== "string" || typeof item.packageDirectory !== "string") {
     throw new Error("Platform package registry record is incomplete");
   }
-  if (item.pluginId === "documents") throw new Error("Documents packages are disabled and cannot be loaded by this Bee-Core version.");
   const storageRoot = resolve(String(ctx.config.pluginPackagePath ?? "/data/bee-plugins"));
   const expectedDirectory = resolve(storageRoot, item.pluginId, item.version);
   if (resolve(item.packageDirectory) !== expectedDirectory) throw new Error("Stored package path does not match its registered identity");
