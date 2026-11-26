@@ -9,7 +9,7 @@ export const PLUGIN_MANIFEST = {
   requiredServices: ["mongoDbName", "sessionIdSecret"],
   optionalServices: [],
   tenantDependencies: [],
-  activationPolicy: "automatic",
+  activationPolicy: "automatic" as const,
   migrations: [
     { id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }
   ],
