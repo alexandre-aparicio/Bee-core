@@ -228,6 +228,7 @@ test("Control Horario backend is independent from Files and scopes tenant-owned 
 
   assert.match(pluginSource, /dependencies:\s*\["auth",\s*"organizations"\]/);
   assert.doesNotMatch(pluginSource, /files|FilesStorageAdapter/i);
+  assert.match(pluginSource, /frontend:\s*\{\s*routes:\s*\[\]\s*\}/, "the backend plugin manifest must not advertise the removed Angular component");
   assert.doesNotMatch(entitlementSource, /id: "time-tracking",\s*name: "Control Horario"/, "Control Horario must not remain a trusted bundled marketplace package");
   const manifestRegistrySource = await readFile(join(process.cwd(), "src/plugins/plugin-manifest-registry.ts"), "utf8");
   assert.match(platformAdminSource, /RETIRED_PACKAGE_POLICIES/, "platform startup must consume the central retirement policy");
