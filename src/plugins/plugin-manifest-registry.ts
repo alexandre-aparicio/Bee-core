@@ -1,6 +1,16 @@
 import type { PluginPlan, PluginPackageDefinition } from "../core/plugin-entitlements.js";
 import type { Db } from "mongodb";
 import { migrateLegacyConnectedDevicesPlanAssignments, recordLegacyConnectedDevicesPlanRemovals } from "./connected-devices/connected-devices-plan-migration.js";
+import { PLUGIN_MANIFEST as CONNECTED_DEVICES_MANIFEST } from "./connected-devices/plugin.manifest.js";
+import { PLUGIN_MANIFEST as DOCUMENTS_MANIFEST } from "./documents/plugin.manifest.js";
+import { PLUGIN_MANIFEST as TIME_TRACKING_MANIFEST } from "./time-tracking/plugin.manifest.js";
+
+/** Per-plugin manifests are owned by their plugin folders and composed here for platform consumers. */
+export const PLUGIN_MANIFESTS = {
+  "connected-devices": CONNECTED_DEVICES_MANIFEST,
+  documents: DOCUMENTS_MANIFEST,
+  "time-tracking": TIME_TRACKING_MANIFEST
+};
 
 export const BUILT_IN_PLANS: PluginPlan[] = [
   { id: "starter", name: "Starter", includedPluginIds: ["files", "documents"], visiblePluginIds: ["files", "documents"], maxUsers: 5, storageMb: 100 },
@@ -24,13 +34,13 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
     status: "published"
   },
   {
-    id: "documents", name: "Documents", version: "0.1.0",
-    description: "Shared document library with folder-level team access and controlled public delivery",
-    category: "platform", visibleInPlans: ["starter", "pro", "enterprise"], includedInPlans: ["starter", "pro", "enterprise"],
-    purchasable: false, system: true, dependencies: ["files"], activationPolicy: "automatic", permissions: [
-      { key: "documents.read", module: "documents", resource: "documents", action: "read", label: "View documents", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
-      { key: "documents.write", module: "documents", resource: "documents", action: "write", label: "Manage documents", defaultGrants: { owner: true, admin: true, manager: true, member: false } }
-    ], codeAvailable: true, status: "published"
+    ...PLUGIN_MANIFESTS.documents,
+    visibleInPlans: ["starter", "pro", "enterprise"],
+    includedInPlans: ["starter", "pro", "enterprise"],
+    purchasable: false,
+    system: true,
+    codeAvailable: true,
+    status: "published"
   },
 
 ];
