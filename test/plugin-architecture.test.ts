@@ -73,7 +73,7 @@ test("Connected Devices is ZIP-only and has no Core or Angular static registrati
   const packageUpload = await readFile(resolve(root, "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
   assert.match(packageUpload, /frontendRoutes:Array.isArray\(manifest.frontend\?\.routes\)/, "verified ZIP navigation metadata must be persisted with the catalogue entry");
   const tenantCatalog = await readFile(resolve(root, "src/core/plugin-entitlements.ts"), "utf8");
-  assert.match(tenantCatalog, /frontendRoutes: Array.isArray\(plugin.frontendRoutes\)/, "tenant-visible package routes must be projected from the package catalogue");
+  assert.match(tenantCatalog, /frontendRoutes: zipFrontendRoutes\.get\(plugin\.id\) \?\? \(Array\.isArray\(plugin\.frontendRoutes\)/, "tenant-visible package routes must prefer the installed signed ZIP manifest and fall back to catalogue metadata");
 
   for (const file of [
     "apps/web/src/app/connected-devices/connected-devices-api.service.ts",
