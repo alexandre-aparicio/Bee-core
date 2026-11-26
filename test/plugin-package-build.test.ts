@@ -30,7 +30,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
       runtimeVersion: "0.3.1"
     });
     assert.equal(installed.manifest.id, "time-tracking");
-    assert.equal(installed.manifest.version, "0.2.1");
+    assert.equal(installed.manifest.version, "0.2.2");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
