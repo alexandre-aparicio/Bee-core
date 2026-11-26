@@ -229,7 +229,10 @@ export class BeeConnectedDevicesComponent implements OnChanges {
     });
   }
 
-  ngOnChanges(): void { if (this.accessToken) void this.load(); }
+  ngOnChanges(): void {
+    if (this.assetBaseUrl && !connectedDevicesQrPromise) void this.loadQrLibrary().catch(error => { this.error = error instanceof Error ? error.message : "Could not load the QR renderer."; });
+    if (this.accessToken) void this.load();
+  }
   trackDevice(_index: number, device: Device): string { return device.id; }
   clearFilters(): void { this.search = ""; this.statusFilter = "all"; this.typeFilter = "all"; }
   openCreate(): void {
