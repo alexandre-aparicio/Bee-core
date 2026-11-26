@@ -37,6 +37,27 @@ export const marketplacePlugin: BeePlugin = {
   },
   async initialize(ctx) {
     const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    // Publish authorization through a stable host contract. Feature plugins must
+    // not import Marketplace/Core entitlement implementation details.
+    ctx.services?.register("marketplace.plugin-access", {
+      isPluginAvailable: async (tenantId: string, pluginId: string) => {
+        const [entitled, installed, enabled] = await Promise.all([
+          hasPluginEntitlement(db, tenantId, pluginId),
+          isPluginInstalled(db, tenantId, pluginId),
+          isPluginEnabled(db, tenantId, pluginId)
+        ]);
+        return entitled && installed && enabled;
+      },
+      isTenantUserActive: async (tenantId: string, userId: string) => {
+        const [tenant, membership, user] = await Promise.all([
+          db.collection("tenants").findOne({ id: tenantId, $or: [{ status: "active" }, { status: null }] }, { projection: { _id: 1 } }),
+          db.collection("memberships").findOne({ tenantId, userId, status: "active" }, { projection: { _id: 1 } }),
+          db.collection("users").findOne({ id: userId, enabled: true }, { projection: { _id: 1 } })
+        ]);
+        return Boolean(tenant && membership && user);
+      }
+    });
+
     const getMarketplacePackage = async (pluginId:string):Promise<PluginPackageDefinition|undefined> => {
       const builtIn=getTrustedPluginPackage(pluginId);
       if(builtIn)return builtIn;
