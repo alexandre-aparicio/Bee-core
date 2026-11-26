@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { composePermissionCatalog } from "../src/core/permission-catalog.js";
+import { createFrontendRegistrationMap } from "../apps/web/src/app/plugins/plugin-frontend-registration-map.js";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 async function sourceFiles(directory: string): Promise<string[]> {
@@ -10,7 +12,7 @@ async function sourceFiles(directory: string): Promise<string[]> {
   const nested = await Promise.all(entries.map(async entry => {
     const path = resolve(directory, entry.name);
     if (entry.isDirectory()) return sourceFiles(path);
-    return entry.isFile() && /\.(?:ts|html)$/.test(entry.name) ? [path] : [];
+    return entry.isFile() && /\.(?:ts|html|js|mjs)$/.test(entry.name) ? [path] : [];
   }));
   return nested.flat();
 }
@@ -114,4 +116,62 @@ test("remote plugin theme bridge sends semantic presentation only", async () => 
   const html = await readFile(resolve(root, "src/plugins/connected-devices/frontend/index.html"), "utf8");
   assert.match(html, /background:var\(--bee-surface\)/);
   assert.match(html, /color:var\(--bee-text\)/);
+});
+
+
+test("generic host paths contain no feature-specific branches outside the explicit manifest and registration allowlist", async () => {
+  const roots = [
+    "src/plugins/marketplace",
+    "src/plugins/platform-admin",
+    "apps/web/src/app/plugins",
+    "apps/web/src/app/templates"
+  ];
+  const files = [
+    "src/index.ts",
+    "src/plugins/plugin-manifest-registry.ts",
+    ...(await Promise.all(roots.map(rootPath => sourceFiles(resolve(root, rootPath))))).flat()
+  ];
+  const allowed: Record<string, readonly string[]> = {
+    // The backend bootstrap retains the approved Files and Documents native fallbacks.
+    "src/index.ts": ["files", "documents"],
+    // This is the single source for package metadata and legacy migration policy.
+    "src/plugins/plugin-manifest-registry.ts": ["files", "documents", "connected-devices", "time-tracking", "hello-world"],
+    // Feature IDs may appear only in the declarative registration list.
+    "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents", "time-tracking"],
+    // These generic uses refer to browser file inputs and package archive files, not plugin IDs.
+    "apps/web/src/app/plugins/plugin-settings.component.ts": ["files"]
+  };
+  const identifiers = ["documents", "files", "connected-devices", "time-tracking"];
+  for (const relativePath of files.map(file => relative(root, file))) {
+    const source = await readFile(resolve(root, relativePath), "utf8");
+    for (const identifier of identifiers) {
+      if (allowed[relativePath]?.includes(identifier)) continue;
+      assert.doesNotMatch(source, new RegExp("\\b" + identifier + "\\b", "i"),
+        relativePath + " must not contain a hard-coded " + identifier + " module branch");
+    }
+  }
+});
+
+test("permission catalog and frontend registry compose a previously unknown plugin ID", () => {
+  const pluginId = "fixture.analytics";
+  const permission = {
+    key: pluginId + ".read",
+    module: pluginId,
+    resource: "reports",
+    action: "read",
+    label: "Read reports",
+    defaultGrants: { owner: true, admin: true, manager: true, member: false }
+  };
+  const composed = composePermissionCatalog([{ id: pluginId, permissions: [permission] }]);
+  assert.ok(composed.some(item => item.key === pluginId + ".read" && item.module === pluginId),
+    "a feature-owned permission must compose without a Core module branch");
+
+  const registration = {
+    pluginId,
+    navigation: { id: pluginId, label: "Analytics", labelEs: "Analítica", icon: "chart", group: "WORKSPACE" }
+  };
+  const registry = createFrontendRegistrationMap([registration]);
+  assert.equal(registry.get(pluginId), registration,
+    "a generic frontend registration must resolve an arbitrary valid plugin ID");
+  assert.throws(() => createFrontendRegistrationMap([registration, registration]), /Duplicate plugin frontend registration/);
 });
