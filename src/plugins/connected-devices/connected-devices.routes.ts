@@ -5,7 +5,7 @@ import type { ConnectedDeviceRecord } from "./connected-devices.repository.js";
 const clean=(value:unknown,max=80):string=>String(value??"").replace(/[<>\u0000-\u001f]/g,"").trim().slice(0,max);
 
 export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
- const {db,repository,dashboardTenant,authenticateDevice,access}=deps;
+ const {repository,dashboardTenant,authenticateDevice,access}=deps;
  ctx.server.post("/connected-devices/pairing-challenges",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
   let requestedCapabilities:string[];try{requestedCapabilities=normalizeRequestedCapabilities(request.body?.requestedCapabilities??[]);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
