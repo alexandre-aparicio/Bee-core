@@ -53,13 +53,13 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
     const url = new URL(route.request().url());
     const path = url.pathname;
     const method = route.request().method();
-    if (path.endsWith("/plugin-packages/connected-devices/0.1.0/assets/frontend/index.html")) {
+    if (path.endsWith("/plugin-packages/connected-devices/0.1.2/assets/frontend/index.html")) {
       return route.fulfill({ status: 200, contentType: "text/html", body: entrypoint });
     }
-    if (path.endsWith("/plugin-packages/connected-devices/0.1.0/assets/frontend/main.js")) {
+    if (path.endsWith("/plugin-packages/connected-devices/0.1.2/assets/frontend/main.js")) {
       return route.fulfill({ status: 200, contentType: "application/javascript", body: script });
     }
-    if (path.endsWith("/plugin-packages/connected-devices/0.1.0/assets/frontend/qrcode.min.js")) {
+    if (path.endsWith("/plugin-packages/connected-devices/0.1.2/assets/frontend/qrcode.min.js")) {
       return route.fulfill({ status: 200, contentType: "application/javascript", body: qr });
     }
 
@@ -84,7 +84,7 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
         frontendRoutes: routes
       }] };
     } else if (path.endsWith("/marketplace/plugins/connected-devices/runtime")) {
-      body = { pluginId: "connected-devices", version: "0.1.0", entrypoint: "frontend/index.html", apiPrefixes: ["/connected-devices"], routes };
+      body = { pluginId: "connected-devices", version: "0.1.2", entrypoint: "frontend/index.html", apiPrefixes: ["/connected-devices"], routes };
     } else if (path.endsWith("/templates/preferences") || path.endsWith("/templates/public")) {
       body = { selection: { public: "aurora", dashboard: "midnight" }, installedTemplates: ["aurora", "editorial", "studio", "midnight", "paper", "glass"] };
     } else if (path.endsWith("/notifications")) {
@@ -148,4 +148,39 @@ test("Connected Devices ZIP frontend confirms deletion and sends a bodyless DELE
   expect(state.deleteCalls).toBe(1);
   expect(state.deleteBody).toBeNull();
   expect(state.deleteContentType).toBeUndefined();
+});
+
+
+test("Connected Devices capability choices stay visible when the device registry request fails", async ({ page }) => {
+  const script = await readFile(resolve(process.cwd(), "../../src/plugins/connected-devices/frontend/main.js"), "utf8");
+  const browserScript = script.replaceAll("crypto.randomUUID()", '"test-request-id"');
+  await page.setContent(`
+    <div id="message" hidden></div><div id="error" hidden role="alert"></div>
+    <div id="capabilities" class="capabilities"></div>
+    <button id="create-pairing"></button><button id="refresh"></button>
+    <button id="cancel-pairing"></button><button id="copy-payload"></button>
+    <div id="loading"></div><div id="empty" hidden></div><div id="devices" hidden></div>
+    <div id="pairing" hidden></div><code id="pairing-payload"></code>
+    <small id="pairing-expiry"></small><div id="qr"></div><div id="modal-root"></div>
+  `);
+  await page.evaluate(() => {
+    window.addEventListener("message", event => {
+      const data = event.data;
+      if (data?.type === "bee-plugin:ready") {
+        window.postMessage({ type: "bee-plugin:init", role: "member" }, "*");
+      } else if (data?.type === "bee-plugin:api-request") {
+        window.postMessage({
+          type: "bee-plugin:api-response",
+          requestId: data.requestId,
+          status: 503,
+          payload: { error: "Device registry temporarily unavailable." }
+        }, "*");
+      }
+    });
+  });
+  await page.addScriptTag({ content: browserScript });
+  await expect(page.locator("[data-request-cap]")).toHaveCount(10);
+  await expect(page.getByText("Camera capture")).toBeVisible();
+  await expect(page.getByText("Share location")).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("Device registry temporarily unavailable.");
 });

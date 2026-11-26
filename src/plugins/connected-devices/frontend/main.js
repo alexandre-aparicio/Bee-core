@@ -83,6 +83,8 @@ function renderDevices(){
 }
 async function load(){
  clearNotices();$("loading").hidden=false;
+ // Render capability choices independently from the device registry request.
+ renderCapabilities();
  try{
   const result=await request("/connected-devices");
   devices=Array.isArray(result.devices)?result.devices:[];canManage=Boolean(result.canManage);

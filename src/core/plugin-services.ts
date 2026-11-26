@@ -46,3 +46,26 @@ export interface FilesStorageService {
   read(tenantId: string, fileId: string): Promise<Buffer>;
   delete(tenantId: string, fileId: string): Promise<boolean>;
 }
+
+
+/** Stable host contract for plugins that need tenant/plugin lifecycle authorization. */
+export interface PluginTenantContext {
+  tenantId: string;
+  userId: string;
+  client: string;
+  role: string;
+}
+
+export interface PluginUserSummary {
+  id: string;
+  name: string;
+  email: string;
+}
+
+/** Host-owned authorization and identity contract exposed to feature plugins. */
+export interface PluginAccessService {
+  isPluginAvailable(tenantId: string, pluginId: string): Promise<boolean>;
+  isTenantUserActive(tenantId: string, userId: string): Promise<boolean>;
+  resolveTenantContext(user: unknown, sessionSecret: string): Promise<PluginTenantContext | null>;
+  getTenantUserSummaries(tenantId: string, userIds: string[]): Promise<PluginUserSummary[]>;
+}

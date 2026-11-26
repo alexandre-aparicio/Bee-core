@@ -15,6 +15,7 @@ import { registerConnectedDevicesRoutes } from "../src/plugins/connected-devices
 import { TRUSTED_PLUGIN_PACKAGES, type PluginPackageDefinition } from "../src/core/plugin-entitlements.js";
 import { unmaskResourceId } from "../src/core/session-id.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
+import { BeePluginServices } from "../src/core/plugin-services.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
 const uri = process.env.MONGODB_TEST_URI;
@@ -89,6 +90,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     logger,
     server: app,
     mongoClient: client,
+    services: new BeePluginServices(),
     config: {
       jwtSecret: "01234567890123456789012345678901",
       mongoUri: uri!,
@@ -161,7 +163,9 @@ test("company plans and purchases control plugin visibility, installation and ac
     });
     const connectedDevicesRepository = new ConnectedDevicesRepository(db);
     await connectedDevicesRepository.initializeIndexes();
-    const connectedDevicesServices = createConnectedDevicesServices({ db, secret: String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret), repository: connectedDevicesRepository });
+    const access = ctx.services!.get<any>("marketplace.plugin-access");
+    assert.ok(access, "Marketplace must publish the host access contract before feature routes are registered");
+    const connectedDevicesServices = createConnectedDevicesServices({ secret: String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret), repository: connectedDevicesRepository, access });
     registerConnectedDevicesRoutes({ server: app, logger } as any, {
       ...connectedDevicesServices,
       repository: connectedDevicesRepository
