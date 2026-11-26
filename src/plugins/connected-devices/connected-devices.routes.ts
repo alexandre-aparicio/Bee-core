@@ -95,7 +95,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!isDeviceAdministrator(tenant))return reply.code(403).send({error:"Organization administrator permission required."});
   const id=clean(request.params.deviceId,64),device=await repository.devices.findOne({tenantId:tenant.tenantId,id,status:"suspended"});
   if(!device)return reply.code(404).send({error:"Suspended device not found."});
-  if(!await isConnectedDeviceOwnerActive(db,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
+  if(!await isConnectedDeviceOwnerActive(access,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
   const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"suspended"},{$set:{status:"active",updatedAt:new Date()}});
   if(!result.modifiedCount)return reply.code(409).send({error:"The device state changed. Refresh and try again."});
   return {success:true};
