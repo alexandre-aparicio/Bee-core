@@ -15,7 +15,7 @@ type SettingGroup = { title: string; description: string; fields: string[]; note
   template: `
     <section class="settings-workspace">
       <section class="settings-page organization-page" style="width: 100%; max-width: none;">
-        <div class="settings-page__eyebrow">{{scope === 'platform' ? 'Settings / Platform' : 'Settings / Organization'}}</div>
+        <div class="settings-page__eyebrow">{{section === 'general' ? 'Settings / General' : (scope === 'platform' ? 'Settings / Platform' : 'Settings / Organization')}}</div>
         <h1>{{sectionTitle}}</h1>
         <p class="settings-page__intro">{{sectionDescription}}</p>
       </section>
