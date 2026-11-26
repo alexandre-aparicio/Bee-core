@@ -23,6 +23,7 @@ import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "../../core/plug
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
 import { MIGRATABLE_BUILT_IN_PACKAGE_IDS, RETIRED_PACKAGE_POLICIES } from "../plugin-manifest-registry.js";
+import { recordLegacyConnectedDevicesPlanRemovals } from "../../core/connected-devices-plan-migration.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
@@ -467,6 +468,7 @@ export const platformAdminPlugin:BeePlugin={
    const available=await plans.find({id:{$in:planIds}}).project<{id:string}>({id:1,_id:0}).toArray();
    if(available.length!==planIds.length)return reply.code(400).send({error:"One or more plan IDs do not exist"});
    const assignments=db.collection("plugin_plan_package_assignments");
+   if(pluginId==="connected-devices")await recordLegacyConnectedDevicesPlanRemovals(db,planIds,actor.id);
    await assignments.deleteMany({pluginId,planId:{$nin:planIds}});
    for(const planId of planIds)await assignments.updateOne({planId,pluginId},{$setOnInsert:{planId,pluginId,createdAt:new Date(),createdBy:actor.id}},{upsert:true});
    const queued=await syncAutomaticPluginProvisioning(db,pluginId);
