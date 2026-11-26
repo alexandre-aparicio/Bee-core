@@ -22,7 +22,7 @@ import { installSignedPluginZip } from "../../core/plugin-zip-installer.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "../../core/plugin-package.js";
 import { getRuntimePlugin } from "../../core/runtime-plugin-registry.js";
 import type { PluginPackageDefinition } from "../../core/plugin-entitlements.js";
-import { MIGRATABLE_BUILT_IN_PACKAGE_IDS, RETIRED_PACKAGE_POLICIES, recordLegacyPluginPlanAssignmentRemovals } from "../plugin-manifest-registry.js";
+import { RETIRED_PACKAGE_POLICIES } from "../plugin-manifest-registry.js";
 
 type Company={id:string;name:string;slug?:string;kind?:"super"|"tenant";settings?:{defaultLanguage?:"en"|"es"};createdAt:Date;status:"active"|"suspended"};
 type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:string;roles:string[];platformRole?:string;mfaSecretEnc?:string;enabled:boolean;allowedClients:string[];tenantId?:string;createdAt:Date;updatedAt:Date};
@@ -293,7 +293,7 @@ export const platformAdminPlugin:BeePlugin={
      validateManifest:async manifest=>{
       const existing=await packages.findOne({pluginId:manifest.id});
       
-      if(existing&&existing.source!=="zip"&&!MIGRATABLE_BUILT_IN_PACKAGE_IDS.has(manifest.id))throw new Error("Plugin ID is reserved by a built-in package");
+      if(existing&&existing.source!=="zip"&&(CORE_RUNTIME_PLUGIN_IDS.has(manifest.id)||getTrustedPluginPackage(manifest.id)))throw new Error("Plugin ID is reserved by a Core or trusted package");
       if(existing?.version){
        const current=existing.version.split(/[.+-]/)[0]!.split(".").map(Number);
        const incoming=manifest.version.split(/[.+-]/)[0]!.split(".").map(Number);
