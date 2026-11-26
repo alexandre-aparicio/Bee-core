@@ -3,7 +3,7 @@ import { BeePluginFrontendRegistry } from "./plugin-frontend-registry.service";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
 
 type RemotePluginRuntime = { pluginId: string; version: string; entrypoint: string; apiPrefixes: string[] };
-type RemoteFrame = { pluginId: string; apiPrefixes: string[]; ready: boolean };
+type RemoteFrame = { pluginId: string; apiPrefixes: string[]; ready: boolean; element: HTMLIFrameElement };
 
 @Component({
   selector: "bee-plugin-outlet",
@@ -92,13 +92,14 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       frame.loading = "lazy";
       frame.style.width = "100%";
       frame.style.minHeight = "280px";
+      frame.style.height = "720px";
       frame.style.border = "0";
       frame.style.display = "block";
       const entrypoint = runtime.entrypoint.split("/").map(encodeURIComponent).join("/");
       frame.src = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" + encodeURIComponent(runtime.version) + "/assets/" + entrypoint;
       this.remoteHost.nativeElement.appendChild(frame);
       const frameWindow = frame.contentWindow;
-      if (frameWindow) this.frames.set(frameWindow, { pluginId, apiPrefixes: runtime.apiPrefixes, ready: false });
+      if (frameWindow) this.frames.set(frameWindow, { pluginId, apiPrefixes: runtime.apiPrefixes, ready: false, element: frame });
     }
   }
 
@@ -169,6 +170,11 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     if (!frame) return;
     const message = event.data as Record<string, unknown>;
     const target = event.source as Window;
+    if (message["type"] === "bee-plugin:resize") {
+      const height = Number(message["height"]);
+      if (Number.isFinite(height) && height >= 240 && height <= 1600) frame.element.style.height = Math.ceil(height) + "px";
+      return;
+    }
     if (message["type"] === "bee-plugin:ready") {
       this.frames.set(target, { ...frame, ready: true });
       target.postMessage({ type: "bee-plugin:init", role: this.role, section: this.section, locale: this.i18n.locale }, "*");
