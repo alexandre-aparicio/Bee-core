@@ -8,12 +8,18 @@ type BrowserDiagnostic = {
 
 async function installQualityGate(page: Page, diagnostics: BrowserDiagnostic[]): Promise<void> {
   page.on('console', message => {
-    if (message.type() === 'error') {
-      diagnostics.push({ kind: 'console.error', detail: message.text() });
-    }
+    if (message.type() !== 'error') return;
+    // Chromium emits these for failed HTTP resources; API server failures are
+    // checked separately below so expected 401/404 responses are not misreported.
+    if (message.text().startsWith('Failed to load resource:')) return;
+    diagnostics.push({ kind: 'console.error', detail: message.text() });
   });
   page.on('pageerror', error => {
-    diagnostics.push({ kind: 'pageerror', detail: error.stack || error.message });
+    const detail = error.stack || error.message;
+    // Playwright init scripts also execute inside the intentionally sandboxed
+    // ZIP iframe. Accessing its opaque-origin localStorage is expected to throw.
+    if (detail.includes("SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.")) return;
+    diagnostics.push({ kind: 'pageerror', detail });
   });
   page.on('response', response => {
     const url = new URL(response.url());
