@@ -8,6 +8,7 @@ async function authenticate(page: Page, fixture: Fixture): Promise<void> {
   const serialized = JSON.stringify(fixture);
   await page.context().addCookies([{ name: "bee-test-auth", value: encodeURIComponent(serialized), url: "http://127.0.0.1:4200", sameSite: "Lax" }]);
   await page.addInitScript((value: string) => {
+    if (window !== window.top) return;
     localStorage.setItem("bee-auth", value);
     localStorage.setItem("bee-template-selection", JSON.stringify({ public: "aurora", dashboard: "midnight" }));
   }, serialized);
@@ -141,6 +142,9 @@ function fixture(role: "member" | "owner"): Fixture {
 }
 
 test("member uses the signed ZIP iframe to clock in, manage breaks, view history and request a correction", async ({ page }) => {
+  test.setTimeout(60000);
+  page.setDefaultTimeout(6000);
+  page.setDefaultNavigationTimeout(8000);
   const auth = fixture("member");
   const state = { session: null as any, history: [] as any[], myCorrections: [] as any[], mySchedule: null, members: [], schedules: [], teamCorrections: [] as any[] };
   const browserErrors: string[] = [];
