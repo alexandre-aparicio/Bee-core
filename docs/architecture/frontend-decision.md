@@ -37,3 +37,8 @@ The host remains the sole owner of bearer credentials. Remote requests go throug
 ## Decision record
 
 Level A and Level B are both implemented and in use as described above. Keep the current per-module model until the owner explicitly decides to converge or change it. Web Components, remote ESM and Module Federation are not current production contracts.
+
+
+## Package manifest ownership
+
+Package permissions are owned by each plugin folder in `src/plugins/<plugin-id>/plugin.manifest.ts`. The platform manifest registry composes these module-owned definitions for trusted platform consumers. The ZIP package builder discovers plugin folders containing `plugin.manifest.ts`, loads the compiled manifests, and copies their permission definitions into signed package metadata. Do not duplicate module permission arrays in the builder or central registry. The generic Core permission catalogue remains reserved for Core-owned capabilities.
