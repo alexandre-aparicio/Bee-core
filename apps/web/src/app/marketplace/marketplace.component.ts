@@ -185,6 +185,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       await this.load();
       const action = operation === "update" ? "update" : method === "POST" ? "install" : "uninstall";
       this.message = action === "update" ? plugin.name + " updated for this company." : action === "install" ? plugin.name + " installed for this company." : plugin.name + " uninstalled. Company data is preserved.";
+      if (action === "update") window.dispatchEvent(new CustomEvent("bee:plugins-changed", { detail: { pluginId: plugin.pluginKey || plugin.id, action } }));
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Plugin action failed";
     } finally {
