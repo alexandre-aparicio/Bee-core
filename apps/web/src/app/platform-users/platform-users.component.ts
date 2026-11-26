@@ -94,7 +94,7 @@ type PlatformTenant = {id:string;name:string};
             <label>Email address<input name="email" type="email" [(ngModel)]="form.email" required maxlength="254" placeholder="name@company.com"></label>
             <label>Tenant<select name="tenantId" [(ngModel)]="form.tenantId"><option value="">No tenant / platform only</option><option *ngFor="let tenant of tenants" [value]="tenant.id">{{tenant.name}}</option></select></label>
             <label>Role<select name="role" [(ngModel)]="form.role"><option value="employee">Employee</option><option value="manager">Manager</option><option value="admin">Admin</option><option value="owner">Owner</option><option value="superadmin">Superadmin</option></select></label>
-            <label>Temporary password<input name="password" type="password" [(ngModel)]="form.password" minlength="12" autocomplete="new-password" placeholder="At least 12 characters"></label>
+            <label>Temporary password<input name="password" type="password" [(ngModel)]="form.password" minlength="12" autocomplete="new-password" placeholder="Required for a new account"></label>
             <p class="platform-users__form-error" *ngIf="modalError" role="alert">{{modalError}}</p>
             <footer class="platform-users__modal-actions"><button type="button" class="platform-users__cancel" (click)="closeCreate()" [disabled]="saving">Cancel</button><button type="submit" [disabled]="saving">{{saving?'Creating…':'Create user'}}</button></footer>
           </form>
