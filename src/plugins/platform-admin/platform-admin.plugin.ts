@@ -29,7 +29,7 @@ type User={_id?:import("mongodb").ObjectId;id:string;email:string;passwordHash:s
 type Membership={id:string;userId:string;tenantId:string;role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom";status:"active"|"invited"|"suspended";createdAt:Date;updatedAt:Date};
 type Claims={sub?:string;sid?:string;client?:string;aud?:string};
 export const platformAdminPlugin:BeePlugin={
- manifest:{ requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: ["pluginPackagePath","pluginPublisherPublicKey"],name:"platform-admin",version:"0.1.0",description:"Platform-wide administration protected by Super Organization super_admin membership",dependencies:["auth","organizations","marketplace"]},
+ manifest:{ requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: ["authAdminEmail","pluginPackagePath","pluginPublisherPublicKey"],name:"platform-admin",version:"0.1.0",description:"Platform-wide administration protected by Super Organization super_admin membership",dependencies:["auth","organizations","marketplace"]},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const users=db.collection<User>("users"),sessions=db.collection("refresh_sessions"),companies=db.collection<Company>("tenants"),memberships=db.collection<Membership>("memberships");
@@ -68,16 +68,14 @@ export const platformAdminPlugin:BeePlugin={
   // Retirements are declared once with package metadata; tenant data and history remain intact.
   for (const policy of RETIRED_PACKAGE_POLICIES) await retireBundledPlatformPackage(db,policy.id,policy.retireSignedZip);
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
-  // Migrate legacy platformRole accounts once. The configured bootstrap email
-  // is only eligible when no Super Admin membership exists yet; it must never
-  // silently re-promote an intentionally demoted or suspended administrator.
+  // AUTH_ADMIN_EMAIL is the installation's immutable bootstrap identity:
+  // on every clean deployment it must own the Super Organization, even if the
+  // auth user was created earlier as an ordinary tenant administrator.
+  // Also migrate legacy platformRole accounts for installations upgraded in place.
   const legacyAdmins=await users.find({platformRole:"superadmin"}).toArray();
-  if(!legacyAdmins.length&&bootstrapEmail){
-   const existingSuperAdmin=await memberships.findOne({tenantId:superOrganization.id,role:"super_admin"});
-   if(!existingSuperAdmin){
-    const bootstrapUser=await users.findOne({email:bootstrapEmail});
-    if(bootstrapUser)legacyAdmins.push(bootstrapUser);
-   }
+  if(bootstrapEmail){
+   const bootstrapUser=await users.findOne({email:bootstrapEmail,enabled:true});
+   if(bootstrapUser&&!legacyAdmins.some(user=>user.id===bootstrapUser.id))legacyAdmins.push(bootstrapUser);
   }
   for(const legacyAdmin of legacyAdmins){
    const now=new Date();
