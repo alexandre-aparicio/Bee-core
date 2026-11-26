@@ -68,16 +68,14 @@ export const platformAdminPlugin:BeePlugin={
   // Retirements are declared once with package metadata; tenant data and history remain intact.
   for (const policy of RETIRED_PACKAGE_POLICIES) await retireBundledPlatformPackage(db,policy.id,policy.retireSignedZip);
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
-  // Migrate legacy platformRole accounts once. The configured bootstrap email
-  // is only eligible when no Super Admin membership exists yet; it must never
-  // silently re-promote an intentionally demoted or suspended administrator.
+  // AUTH_ADMIN_EMAIL is the installation's immutable bootstrap identity:
+  // on every clean deployment it must own the Super Organization, even if the
+  // auth user was created earlier as an ordinary tenant administrator.
+  // Also migrate legacy platformRole accounts for installations upgraded in place.
   const legacyAdmins=await users.find({platformRole:"superadmin"}).toArray();
-  if(!legacyAdmins.length&&bootstrapEmail){
-   const existingSuperAdmin=await memberships.findOne({tenantId:superOrganization.id,role:"super_admin"});
-   if(!existingSuperAdmin){
-    const bootstrapUser=await users.findOne({email:bootstrapEmail});
-    if(bootstrapUser)legacyAdmins.push(bootstrapUser);
-   }
+  if(bootstrapEmail){
+   const bootstrapUser=await users.findOne({email:bootstrapEmail,enabled:true});
+   if(bootstrapUser&&!legacyAdmins.some(user=>user.id===bootstrapUser.id))legacyAdmins.push(bootstrapUser);
   }
   for(const legacyAdmin of legacyAdmins){
    const now=new Date();
