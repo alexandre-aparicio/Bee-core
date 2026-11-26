@@ -250,7 +250,10 @@ app.get<{Params:{pluginId:string;version:string;assetToken:string;"*":string}}>(
   const contentTypes:Record<string,string>={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".woff2":"font/woff2"};
   reply.header("Content-Type",contentTypes[extname(assetPath).toLowerCase()]??"application/octet-stream");
   reply.header("X-Content-Type-Options","nosniff");
-  reply.header("Cache-Control","private, max-age=60");
+  // Asset grants are bearer credentials embedded in the URL. Never let a browser
+  // cache them or forward their URL as a Referer to subsequent remote chunks.
+  reply.header("Cache-Control","private, no-store");
+  reply.header("Referrer-Policy","no-referrer");
   return reply.send(data);
 });
 
