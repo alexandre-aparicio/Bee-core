@@ -171,7 +171,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     const target = event.source as Window;
     if (message["type"] === "bee-plugin:ready") {
       this.frames.set(target, { ...frame, ready: true });
-      target.postMessage({ type: "bee-plugin:init", role: this.role, section: this.section }, "*");
+      target.postMessage({ type: "bee-plugin:init", role: this.role, section: this.section, locale: this.i18n.locale }, "*");
       this.postTheme(target);
       return;
     }
