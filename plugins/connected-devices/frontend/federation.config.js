@@ -3,7 +3,7 @@ const { withNativeFederation, shareAll } = require("@angular-architects/native-f
 module.exports = withNativeFederation({
   name: "connectedDevices",
   exposes: {
-    "./Component": "./src/connected-devices.component.ts"
+    "./Component": "./src/plugin.component.ts"
   },
   shared: {
     ...shareAll({ singleton: true, strictVersion: true, requiredVersion: "auto" })
