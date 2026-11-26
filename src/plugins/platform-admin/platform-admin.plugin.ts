@@ -472,7 +472,13 @@ export const platformAdminPlugin:BeePlugin={
    const available=await plans.find({id:{$in:planIds}}).project<{id:string}>({id:1,_id:0}).toArray();
    if(available.length!==planIds.length)return reply.code(400).send({error:"One or more plan IDs do not exist"});
    const assignments=db.collection("plugin_plan_package_assignments");
-   await recordLegacyPluginPlanAssignmentRemovals(db,pluginId,planIds,actor.id);
+   const planSelectionLedger=db.collection("plugin_plan_package_assignment_migrations");
+   const allPlanRows=await plans.find({}).project<{id:string}>({id:1,_id:0}).toArray();
+   const selectedPlanIds=new Set(planIds);
+   for(const plan of allPlanRows){
+    const key=String(plan.id)+":"+pluginId+":admin-plan-selection-v1";
+    await planSelectionLedger.updateOne({_id:key},{$set:{planId:plan.id,pluginId,state:selectedPlanIds.has(plan.id)?"assigned":"admin-removed",actorId:actor.id,createdAt:new Date()},$setOnInsert:{_id:key}},{upsert:true});
+   }
    await assignments.deleteMany({pluginId,planId:{$nin:planIds}});
    for(const planId of planIds)await assignments.updateOne({planId,pluginId},{$setOnInsert:{planId,pluginId,createdAt:new Date(),createdBy:actor.id}},{upsert:true});
    const queued=await syncAutomaticPluginProvisioning(db,pluginId);
