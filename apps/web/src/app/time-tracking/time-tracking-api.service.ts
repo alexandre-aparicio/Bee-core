@@ -22,7 +22,7 @@ export class TimeTrackingApiService {
     const response=await fetch(this.apiBase+path,{method,credentials:"same-origin",headers,...(body!==undefined?{body:JSON.stringify(body)}:{})});
     let data:any={};
     try{data=await response.json();}catch{}
-    if(!response.ok){const code=typeof data?.errorCode==="string"?data.errorCode:"request_failed";throw new Error(this.i18n.t("time-tracking:error_"+code));}
+    if(!response.ok){const code=typeof data?.errorCode==="string"?data.errorCode:"request_failed";const key=code==="request_failed"?"request_failed":"error_"+code;throw new Error(this.i18n.t("time-tracking:"+key));}
     return data as T;
   }
 }
