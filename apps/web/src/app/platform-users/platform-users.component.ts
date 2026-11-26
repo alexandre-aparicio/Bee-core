@@ -175,8 +175,8 @@ export class PlatformUsersComponent implements OnInit {
   form={name:'',email:'',tenantId:'',role:'employee',password:''};
 
   ngOnInit():void{void this.load();}
-  private headers():HeadersInit{return {'content-type':'application/json'};}
-  private authHeaders():HeadersInit{return {...this.headers(),...(this.accessToken?{authorization:'Bearer '+this.accessToken}:{})};}
+  private headers():Record<string,string>{return {'content-type':'application/json'};}
+  private authHeaders():Record<string,string>{return {...this.headers(),...(this.accessToken?{authorization:'Bearer '+this.accessToken}:{})};}
   get filteredUsers():PlatformUser[]{
     const query=this.search.trim().toLocaleLowerCase();
     return this.users.filter(user=>{
