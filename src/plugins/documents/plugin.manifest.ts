@@ -5,7 +5,7 @@ export const PLUGIN_MANIFEST = {
   version: "0.1.0",
   description: "Tenant document library, folder ACLs and controlled public delivery.",
   category: "platform",
-  dependencies: ["auth", "organizations", "files"],
+  dependencies: ["files"],
   requiredServices: ["mongoDbName", "sessionIdSecret"],
   optionalServices: ["fileStoragePath"],
   tenantDependencies: ["files"],
