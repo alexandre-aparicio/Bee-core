@@ -9,7 +9,7 @@ export const PLUGIN_MANIFEST = {
   requiredServices: ["mongoDbName", "sessionIdSecret"],
   optionalServices: [],
   tenantDependencies: [],
-  activationPolicy: "manual",
+  activationPolicy: "manual" as const,
   permissions: [
     { key: "connected-devices.read", module: "connected-devices", resource: "devices", action: "read", label: "View connected devices", defaultGrants: { owner: true, admin: true, manager: true, member: true } },
     { key: "connected-devices.manage", module: "connected-devices", resource: "devices", action: "manage", label: "Manage connected devices", defaultGrants: { owner: true, admin: true, manager: false, member: false } }
