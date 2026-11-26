@@ -136,7 +136,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.doesNotThrow(() => new Script(script), "the standalone Time Tracking frontend must be valid JavaScript");
       } else if (item.id === "documents") {
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
-        assert.deepEqual(installed.manifest.tenantDependencies, []);
+        assert.deepEqual(installed.manifest.tenantDependencies, ["files"], "Documents may integrate with Files only");
         const documentsPlugin = await readFile(join(root, "src/plugins/documents/documents.plugin.ts"), "utf8");
         const documentsService = await readFile(join(root, "src/plugins/documents/documents.service.ts"), "utf8");
         assert.match(documentsPlugin, /dependencies:\["auth","organizations","files"\]/, "Documents may depend on Files but not on another tenant business package");
