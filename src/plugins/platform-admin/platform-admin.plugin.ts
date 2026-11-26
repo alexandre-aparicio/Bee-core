@@ -66,6 +66,13 @@ export const platformAdminPlugin:BeePlugin={
   // Legacy modules must only be available as separately uploaded, signed ZIP packages.
   // Preserve tenant installation history; hide only the old bundled platform record.
   // Retirements are declared once with package metadata; tenant data and history remain intact.
+  // Legacy bundled feature packages are retired generically. Their signed ZIPs
+  // own the runtime; only Core runtime plugins and trusted host packages remain bundled.
+  const legacyBundledPackages=await db.collection("platform_plugin_packages").find({source:"bundled",status:{$ne:"deprecated"}}).project<{pluginId:string}>({pluginId:1,_id:0}).toArray();
+  for(const item of legacyBundledPackages){
+   if(CORE_RUNTIME_PLUGIN_IDS.has(item.pluginId)||getTrustedPluginPackage(item.pluginId))continue;
+   await retireBundledPlatformPackage(db,item.pluginId);
+  }
   for (const policy of RETIRED_PACKAGE_POLICIES) await retireBundledPlatformPackage(db,policy.id,policy.retireSignedZip);
   await companies.updateOne({id:superOrganization.id},{$set:{kind:"super",status:"active",name:"Bee-Core Super Organization"}});
   // AUTH_ADMIN_EMAIL is the installation's immutable bootstrap identity:
