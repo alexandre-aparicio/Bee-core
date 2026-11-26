@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, Input, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BeeIconComponent } from '../core/icons/bee-icon.component';
 
@@ -168,6 +168,7 @@ type PlatformTenant = {id:string;name:string};
   `]
 })
 export class PlatformUsersComponent implements OnInit {
+  @Input() accessToken='';
   private readonly api='/api';
   users:PlatformUser[]=[];tenants:PlatformTenant[]=[];
   loading=false;saving=false;error='';success='';search='';tenantFilter='';viewMode:'cards'|'list'='cards';createModalOpen=false;modalError='';
@@ -175,7 +176,7 @@ export class PlatformUsersComponent implements OnInit {
 
   ngOnInit():void{void this.load();}
   private headers():HeadersInit{return {'content-type':'application/json'};}
-  private authHeaders():HeadersInit{return this.headers();}
+  private authHeaders():HeadersInit{return {...this.headers(),...(this.accessToken?{authorization:'Bearer '+this.accessToken}:{})};}
   get filteredUsers():PlatformUser[]{
     const query=this.search.trim().toLocaleLowerCase();
     return this.users.filter(user=>{
