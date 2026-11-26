@@ -152,7 +152,7 @@ function verifyPublisherSignature(manifest: BeeBusinessPluginManifest, publicKey
 
 function packageDigest(files: Map<string, Buffer>): string {
   const hash = createHash("sha256");
-  for (const [name, data] of [...files.entries()].filter(([name]) => name !== "bee-plugin.json").sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [name, data] of [...files.entries()].filter(([name]) => name !== "bee-plugin.json").sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     hash.update(name, "utf8"); hash.update(Buffer.from([0])); hash.update(createHash("sha256").update(data).digest("hex"), "ascii"); hash.update(Buffer.from([10]));
   }
   return hash.digest("hex");
