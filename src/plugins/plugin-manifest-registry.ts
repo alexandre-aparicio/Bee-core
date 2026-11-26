@@ -24,5 +24,7 @@ export const TRUSTED_PLUGIN_PACKAGES: PluginPackageDefinition[] = [
 
 /** Explicit retirement exceptions for signed package IDs. */
 export const RETIRED_PACKAGE_POLICIES = [
+  { id: "hello-world", retireSignedZip: false },
+  { id: "time-tracking", retireSignedZip: false },
   { id: "notes", retireSignedZip: true },
 ] as const;
