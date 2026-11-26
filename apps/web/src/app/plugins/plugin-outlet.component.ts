@@ -22,6 +22,8 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   private renderSequence = 0;
   private lastRenderKey = "";
   private readonly frames = new Map<Window, RemoteFrame>();
+  private themeObserver?: MutationObserver;
+  private lastThemeSignature = "";
   private readonly messageHandler = (event: MessageEvent<unknown>) => { void this.onPluginMessage(event); };
 
   constructor(private readonly registry: BeePluginFrontendRegistry, private readonly i18n: BeeI18nService) {}
@@ -29,6 +31,11 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   ngAfterViewInit(): void {
     this.viewReady = true;
     window.addEventListener("message", this.messageHandler);
+    this.themeObserver = new MutationObserver(() => this.broadcastTheme());
+    this.themeObserver.observe(document.documentElement, {
+      attributes: true, childList: true, subtree: true,
+      attributeFilter: ["data-bee-active-template", "data-bee-active-mode", "data-bee-dashboard-mode", "data-bee-public-mode", "class", "style"]
+    });
     void this.render();
   }
 
@@ -39,6 +46,8 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   ngOnDestroy(): void {
     this.renderSequence += 1;
     window.removeEventListener("message", this.messageHandler);
+    this.themeObserver?.disconnect();
+    this.themeObserver = undefined;
     this.frames.clear();
     this.host.clear();
     this.remoteHost.nativeElement.replaceChildren();
@@ -94,6 +103,48 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     }
   }
 
+  private themePayload(): { colorScheme: string; tokens: Record<string, string> } {
+    const templateId = document.documentElement.dataset["beeActiveTemplate"] ?? "";
+    const activeHost = templateId
+      ? document.querySelector<HTMLElement>(".bee-template-package-host--" + CSS.escape(templateId))
+      : null;
+    const host = activeHost ?? document.documentElement;
+    const computed = getComputedStyle(host);
+    const rootComputed = getComputedStyle(document.documentElement);
+    const names = [
+      "surface", "surface-raised", "text", "text-muted", "border", "accent", "accent-text", "focus-ring",
+      "status-success", "status-warning", "status-danger", "status-info",
+      "radius-sm", "radius-md", "radius-lg"
+    ];
+    const tokens: Record<string, string> = {};
+    for (const name of names) {
+      const property = "--bee-" + name;
+      tokens[name] = computed.getPropertyValue(property).trim() || rootComputed.getPropertyValue(property).trim();
+    }
+    const declaredScheme = computed.colorScheme.trim();
+    const mode = document.documentElement.dataset["beeActiveMode"];
+    const colorScheme = declaredScheme === "light" || declaredScheme === "dark"
+      ? declaredScheme
+      : mode === "dark" ? "dark" : "light";
+    return { colorScheme, tokens };
+  }
+
+  private postTheme(target: Window): void {
+    const payload = this.themePayload();
+    target.postMessage({ type: "bee-plugin:theme", ...payload }, "*");
+  }
+
+  private broadcastTheme(): void {
+    if (!this.frames.size) return;
+    const payload = this.themePayload();
+    const templateId = document.documentElement.dataset["beeActiveTemplate"] ?? "";
+    const mode = document.documentElement.dataset["beeActiveMode"] ?? "";
+    const signature = JSON.stringify({ templateId, mode, ...payload });
+    if (signature === this.lastThemeSignature) return;
+    this.lastThemeSignature = signature;
+    for (const target of this.frames.keys()) this.postTheme(target);
+  }
+
   private async loadRemoteRuntime(pluginId: string): Promise<RemotePluginRuntime | null> {
     if (!this.accessToken) return null;
     try {
@@ -121,6 +172,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
     const target = event.source as Window;
     if (message["type"] === "bee-plugin:ready") {
       target.postMessage({ type: "bee-plugin:init", role: this.role, section: this.section }, "*");
+      this.postTheme(target);
       return;
     }
     if (message["type"] !== "bee-plugin:api-request" || typeof message["requestId"] !== "string" ||
