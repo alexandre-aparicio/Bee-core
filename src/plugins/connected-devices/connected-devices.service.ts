@@ -28,7 +28,7 @@ export async function isConnectedDeviceOwnerActive(access:PluginAccessService,de
 }
 export function createConnectedDevicesServices(input:{secret:string;repository:ConnectedDevicesRepository;access:PluginAccessService}){
  const {secret,repository,access}=input;
- const dashboardTenant=async(request:any,reply:any):Promise<TenantContext|null>=>{
+ const dashboardTenant=async(request:any,reply:any):Promise<PluginTenantContext|null>=>{
   try{
    await request.jwtVerify();
    const tenant=await access.resolveTenantContext(request.user,secret);
