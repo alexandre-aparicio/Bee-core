@@ -1,7 +1,5 @@
-import { Component } from "@angular/core";
-import { bootstrapApplication } from "@angular/platform-browser";
+import { initFederation } from "@angular-architects/native-federation";
 
-@Component({ selector: "bee-connected-devices-remote-root", standalone: true, template: "" })
-class RemoteBuildRootComponent {}
-
-bootstrapApplication(RemoteBuildRootComponent).catch(error => console.error(error));
+initFederation({})
+  .then(() => import("./bootstrap"))
+  .catch(error => console.error("Connected Devices remote federation initialisation failed", error));
