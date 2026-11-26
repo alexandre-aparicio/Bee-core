@@ -312,9 +312,6 @@ async function persistZipPluginRuntimeState(failures: Map<string,string>): Promi
 
 async function bootstrap(): Promise<void> {
   await mongoClient.connect();
-  const platformPackages = mongoClient.db(environment.mongoDbName).collection("platform_plugin_packages");
-  const uploadedPackages = await platformPackages.find({ source: "zip", status: "installed" }).project<{pluginId:string}>({ pluginId: 1, _id: 0 }).toArray();
-  const uploadedIds = new Set(uploadedPackages.map(item => item.pluginId));
   const zipPluginFailures = await loadSignedZipPlugins();
   await plugins.mountAll(ctx);
   for (const [pluginId, plugin] of preparedZipPlugins) {
