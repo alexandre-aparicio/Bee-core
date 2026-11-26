@@ -106,9 +106,28 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.backend.entrypoint, "dist/backend/index.mjs");
-        assert.deepEqual(installed.manifest.frontend, { routes: [] }, "native Angular frontend must not be declared in the ZIP");
-        assert.equal(existsSync(join(installed.packageDirectory, "frontend")), false, "backend-only Control Horario ZIP must not contain a frontend/ directory");
-        assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend-only manifest must install its runtime entrypoint");
+        assert.deepEqual(installed.manifest.frontend.routes.map(route => route.path), [
+          "/dashboard/time-tracking/my_jorney",
+          "/dashboard/time-tracking/schedule",
+          "/dashboard/time-tracking/history",
+          "/dashboard/time-tracking/requests"
+        ]);
+        assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
+        assert.deepEqual(installed.manifest.frontend.apiPrefixes, ["/time-tracking"]);
+        assert.deepEqual(installed.manifest.frontend.assets, ["frontend/index.html", "frontend/main.js", "frontend/styles.css"]);
+        const html = await readFile(join(installed.packageDirectory, "frontend/index.html"), "utf8");
+        const script = await readFile(join(installed.packageDirectory, "frontend/main.js"), "utf8");
+        const styles = await readFile(join(installed.packageDirectory, "frontend/styles.css"), "utf8");
+        assert.match(html, /main.js/);
+        assert.match(html, /styles.css/);
+        assert.match(script, /bee-plugin:ready/);
+        assert.match(script, /bee-plugin:api-request/);
+        for (const endpoint of ["/time-tracking/me/status", "/time-tracking/me/sessions", "/time-tracking/clock-in", "/time-tracking/break-start", "/time-tracking/break-end", "/time-tracking/clock-out", "/time-tracking/me/schedule", "/time-tracking/team/members", "/time-tracking/team/schedules", "/time-tracking/me/corrections", "/time-tracking/team/corrections"]) {
+          assert.ok(script.includes(endpoint), "ZIP frontend must call " + endpoint);
+        }
+        assert.match(styles, /\.tt-page/);
+        assert.doesNotThrow(() => new Script(script), "standalone Time Tracking frontend must be valid JavaScript");
+        assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend entrypoint must remain in the ZIP");
       } else if (item.id === "documents") {
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, ["files"], "Documents may integrate with Files only");
