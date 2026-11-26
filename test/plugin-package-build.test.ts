@@ -95,9 +95,9 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.doesNotMatch(angularComponent, /iframe|postMessage|marketplace/);
         assert.doesNotThrow(() => new Script(qr), "the web-bundled QR renderer must be valid JavaScript");
         const simulator = await readFile(resolve(process.cwd(), "apps/web/src/assets/device-simulator/device-simulator.js"), "utf8");
-        assert.match(simulator, /method:"POST",body:"\\{\\}"/, "the device simulator must send a JSON heartbeat body");
+        assert.ok(simulator.includes('method:"POST",body:"{}"'), "the device simulator must send a JSON heartbeat body");
         const bridge = await readFile(resolve(process.cwd(), "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
-        assert.match(bridge, /if\\s*\\(body\\s*!==\\s*undefined\\)/, "the generic package bridge must omit Content-Type when DELETE has no body");
+        assert.ok(bridge.includes("if (body !== undefined)"), "the generic package bridge must omit Content-Type when DELETE has no body");
       } else if (item.id === "time-tracking") {
         assert.equal(installed.manifest.version, "0.2.2", "the package version bump must exercise the tenant upgrade path");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
