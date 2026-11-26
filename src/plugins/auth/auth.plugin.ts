@@ -139,7 +139,7 @@ export const authPlugin:BeePlugin={
 
   const adminEmail=String(ctx.config.authAdminEmail??"").trim().toLowerCase(),adminPassword=String(ctx.config.authAdminPassword??"");
   if(adminEmail){
-   if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(adminEmail))throw new Error("Auth: AUTH_ADMIN_EMAIL must be a valid email address.");
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail))throw new Error("Auth: AUTH_ADMIN_EMAIL must be a valid email address.");
    const existingBootstrap=await users.findOne({email:adminEmail});
    if(!existingBootstrap){
     if(adminPassword.length<12)throw new Error("Auth: AUTH_ADMIN_PASSWORD must contain at least 12 characters to create the configured bootstrap administrator.");
