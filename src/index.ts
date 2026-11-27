@@ -323,12 +323,13 @@ async function bootstrap(): Promise<void> {
   const db = mongoClient.db(environment.mongoDbName);
   pluginServices.register("core.plugin-access", {
     isPluginAvailable: async (tenantId: string, pluginId: string) => {
-      const [entitled, installed, enabled] = await Promise.all([
+      const [entitled, installed, enabled, platformEnabled] = await Promise.all([
         hasPluginEntitlement(db, tenantId, pluginId),
         isPluginInstalled(db, tenantId, pluginId),
-        isPluginEnabled(db, tenantId, pluginId)
+        isPluginEnabled(db, tenantId, pluginId),
+        isPlatformPluginEnabled(db, pluginId)
       ]);
-      return entitled && installed && enabled;
+      return entitled && installed && enabled && platformEnabled;
     },
     isTenantUserActive: async (tenantId: string, userId: string) => {
       const [tenant, membership, user] = await Promise.all([
