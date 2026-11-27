@@ -12,8 +12,10 @@ Native Federation runs in the host JavaScript realm; it is not an iframe or an i
 
 ## Backend package contract
 
+Version 0.2.3 also publishes the typed `time-tracking.device-api` service. Connected-device integrations must call this business-owned contract instead of importing the repository or HTTP handlers. The separate `time-tracking-connected` package depends on both `time-tracking` and `connected-devices`; it does not own time-entry persistence or business rules.
+
 The current package contract declares:
-- Package ID `time-tracking`, version `0.2.2`.
+- Package ID `time-tracking`, version `0.2.3`.
 - Backend entrypoint `dist/backend/index.mjs`.
 - Dependencies `auth` and `organizations`; required services `mongoDbName` and `sessionIdSecret`.
 - API prefix `/time-tracking`.
