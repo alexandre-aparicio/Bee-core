@@ -86,7 +86,7 @@
 </section>
 }
 }
-@if (activeSection==='history' && !canManage) {
+@if (activeSection==='history') {
   <div class="tt-content-heading"><div><p class="tt-eyebrow">{{t('my_information')}}</p><h2>{{t('history')}}</h2><p>{{t('history_description')}}</p></div></div>
   <section class="tt-history"><div class="tt-section-heading"><div><h3>{{t('registered_sessions')}}</h3><p>{{t('last_30_sessions')}}</p></div></div>@for (item of history; track item) {
   <article class="tt-history-row"><div><strong>{{item.startedAt | date:'mediumDate'}}</strong><small>{{item.startedAt | date:'shortTime'}} – {{item.endedAt | date:'shortTime'}}</small></div><div class="tt-row-actions"><span class="tt-status">{{t('closed')}}</span><button type="button" class="tt-link" (click)="openCorrection(item,'clock_in',item.startedAt)">{{t('correct_entry')}}</button>@if (item.endedAt) {
