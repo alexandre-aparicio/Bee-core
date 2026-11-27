@@ -216,3 +216,40 @@ Version 0.1.5 updates only the native Angular dashboard experience and plugin ve
 The module consumes shared directory, statistic, card, badge, table, menu, button and dialog primitives from `apps/web/src/app/templates/base/base.css`. It does not declare component-local visual styles. These primitives use the existing semantic `--bee-*` tokens so the active template continues to control the visual treatment. The backend routes, tenant authorization, pairing token model, credential handling and device lifecycle semantics are unchanged.
 
 Automated browser coverage must verify the heading, summary cards, search/filtering, card/table switching, modal opening and QR generation/cancellation, device approval, and bodyless DELETE behavior. Visual verification across all six templates and Light/Dark modes remains a separate acceptance check.
+
+## Extensible capability model — new architecture decision
+
+The device-pairing flow is a permanent capability of the Connected Devices base plugin and must always remain available. It is not a module-provided feature and must never be disabled by the absence of business extensions.
+
+The Connected Devices UI separates the permanent **Pair device** action from optional, dynamically contributed device capabilities:
+
+- **Pair device:** always visible and enabled. It creates the QR pairing challenge and remains usable even when no extension is installed.
+- **Optional capabilities:** shown only when an installed and enabled extension declares them. Each capability has an administrator-controlled check/uncheck state (grant/revoke) for the relevant device or policy. Unavailable extensions must not leave stale or phantom options in the UI.
+- **Authorization:** checked UI state is not sufficient authorization. Every device operation must be enforced server-side against tenant, active device, user/membership, extension installation and activation, capability grant, and the extension's own business permissions. Revocation must take effect on subsequent requests and relevant realtime sessions.
+
+Extensions integrate through a versioned, explicit capability-contribution contract. They declare stable capability IDs, labels, descriptions, grouping/order metadata and the operations they expose; Connected Devices discovers and renders those declarations without importing extension-specific business logic. Installation/activation registers the contribution; disable/uninstall removes it from the available catalogue and revokes or invalidates grants safely. Re-enabling/reinstalling must not silently restore previously revoked device grants.
+
+### Example: Control Horario Connected
+
+Control Horario remains an independent business module. Its companion integration is a separate extension package, **Control Horario Connected**, which depends on Connected Devices and the Control Horario backend contract. When installed and enabled, it contributes capabilities such as:
+
+- `time-tracking.clock-in` — registrar entrada.
+- `time-tracking.clock-out` — registrar salida.
+- `time-tracking.records.read` — consultar registros de jornada.
+
+These options appear in Connected Devices only while the extension is available. Administrators can check/uncheck the permitted capabilities for a device. The Android companion discovers the currently granted catalogue and displays only those actions. The extension executes the actual clock-in/out and record queries through its own authenticated APIs and business rules; Connected Devices owns pairing, device identity and capability grants, not time-tracking logic.
+
+### Acceptance criteria for this workstream
+
+- [ ] Pair-device action is always visible and enabled with only the base Connected Devices plugin installed.
+- [ ] Base installation exposes no business actions or placeholder checkboxes.
+- [ ] Installing/enabling an extension adds only its declared capability options.
+- [ ] Each optional capability can be granted and revoked independently per device (subject to tenant policy).
+- [ ] Android discovery returns only capabilities currently available and granted to that device.
+- [ ] Extension disable/uninstall removes its options and makes its operations fail closed; stale grants cannot authorize calls.
+- [ ] Reinstall/reenable does not silently regrant previously revoked permissions.
+- [ ] Cross-tenant isolation, membership changes, revoked/suspended devices and extension lifecycle are covered by automated tests.
+- [ ] The Control Horario Connected reference extension demonstrates clock-in, clock-out and records-read without adding a dependency from Connected Devices to Control Horario.
+
+This is an architectural decision and implementation plan only; the capability registry, extension contract, UI checks, Android discovery changes and Control Horario Connected package are not yet implemented.
+
