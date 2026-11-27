@@ -206,7 +206,7 @@ export async function resolveTenantUserPermissions(
     }
   } else {
     if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
-    const roleKey = membership.role === "super_admin" ? "owner" : membership.role;
+    const roleKey = membership.role;
     const defaults = sources.flatMap(source =>
       (source.permissions ?? [])
         .filter(permission => permission.defaultGrants?.[roleKey as "owner" | "admin" | "manager" | "member"])
@@ -219,7 +219,7 @@ export async function resolveTenantUserPermissions(
     ? [...new Set(membership.restrictionRoleIds)]
     : [];
   if (restrictionIds.length) {
-    if (membership.role === "owner" || membership.role === "super_admin") return null;
+    if (membership.role === "owner") return null;
     const restrictions = await db.collection<CustomRolePolicy>("company_roles")
       .find({ id: { $in: restrictionIds }, tenantId, mode: "restriction" }).toArray();
     if (restrictions.length !== restrictionIds.length) return null;
