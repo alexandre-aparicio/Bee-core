@@ -9,6 +9,6 @@ export default defineConfig({
     command: 'npx ng run bee-core-web:serve:development',
     url: 'http://127.0.0.1:4200',
     reuseExistingServer: !process.env.CI,
-    timeout: 120000
+    timeout: 300000
   }
 });
