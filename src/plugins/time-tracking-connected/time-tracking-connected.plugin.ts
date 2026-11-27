@@ -42,7 +42,8 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
         description: "Permite iniciar la jornada del usuario propietario del dispositivo.",
         group: "Control Horario",
         order: 10,
-        operations: ["clock-in"]
+        operations: ["clock-in"],
+        requiresPlugins: ["time-tracking"]
       },
       {
         id: "time-tracking.clock-out",
@@ -50,7 +51,8 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
         description: "Permite finalizar la jornada activa del usuario propietario del dispositivo.",
         group: "Control Horario",
         order: 20,
-        operations: ["clock-out"]
+        operations: ["clock-out"],
+        requiresPlugins: ["time-tracking"]
       },
       {
         id: "time-tracking.records.read",
@@ -58,7 +60,8 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
         description: "Permite consultar el estado y el historial propio de jornada.",
         group: "Control Horario",
         order: 30,
-        operations: ["status", "sessions"]
+        operations: ["status", "sessions"],
+        requiresPlugins: ["time-tracking"]
       }
     ]);
 
