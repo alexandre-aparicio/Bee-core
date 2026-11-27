@@ -279,7 +279,7 @@ New API surface:
 | POST | `/time-tracking-connected/device/clock-out` | Registers exit with an idempotency operation ID. |
 
 Remaining before VPS acceptance:
-- Secure persistence using Android Keystore and lifecycle-aware capability refresh in Bee Devices.
+- Secure persistence using Android Keystore in Bee Devices.
 - Resolve full custom-role and restriction-role permission context through a Core-owned authorization contract rather than the current fail-closed restriction.
 - Add lifecycle handling to clear extension grants when an extension is uninstalled, and verify package disable/re-enable behavior.
 - Build and install the signed Connected Devices 0.3.0 and Time Tracking Connected 0.1.0 packages, build/sync the Android app, and validate on the VPS/device.
