@@ -110,7 +110,13 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
       this.canManage = Boolean(result.canManage);
       const catalogue = await this.request("/connected-devices/capabilities");
       this.capabilities = Array.isArray(catalogue.capabilities) ? catalogue.capabilities : [];
-      for (const device of this.devices) if (!this.grants[device.id]) this.grants[device.id] = [...(device.status === "pending" ? (device.requestedCapabilities || []) : (device.grantedCapabilities || []))];
+      for (const device of this.devices) {
+        if (device.status === "pending") {
+          if (!this.grants[device.id]) this.grants[device.id] = [...(device.requestedCapabilities || [])];
+        } else {
+          this.grants[device.id] = [...(device.grantedCapabilities || [])];
+        }
+      }
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not load devices."; }
     finally {
       this.loading = false;
