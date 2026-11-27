@@ -25,7 +25,7 @@ const server = createServer((request, response) => {
   const pathname = new URL(request.url || '/', 'http://127.0.0.1').pathname;
   let relativePath;
   try {
-    relativePath = decodeURIComponent(pathname).replace(/^\\/+/, '');
+    relativePath = (decodeURIComponent(pathname).startsWith('/') ? decodeURIComponent(pathname).slice(1) : decodeURIComponent(pathname));
   } catch {
     response.writeHead(400).end('Bad request');
     return;
@@ -59,5 +59,5 @@ const server = createServer((request, response) => {
 const host = '127.0.0.1';
 const port = Number(process.env.PORT || 4200);
 server.listen(port, host, () => {
-  process.stdout.write(`Serving Angular production build from ${root} at http://${host}:${port}\\n`);
+  process.stdout.write(`Serving Angular production build from ${root} at http://${host}:${port}\n`);
 });
