@@ -45,14 +45,14 @@
               <button type="button" [class.is-active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'" aria-label="Card view" title="Card view">▦</button>
               <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Table view" title="Table view">☷</button>
             </div>
-            <button *ngIf="canManage" type="button" class="bee-button bee-button--primary" (click)="openCreate()">＋ New device</button>
+            <button type="button" class="bee-button bee-button--primary" (click)="openCreate()">＋ New device</button>
           </div>
         </div>
 
         <div *ngIf="loading && !devices.length" class="bee-empty-state" role="status">Loading devices…</div>
         <div *ngIf="!loading && !devices.length" class="bee-empty-state">
           <strong>No devices connected yet</strong><span>Generate a pairing QR code to register your first device.</span>
-          <button *ngIf="canManage" type="button" class="bee-button bee-button--primary" (click)="openCreate()">New device</button>
+          <button type="button" class="bee-button bee-button--primary" (click)="openCreate()">Pair device</button>
         </div>
         <div *ngIf="devices.length && !filteredDevices.length" class="bee-empty-state">
           <strong>No matching devices</strong><span>Try changing your search or filters.</span>
@@ -71,6 +71,14 @@
               <div><span>Last connection</span><strong>{{device.lastSeenAt ? (device.lastSeenAt | date:'medium') : 'Never'}}</strong></div>
               <div><span>Granted capabilities</span><strong>{{device.grantedCapabilities.length || 0}}</strong></div>
             </div>
+            <div *ngIf="device.status==='active' && canManage && capabilities.length" class="bee-device-card__approval">
+              <strong>Device capabilities</strong>
+              <label *ngFor="let capability of capabilities">
+                <input type="checkbox" [checked]="grants[device.id].includes(capability.id)" (change)="toggleGrant(device.id,capability.id,$any($event.target).checked)">
+                {{capability.label}}
+              </label>
+              <button type="button" class="bee-button bee-button--secondary" (click)="saveCapabilities(device)" [disabled]="busy">Save permissions</button>
+            </div>
             <div class="bee-device-card__capabilities">
               <span *ngFor="let capability of (device.grantedCapabilities || []).slice(0,3)" class="bee-badge">{{capability}}</span>
               <span *ngIf="(device.grantedCapabilities || []).length>3" class="bee-badge">+{{device.grantedCapabilities.length-3}}</span>
@@ -80,7 +88,7 @@
               <strong>Requested permissions</strong>
               <label *ngFor="let capability of device.requestedCapabilities">
                 <input type="checkbox" [checked]="grants[device.id].includes(capability)" (change)="toggleGrant(device.id,capability,$any($event.target).checked)">
-                {{capability}}
+                {{capabilityLabel(capability)}}
               </label>
               <button type="button" class="bee-button bee-button--primary" (click)="approve(device)" [disabled]="busy || !grants[device.id].length">Approve selected</button>
             </div>
@@ -129,10 +137,11 @@
             <button type="button" class="bee-icon-button" (click)="closeModal()" aria-label="Close dialog">×</button>
           </header>
           <div *ngIf="!pairing" class="bee-modal__body">
-            <strong>Requested capabilities</strong>
-            <div class="bee-choice-grid">
+            <strong>Optional capabilities</strong>
+            <div class="bee-choice-grid" *ngIf="capabilities.length">
               <label *ngFor="let capability of capabilities"><input type="checkbox" [checked]="selectedCapabilities.includes(capability.id)" (change)="toggleCapability(capability.id,$any($event.target).checked)">{{capability.label}}</label>
             </div>
+            <p *ngIf="!capabilities.length" class="bee-text-muted">No optional extensions are installed and enabled. You can still pair this device now; capabilities can be granted later when an extension becomes available.</p>
             <p class="bee-text-muted">A QR code is valid for five minutes. Scanning it does not grant access until an administrator approves the device.</p>
           </div>
           <div *ngIf="pairing" class="bee-modal__body bee-pairing">
@@ -144,7 +153,7 @@
           </div>
           <footer class="bee-modal__footer">
             <button type="button" class="bee-button bee-button--secondary" (click)="closeModal()">Close</button>
-            <button *ngIf="!pairing" type="button" class="bee-button bee-button--primary" (click)="createPairing()" [disabled]="busy || !selectedCapabilities.length">{{busy ? 'Generating…' : 'Generate QR code'}}</button>
+            <button *ngIf="!pairing" type="button" class="bee-button bee-button--primary" (click)="createPairing()" [disabled]="busy">{{busy ? 'Generating…' : 'Pair device'}}</button>
             <button *ngIf="pairing" type="button" class="bee-button bee-button--danger" (click)="cancelPairing()" [disabled]="busy">Cancel pairing</button>
           </footer>
         </section>
