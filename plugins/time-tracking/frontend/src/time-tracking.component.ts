@@ -2,7 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, Input, OnInit, ChangeDetectionStrategy } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { TimeTrackingApiService } from "./time-tracking-api.service";
-import { TIME_TRACKING_EN, TIME_TRACKING_ES } from "../../../../apps/web/src/app/i18n/catalogs/modules/time-tracking.catalog";
+import { TIME_TRACKING_EN, TIME_TRACKING_ES } from "./time-tracking.catalog";
 type ClockEvent={type:string;occurredAt:string;source:string};
 type TimeSession={id:string;status:"working"|"on_break"|"closed";startedAt:string;endedAt:string|null;events:ClockEvent[]};
 type TeamMember={userId:string;email:string;role:string};
