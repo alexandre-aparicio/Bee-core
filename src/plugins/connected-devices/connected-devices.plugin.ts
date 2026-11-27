@@ -17,7 +17,9 @@ export const connectedDevicesPlugin:BeePlugin={
   const repository=new ConnectedDevicesRepository(db);await repository.initializeIndexes();
   const capabilities=new ConnectedDeviceCapabilities();
   ctx.services?.register("connected-devices.capabilities",capabilities);
-  const services=createConnectedDevicesServices({secret,repository,access,capabilities});registerConnectedDevicesRoutes(ctx,services);
+  const services=createConnectedDevicesServices({secret,repository,access,capabilities});
+  ctx.services?.register("connected-devices.device-auth",{authenticateDevice:services.authenticateDevice});
+  registerConnectedDevicesRoutes(ctx,services);
   ctx.logger.info("Connected Devices plugin initialized: secure pairing, tenant device registry and extensible capability contract ready.");
  },
  async afterRuntimeLoaded(ctx){
