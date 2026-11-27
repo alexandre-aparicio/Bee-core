@@ -273,10 +273,10 @@ New API surface:
 | GET | `/connected-devices/capabilities` | Returns declarations from extensions available to the active tenant. |
 | PATCH | `/connected-devices/:deviceId/capabilities` | Owner/admin replaces the active device's granted capability IDs. |
 | GET | `/connected-devices/device/capabilities` | Companion obtains only the capabilities currently granted and available. |
-| GET | `/connected-devices/device/time-tracking/status` | Control Horario Connected returns the owner's current session. |
-| GET | `/connected-devices/device/time-tracking/sessions` | Returns the owner's own closed sessions. |
-| POST | `/connected-devices/device/time-tracking/clock-in` | Registers entry with an idempotency operation ID. |
-| POST | `/connected-devices/device/time-tracking/clock-out` | Registers exit with an idempotency operation ID. |
+| GET | `/time-tracking-connected/device/status` | Control Horario Connected returns the owner's current session. |
+| GET | `/time-tracking-connected/device/sessions` | Returns the owner's own closed sessions. |
+| POST | `/time-tracking-connected/device/clock-in` | Registers entry with an idempotency operation ID. |
+| POST | `/time-tracking-connected/device/clock-out` | Registers exit with an idempotency operation ID. |
 
 Remaining before VPS acceptance:
 - Secure persistence using Android Keystore and lifecycle-aware capability refresh in Bee Devices.
