@@ -1,6 +1,13 @@
 {
   "extends": "../../../apps/web/tsconfig.json",
-  "compilerOptions": { "outDir": "./out-tsc/app", "types": [] },
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "types": [],
+    "baseUrl": "../../../apps/web",
+    "paths": {
+      "*": ["node_modules/*"]
+    }
+  },
   "files": ["src/main.ts"],
   "include": ["src/**/*.d.ts"]
 }
