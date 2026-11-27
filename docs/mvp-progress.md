@@ -15,7 +15,7 @@
 | Human / VPS checks | NOT verified | Owner must rebuild/sign/upload Control Horario `0.2.1` and Connected Devices ZIPs; verify Starter/Pro/Enterprise assignments and existing tenant access; visually inspect Connected Devices in every template/mode. Never delete tenant data. |
 | Native Angular plugin architecture | Documented; migration in progress | ADR and runtime guide define Native Federation for first-party Angular plugins. Connected Devices is the reference; Documents and Control Horario are planned migrations. Legacy iframe remains for isolated HTML/JS packages. |
 
-## Native Federation integration candidate (not yet merged into main)
+| Integración Native Federation (candidata) | En validación | Estado de la integración con main; pendiente completar pruebas y CI. |
 
 | Área | Estado | Evidencia / pendiente |
 |---|---|---|

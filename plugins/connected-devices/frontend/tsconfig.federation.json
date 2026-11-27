@@ -1,4 +1,20 @@
 {
-  "extends": "./tsconfig.app.json",
-  "compilerOptions": { "outDir": "./out-tsc/federation" }
+  "extends": "../../../apps/web/tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "types": [],
+    "baseUrl": "../../../apps/web",
+    "paths": {
+      "*": [
+        "node_modules/*"
+      ]
+    }
+  },
+  "files": [
+    "src/main.ts",
+    "src/plugin.component.ts"
+  ],
+  "include": [
+    "src/**/*.d.ts"
+  ]
 }
