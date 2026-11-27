@@ -103,7 +103,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   }
   async load(): Promise<void> {
     if (!this.accessToken || this.loading) return;
-    this.loading = true; this.error = "";
+    this.loading = true; this.error = ""; this.capabilities = [];
     try {
       const result = await this.request("/connected-devices");
       this.devices = Array.isArray(result.devices) ? result.devices : [];
