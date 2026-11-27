@@ -63,7 +63,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   }
   if(device.status==="revoked"||device.status==="suspended"||device.status==="unlinked")return reply.code(403).send({error:"Device access is not active."});
   const available=await capabilities.listAvailable(device.tenantId,access),availableIds=new Set(available.map((item:any)=>item.id));
-  return {status:device.status,deviceId:device.id,grantedCapabilities:device.status==="active"?device.grantedCapabilities.filter((id:string)=>availableIds.has(id)):[],capabilities:device.status==="active"?available.filter((item:any)=>device.grantedCapabilities.includes(item.id)):[]};
+  return {status:device.status,deviceId:device.id,grantedCapabilities:device.status==="active"?(device.grantedCapabilities??[]).filter((id:string)=>availableIds.has(id)):[],capabilities:device.status==="active"?available.filter((item:any)=>device.grantedCapabilities.includes(item.id)):[]};
  });
  ctx.server.get("/connected-devices",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
@@ -76,7 +76,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const owners=canManage&&ownerIds.length?await access.getTenantUserSummaries(tenant.tenantId,ownerIds):[];
   const ownerById=new Map(owners.map((owner:any)=>[owner.id,{name:owner.name,email:owner.email}]));
   return {devices:devices.map((device:ConnectedDeviceRecord)=>({...publicDevice(device),
-   requestedCapabilities:device.requestedCapabilities.filter((id:string)=>availableIds.has(id)),
+   requestedCapabilities:(device.requestedCapabilities??[]).filter((id:string)=>availableIds.has(id)),
    grantedCapabilities:device.grantedCapabilities.filter((id:string)=>availableIds.has(id)),
    ...(canManage?{owner:ownerById.get(device.ownerUserId)??{name:"Former member",email:""}}:{})})),canManage};
  });
@@ -187,7 +187,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const device=await authenticateDevice(request,reply);if(!device)return;
   const available=await capabilities.listAvailable(device.tenantId,access);
   const allowed=available.filter((item:any)=>device.grantedCapabilities.includes(item.id));
-  return {device:{...publicDevice(device),requestedCapabilities:device.requestedCapabilities.filter((id:string)=>available.some((item:any)=>item.id===id)),grantedCapabilities:allowed.map((item:any)=>item.id)},capabilities:allowed};
+  return {device:{...publicDevice(device),requestedCapabilities:(device.requestedCapabilities??[]).filter((id:string)=>available.some((item:any)=>item.id===id)),grantedCapabilities:allowed.map((item:any)=>item.id)},capabilities:allowed};
  });
  ctx.server.get("/connected-devices/device/capabilities",async(request:any,reply:any)=>{
   const device=await authenticateDevice(request,reply);if(!device)return;
