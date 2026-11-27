@@ -145,6 +145,8 @@ jobs:
         run: npm run audit:styles -- --strict
       - name: Lint standalone application and asset CSS
         run: npm run lint:styles
+      - name: Link host dependencies for remote source resolution
+        run: ln -s "$GITHUB_WORKSPACE/apps/web/node_modules" "$GITHUB_WORKSPACE/plugins/connected-devices/frontend/node_modules"
       - name: Production build
         run: npm run build
       - name: Validate Playwright test discovery
