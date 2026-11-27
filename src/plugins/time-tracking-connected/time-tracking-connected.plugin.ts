@@ -1,11 +1,11 @@
 import type { BeePlugin } from "../../core/types.js";
 import type { PluginAccessService } from "../../core/plugin-services.js";
-import { ConnectedDeviceCapabilities } from "../connected-devices/capability-registry.js";
-import { hasConnectedDeviceCapability } from "../connected-devices/connected-devices.service.js";
+import type { ConnectedDeviceCapabilities } from "../connected-devices/capability-registry.js";
 import type { TimeTrackingDeviceApi } from "../time-tracking/time-tracking-device.contract.js";
 
 type DeviceAuthenticator = {
   authenticateDevice(request: any, reply: any): Promise<any>;
+  hasCapability(tenantId: string, deviceId: string, capability: string): Promise<boolean>;
 };
 
 /**
@@ -71,7 +71,7 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
       const [extensionAvailable, timeTrackingAvailable, granted] = await Promise.all([
         access.isPluginAvailable(device.tenantId, "time-tracking-connected"),
         access.isPluginAvailable(device.tenantId, "time-tracking"),
-        hasConnectedDeviceCapability(db, access, device.tenantId, device.id, capability, registry)
+        deviceAuth.hasCapability(device.tenantId, device.id, capability)
       ]);
       if (!extensionAvailable || !timeTrackingAvailable || !granted) {
         reply.code(403).send({ error: "This device is not authorized for the requested Control Horario action." });
