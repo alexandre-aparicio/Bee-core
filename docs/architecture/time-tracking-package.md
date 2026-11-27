@@ -2,6 +2,8 @@
 
 ## Current state
 
+The backend TypeScript build and both Native Federation remotes (Connected Devices and Control Horario) have now compiled successfully in GitHub Actions on this branch. The signed ZIP was not produced: the repository Actions secret `BEE_PLUGIN_PUBLISHER_PRIVATE_KEY` is not configured. Do not use a temporary signing key for VPS installation because it would not match the server's trusted publisher key. No automated tests or VPS runtime validation have been run.
+
 Control Horario's backend is delivered as a signed ZIP package. The Angular frontend now has a dedicated Native Federation remote scaffold under `plugins/time-tracking/frontend`; the static host registration has been removed. The previous host-side component source is retained temporarily as migration reference, but it is no longer registered or selected by the plugin outlet.
 
 The target is the same **Native Federation remote architecture as Connected Devices**. The component, templates, styles and API adapter have been copied into `plugins/time-tracking/frontend`; the remote exposes `./Component`, has its own Angular build target, and is included in the signed-package build pipeline. The ZIP assembly and browser mount still require a successful end-to-end build and runtime verification.
