@@ -17,6 +17,7 @@ export const timeTrackingPlugin: BeePlugin = {
     dependencies: ["auth", "organizations"],
     scope: "tenant",
     activationPolicy: "automatic",
+    apiPrefixes: ["/time-tracking"],
   },
   tenantMigrations: [{
     id: "001_create_time_tracking_indexes",
