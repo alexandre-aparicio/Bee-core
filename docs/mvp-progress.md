@@ -48,3 +48,11 @@
 - Updated `plugins/connected-devices/frontend/tsconfig.app.json` to include both `src/main.ts` and `src/plugin.component.ts` in `files`. The exposed entry can now be type-checked as part of the remote build; its imported component remains resolved through the normal TypeScript dependency graph.
 - Commit: `e6c6ed696d40f084fa89a7b6322f8209fb7f6fc1`.
 - Source/configuration correction only. No tests, builds, or GitHub workflows were run. VPS build, ZIP generation, signature verification, upload, and tenant activation remain unverified.
+
+
+### Connected Devices QR loader typing — 2026-11-27
+- VPS retry now passes the previous federation-entry inclusion error and reaches Angular template/type compilation. The build stops on three TypeScript errors in the QR library loader: an untyped `new Promise` inferred `unknown`, resolving without an explicit `void`, and returning a possibly undefined module-level promise.
+- Updated `loadQrLibrary()` to construct a `Promise<void>`, hold it in a local constant, assign that constant to the shared cache, and return the non-optional local promise. Failure still clears the shared cache so a later attempt can retry.
+- Angular also emitted four NG8107 optional-chain warnings in the template. They are warnings, not the build-stopping errors, and are not changed in this correction.
+- Commit: `ed3cca83f4ae8c81c400865800c9db49cdbcf6db`.
+- Source correction only; no tests, builds, or GitHub workflows were run. VPS compilation and package/signature generation remain unverified.
