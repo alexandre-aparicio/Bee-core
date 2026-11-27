@@ -41,3 +41,10 @@
 - Updated the remote `tsconfig.app.json` with a workspace-root `baseUrl` and package path mapping so TypeScript resolves Angular and Native Federation packages from the existing `apps/web/node_modules`, without copying or installing a second Angular runtime into the plugin.
 - Commits: `924ce6ce93ba99f352bffe0944c27068b3ddc29d` and `cc4a13d22f43cbb5b931269a53ea123c322d2520`.
 - These are source/configuration corrections only. No tests, builds, or GitHub Actions/CI were run. VPS must pull the branch and retry `npm run build:plugin-packages`; successful compilation, ZIP contents, signature verification, upload and tenant activation are still NOT verified.
+
+
+### Connected Devices remote TypeScript entry inclusion — 2026-11-27
+- VPS retry after the federation path/configuration fixes compiled the backend and reached Angular Federation, then stopped because `src/plugin.component.ts` was exposed by Federation but was not part of the remote TypeScript program (`tsconfig.app.json` only listed `src/main.ts`).
+- Updated `plugins/connected-devices/frontend/tsconfig.app.json` to include both `src/main.ts` and `src/plugin.component.ts` in `files`. The exposed entry can now be type-checked as part of the remote build; its imported component remains resolved through the normal TypeScript dependency graph.
+- Commit: `e6c6ed696d40f084fa89a7b6322f8209fb7f6fc1`.
+- Source/configuration correction only. No tests, builds, or GitHub workflows were run. VPS build, ZIP generation, signature verification, upload, and tenant activation remain unverified.
