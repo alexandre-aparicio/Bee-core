@@ -10,7 +10,7 @@ const OUTPUT = resolve(process.env.BEE_PLUGIN_PACKAGE_OUTPUT ?? "artifacts/plugi
 const RUNTIME_VERSION = process.env.BEE_RUNTIME_VERSION ?? "0.3.1";
 const PACKAGES = [
   { id: "connected-devices", name: "Connected Devices", version: "0.3.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants.", frontendDist: process.env.BEE_CONNECTED_DEVICES_FEDERATION_DIST ?? "apps/web/dist/connected-devices-remote/browser", frontend: { routes: [{ path: "/dashboard/connected-devices", component: "connected-devices" }], remoteEntry: "frontend/remoteEntry.json", remoteName: "connectedDevices", exposedModule: "./Component", assets: [], apiPrefixes: ["/connected-devices"] } },
-  { id: "time-tracking", name: "Control Horario", version: "0.2.4", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }], frontend: { routes: [], apiPrefixes: ["/time-tracking"] } },
+  { id: "time-tracking", name: "Control Horario", version: "0.2.4", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }], frontendDist: process.env.BEE_TIME_TRACKING_FEDERATION_DIST ?? "apps/web/dist/time-tracking-remote/browser", frontend: { routes: [{ path: "/dashboard/time-tracking", component: "time-tracking" }], remoteEntry: "frontend/remoteEntry.json", remoteName: "timeTracking", exposedModule: "./Component", assets: [], apiPrefixes: ["/time-tracking"] } },
   { id: "time-tracking-connected", name: "Time Tracking Connected", version: "0.1.2", entry: "plugins/time-tracking-connected/time-tracking-connected.plugin.js", dependencies: ["connected-devices", "time-tracking"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: ["connected-devices", "time-tracking"], activationPolicy: "manual", category: "productivity", description: "Connected-device actions for Control Horario.", frontend: { routes: [], apiPrefixes: ["/time-tracking-connected/device"] } },
   { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], requiredServices: [], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } },
   { id: "documents", name: "Documents", version: "0.1.5", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery.", frontendSource: "src/plugins/documents/frontend", frontend: { routes: [{ path: "/dashboard/documents", component: "documents" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/documents", "/public/documents"] } }
@@ -40,7 +40,7 @@ async function collectFrontendDistribution(sourceDirectory) {
   }
   await visit(root);
   if (!files.has("frontend/remoteEntry.json")) {
-    throw new Error("Connected Devices Federation output is missing frontend/remoteEntry.json");
+    throw new Error("Native Federation output is missing frontend/remoteEntry.json");
   }
   return files;
 }
@@ -172,6 +172,12 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
     if (pluginManifest && ["name", "version", "description", "category", "activationPolicy"].some(key => pluginManifest[key] !== definition[key])) {
       throw new Error("Package metadata drift between builder and plugin-owned manifest for " + definition.id);
     }
+    if (pluginManifest && JSON.stringify(pluginManifest.dependencies ?? []) !== JSON.stringify(definition.dependencies ?? [])) {
+      throw new Error("Runtime dependency drift between builder and plugin-owned manifest for " + definition.id);
+    }
+    if (pluginManifest && JSON.stringify(pluginManifest.tenantDependencies ?? []) !== JSON.stringify(definition.tenantDependencies ?? [])) {
+      throw new Error("Tenant dependency drift between builder and plugin-owned manifest for " + definition.id);
+    }
     const entry = resolve(distDir, definition.entry), entryRelative = relative(resolve(distDir), entry);
     const files = await collectModuleGraph(entryRelative, distDir);
     const wrapperPath = "dist/backend/index.mjs";
@@ -179,23 +185,24 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
     files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "\n"));
     if (definition.frontendDist && definition.frontend) {
       const remoteFiles = await collectFrontendDistribution(definition.frontendDist);
-      // Include the QR library from plugin source; it is loaded at runtime
-      // from the installed package and is not emitted by the Angular builder.
-      const qrSource = join(ROOT, "plugins/connected-devices/frontend/src/assets/qrcode.min.js");
-      remoteFiles.set("frontend/assets/qrcode.min.js", await readFile(qrSource));
+      // Connected Devices loads its QR helper at runtime; it is not emitted by Angular.
+      if (definition.id === "connected-devices") {
+        const qrSource = join(ROOT, "plugins/connected-devices/frontend/src/assets/qrcode.min.js");
+        remoteFiles.set("frontend/assets/qrcode.min.js", await readFile(qrSource));
+      }
       const remoteEntryBytes = remoteFiles.get(definition.frontend.remoteEntry);
-      if (!remoteEntryBytes) throw new Error("Connected Devices remote entry is missing from the package output");
+      if (!remoteEntryBytes) throw new Error("Native Federation remote entry is missing from the package output");
       let remoteEntry;
       try {
         remoteEntry = JSON.parse(remoteEntryBytes.toString("utf8"));
       } catch {
-        throw new Error("Connected Devices remoteEntry.json is not valid JSON");
+        throw new Error("Native Federation remoteEntry.json is not valid JSON");
       }
       if (remoteEntry?.name !== definition.frontend.remoteName ||
           !Array.isArray(remoteEntry.exposes) ||
           !remoteEntry.exposes.some(expose => expose?.key === definition.frontend.exposedModule) ||
           !Array.isArray(remoteEntry.shared)) {
-        throw new Error("Connected Devices remoteEntry.json does not match the Native Federation v3 manifest contract");
+        throw new Error("remoteEntry.json does not match the Native Federation v3 manifest contract");
       }
       for (const [assetPath, data] of remoteFiles) files.set(assetPath, data);
       definition.frontend.assets = [...remoteFiles.keys()].sort();
