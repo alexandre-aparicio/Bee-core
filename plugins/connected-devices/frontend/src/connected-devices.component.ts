@@ -123,15 +123,19 @@ export class BeeConnectedDevicesComponent implements OnChanges {
   private loadQrLibrary(): Promise<void> {
     if (connectedDevicesQrPromise) return connectedDevicesQrPromise;
     if (!this.assetBaseUrl.startsWith("/api/plugin-packages/")) return Promise.reject(new Error("The Connected Devices QR asset URL is not authorized."));
-    connectedDevicesQrPromise = new Promise((resolve, reject) => {
+    const promise = new Promise<void>((resolve, reject) => {
       const script = document.createElement("script");
       script.src = this.assetBaseUrl + "assets/qrcode.min.js";
       script.async = true;
       script.onload = () => typeof (window as any).QRCode === "function" ? resolve() : reject(new Error("The Connected Devices QR renderer did not initialize."));
       script.onerror = () => reject(new Error("Could not load the Connected Devices QR renderer."));
       document.head.appendChild(script);
-    }).catch(error => { connectedDevicesQrPromise = undefined; throw error; });
-    return connectedDevicesQrPromise;
+    }).catch(error => {
+      connectedDevicesQrPromise = undefined;
+      throw error;
+    });
+    connectedDevicesQrPromise = promise;
+    return promise;
   }
   async createPairing(): Promise<void> {
     if (this.busy || !this.selectedCapabilities.length) return;
