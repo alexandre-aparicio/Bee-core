@@ -1,6 +1,9 @@
 name: Build signed module packages
 
 on:
+  push:
+    branches:
+      - refactor/time-tracking-connected-devices-architecture
   workflow_dispatch:
     inputs:
       runtime_version:
