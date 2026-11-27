@@ -5,8 +5,7 @@ export const PLUGIN_MANIFEST = {
   version: "0.1.5",
   description: "Tenant document library, folder ACLs and controlled public delivery.",
   category: "platform",
-  // Files is a host runtime service dependency, not a tenant package to install.
-  dependencies: ["files"],
+  dependencies: ["auth", "organizations", "files"],
   requiredServices: ["mongoDbName", "sessionIdSecret"],
   tenantDependencies: [],
   activationPolicy: "manual" as const,
