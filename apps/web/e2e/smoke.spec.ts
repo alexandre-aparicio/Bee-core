@@ -216,6 +216,11 @@ test('tenant admin can install and activate a trusted dashboard template package
   await page.route('**/api/templates/stream-ticket', route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: 'one-use-test-ticket' })
   }));
+  // A 204 response is the EventSource protocol's explicit instruction to
+  // stop reconnecting; keep this UI test independent from the live SSE service.
+  await page.route('**/api/templates/events**', route => route.fulfill({
+    status: 204, contentType: 'text/event-stream', body: ''
+  }));
   await page.route('**/api/templates/install', route => route.fulfill({
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ installedTemplates: ['aurora', 'editorial', 'midnight', 'paper', 'glass'] })
@@ -568,7 +573,7 @@ test('Settings > Tenants supports card/list views, tenant management and create 
   await page.goto('/dashboard/settings/tenants');
   await expect(page.getByRole('heading', { name: 'Tenants', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Acme Studio' })).toBeVisible();
-  await page.getByTitle('List view').click();
+  await page.getByTitle('Table view').click();
   await expect(page.locator('.platform-admin__table')).toBeVisible();
   await expect(page.locator('.platform-admin__table')).toContainText('Acme Studio');
   await page.getByTitle('Card view').click();
