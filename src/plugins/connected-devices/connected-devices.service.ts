@@ -27,8 +27,8 @@ export function createPairingSecrets(){return {qrToken:randomBytes(32).toString(
 export async function isConnectedDeviceOwnerActive(access:PluginAccessService,device:ConnectedDeviceRecord):Promise<boolean>{
  return access.isTenantUserActive(device.tenantId,device.ownerUserId);
 }
-export function createConnectedDevicesServices(input:{secret:string;repository:ConnectedDevicesRepository;access:PluginAccessService;capabilities:ConnectedDeviceCapabilityRegistry}){
- const {secret,repository,access,capabilities}=input;
+export function createConnectedDevicesServices(input:{secret:string;db:Db;repository:ConnectedDevicesRepository;access:PluginAccessService;capabilities:ConnectedDeviceCapabilityRegistry}){
+ const {secret,db,repository,access,capabilities}=input;
  const dashboardTenant=async(request:any,reply:any):Promise<PluginTenantContext|null>=>{
   try{
    await request.jwtVerify();
@@ -56,7 +56,7 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
   if(!device){reply.code(401).send({error:"Invalid, revoked or inactive device credential."});return null;}
   return device;
  };
- const hasCapability=(tenantId:string,deviceId:string,capability:string)=>hasConnectedDeviceCapability(repository.devices.db,access,tenantId,deviceId,capability,capabilities);
+ const hasCapability=(tenantId:string,deviceId:string,capability:string)=>hasConnectedDeviceCapability(db,access,tenantId,deviceId,capability,capabilities);
  return {secret,repository,access,capabilities,dashboardTenant,deviceFromCredential,authenticateDevice,hasCapability};
 }
 /** Public integration contract for consuming plugins. Tenant ID must come from Core's authenticated context. */
