@@ -45,8 +45,14 @@ export class BeeDynamicPluginRuntime {
     const pluginBase: BeeContext = { ...base, pluginRuntime: undefined };
     const server = Fastify({ logger: false, bodyLimit: 10 * 1024 * 1024 });
     server.setErrorHandler((error, request, reply) => {
-      const statusCode = Number.isInteger(error.statusCode) && error.statusCode! >= 400 && error.statusCode! < 600
-        ? error.statusCode!
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      const statusCodeValue =
+        typeof error === "object" && error !== null && "statusCode" in error
+          ? error.statusCode
+          : undefined;
+      const statusCode = typeof statusCodeValue === "number" &&
+        Number.isInteger(statusCodeValue) && statusCodeValue >= 400 && statusCodeValue < 600
+        ? statusCodeValue
         : 500;
       if (statusCode >= 500) {
         base.logger.error("External plugin request failed", {
@@ -54,13 +60,13 @@ export class BeeDynamicPluginRuntime {
           method: request.method,
           path: request.url.split("?", 1)[0],
           statusCode,
-          errorName: error.name,
-          errorMessage: error.message,
-          stack: error.stack
+          errorName: normalizedError.name,
+          errorMessage: normalizedError.message,
+          stack: normalizedError.stack
         });
         return reply.code(500).send({ error: "Internal server error." });
       }
-      return reply.code(statusCode).send({ error: error.message || "Request failed." });
+      return reply.code(statusCode).send({ error: normalizedError.message || "Request failed." });
     });
     server.register(jwt, {
       secret: this.jwtSecret,
