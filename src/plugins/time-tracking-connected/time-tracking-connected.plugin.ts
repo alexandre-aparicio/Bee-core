@@ -42,7 +42,7 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
         group: "Control Horario",
         order: 10,
         operations: ["clock-in"],
-        requiresPlugins: ["time-tracking"]
+        requiresPlugins: ["connected-devices", "time-tracking"]
       },
       {
         id: "time-tracking.clock-out",
@@ -51,7 +51,7 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
         group: "Control Horario",
         order: 20,
         operations: ["clock-out"],
-        requiresPlugins: ["time-tracking"]
+        requiresPlugins: ["connected-devices", "time-tracking"]
       },
       {
         id: "time-tracking.records.read",
@@ -60,7 +60,7 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
         group: "Control Horario",
         order: 30,
         operations: ["status", "sessions"],
-        requiresPlugins: ["time-tracking"]
+        requiresPlugins: ["connected-devices", "time-tracking"]
       }
     ]);
 
