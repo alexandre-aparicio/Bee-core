@@ -178,6 +178,20 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
     files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "\n"));
     if (definition.frontendDist && definition.frontend) {
       const remoteFiles = await collectFrontendDistribution(definition.frontendDist);
+      const remoteEntryBytes = remoteFiles.get(definition.frontend.remoteEntry);
+      if (!remoteEntryBytes) throw new Error("Connected Devices remote entry is missing from the package output");
+      let remoteEntry;
+      try {
+        remoteEntry = JSON.parse(remoteEntryBytes.toString("utf8"));
+      } catch {
+        throw new Error("Connected Devices remoteEntry.json is not valid JSON");
+      }
+      if (remoteEntry?.name !== definition.frontend.remoteName ||
+          !Array.isArray(remoteEntry.exposes) ||
+          !remoteEntry.exposes.some(expose => expose?.key === definition.frontend.exposedModule) ||
+          !Array.isArray(remoteEntry.shared)) {
+        throw new Error("Connected Devices remoteEntry.json does not match the Native Federation v3 manifest contract");
+      }
       for (const [assetPath, data] of remoteFiles) files.set(assetPath, data);
       definition.frontend.assets = [...remoteFiles.keys()].sort();
     }
