@@ -3,6 +3,7 @@ import type { Db } from "mongodb";
 import type { PluginTenantContext } from "../../core/plugin-services.js";
 import type { PluginAccessService } from "../../core/plugin-services.js";
 import { ConnectedDevicesRepository, type ConnectedDeviceRecord } from "./connected-devices.repository.js";
+import type { ConnectedDeviceCapabilityRegistry } from "./capability-registry.js";
 
 export const CONNECTED_DEVICE_CAPABILITIES = Object.freeze([
  "device.status.write","scanner.use","camera.capture","catalog.read","inventory.read",
@@ -10,10 +11,10 @@ export const CONNECTED_DEVICE_CAPABILITIES = Object.freeze([
 ] as const);
 export type ConnectedDeviceCapability=typeof CONNECTED_DEVICE_CAPABILITIES[number];
 export function hashDeviceSecret(value:string):string{return createHash("sha256").update(value,"utf8").digest("hex");}
-export function normalizeRequestedCapabilities(value:unknown):string[]{
- if(!Array.isArray(value)||value.length>10)throw new Error("Choose up to 10 supported capabilities.");
+export function normalizeRequestedCapabilities(value:unknown,availableIds:ReadonlySet<string>=new Set(CONNECTED_DEVICE_CAPABILITIES)):string[]{
+ if(!Array.isArray(value)||value.length>30)throw new Error("Choose up to 30 available capabilities.");
  const result=[...new Set(value.map(item=>String(item??"").trim()))];
- if(result.some(item=>!CONNECTED_DEVICE_CAPABILITIES.includes(item as ConnectedDeviceCapability)))throw new Error("One or more requested capabilities are not supported.");
+ if(result.some(item=>!availableIds.has(item)))throw new Error("One or more requested capabilities are not currently available.");
  return result;
 }
 export function isDeviceAdministrator(tenant:PluginTenantContext):boolean{return tenant.role==="owner"||tenant.role==="admin"||tenant.role==="super_admin";}
@@ -26,8 +27,8 @@ export function createPairingSecrets(){return {qrToken:randomBytes(32).toString(
 export async function isConnectedDeviceOwnerActive(access:PluginAccessService,device:ConnectedDeviceRecord):Promise<boolean>{
  return access.isTenantUserActive(device.tenantId,device.ownerUserId);
 }
-export function createConnectedDevicesServices(input:{secret:string;repository:ConnectedDevicesRepository;access:PluginAccessService}){
- const {secret,repository,access}=input;
+export function createConnectedDevicesServices(input:{secret:string;repository:ConnectedDevicesRepository;access:PluginAccessService;capabilities:ConnectedDeviceCapabilityRegistry}){
+ const {secret,repository,access,capabilities}=input;
  const dashboardTenant=async(request:any,reply:any):Promise<PluginTenantContext|null>=>{
   try{
    await request.jwtVerify();
@@ -55,11 +56,11 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
   if(!device){reply.code(401).send({error:"Invalid, revoked or inactive device credential."});return null;}
   return device;
  };
- return {secret,repository,access,dashboardTenant,deviceFromCredential,authenticateDevice};
+ return {secret,repository,access,capabilities,dashboardTenant,deviceFromCredential,authenticateDevice};
 }
 /** Public integration contract for consuming plugins. Tenant ID must come from Core's authenticated context. */
 export async function hasConnectedDeviceCapability(db:Db,access:PluginAccessService,tenantId:string,deviceId:string,capability:string):Promise<boolean>{
- if(!CONNECTED_DEVICE_CAPABILITIES.includes(capability as ConnectedDeviceCapability))return false;
+ if(!capability||capability.length>120)return false;
  if(!await access.isPluginAvailable(tenantId,"connected-devices"))return false;
  const device=await db.collection<ConnectedDeviceRecord>("connected_devices").findOne({tenantId,id:deviceId,status:"active",grantedCapabilities:capability});
  if(!device)return false;
