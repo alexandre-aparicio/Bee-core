@@ -13,7 +13,7 @@ type Correction={id:string;sessionId:string;userEmail?:string;eventType:"clock_i
 styleUrls:["./time-tracking.component.css"]})
 export class BeeTimeTrackingComponent implements OnInit {
  constructor(private readonly api:TimeTrackingApiService){}
- t(key:string):string{const language=String(document.documentElement.lang??"en").toLowerCase();const catalog=language.startsWith("es")?TIME_TRACKING_ES:TIME_TRACKING_EN;return catalog[key]??key;}
+ t(key:string):string{const language=String(document.documentElement.lang??"en").toLowerCase();const catalog=(language.startsWith("es")?TIME_TRACKING_ES:TIME_TRACKING_EN) as unknown as Record<string,string>;return catalog[key]??key;}
  weekday(day:number):string{const names=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];return this.t("weekday_"+(names[day]??"sunday"));}
  @Input() tenantId=""; @Input() role="member"; @Input() accessToken=""; @Input() section="";
  session:TimeSession|null=null; mySchedule:Schedule|null=null; history:TimeSession[]=[]; corrections:Correction[]=[]; teamCorrections:Correction[]=[]; members:TeamMember[]=[];
