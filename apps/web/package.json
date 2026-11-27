@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "scripts": {
     "start": "ng serve --host 0.0.0.0",
-    "build": "ng build",
+    "build": "ng build bee-core-web --configuration production",
     "test:e2e": "playwright test",
     "audit:production": "npm audit --omit=dev",
     "audit:styles": "node scripts/audit-styles.mjs src",
