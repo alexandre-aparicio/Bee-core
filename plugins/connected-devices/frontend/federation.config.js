@@ -1,9 +1,14 @@
-const { withNativeFederation, shareAll } = require("@angular-architects/native-federation/config");
+const path = require("node:path");
+
+const federationConfigPath = require.resolve("@angular-architects/native-federation/config", {
+  paths: [path.resolve(__dirname, "../../../apps/web")]
+});
+const { withNativeFederation, shareAll } = require(federationConfigPath);
 
 module.exports = withNativeFederation({
   name: "connectedDevices",
   exposes: {
-    "./Component": "./src/plugin.component.ts"
+    "./Component": "../../plugins/connected-devices/frontend/src/plugin.component.ts"
   },
   shared: {
     ...shareAll({ singleton: true, strictVersion: true, requiredVersion: "auto" })
