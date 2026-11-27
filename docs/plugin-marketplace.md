@@ -10,7 +10,7 @@ Bee-Core keeps the trusted plugin catalogue centrally and seeds its metadata int
 - `tenant_plugin_installations`: installation state per company and plugin;
 - `plugin_install_jobs`: durable, tenant-scoped installation jobs with active-job deduplication, attempts, worker lease, status, result and error metadata.
 
-Each company receives its own filtered catalogue. Starter includes Private Files; Documents is provisioned with its Files dependency. Other packages are visible only when listed in the effective plan or granted through an active purchase/manual entitlement. Team Notes has been retired: it is excluded from all plans and catalogues, and its previous tenant data and installation/migration history are retained without restoring runtime access.
+Each company receives its own filtered catalogue. Starter includes Private Files; Documents is provisioned with its Files dependency. Other packages are visible only when listed in the effective plan or granted through an active purchase/manual entitlement. Signed package manifests distinguish platform/runtime `dependencies` from company-level `tenantDependencies`. The platform installer validates runtime dependencies before publishing a package; it writes `tenantDependencies` into the Marketplace dependency graph. Marketplace install requests, activation and the durable install worker all require every transitive tenant dependency to be entitled, installed and enabled. A missing dependency blocks installation with HTTP 409; dependencies are never silently installed as a side effect. Team Notes has been retired: it is excluded from all plans and catalogues, and its previous tenant data and installation/migration history are retained without restoring runtime access.
 
 Companies without a subscription record receive a 14-day Starter trial on first marketplace access. Current plan definitions are code-managed defaults seeded into MongoDB, not yet editable through an administration UI.
 
@@ -20,7 +20,7 @@ Companies without a subscription record receive a 14-day Starter trial on first 
 - `GET /marketplace/plugins/:pluginId`: details only when visible to that company.
 - `GET /marketplace/plugins/:pluginId/versions`: trusted package version metadata when entitled.
 - `GET /marketplace/entitlements`: current plan and effective plugin entitlements.
-- `POST /marketplace/plugins/:pluginId/install`: checks company permission, visibility, entitlement, trusted package and dependencies, then enqueues a durable install job and returns HTTP `202` with `jobId` and `statusUrl`.
+- `POST /marketplace/plugins/:pluginId/install`: checks company permission, visibility, entitlement, trusted package and all transitive `tenantDependencies` (each must be entitled, installed and enabled), then enqueues a durable install job and returns HTTP `202` with `jobId` and `statusUrl`.
 - `GET /marketplace/install-jobs/:jobId`: returns status only when the job belongs to the active company.
 - `DELETE /marketplace/plugins/:pluginId/install`: checks management permission, prevents removal of system packages and dependencies in use, then enqueues a durable uninstall job and returns HTTP `202` with `jobId` and `statusUrl`.
 - `GET /billing/subscription`: current subscription and effective plan.
