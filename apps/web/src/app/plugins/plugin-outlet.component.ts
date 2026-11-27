@@ -92,6 +92,27 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
           const remoteAssetBaseUrl = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" +
             encodeURIComponent(runtime.version) + "/assets/" + encodeURIComponent(runtime.assetToken) + "/frontend/";
           const remoteEntryUrl = remoteAssetBaseUrl + runtime.remoteEntry.slice("frontend/".length).split("/").map(encodeURIComponent).join("/");
+          // Native Federation's v3 loader assumes the fetched JSON is a valid
+          // FederationInfo and iterates remoteEntry.exposes without checking the
+          // HTTP response. A protected-asset 404 therefore surfaces as the
+          // misleading "exposes is not iterable" TypeError. Validate the actual
+          // response first so authorization/path failures remain diagnosable.
+          const entryResponse = await fetch(remoteEntryUrl, {
+            method: "GET",
+            cache: "no-store",
+            credentials: "omit",
+            referrerPolicy: "no-referrer"
+          });
+          if (!entryResponse.ok) {
+            throw new Error("Native plugin remote entry request failed (HTTP " + entryResponse.status + ")");
+          }
+          const entryMetadata = await entryResponse.json() as { name?: unknown; exposes?: unknown; shared?: unknown };
+          if (entryMetadata.name !== runtime.remoteName || !Array.isArray(entryMetadata.exposes) ||
+              !entryMetadata.exposes.some(expose => typeof expose === "object" && expose !== null &&
+                (expose as Record<string, unknown>)["key"] === runtime.exposedModule) ||
+              !Array.isArray(entryMetadata.shared)) {
+            throw new Error("Native plugin remote entry has an invalid Native Federation v3 manifest");
+          }
           const remoteModule = await loadRemoteModule({
             remoteEntry: remoteEntryUrl,
             remoteName: runtime.remoteName!,
