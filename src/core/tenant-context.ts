@@ -127,7 +127,7 @@ export async function resolveTenantContext(
     try { const permissionPolicy = await db.collection<{id:string;tenantAssignablePermissions:string[]}>("platform_permission_policies").findOne({id:"global"},{projection:{tenantAssignablePermissions:1}}); const allowed = permissionPolicy?.tenantAssignablePermissions; const coreAllowed = CORE_PERMISSION_CATALOG.filter(item=>item.customRoleAssignable).map(item=>item.key); permissions = permissionsForCustomRole(customRole, [...(Array.isArray(allowed) ? allowed : coreAllowed), ...pluginPermissionKeys]); } catch { return null; }
   } else {
     if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
-    const roleKey = membership.role === "super_admin" ? "owner" : membership.role;
+    const roleKey = membership.role;
     const defaults = pluginPermissionSources.flatMap(source=>(source.permissions??[]).filter(permission=>permission.defaultGrants?.[roleKey as "owner"|"admin"|"manager"|"member"]).map(permission=>permission.key));
     permissions = [...COMPANY_ROLE_PERMISSIONS[membership.role], ...defaults];
   }
@@ -136,7 +136,7 @@ export async function resolveTenantContext(
   if (restrictionRoleIds.length) {
     // Owner and super_admin are protected system identities, never constrained
     // by tenant-authored role documents.
-    if (membership.role === "owner" || membership.role === "super_admin") return null;
+    if (membership.role === "owner") return null;
     const restrictionRoles = await db.collection<CustomRolePolicy>("company_roles")
       .find({ id: { $in: restrictionRoleIds }, tenantId, mode: "restriction" }).toArray();
     if (restrictionRoles.length !== restrictionRoleIds.length) return null;
