@@ -1,0 +1,116 @@
+import type { BeePlugin } from "../../core/types.js";
+import type { PluginAccessService } from "../../core/plugin-services.js";
+import { ConnectedDeviceCapabilities } from "../connected-devices/capability-registry.js";
+import { hasConnectedDeviceCapability } from "../connected-devices/connected-devices.service.js";
+import { TimeTrackingRepository } from "../time-tracking/time-tracking.repository.js";
+import { createTimeTrackingHandlers } from "../time-tracking/time-tracking.handlers.js";
+
+type DeviceAuthenticator = {
+  authenticateDevice(request: any, reply: any): Promise<any>;
+};
+
+/**
+ * Reference adapter between Connected Devices and the independent Time Tracking
+ * business plugin. It contributes device scopes but never changes pairing or
+ * device identity ownership.
+ */
+export const timeTrackingConnectedPlugin: BeePlugin = {
+  manifest: {
+    name: "time-tracking-connected",
+    version: "0.1.0",
+    description: "Connected-device actions for Control Horario",
+    dependencies: ["connected-devices", "time-tracking"],
+    requiredServices: ["mongoDbName", "sessionIdSecret"],
+    optionalServices: [],
+    scope: "tenant",
+    activationPolicy: "manual"
+  },
+
+  async initialize(ctx) {
+    const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    const access = ctx.services?.get<PluginAccessService>("core.plugin-access");
+    const registry = ctx.services?.get<ConnectedDeviceCapabilities>("connected-devices.capabilities");
+    const deviceAuth = ctx.services?.get<DeviceAuthenticator>("connected-devices.device-auth");
+    if (!access || !registry || !deviceAuth) {
+      throw new Error("Time Tracking Connected requires the Connected Devices capability and device-auth contracts.");
+    }
+
+    registry.register("time-tracking-connected", [
+      {
+        id: "time-tracking.clock-in",
+        label: "Registrar entrada",
+        description: "Permite iniciar la jornada del usuario propietario del dispositivo.",
+        group: "Control Horario",
+        order: 10,
+        operations: ["clock-in"]
+      },
+      {
+        id: "time-tracking.clock-out",
+        label: "Registrar salida",
+        description: "Permite finalizar la jornada activa del usuario propietario del dispositivo.",
+        group: "Control Horario",
+        order: 20,
+        operations: ["clock-out"]
+      },
+      {
+        id: "time-tracking.records.read",
+        label: "Consultar registros",
+        description: "Permite consultar el estado y el historial propio de jornada.",
+        group: "Control Horario",
+        order: 30,
+        operations: ["status", "sessions"]
+      }
+    ]);
+
+    const repository = new TimeTrackingRepository(db);
+    await repository.initializeIndexes();
+    const handlers = createTimeTrackingHandlers(repository, String(ctx.config.sessionIdSecret ?? ""));
+
+    const authorize = async (request: any, reply: any, capability: string) => {
+      const device = await deviceAuth.authenticateDevice(request, reply);
+      if (!device) return null;
+      const [extensionAvailable, timeTrackingAvailable, granted] = await Promise.all([
+        access.isPluginAvailable(device.tenantId, "time-tracking-connected"),
+        access.isPluginAvailable(device.tenantId, "time-tracking"),
+        hasConnectedDeviceCapability(db, access, device.tenantId, device.id, capability)
+      ]);
+      if (!extensionAvailable || !timeTrackingAvailable || !granted) {
+        reply.code(403).send({ error: "This device is not authorized for the requested Control Horario action." });
+        return null;
+      }
+      if (!await access.isTenantUserActive(device.tenantId, device.ownerUserId)) {
+        reply.code(403).send({ error: "The device owner is no longer an active company member." });
+        return null;
+      }
+      return device;
+    };
+    const asTimeTrackingRequest = (request: any, device: any) => ({
+      body: { ...(request.body ?? {}), source: "android" },
+      query: request.query ?? {},
+      tenantContext: { tenantId: device.tenantId, userId: device.ownerUserId }
+    });
+
+    ctx.server.post("/connected-devices/device/time-tracking/clock-in", async (request: any, reply: any) => {
+      const device = await authorize(request, reply, "time-tracking.clock-in");
+      if (!device) return;
+      return handlers.clockIn(asTimeTrackingRequest(request, device), reply);
+    });
+    ctx.server.post("/connected-devices/device/time-tracking/clock-out", async (request: any, reply: any) => {
+      const device = await authorize(request, reply, "time-tracking.clock-out");
+      if (!device) return;
+      return handlers.clockOut(asTimeTrackingRequest(request, device), reply);
+    });
+    ctx.server.get("/connected-devices/device/time-tracking/status", async (request: any, reply: any) => {
+      const device = await authorize(request, reply, "time-tracking.records.read");
+      if (!device) return;
+      return handlers.status(asTimeTrackingRequest(request, device));
+    });
+    ctx.server.get("/connected-devices/device/time-tracking/sessions", async (request: any, reply: any) => {
+      const device = await authorize(request, reply, "time-tracking.records.read");
+      if (!device) return;
+      return handlers.sessions(asTimeTrackingRequest(request, device));
+    });
+
+    ctx.logger.info("Time Tracking Connected initialized: three extension capabilities registered.");
+  }
+};
