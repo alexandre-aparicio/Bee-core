@@ -222,7 +222,7 @@ app.get<{Params:{pluginId:string;version:string;assetToken:string;"*":string}}>(
 
   // Do not log the bearer token or any tenant/user/session identifiers.
   logger.info("Protected plugin asset request received",{pluginId,version,assetPath});
-  if(!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\\\")||assetPath.includes("\\0")){
+  if(!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\")||assetPath.includes("\0")){
     return deny("invalid_asset_path");
   }
 
