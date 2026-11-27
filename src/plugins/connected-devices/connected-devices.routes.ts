@@ -180,6 +180,13 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   return {credential:next,rotatedAt:new Date().toISOString()};
  });
  ctx.server.get("/connected-devices/device/me",async(request:any,reply:any)=>{
-  const device=await authenticateDevice(request,reply);if(!device)return;return {device:publicDevice(device)};
+  const device=await authenticateDevice(request,reply);if(!device)return;
+  const available=await capabilities.listAvailable(device.tenantId,access);
+  return {device:publicDevice(device),capabilities:available.filter((item:any)=>device.grantedCapabilities.includes(item.id))};
+ });
+ ctx.server.get("/connected-devices/device/capabilities",async(request:any,reply:any)=>{
+  const device=await authenticateDevice(request,reply);if(!device)return;
+  const available=await capabilities.listAvailable(device.tenantId,access);
+  return {capabilities:available.filter((item:any)=>device.grantedCapabilities.includes(item.id))};
  });
 }
