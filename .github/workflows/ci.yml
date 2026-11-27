@@ -143,5 +143,7 @@ jobs:
         run: npm run lint:styles
       - name: Production build
         run: npm run build
+      - name: Build Connected Devices federation remote
+        run: node ../../scripts/build-connected-devices-remote.mjs
       - name: Validate Playwright test discovery
         run: npm run test:e2e -- --list
