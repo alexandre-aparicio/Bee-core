@@ -389,8 +389,7 @@ export const marketplacePlugin: BeePlugin = {
       const frontend=manifest?.frontend;
       if(!frontend?.remoteEntry&&!frontend?.entrypoint)return reply.code(404).send({error:"Plugin has no packaged frontend"});
       if(frontend.remoteEntry){
-        const assetToken=(ctx.server as any).jwt.sign({purpose:"plugin-asset",tenantId:tenant.tenantId,userId:tenant.userId,sessionId:tenant.sessionId,client:tenant.client,pluginId:plugin.id,version},{expiresIn:"5m"});
-        return {pluginId:plugin.id,version,transport:"native-federation",remoteEntry:frontend.remoteEntry,remoteName:frontend.remoteName,exposedModule:frontend.exposedModule,assetToken,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
+        return {pluginId:plugin.id,version,transport:"native-federation",remoteEntry:frontend.remoteEntry,remoteName:frontend.remoteName,exposedModule:frontend.exposedModule,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
       }
       return {pluginId:plugin.id,version,transport:"legacy-iframe",entrypoint:frontend.entrypoint,apiPrefixes:frontend.apiPrefixes??[],routes:frontend.routes??[]};
     });
