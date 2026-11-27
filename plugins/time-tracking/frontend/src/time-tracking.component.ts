@@ -2,7 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, Input, OnInit, ChangeDetectionStrategy } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { TimeTrackingApiService } from "./time-tracking-api.service";
-import { BeeI18nService } from "../../../../../apps/web/src/app/i18n/bee-i18n.service";
+import { BeeI18nService } from "../../../../apps/web/src/app/i18n/bee-i18n.service";
 type ClockEvent={type:string;occurredAt:string;source:string};
 type TimeSession={id:string;status:"working"|"on_break"|"closed";startedAt:string;endedAt:string|null;events:ClockEvent[]};
 type TeamMember={userId:string;email:string;role:string};
