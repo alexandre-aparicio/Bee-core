@@ -20,7 +20,7 @@ export function normalizeRequestedCapabilities(value:unknown,availableIds:Readon
 export function isDeviceAdministrator(tenant:PluginTenantContext):boolean{return tenant.role==="owner"||tenant.role==="admin"||tenant.role==="super_admin";}
 export function publicDevice(device:ConnectedDeviceRecord){
  return {id:device.id,name:device.name,deviceType:device.deviceType,platform:device.platform,appVersion:device.appVersion,
- requestedCapabilities:device.requestedCapabilities,grantedCapabilities:device.grantedCapabilities,
+ requestedCapabilities:device.requestedCapabilities??[],grantedCapabilities:device.grantedCapabilities??[],
  status:device.status,createdAt:device.createdAt,updatedAt:device.updatedAt,approvedAt:device.approvedAt,lastSeenAt:device.lastSeenAt};
 }
 export function createPairingSecrets(){return {qrToken:randomBytes(32).toString("base64url"),deviceCredential:randomBytes(48).toString("base64url")};}
