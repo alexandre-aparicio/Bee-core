@@ -41,7 +41,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
 
   capabilities: Capability[] = [];
   devices: Device[] = [];
-  selectedCapabilities: string[] = ["device.status.write"];
+  selectedCapabilities: string[] = [];
   grants: Record<string, string[]> = {};
   pairing: Pairing | null = null;
   search = "";
@@ -108,7 +108,9 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
       const result = await this.request("/connected-devices");
       this.devices = Array.isArray(result.devices) ? result.devices : [];
       this.canManage = Boolean(result.canManage);
-      for (const device of this.devices) if (device.status === "pending" && !this.grants[device.id]) this.grants[device.id] = [...(device.requestedCapabilities || [])];
+      const catalogue = await this.request("/connected-devices/capabilities");
+      this.capabilities = Array.isArray(catalogue.capabilities) ? catalogue.capabilities : [];
+      for (const device of this.devices) if (!this.grants[device.id]) this.grants[device.id] = [...(device.status === "pending" ? (device.requestedCapabilities || []) : (device.grantedCapabilities || []))];
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not load devices."; }
     finally {
       this.loading = false;
@@ -176,9 +178,13 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
     try { await navigator.clipboard.writeText(this.pairing.qrPayload); this.message = "Pairing code copied."; }
     catch { this.error = "Could not copy the code. Select it manually."; }
   }
-  capabilityLabel(id: string): string { return this.capabilities.find(item => item.id === id)?.label || id; }\n  async saveCapabilities(device: Device): Promise<void> {\n    const grantedCapabilities = this.grants[device.id] || [];\n    await this.runAction(() => this.request("/connected-devices/" + encodeURIComponent(device.id) + "/capabilities", "PATCH", { grantedCapabilities }), "Device capabilities updated.");\n  }\n  async approve(device: Device): Promise<void> {
+  capabilityLabel(id: string): string { return this.capabilities.find(item => item.id === id)?.label || id; }
+  async saveCapabilities(device: Device): Promise<void> {
     const grantedCapabilities = this.grants[device.id] || [];
-    if (!grantedCapabilities.length) return;
+    await this.runAction(() => this.request("/connected-devices/" + encodeURIComponent(device.id) + "/capabilities", "PATCH", { grantedCapabilities }), "Device capabilities updated.");
+  }
+  async approve(device: Device): Promise<void> {
+    const grantedCapabilities = this.grants[device.id] || [];
     await this.runAction(() => this.request("/connected-devices/" + encodeURIComponent(device.id) + "/approve", "POST", { grantedCapabilities }), "Device approved.");
   }
   async act(device: Device, action: "suspend" | "activate" | "unlink" | "revoke" | "delete"): Promise<void> {
