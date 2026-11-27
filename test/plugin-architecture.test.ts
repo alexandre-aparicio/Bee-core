@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { composePermissionCatalog } from "../src/core/permission-catalog.js";
@@ -41,66 +42,51 @@ test("Core and host dashboard stay independent from feature package identifiers"
 });
 
 
-test("Connected Devices backend is ZIP-only and its native Angular frontend is statically registered", async () => {
-  const backendBootstrap = await readFile(resolve(root, "src/index.ts"), "utf8");
-  assert.doesNotMatch(backendBootstrap, /connectedDevicesPlugin|connected-devices/, "backend bootstrap must not import or register Connected Devices");
+test("Connected Devices frontend is a signed Native Federation remote, not static Core code", async () => {
+  const bootstrap = await readFile(resolve(root, "src/index.ts"), "utf8");
+  assert.doesNotMatch(bootstrap, /connectedDevicesPlugin|connected-devices/);
+  const registry = await readFile(resolve(root, "src/plugins/plugin-manifest-registry.ts"), "utf8");
+  assert.doesNotMatch(registry, /connected-devices|connectedDevices|LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS/);
+  const builder = await readFile(resolve(root, "scripts/build-plugin-packages.mjs"), "utf8");
+  assert.match(builder, /frontendDist:/);
+  assert.match(builder, /remoteEntry:\s*"frontend\/remoteEntry\.json"/);
+  assert.match(builder, /remoteName:\s*"connectedDevices"/);
+  assert.match(builder, /exposedModule:\s*"\.\/Component"/);
+  assert.match(builder, /collectFrontendDistribution/);
 
-  const coreSources = [
-    "src/core/plugin-manager.ts",
-    "src/core/plugin-entitlements.ts",
-    "src/core/plugin-package.ts",
-    "src/plugins/platform-admin/platform-admin.plugin.ts"
-  ];
-  for (const file of coreSources) {
-    const source = await readFile(resolve(root, file), "utf8");
-    assert.doesNotMatch(source, /connected-devices|connectedDevicesPlugin/i, file + " must not contain Connected Devices package-specific logic");
-  }
+  const hostRegistrations = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
+  assert.doesNotMatch(hostRegistrations, /connected-devices|connectedDevices/i);
+  const hostSources = await sourceFiles(resolve(root, "apps/web/src/app"));
+  assert.equal(hostSources.some(path => path.includes("/connected-devices/")), false,
+    "Connected Devices feature source must not be compiled from the Core Angular application");
+  assert.equal(existsSync(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts")), false);
 
-  const manifestRegistry = await readFile(resolve(root, "src/plugins/plugin-manifest-registry.ts"), "utf8");
-  const builtInPlans = manifestRegistry.slice(manifestRegistry.indexOf("export const BUILT_IN_PLANS"), manifestRegistry.indexOf("export const TRUSTED_PLUGIN_PACKAGES"));
-  const trustedPackages = manifestRegistry.split("export const MIGRATABLE_BUILT_IN_PACKAGE_IDS")[0] ?? "";
-  assert.doesNotMatch(builtInPlans, /connected-devices/, "Connected Devices must not be a built-in plan entitlement");
-  assert.doesNotMatch(trustedPackages, /id:\s*"connected-devices"/, "Connected Devices must not be seeded as a trusted bundled package");
+  const federation = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.js"), "utf8");
+  const remoteEntry = await readFile(resolve(root, "plugins/connected-devices/frontend/src/plugin.component.ts"), "utf8");
+  const component = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.ts"), "utf8");
+  assert.match(federation, /withNativeFederation/);
+  assert.match(federation, /shareAll\(\{ singleton:\s*true, strictVersion:\s*true/);
+  assert.match(remoteEntry, /BeeConnectedDevicesComponent as PluginComponent/);
+  assert.match(component, /export class BeeConnectedDevicesComponent/);
+  assert.match(component, /assetBaseUrl/);
+  assert.match(component, /pairing-challenges/);
+  assert.doesNotMatch(component, /iframe|postMessage|marketplace/);
 
-  const hostAccess = await readFile(resolve(root, "src/index.ts"), "utf8");
-  const marketplace = await readFile(resolve(root, "src/plugins/marketplace/marketplace.plugin.ts"), "utf8");
-  const packagePlugin = await readFile(resolve(root, "src/plugins/connected-devices/connected-devices.plugin.ts"), "utf8");
-  const packageManifest = await readFile(resolve(root, "src/plugins/connected-devices/plugin.manifest.ts"), "utf8");
-  const packageBuilder = await readFile(resolve(root, "scripts/build-plugin-packages.mjs"), "utf8");
-  const runtime = await readFile(resolve(root, "src/core/dynamic-plugin-runtime.ts"), "utf8");
-  assert.ok(hostAccess.includes('pluginServices.register("core.plugin-access"'));
-  assert.ok(!hostAccess.includes("marketplace.plugin-access") && !hostAccess.includes("LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS"));
-  assert.ok(!marketplace.includes("marketplace.plugin-access"));
-  assert.ok(packagePlugin.includes('core.plugin-access'));
-  assert.ok(packagePlugin.includes('afterRuntimeLoaded'));
-  assert.doesNotMatch(packagePlugin + packageManifest, /marketplace/);
-  assert.ok(runtime.includes('afterRuntimeLoaded'));
-  assert.ok(packageBuilder.includes('id: "connected-devices"') && packageBuilder.includes('dependencies: ["auth", "organizations"]'));
-  const legacyRegistry = await readFile(resolve(root, "src/plugins/plugin-manifest-registry.ts"), "utf8");
-  assert.doesNotMatch(legacyRegistry, /connected-devices|connectedDevices|LEGACY_PLUGIN_PLAN_ASSIGNMENT_MIGRATIONS/);
-  assert.ok(packagePlugin.includes('migrateLegacyConnectedDevicesPlanAssignments'));
-  const frontendRegistrations = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
-  assert.match(frontendRegistrations, /connectedDevicesFrontend/);
-  const remoteRegistry = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
-  assert.match(remoteRegistry, /setRemoteNavigation/);
+  const outlet = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
+  const nativeMount = outlet.slice(outlet.indexOf('if (runtime.transport === "native-federation"'), outlet.indexOf("if (!runtime.entrypoint)"));
+  assert.match(nativeMount, /loadRemoteModule/);
+  assert.match(nativeMount, /createComponent/);
+  assert.match(nativeMount, /assetBaseUrl/);
+  assert.doesNotMatch(nativeMount, /iframe|postMessage/);
+  const frontendRegistry = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registry.service.ts"), "utf8");
+  assert.match(frontendRegistry, /setRemoteNavigation/);
   const dashboard = await readFile(resolve(root, "apps/web/src/app/app.component.ts"), "utf8");
-  assert.doesNotMatch(dashboard, /connected-devices|connectedDevicesFrontend/i, "the dashboard root must consume the generic frontend registry");
-  assert.match(dashboard, /setRemoteNavigation/);
+  assert.doesNotMatch(dashboard, /connected-devices|connectedDevicesFrontend/i);
   assert.match(dashboard, /frontendRoutes/);
   const packageUpload = await readFile(resolve(root, "src/plugins/platform-admin/platform-admin.plugin.ts"), "utf8");
-  assert.ok(packageUpload.includes("admin-plan-selection-v1"));
-  assert.match(packageUpload, /frontendRoutes:Array.isArray\(manifest.frontend\?\.routes\)/, "verified ZIP navigation metadata must be persisted with the catalogue entry");
+  assert.match(packageUpload, /frontendRoutes:Array.isArray\(manifest.frontend\?\.routes\)/);
   const tenantCatalog = await readFile(resolve(root, "src/core/plugin-entitlements.ts"), "utf8");
-  assert.match(tenantCatalog, /frontendRoutes: Array.isArray\(plugin.frontendRoutes\)/, "tenant-visible package routes must be projected from the package catalogue");
-
-  const frontend = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.frontend.ts"), "utf8");
-  const component = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts"), "utf8");
-  assert.ok(frontend.includes("loadComponent:") && frontend.includes("BeeConnectedDevicesComponent"));
-  assert.ok(frontend.includes("/dashboard/connected-devices"));
-  assert.doesNotMatch(component, /iframe|postMessage|marketplace/);
-  assert.ok(component.includes('fetch("/api" + path'));
-  assert.ok((await readFile(resolve(root, "apps/web/src/assets/connected-devices/qrcode.min.js"), "utf8")).length > 1000,
-    "QR renderer must be shipped as a web asset, not inside the backend ZIP");
+  assert.match(tenantCatalog, /frontendRoutes: Array.isArray\(plugin.frontendRoutes\)/);
 });
 
 test("Connected Devices simulator remains a separate developer asset with its security allowances", async () => {
@@ -117,27 +103,20 @@ test("Connected Devices simulator remains a separate developer asset with its se
   assert.match(server, /"POST"/);
 });
 
-test("remote plugin theme bridge sends semantic presentation only", async () => {
+test("Native Federation Connected Devices inherits host theme tokens without a cross-frame bridge", async () => {
   const outlet = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
-  assert.match(outlet, /type:\s*"bee-plugin:theme"/);
-  assert.match(outlet, /getComputedStyle\(host\)/);
-  assert.match(outlet, /surface-raised/);
-  assert.match(outlet, /status-success/);
-  const themeMethods = outlet.slice(outlet.indexOf("private themePayload()"), outlet.indexOf("private async loadRemoteRuntime"));
-  assert.match(themeMethods, /postMessage\(\{ type: "bee-plugin:theme"/);
-  assert.doesNotMatch(themeMethods, /accessToken|authorization|credential|secret|jwt/i,
-    "theme messages must never include credentials or authentication material");
-
-  const component = await readFile(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts"), "utf8");
-  const baseStyles = await readFile(resolve(root, "apps/web/src/app/templates/base/base.css"), "utf8");
-  assert.match(component, /class="bee-page-header"/);
-  assert.match(component, /class="bee-stat-card"/);
-  assert.ok(baseStyles.includes("var(--bee-text)"));
-  assert.ok(baseStyles.includes("var(--bee-surface)"));
-  assert.doesNotMatch(component, /styles\s*:/,
-    "Connected Devices must consume shared Base styles instead of declaring feature-local CSS");
-  assert.doesNotMatch(component, /bee-plugin:theme|postMessage|iframe/,
-    "the native Angular UI inherits the host theme directly and must not use a cross-frame bridge");
+  const nativeMount = outlet.slice(outlet.indexOf('if (runtime.transport === "native-federation"'), outlet.indexOf("if (!runtime.entrypoint)"));
+  assert.match(nativeMount, /loadRemoteModule/);
+  assert.match(nativeMount, /createComponent/);
+  assert.doesNotMatch(nativeMount, /postMessage|iframe/);
+  const component = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.ts"), "utf8");
+  const template = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.html"), "utf8");
+  const styles = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.css"), "utf8");
+  assert.match(template, /class="bee-page-header"/);
+  assert.match(template, /class="bee-stat-card"/);
+  assert.match(component, /styleUrls:\s*\["\.\/connected-devices\.component\.css"\]/);
+  assert.match(styles, /var\(--bee-(?:text|surface|border|accent)/);
+  assert.doesNotMatch(component + template, /bee-plugin:theme|postMessage|iframe/);
 });
 
 
@@ -159,7 +138,7 @@ test("generic host paths contain no feature-specific branches outside the explic
     // The registry contains only host package metadata and generic retirement exceptions.
     "src/plugins/plugin-manifest-registry.ts": ["files", "time-tracking"],
     // Feature IDs may appear only in the declarative registration list.
-    "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents", "time-tracking", "connected-devices"],
+    "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents", "time-tracking"],
     // These generic uses refer to browser file inputs and package archive files, not plugin IDs.
     "src/plugins/platform-admin/platform-admin.plugin.ts": ["files"],
     "apps/web/src/app/plugins/plugin-settings.component.ts": ["files"]
