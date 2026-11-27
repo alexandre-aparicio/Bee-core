@@ -178,6 +178,10 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
     files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "\n"));
     if (definition.frontendDist && definition.frontend) {
       const remoteFiles = await collectFrontendDistribution(definition.frontendDist);
+      if (definition.id === "connected-devices") {
+        const qrSource = join(ROOT, "plugins/connected-devices/frontend/src/assets/qrcode.min.js");
+        remoteFiles.set("frontend/assets/qrcode.min.js", await readFile(qrSource));
+      }
       const remoteEntryBytes = remoteFiles.get(definition.frontend.remoteEntry);
       if (!remoteEntryBytes) throw new Error("Plugin remote entry is missing from the package output");
       let remoteEntry;
