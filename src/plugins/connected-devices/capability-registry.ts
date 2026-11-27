@@ -8,6 +8,7 @@ export type ConnectedDeviceCapabilityDefinition = {
   group: string;
   order: number;
   operations: string[];
+  requiresPlugins?: string[];
 };
 
 export interface ConnectedDeviceCapabilityRegistry {
@@ -31,12 +32,14 @@ export class ConnectedDeviceCapabilities implements ConnectedDeviceCapabilityReg
       const description = String(item.description ?? "").trim();
       const group = String(item.group ?? "").trim();
       const operations = [...new Set((item.operations ?? []).map(value => String(value).trim()))];
+      const requiresPlugins = [...new Set((item.requiresPlugins ?? []).map(value => String(value).trim()))];
       if (!ID_PATTERN.test(id) || !label || label.length > 80 || !description || description.length > 240 ||
           !group || group.length > 60 || !Number.isInteger(item.order) || item.order < 0 ||
-          operations.length === 0 || operations.some(operation => !OPERATION_PATTERN.test(operation))) {
+          operations.length === 0 || operations.some(operation => !OPERATION_PATTERN.test(operation)) ||
+          requiresPlugins.some(plugin => !/^[a-z][a-z0-9-]*$/.test(plugin))) {
         throw new Error("Invalid Connected Devices capability declaration: " + id);
       }
-      return { id, providerPlugin, label, description, group, order: item.order, operations };
+      return { id, providerPlugin, label, description, group, order: item.order, operations, requiresPlugins };
     });
     for (const item of pending) {
       const existing = this.definitions.get(item.id);
@@ -46,17 +49,18 @@ export class ConnectedDeviceCapabilities implements ConnectedDeviceCapabilityReg
   }
 
   async listAvailable(tenantId: string, access: PluginAccessService): Promise<ConnectedDeviceCapabilityDefinition[]> {
-    const providers = [...new Set([...this.definitions.values()].map(item => item.providerPlugin))];
+    const providers = [...new Set([...this.definitions.values()].flatMap(item => [item.providerPlugin, ...(item.requiresPlugins ?? [])]))];
     const enabled = new Set<string>();
     for (const provider of providers) if (await access.isPluginAvailable(tenantId, provider)) enabled.add(provider);
     return [...this.definitions.values()]
-      .filter(item => enabled.has(item.providerPlugin))
+      .filter(item => enabled.has(item.providerPlugin) && (item.requiresPlugins ?? []).every(plugin => enabled.has(plugin)))
       .sort((a, b) => a.group.localeCompare(b.group) || a.order - b.order || a.id.localeCompare(b.id));
   }
 
   async getAvailable(tenantId: string, capabilityId: string, access: PluginAccessService): Promise<ConnectedDeviceCapabilityDefinition | null> {
     const item = this.definitions.get(capabilityId);
     if (!item || !await access.isPluginAvailable(tenantId, item.providerPlugin)) return null;
+    for (const plugin of item.requiresPlugins ?? []) if (!await access.isPluginAvailable(tenantId, plugin)) return null;
     return item;
   }
 }
