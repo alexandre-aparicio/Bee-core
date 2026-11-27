@@ -16,7 +16,7 @@ type DeviceAuthenticator = {
 export const timeTrackingConnectedPlugin: BeePlugin = {
   manifest: {
     name: "time-tracking-connected",
-    version: "0.1.1",
+    version: "0.1.2",
     description: "Connected-device actions for Control Horario",
     dependencies: ["connected-devices", "time-tracking"],
     requiredServices: ["mongoDbName", "sessionIdSecret"],
