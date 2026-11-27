@@ -10,6 +10,12 @@ export type TimeTrackingDeviceResult = {
   body: unknown;
 };
 
+export type TimeTrackingDeviceOperation = "clock" | "read";
+export type TimeTrackingDeviceAuthorizer = (
+  input: Pick<TimeTrackingDeviceInput, "tenantId" | "userId">,
+  operation: TimeTrackingDeviceOperation
+) => Promise<boolean>;
+
 export interface TimeTrackingDeviceApi {
   clockIn(input: TimeTrackingDeviceInput): Promise<TimeTrackingDeviceResult>;
   clockOut(input: TimeTrackingDeviceInput): Promise<TimeTrackingDeviceResult>;
@@ -19,14 +25,29 @@ export interface TimeTrackingDeviceApi {
 
 type DeviceHandler = (request: any, reply: any) => Promise<unknown> | unknown;
 
-/** Adapter preserving the existing Control Horario handler rules and response codes. */
-export function createTimeTrackingDeviceApi(handlers: {
-  clockIn: DeviceHandler;
-  clockOut: DeviceHandler;
-  status: DeviceHandler;
-  sessions: DeviceHandler;
-}): TimeTrackingDeviceApi {
-  const invoke = async (handler: DeviceHandler, input: TimeTrackingDeviceInput): Promise<TimeTrackingDeviceResult> => {
+/**
+ * Internal service boundary for trusted device extensions. It reuses the
+ * Control Horario handlers, but performs package, membership and effective
+ * permission checks before any business operation is executed.
+ */
+export function createTimeTrackingDeviceApi(
+  handlers: {
+    clockIn: DeviceHandler;
+    clockOut: DeviceHandler;
+    status: DeviceHandler;
+    sessions: DeviceHandler;
+  },
+  authorize: TimeTrackingDeviceAuthorizer
+): TimeTrackingDeviceApi {
+  const invoke = async (
+    handler: DeviceHandler,
+    input: TimeTrackingDeviceInput,
+    operation: TimeTrackingDeviceOperation
+  ): Promise<TimeTrackingDeviceResult> => {
+    if (!input.tenantId || !input.userId || !await authorize(input, operation)) {
+      return { statusCode: 403, body: { error: "The linked user is not authorized for this Control Horario operation." } };
+    }
+
     let statusCode = 200;
     let sent = false;
     let body: unknown;
@@ -44,9 +65,9 @@ export function createTimeTrackingDeviceApi(handlers: {
   };
 
   return {
-    clockIn: input => invoke(handlers.clockIn, input),
-    clockOut: input => invoke(handlers.clockOut, input),
-    status: input => invoke(handlers.status, input),
-    sessions: input => invoke(handlers.sessions, input)
+    clockIn: input => invoke(handlers.clockIn, input, "clock"),
+    clockOut: input => invoke(handlers.clockOut, input, "clock"),
+    status: input => invoke(handlers.status, input, "read"),
+    sessions: input => invoke(handlers.sessions, input, "read")
   };
 }
