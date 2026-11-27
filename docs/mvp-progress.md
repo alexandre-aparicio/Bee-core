@@ -36,15 +36,5 @@
 | VPS / navegador | No verificado | Carga real, navegación, estilos, QR y flujos críticos pendientes. |
 | Migración de Documents y Control Horario | Planificada | No migrar hasta validar Connected Devices en producción y acordar la secuencia de migración. |
 
-## Verificación backend — 27/11/2026
-
-| Comprobación | Resultado | Evidencia |
-|---|---|---|
-| Node.js | PASS | v22.22.3 |
-| MongoDB nativo | PASS | MongoDB 9.0.8 arrancado en Ubuntu 26.04, puerto local 27018 |
-| Driver MongoDB Node.js | PASS | Conexión correcta y comando ping devuelve `{ ok: 1 }` |
-| Suite backend completa | PASS | 157 tests, 157 correctos, 0 fallidos, 0 omitidos |
-| Duración | PASS | 80.47 segundos |
-| Código de salida | PASS | 0 |
-
-**Alcance:** esta ejecución acredita la suite backend contra MongoDB 9.0.8. No acredita todavía el CI completo de GitHub, la instalación limpia ni la validación global de Docker y frontend.
+| Verificación backend 27/11/2026 | PASS local | 157/157 tests con Node 22.22.3 y MongoDB 9.0.8; detalle en `docs/backend-validation-2026-11-27.md`. |
+| CI integración PR #244, run #1300 | FAIL | Host/remote Angular, ruta de salida Playwright y límite documental; correcciones en curso. |
