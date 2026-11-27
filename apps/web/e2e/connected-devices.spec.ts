@@ -54,7 +54,7 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
 
   await page.route("**/api/**", async (route: any) => {
     const url = new URL(route.request().url());
-    const path = url.pathname.replace(/\\/+$/, "");
+    const path = url.pathname.replace(/\/+$/, "");
     const method = route.request().method();
     let body: any = {};
     if (path.endsWith("/auth/refresh")) {
