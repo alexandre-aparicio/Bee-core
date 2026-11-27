@@ -6,6 +6,7 @@ export const PLUGIN_MANIFEST = {
   description: "Connected-device actions for Control Horario.",
   category: "productivity",
   dependencies: ["connected-devices", "time-tracking"],
+  tenantDependencies: ["connected-devices", "time-tracking"],
   requiredServices: ["mongoDbName", "sessionIdSecret"],
   optionalServices: [],
   activationPolicy: "manual" as const,
