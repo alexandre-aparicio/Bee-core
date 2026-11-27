@@ -59,8 +59,8 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
  return {secret,repository,access,capabilities,dashboardTenant,deviceFromCredential,authenticateDevice};
 }
 /** Public integration contract for consuming plugins. Tenant ID must come from Core's authenticated context. */
-export async function hasConnectedDeviceCapability(db:Db,access:PluginAccessService,tenantId:string,deviceId:string,capability:string):Promise<boolean>{
- if(!capability||capability.length>120)return false;
+export async function hasConnectedDeviceCapability(db:Db,access:PluginAccessService,tenantId:string,deviceId:string,capability:string,registry:ConnectedDeviceCapabilityRegistry):Promise<boolean>{
+ if(!capability||capability.length>120||!await registry.getAvailable(tenantId,capability,access))return false;
  if(!await access.isPluginAvailable(tenantId,"connected-devices"))return false;
  const device=await db.collection<ConnectedDeviceRecord>("connected_devices").findOne({tenantId,id:deviceId,status:"active",grantedCapabilities:capability});
  if(!device)return false;
