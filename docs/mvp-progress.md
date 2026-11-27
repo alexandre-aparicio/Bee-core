@@ -78,3 +78,12 @@
 - Corrected the protected route's path-validation escaping while adding the diagnostics; the version regex now matches semantic-version digits and the traversal checks test a literal backslash and NUL correctly.
 - Commits: 0a36fc24b6c2b461ce62bd622117ec464caf787f (diagnostic instrumentation) and 2a8195e1633085e8bf59aaf16d1b3525faa5dd48 (path-validation escaping correction).
 - Source changes only. No tests, builds, or GitHub Actions/CI were run. Pull/rebuild the backend on the VPS and reproduce one request; use the resulting Protected plugin asset request denied reason to apply the final authorization/path fix. Do not merge to main.
+
+### GitHub CI reactivation and validation — 2026-11-27
+- At the user's request, re-enabled GitHub Actions validation for `refactor/native-angular-plugin-runtime`: added the branch to the CI push trigger and removed the conditional that skipped pull-request validation for this branch.
+- Playwright initially exposed an invalid dev-server invocation (the Native Federation builder does not accept the generic `--host` argument). Updated the Playwright webServer command to use Angular's `serve-original` target.
+- The next run exposed that the base Angular build target had no explicit `development` configuration. Added a development configuration with optimization disabled and source maps enabled.
+- Commits: CI trigger/skip correction (see branch history), Playwright server correction (see branch history), and `0b228c3adb90b0c31d1ae800e4dea82fbe7e4409` (Angular development build configuration).
+- GitHub Actions run [#45970806834](https://github.com/alexandre-aparicio/Bee-core/actions/runs/45970806834), commit `0b228c3`, is currently in progress. At the last inspection, backend build, Connected Devices federation remote build, Documents signed package generation, backend tests, Angular production build, and browser smoke/template tests were running or had completed their prerequisite steps; no job had yet reported a failure in this run.
+- An earlier run exposed the Playwright server startup issue and failed its browser job; its backend build and federation/package-generation steps passed, but that run was superseded and did not complete all checks. The current run must finish with every required job green before calling CI passed.
+- CI is now active on the feature branch. This does not constitute verification of the live VPS asset endpoint or the protected asset 404; those remain separate deployment/runtime gates. Do not merge to `main`.
