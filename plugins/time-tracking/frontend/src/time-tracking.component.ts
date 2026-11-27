@@ -3,6 +3,7 @@ import { Component, Input, OnInit, ChangeDetectionStrategy } from "@angular/core
 import { FormsModule } from "@angular/forms";
 import { TimeTrackingApiService } from "./time-tracking-api.service";
 import { BeeI18nService } from "../../../../apps/web/src/app/i18n/bee-i18n.service";
+import { TIME_TRACKING_EN, TIME_TRACKING_ES } from "../../../../apps/web/src/app/i18n/catalogs/modules/time-tracking.catalog";
 type ClockEvent={type:string;occurredAt:string;source:string};
 type TimeSession={id:string;status:"working"|"on_break"|"closed";startedAt:string;endedAt:string|null;events:ClockEvent[]};
 type TeamMember={userId:string;email:string;role:string};
@@ -12,7 +13,7 @@ type Correction={id:string;sessionId:string;userEmail?:string;eventType:"clock_i
 @Component({selector:"bee-time-tracking",standalone:true,providers:[TimeTrackingApiService],imports:[CommonModule,FormsModule],templateUrl:"./time-tracking.component.html",changeDetection: ChangeDetectionStrategy.Eager,
 styleUrls:["./time-tracking.component.css"]})
 export class BeeTimeTrackingComponent implements OnInit {
- constructor(private readonly api:TimeTrackingApiService,private readonly i18n:BeeI18nService){}
+ constructor(private readonly api:TimeTrackingApiService,private readonly i18n:BeeI18nService){this.i18n.registerCatalog("time-tracking","en",TIME_TRACKING_EN);this.i18n.registerCatalog("time-tracking","es",TIME_TRACKING_ES);}
  t(key:string):string{return this.i18n.t("time-tracking:"+key);}
  weekday(day:number):string{const names=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];return this.t("weekday_"+(names[day]??"sunday"));}
  @Input() tenantId=""; @Input() role="member"; @Input() accessToken=""; @Input() section="";
@@ -23,6 +24,7 @@ export class BeeTimeTrackingComponent implements OnInit {
  correctionTarget:{sessionId:string;eventType:"clock_in"|"clock_out";originalAt:string}|null=null;
  requestedAt=""; correctionReason="";
  ngOnInit():void{const legacy=new URLSearchParams(window.location.search).get("section");const section=this.section||legacy||"time-tracking-day";this.activeSection=section==="time-tracking-schedule"||section==="schedule"?"schedule":section==="time-tracking-history"||section==="history"?"history":section==="time-tracking-requests"||section==="requests"?"requests":"my-day";if(this.activeSection==="requests")this.activeSubTab="mine";void this.load();}
+ setSection(section:"my-day"|"schedule"|"history"|"requests"):void{this.activeSection=section;if(section==="requests")this.activeSubTab="mine";}
  get canManage():boolean{return ["owner","admin","manager","super_admin","superadmin"].includes(this.role.toLowerCase());}
  private request(path:string,method="GET",body?:unknown):Promise<any>{return this.api.request(this.accessToken,path,method,body);}
  async load():Promise<void>{
