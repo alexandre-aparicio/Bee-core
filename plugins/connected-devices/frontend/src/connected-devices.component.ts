@@ -120,7 +120,13 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
       this.canManage = Boolean(result.canManage);
       for (const device of this.devices) if (device.status === "pending" && !this.grants[device.id]) this.grants[device.id] = [...(device.requestedCapabilities || [])];
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not load devices."; }
-    finally { this.loading = false; }
+    finally {
+      this.loading = false;
+      // A federated remote can complete fetch callbacks outside the host's
+      // change-detection turn. Commit the fetched list and loading state to
+      // this dynamically mounted view explicitly.
+      this.changeDetector.detectChanges();
+    }
   }
   toggleCapability(id: string, checked: boolean): void { this.selectedCapabilities = checked ? [...this.selectedCapabilities, id] : this.selectedCapabilities.filter(item => item !== id); }
   toggleGrant(deviceId: string, id: string, checked: boolean): void {
