@@ -82,6 +82,20 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
         reply.code(403).send({ error: "The device owner is no longer an active company member." });
         return null;
       }
+      const membership = await db.collection<{ role: string; restrictionRoleIds?: string[] }>("memberships").findOne(
+        { tenantId: device.tenantId, userId: device.ownerUserId, status: "active" },
+        { projection: { role: 1, restrictionRoleIds: 1, _id: 0 } }
+      );
+      const role = membership?.role === "super_admin" ? "owner" : membership?.role;
+      const permission = capability === "time-tracking.records.read" ? "time-tracking.read" : "time-tracking.clock";
+      // Match the current Control Horario manifest defaults. Unknown/custom roles and
+      // restricted memberships fail closed until the device contract can resolve their
+      // full user permission context from Core.
+      const defaultGrant = ["owner", "admin", "manager", "member"].includes(String(role));
+      if (!membership || !defaultGrant || (membership.restrictionRoleIds?.length ?? 0) > 0) {
+        reply.code(403).send({ error: "The device owner does not have the required Control Horario permission: " + permission });
+        return null;
+      }
       return device;
     };
     const asTimeTrackingRequest = (request: any, device: any) => ({
