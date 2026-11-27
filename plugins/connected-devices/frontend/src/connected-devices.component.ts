@@ -18,20 +18,10 @@ type Device = {
   createdAt?: string;
 };
 type Pairing = { challengeId: string; qrPayload: string; expiresAt: string };
+type Capability = { id: string; label: string; description: string; group: string; order: number; operations: string[] };
 type DeviceView = "cards" | "table";
 
-const CAPABILITIES = [
-  { id: "device.status.write", label: "Device status" },
-  { id: "scanner.use", label: "Scanner" },
-  { id: "camera.capture", label: "Camera" },
-  { id: "catalog.read", label: "Read catalog" },
-  { id: "inventory.read", label: "Read inventory" },
-  { id: "inventory.write", label: "Write inventory" },
-  { id: "pos.session.read", label: "Read POS session" },
-  { id: "pos.order.write", label: "Create POS orders" },
-  { id: "location.read", label: "Location" },
-  { id: "notifications.receive", label: "Notifications" }
-] as const;
+
 
 @Component({
   selector: "bee-connected-devices",
@@ -49,7 +39,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   @Input() assetBaseUrl = "";
   @Input() section = "";
 
-  readonly capabilities = CAPABILITIES;
+  capabilities: Capability[] = [];
   devices: Device[] = [];
   selectedCapabilities: string[] = ["device.status.write"];
   grants: Record<string, string[]> = {};
@@ -92,7 +82,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   clearFilters(): void { this.search = ""; this.statusFilter = "all"; this.typeFilter = "all"; }
   openCreate(): void {
     this.error = ""; this.message = ""; this.pairing = null;
-    this.selectedCapabilities = ["device.status.write"];
+    this.selectedCapabilities = [];
     this.modalOpen = true;
   }
   closeModal(): void {
@@ -151,7 +141,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
     return promise;
   }
   async createPairing(): Promise<void> {
-    if (this.busy || !this.selectedCapabilities.length) return;
+    if (this.busy) return;
     this.busy = true; this.error = ""; this.message = "";
     try {
       await this.loadQrLibrary();
@@ -186,7 +176,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
     try { await navigator.clipboard.writeText(this.pairing.qrPayload); this.message = "Pairing code copied."; }
     catch { this.error = "Could not copy the code. Select it manually."; }
   }
-  async approve(device: Device): Promise<void> {
+  capabilityLabel(id: string): string { return this.capabilities.find(item => item.id === id)?.label || id; }\n  async saveCapabilities(device: Device): Promise<void> {\n    const grantedCapabilities = this.grants[device.id] || [];\n    await this.runAction(() => this.request("/connected-devices/" + encodeURIComponent(device.id) + "/capabilities", "PATCH", { grantedCapabilities }), "Device capabilities updated.");\n  }\n  async approve(device: Device): Promise<void> {
     const grantedCapabilities = this.grants[device.id] || [];
     if (!grantedCapabilities.length) return;
     await this.runAction(() => this.request("/connected-devices/" + encodeURIComponent(device.id) + "/approve", "POST", { grantedCapabilities }), "Device approved.");
