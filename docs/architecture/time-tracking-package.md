@@ -1,10 +1,30 @@
-# Control Horario 0.2.2: backend-only ZIP and VPS signing
+# Control Horario — package and frontend architecture
 
-Control Horario is a backend-only signed ZIP package. Its user interface is a native Angular component registered by `apps/web/src/app/time-tracking/time-tracking.frontend.ts`; it is not served from the ZIP and does not use an iframe. The native component remains untouched by the package cleanup. The ZIP carries the backend entrypoint, its complete relative-import module graph, the signed manifest and a README. It must not contain a `frontend/` directory, frontend entrypoint or frontend assets.
+## Current state
 
-## VPS package publication
+Control Horario's backend is delivered as a signed ZIP package. Its Angular UI is still a statically registered host component at `apps/web/src/app/time-tracking/time-tracking.frontend.ts`. This is a transitional state, not the target architecture.
 
-Package creation and signing remain owner-side VPS operations. GitHub Actions validates the repository build logic; it does not publish or sign the production ZIP.
+The target is the same **Native Federation remote architecture as Connected Devices**. The frontend migration will move the component, templates, styles, translations and assets into `plugins/time-tracking/frontend`, expose a component through `remoteEntry.json`, and include the compiled remote distribution in the signed Control Horario ZIP.
+
+The remote must resolve Angular dependencies from `apps/web/node_modules` and share them as strict singletons. Do not install or package a second Angular runtime. The generic Core outlet will validate the authorized remote entry and mount the Angular component in the host document. No static Control Horario component import or module-specific loader branch should remain after migration.
+
+Native Federation runs in the host JavaScript realm; it is not an iframe or an isolation sandbox. Only reviewed, signed first-party code may use this transport. Existing backend permissions and tenant checks remain authoritative.
+
+## Backend package contract
+
+The current package contract declares:
+- Package ID `time-tracking`, version `0.2.2`.
+- Backend entrypoint `dist/backend/index.mjs`.
+- Dependencies `auth` and `organizations`; required services `mongoDbName` and `sessionIdSecret`.
+- API prefix `/time-tracking`.
+- Existing install migration `001_create_time_tracking_indexes` with its immutable checksum.
+- The current activation policy as declared by its manifest; the frontend migration must not silently change it.
+
+The backend ZIP currently omits a frontend directory and contains no Angular remote entrypoint. This will change only when the Native Federation build and package pipeline is implemented and tested.
+
+## Package publication and signing
+
+Package creation and signing are owner-side release operations. GitHub Actions validates the repository build logic; it does not publish or sign the production ZIP.
 
 From the Bee-Core checkout, after dependencies are installed, run:
 
@@ -12,31 +32,26 @@ From the Bee-Core checkout, after dependencies are installed, run:
 npm run build:plugin-packages
 ```
 
-The process requires these environment variables from the VPS secret/environment configuration:
-
+The process requires these environment variables from the release environment:
 - `BEE_PLUGIN_PUBLISHER_PRIVATE_KEY`: PKCS#8 PEM private key, used only to sign.
-- `BEE_PLUGIN_PUBLISHER_PUBLIC_KEY`: matching SPKI PEM public key, used to validate the key pair and verify the signature immediately after signing.
+- `BEE_PLUGIN_PUBLISHER_PUBLIC_KEY`: matching SPKI PEM public key, used to verify the key pair and signature.
 
-The publisher accepts matching Ed25519 or RSA key pairs. It uses the EdDSA null-digest mode for Ed25519 and SHA-256 for RSA, matching the runtime ZIP verifier. It refuses missing, malformed, unsupported or mismatched keys. Each signature is verified before the ZIP is written. Key material is not a package asset and must never be copied into a ZIP or committed to the repository. Bee-Core verifies the signature with the public key configured on the server.
+The publisher accepts matching Ed25519 or RSA key pairs. Key material must never be copied into a ZIP or committed to the repository. Bee-Core verifies the signature with the configured public key.
 
-**Required owner action:** rebuild, sign and upload `time-tracking-0.2.2.zip` to the VPS package catalog, then run the normal tenant package update flow for existing installations. The update from 0.2.1 to 0.2.2 exercises the package upgrade path. Do not remove or recreate tenant installations, sessions, schedules, corrections or other tenant data.
+## Upgrade and data preservation
 
-## Package contract
+The install migration is immutable and tenant-scoped. Repeating an install at the same package version skips an already-applied migration. A package upgrade selects only migrations tagged for the upgrade phase; it must not rerun install migrations.
 
-The signed manifest declares:
+Frontend migration must not recreate tenant installations or alter employee records, schedules, time entries, breaks, corrections, approvals, audit history or other existing tenant data. Preserve API routes, payloads, permissions and business behavior.
 
-- Package ID `time-tracking`, version `0.2.2`, automatic activation.
-- Backend entrypoint `dist/backend/index.mjs`.
-- Dependencies `auth` and `organizations`; required services `mongoDbName` and `sessionIdSecret`.
-- API prefix `/time-tracking`, stored in `frontend.apiPrefixes` so the dynamic runtime dispatches requests to the backend-only package.
-- The existing install migration `001_create_time_tracking_indexes` with its unchanged checksum.
+## Required migration and verification
 
-The package builder intentionally omits the Control Horario Angular frontend source and its former standalone `index.html` / `main.js` files. The generated backend-only manifest retains an empty frontend route list for schema compatibility, with no frontend entrypoint or assets. The package test installs the generated signed ZIP and asserts that no `frontend/` directory is extracted.
+1. Create the Native Federation remote project under `plugins/time-tracking/frontend`.
+2. Expose the Angular component through `./Component` and configure strict singleton sharing with the host workspace.
+3. Add a reproducible remote build to the package pipeline and include remote entry, chunks and assets in the signed ZIP.
+4. Verify ZIP contents, manifest metadata, signature and remote-entry contract.
+5. Load the remote through the generic outlet only after tenant entitlement, installation, activation and user permission checks.
+6. Remove the static host registration only after browser and owner-VPS validation.
+7. Keep existing backend package versioning/migration guarantees and test upgrade from the current installed version without data loss.
 
-## Migration and upgrade behavior
-
-The install migration is immutable and tenant-scoped. Repeating an install at the same package version skips the already-applied migration. A package upgrade selects only migrations tagged for the `upgrade` phase; it does not rerun install migrations. CI tests both same-version idempotency and the upgrade-phase selection.
-
-## Verification boundary
-
-Repository tests and CI can validate package construction using ephemeral test keys, manifest contents, migration behavior and the native frontend registration. They cannot prove that the VPS secrets are configured correctly or that a ZIP has actually been produced, signed, uploaded and updated on the VPS. The owner must complete that operational check without printing either key. The native Angular frontend registration and `e2e/time-tracking.spec.ts` remain the UI implementation and browser regression coverage.
+Acceptance tests cover package build/signature, remote loading, navigation, tenant isolation, role permissions, clock-in/out and other critical workflows, package upgrade and preservation of existing tenant data. A successful backend-only ZIP build does not mean the frontend migration is complete.

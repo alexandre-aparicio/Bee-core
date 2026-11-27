@@ -1,98 +1,86 @@
 # Building a Bee-Core business plugin
 
-This guide describes the current trusted, statically bundled plugin workflow. It is the reference pattern for backend and Angular code until immutable package archive distribution and dynamic component loading are completed.
+This guide describes the target first-party plugin architecture: a tenant-scoped backend package delivered as a signed ZIP and, when the plugin has an Angular UI, a Native Federation remote bundled in that same versioned package.
 
-## 1. Create the backend package
+## 1. Keep the plugin boundary independent
 
-Create `src/plugins/<plugin-id>/<plugin-id>.plugin.ts` and export a `BeePlugin`:
+Place backend code and its `plugin.manifest.ts` under `src/plugins/<plugin-id>/`. The plugin owns its domain routes, services, repositories, migrations, permissions and lifecycle hooks. Core owns authentication, tenant resolution, shared infrastructure, package verification, entitlements and the generic runtime.
 
-```ts
-export const examplePlugin: BeePlugin = {
-  manifest: {
-    name: "example",
-    version: "0.1.0",
-    description: "Example company feature",
-    dependencies: ["auth", "organizations", "marketplace"],
-    frontend: { routes: [{ path: "/dashboard/example", component: "bee-example" }] }
-  },
-  async initialize(ctx) {
-    // Connect to MongoDB and register API routes.
-  },
-  async stop() {
-    // Close resources.
-  }
-};
-```
+Declare dependencies explicitly. Do not import another business plugin's internal collections or frontend components. Optional integrations must remain optional.
 
-Register it in `src/index.ts` after its declared dependencies. The plugin manager validates dependency ordering during startup.
+## 2. Enforce tenant and user authorization
 
-## 2. Resolve company context and permissions
+For every protected API:
+1. Verify the session/access token.
+2. Resolve the active tenant from the authenticated session and persisted membership; never trust a tenant ID supplied by the browser.
+3. Check the plugin's entitlement/grant, installation and enabled/activation state.
+4. Check the user's specific permission for the operation.
+5. Scope every business query and mutation to the resolved tenant.
 
-For every protected route:
-1. Verify the JWT using `request.jwtVerify()`.
-2. Resolve the persisted session and active membership with `resolveTenantContext(db, request.user)`, or use `requireAuth(db, "dashboard")`.
-3. Check a stable permission key with `requireTenantPermissions("example.read")`.
-4. Check that the company is entitled to and has installed the plugin with `requireInstalledPlugin(db, "example")`.
+The menu and frontend outlet are presentation controls only. Backend authorization is mandatory even when the plugin is not visible in navigation.
 
-Never trust `tenantId` from a body, query parameter or arbitrary header. The active tenant comes from the verified session and membership.
+## 3. Scope business data
 
-## 3. Scope every business collection
+Use the repository's tenant-scoped collection/service abstractions for company-owned records. Do not expose a raw collection path that bypasses tenant filtering. Preserve existing collection names, identifiers and records during package or frontend migrations.
 
-Use `TenantCollection` for all company-owned records:
+Add cross-tenant tests for list, detail, create, update and delete. Two tenants using the same business key must never see or modify each other's records.
 
-```ts
-const records = new TenantCollection<ExampleRecord>(
-  db.collection<ExampleRecord>("tenant_example_records"),
-  tenantContext.tenantId
-);
-const record = await records.findOne({ id: requestedId });
-```
+## 4. Declare the package manifest
 
-The facade scopes reads, updates, deletes and counts, stamps inserts, prevents tenant ownership changes and supports tenant-prefixed unique indexes. Do not retain or expose a second raw collection reference for business queries.
+The plugin-owned manifest declares at least:
+- stable plugin ID and semantic version;
+- description, category and dependencies;
+- backend entrypoint and required host services;
+- permission definitions and tenant data/migration declarations;
+- activation policy and tenant-facing scope;
+- frontend transport and route/navigation metadata when a UI exists.
 
-Add cross-company tests for list, detail, update and delete. Two companies must be able to use the same business key without seeing each other's records.
+The package builder consumes the manifest; do not maintain a second handwritten copy of permissions or routes in Core. Keep migration IDs/checksums immutable once released. Any compensating migration must be explicit and tested.
 
-## 4. Register the trusted package and plan access
+## 5. Build an Angular remote
 
-Add a `PluginPackageDefinition` in `src/core/plugin-entitlements.ts`:
-- unique plugin ID and semantic version;
-- description/category and visible plan IDs;
-- included plan IDs and whether individual purchase is allowed;
-- system flag and plugin dependencies;
-- tenant install/update/uninstall hooks. Migration IDs and checksums are immutable; each migration should provide a `down` handler when its effects can be compensated.
+For a first-party plugin with an Angular interface:
 
-The trusted package registry is code-reviewed and bundled in the server image. MongoDB stores catalogue/version metadata and company entitlement/installation state. The manifest validator rejects invalid semantic dependency ranges, duplicate dependency/permission/collection/migration/route declarations and unsafe paths. Do not add arbitrary executable JavaScript from user uploads to the registry. Digest/signature fields are contract metadata today; cryptographic package verification is not yet connected to installation.
+1. Create a separate Angular remote project under `plugins/<plugin-id>/frontend`.
+2. Reuse Angular dependencies from `apps/web/node_modules`; do not create a second Angular installation in the plugin.
+3. Configure Native Federation with a stable remote name and expose `./Component` from a small `src/plugin.component.ts` entrypoint.
+4. Share Angular and required framework packages as strict singletons with versions resolved from the host workspace.
+5. Keep component, template, styles, translations and plugin-owned assets inside the remote project.
+6. Build the remote before packaging. The generated distribution must include `remoteEntry.json`, all referenced chunks and assets.
+7. Add the remote output to the same signed ZIP as the backend entrypoint and `bee-plugin.json`.
 
-## 5. Build the Angular component
+The build and ZIP generation must work from a clean checkout with one documented command. Do not rely on `NODE_PATH`, manually copying `node_modules`, or untracked VPS changes.
 
-Create a standalone component under `apps/web/src/app/<plugin-id>/`. Use the authenticated API and never send a client-selected tenant ID. Mount it only when the marketplace reports that the active company has both entitlement and installation.
+## 6. Runtime loading and navigation
 
-For write controls, pass the active company role or effective permission state and hide actions the user cannot perform. The backend must still enforce the permission independently.
+Do not statically import a migrated plugin component into the Core Angular registry or dashboard root. The host's generic outlet receives the authorized runtime descriptor, validates the remote entry and loads the exposed component through Native Federation.
 
-Register the standalone component in `BeePluginFrontendRegistry`; `BeePluginOutletComponent` mounts it when the marketplace reports the plugin as entitled and installed. The registry currently contains statically bundled trusted components; the manifest route is metadata, not a remote Angular loader. Remote frontend loading remains intentionally disabled until immutable package archives and publisher verification are implemented.
+Navigation metadata is read from the verified manifest and exposed only when the tenant has the required entitlement/grant, installation and enabled state. The generic outlet must not contain plugin-specific component branches.
 
-## 6. Tests required before merging
+The remote runs in the host document and JavaScript realm. Native Federation is not an isolation sandbox: only reviewed, signed, trusted first-party code belongs in this transport. Legacy sandboxed iframe packages remain a separate compatibility model for isolated HTML/JavaScript payloads.
 
-- backend typecheck and production build;
-- MongoDB integration tests using at least two companies;
-- entitlement filtering by plan and individual purchase;
-- install/update/uninstall, migration rollback after injected hook/migration failures and data preservation after revocation;
-- stale-worker lease rejection and long-running lease renewal;
-- member/manager/admin permission tests;
-- Angular production build and Playwright test for install, UI activation and CRUD;
-- Docker Compose full-stack integration.
+## 7. Package publication and tenant lifecycle
 
-## Current reference implementation
+The publisher signs versioned ZIPs with the release private key. The private key must come from the release environment and must never be committed or included in a package. The platform verifies signature, digest, manifest, compatibility, dependencies and safe paths before persisting/registering the package.
 
-The `hello-world` package demonstrates the minimal signed-ZIP runtime contract. Marketplace lifecycle and tenant-isolation integration tests use a test-only generic workspace fixture; it is not shipped as a product module.
+Platform upload is distinct from tenant entitlement and installation. Preserve each plugin's declared activation policy. A package must not become available to all tenants merely because it exists in the platform catalog.
 
-## Not yet available
+## 8. Required tests
 
-- arbitrary third-party package upload or remote code execution;
-- immutable central package archives and install-time signature verification;
-- dynamic Angular component/route loading;
-- durable install/upgrade jobs and full migration rollback;
-- public-site plugin component registration;
-- payment checkout and customer billing portal.
+- backend typecheck, build and package-entrypoint import;
+- signature, digest, manifest, dependency and unsafe-path rejection;
+- tenant isolation and user permission tests;
+- entitlement, install, enable, disable, revoke and uninstall behavior;
+- package upgrade/migration idempotency and data preservation;
+- clean Native Federation remote build with singleton Angular dependencies;
+- ZIP contents and remote-entry metadata validation;
+- browser loading, navigation, tenant switching and critical module workflows;
+- production host build and full package lifecycle integration.
 
-Do not bypass these constraints by importing or executing untrusted package code.
+## Current reference and migration status
+
+Connected Devices is the Native Federation reference implementation in the `refactor/native-angular-plugin-runtime` branch. Documents and Control Horario are planned migrations: their current statically registered Angular frontends must be moved into their own remotes without changing backend contracts or tenant data.
+
+Hola Mundo remains a deliberately small sandboxed iframe example; it demonstrates the legacy isolated HTML transport, not the first-party Angular remote pattern.
+
+Do not describe a plugin as migrated until its signed package, runtime loading, authorization, navigation and browser acceptance tests all pass.
