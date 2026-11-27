@@ -3,7 +3,7 @@ import type { PluginAccessService } from "../../core/plugin-services.js";
 import type { TimeTrackingRepository } from "./time-tracking.repository.js";
 import { createTimeTrackingHandlers } from "./time-tracking.handlers.js";
 
-/** Thin controller: creates handlers and mounts the plugin routes on Fastify. */
+/** Plugin-owned HTTP boundary: applies Core identity, entitlement and permission checks before handlers. */
 export async function registerTimeTrackingRoutes(ctx: any, repository: TimeTrackingRepository, access: PluginAccessService): Promise<void> {
   const secret = String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret ?? "");
   const requireAvailable = async (request: any, reply: any) => {
