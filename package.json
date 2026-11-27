@@ -10,7 +10,7 @@
     "start": "node dist/index.js",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "node --import tsx --test --test-concurrency=1 --test-timeout=120000 --test-force-exit test/*.test.ts",
-    "build:plugin-packages": "npm run build && node scripts/build-connected-devices-remote.mjs && node scripts/build-plugin-packages.mjs"
+    "build:plugin-packages": "npm run build && node scripts/build-connected-devices-remote.mjs && node scripts/build-time-tracking-remote.mjs && node scripts/build-plugin-packages.mjs"
   },
   "dependencies": {
     "@fastify/jwt": "^10.2.8",
