@@ -56,7 +56,8 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
   if(!device){reply.code(401).send({error:"Invalid, revoked or inactive device credential."});return null;}
   return device;
  };
- return {secret,repository,access,capabilities,dashboardTenant,deviceFromCredential,authenticateDevice};
+ const hasCapability=(tenantId:string,deviceId:string,capability:string)=>hasConnectedDeviceCapability(repository.devices.db,access,tenantId,deviceId,capability,capabilities);
+ return {secret,repository,access,capabilities,dashboardTenant,deviceFromCredential,authenticateDevice,hasCapability};
 }
 /** Public integration contract for consuming plugins. Tenant ID must come from Core's authenticated context. */
 export async function hasConnectedDeviceCapability(db:Db,access:PluginAccessService,tenantId:string,deviceId:string,capability:string,registry:ConnectedDeviceCapabilityRegistry):Promise<boolean>{
