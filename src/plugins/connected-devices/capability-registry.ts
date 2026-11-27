@@ -45,6 +45,10 @@ export class ConnectedDeviceCapabilities implements ConnectedDeviceCapabilityReg
       const existing = this.definitions.get(item.id);
       if (existing && existing.providerPlugin !== providerPlugin) throw new Error("Capability ID is already owned by another plugin: " + item.id);
     }
+    const nextIds = new Set(pending.map(item => item.id));
+    for (const [id, existing] of this.definitions) {
+      if (existing.providerPlugin === providerPlugin && !nextIds.has(id)) this.definitions.delete(id);
+    }
     for (const item of pending) this.definitions.set(item.id, Object.freeze(item));
   }
 
