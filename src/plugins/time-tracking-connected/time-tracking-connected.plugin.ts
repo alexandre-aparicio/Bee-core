@@ -71,7 +71,7 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
       const [extensionAvailable, timeTrackingAvailable, granted] = await Promise.all([
         access.isPluginAvailable(device.tenantId, "time-tracking-connected"),
         access.isPluginAvailable(device.tenantId, "time-tracking"),
-        hasConnectedDeviceCapability(db, access, device.tenantId, device.id, capability)
+        hasConnectedDeviceCapability(db, access, device.tenantId, device.id, capability, registry)
       ]);
       if (!extensionAvailable || !timeTrackingAvailable || !granted) {
         reply.code(403).send({ error: "This device is not authorized for the requested Control Horario action." });
