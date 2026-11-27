@@ -26,7 +26,7 @@ test("Connected Devices signed ZIP contains backend only", async () => {
   const manifest = await readFile(resolve(root, "src/plugins/connected-devices/plugin.manifest.ts"), "utf8");
   const definition = builder.match(/\{ id: "connected-devices",[\s\S]*?\},\n\s*\{ id: "time-tracking"/)?.[0] ?? "";
   assert.ok(definition, "Connected Devices package definition must exist");
-  assert.match(definition, /frontend:\s*\{\s*routes:\s*\[\],\s*apiPrefixes:\s*\["\/connected-devices"\]\s*\}/);
+  assert.match(definition, /version: "0\\.1\\.6"/);\n  assert.match(definition, /activationPolicy: "automatic"/);\n  assert.match(definition, /frontend:\s*\{\s*routes:\s*\[\],\s*apiPrefixes:\s*\["\/connected-devices"\]\s*\}/);
   assert.match(plugin, /version:"0\.1\.5"/);
   assert.doesNotMatch(plugin, /frontend:/);
   assert.match(manifest, /version: "0\.1\.5"/);
