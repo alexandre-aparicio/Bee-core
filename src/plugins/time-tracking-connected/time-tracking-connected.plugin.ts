@@ -2,8 +2,7 @@ import type { BeePlugin } from "../../core/types.js";
 import type { PluginAccessService } from "../../core/plugin-services.js";
 import { ConnectedDeviceCapabilities } from "../connected-devices/capability-registry.js";
 import { hasConnectedDeviceCapability } from "../connected-devices/connected-devices.service.js";
-import { TimeTrackingRepository } from "../time-tracking/time-tracking.repository.js";
-import { createTimeTrackingHandlers } from "../time-tracking/time-tracking.handlers.js";
+import type { TimeTrackingDeviceApi } from "../time-tracking/time-tracking-device.contract.js";
 
 type DeviceAuthenticator = {
   authenticateDevice(request: any, reply: any): Promise<any>;
@@ -31,7 +30,8 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
     const access = ctx.services?.get<PluginAccessService>("core.plugin-access");
     const registry = ctx.services?.get<ConnectedDeviceCapabilities>("connected-devices.capabilities");
     const deviceAuth = ctx.services?.get<DeviceAuthenticator>("connected-devices.device-auth");
-    if (!access || !registry || !deviceAuth) {
+    const timeTracking = ctx.services?.get<TimeTrackingDeviceApi>("time-tracking.device-api");
+    if (!access || !registry || !deviceAuth || !timeTracking) {
       throw new Error("Time Tracking Connected requires the Connected Devices capability and device-auth contracts.");
     }
 
@@ -65,10 +65,6 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
       }
     ]);
 
-    const repository = new TimeTrackingRepository(db);
-    await repository.initializeIndexes();
-    const handlers = createTimeTrackingHandlers(repository, String(ctx.config.sessionIdSecret ?? ""));
-
     const authorize = async (request: any, reply: any, capability: string) => {
       const device = await deviceAuth.authenticateDevice(request, reply);
       if (!device) return null;
@@ -101,31 +97,33 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
       }
       return device;
     };
-    const asTimeTrackingRequest = (request: any, device: any) => ({
-      body: { ...(request.body ?? {}), source: "android" },
-      query: request.query ?? {},
-      tenantContext: { tenantId: device.tenantId, userId: device.ownerUserId }
+    const operationInput = (request: any, device: any) => ({
+      tenantId: device.tenantId,
+      userId: device.ownerUserId,
+      operationId: String(request.body?.operationId ?? ""),
+      limit: request.query?.limit
     });
+    const sendResult = (reply: any, result: { statusCode: number; body: unknown }) => reply.code(result.statusCode).send(result.body);
 
     ctx.server.post("/connected-devices/device/time-tracking/clock-in", async (request: any, reply: any) => {
       const device = await authorize(request, reply, "time-tracking.clock-in");
       if (!device) return;
-      return handlers.clockIn(asTimeTrackingRequest(request, device), reply);
+      return sendResult(reply, await timeTracking.clockIn(operationInput(request, device)));
     });
     ctx.server.post("/connected-devices/device/time-tracking/clock-out", async (request: any, reply: any) => {
       const device = await authorize(request, reply, "time-tracking.clock-out");
       if (!device) return;
-      return handlers.clockOut(asTimeTrackingRequest(request, device), reply);
+      return sendResult(reply, await timeTracking.clockOut(operationInput(request, device)));
     });
     ctx.server.get("/connected-devices/device/time-tracking/status", async (request: any, reply: any) => {
       const device = await authorize(request, reply, "time-tracking.records.read");
       if (!device) return;
-      return handlers.status(asTimeTrackingRequest(request, device));
+      return sendResult(reply, await timeTracking.status(operationInput(request, device)));
     });
     ctx.server.get("/connected-devices/device/time-tracking/sessions", async (request: any, reply: any) => {
       const device = await authorize(request, reply, "time-tracking.records.read");
       if (!device) return;
-      return handlers.sessions(asTimeTrackingRequest(request, device));
+      return sendResult(reply, await timeTracking.sessions(operationInput(request, device)));
     });
 
     ctx.logger.info("Time Tracking Connected initialized: three extension capabilities registered.");
