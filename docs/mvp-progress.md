@@ -1,33 +1,20 @@
-# Estado MVP y verificación de integración
-
-## Base consolidada
-- Main CI baseline: PR #219–#227 integrados; regresiones posteriores verificadas en CI.
-- Contrato genérico de plugins y aislamiento tenant-scoped: implementados y cubiertos por pruebas.
-- Connected Devices ZIP-only baseline y migración de asignaciones heredadas: verificados antes de Native Federation.
-- ADR: Native Federation es el patrón para plugins Angular first-party; HTML/JS aislado conserva iframe.
-- Documents y Control Horario: sus backends siguen como paquetes firmados; su migración frontend a Native Federation no forma parte de este PR.
-
-## PR #244 — Native Federation y Angular 22
-- Rama: `integration/full-stack-modernization`.
-- HEAD revisado: `1651470bd0c0fbb90280ce6a2583f726202acc93`.
-- Base: `main` en `8115b5218003b1b5522f24ac1ea4103915fcbe91`; comparación: 195 commits ahead, 0 behind.
-- CI #1308, ejecución sobre el merge ref del HEAD actual: 3/3 jobs correctos.
-- Backend: 157 tests passed, 0 failed, 0 skipped; MongoDB 8 en servicio Docker de CI.
-- Angular: instalación limpia `npm ci`, build de producción del host y build del remote Connected Devices correctos.
-- Paquetes: build de los cuatro ZIP firmados y pruebas de instalación/verificación de firma, manifiesto, backend y assets correctas.
-- Marketplace: pruebas de integración cubren concesión/aislamiento tenant, instalación, activación, desactivación, desinstalación, actualización y auditoría.
-- Playwright: 34/34 correctos; incluye carga del remote Native Federation real, listado, filtros, vistas y DELETE sin body.
-- Capturas de seis plantillas en claro/oscuro publicadas como artefacto CI `bee-core-template-screenshots`.
-- Inventario del diff: 85 archivos; GitHub no reporta conflictos, comentarios ni hilos de revisión pendientes.
-- El E2E del remote simula API y entrega de assets protegidos; no acredita el endpoint real tras Nginx en el VPS.
-- La revisión de configuración Nginx/CSP es estática; no equivale a una comprobación HTTP en despliegue.
-
-## Pendiente fuera de CI
-- Validar en un entorno VPS/staging el upload del ZIP firmado con la clave real, montaje runtime, remoteEntry/assets protegidos y headers CSP/Nginx.
-- Comprobar navegación y estilos de Connected Devices en los seis temas y ambos modos en el despliegue real.
-- Confirmar asignaciones Starter/Pro/Enterprise y acceso de tenants existentes sin modificar ni borrar datos.
-- No se ha desplegado ni se ha alterado producción. No marcar el despliegue como verificado hasta completar estas comprobaciones.
-
-## Otras validaciones
-- Backend local 27/11/2026: 157/157 con Node 22.22.3 y MongoDB 9.0.8; detalle en `docs/backend-validation-2026-11-27.md`.
-- Phase 5 (quality gates/bug hunt) y Phase 6 (docs/hygiene) siguen fuera del alcance de este PR.
+| Scope | Status | Evidence / remaining work |
+|---|---|---|
+| Main baseline | Done | PRs #219–#227 integrated; generic plugin contract and tenant isolation retained. |
+| Connected Devices ZIP baseline | Done | Signed ZIP runtime, tenant-scoped discovery and legacy assignment migration verified before Native Federation. |
+| Native Federation architecture | Done | ADR defines Native Federation for first-party Angular remotes; isolated HTML/JS plugins remain in iframe. |
+| PR #244 — Angular 22 / Connected Devices | CI verified | Candidate branch `integration/full-stack-modernization`; current CI must pass on exact HEAD before merge. |
+| CI #1308 | Passed | SHA `1651470bd0c0fbb90280ce6a2583f726202acc93`; backend, Angular and browser jobs 3/3 green. |
+| Backend suite | Passed | CI: 157 tests, 157 passed, 0 failed, 0 skipped. |
+| Angular / Federation builds | Passed | Clean `npm ci`; production host build and Connected Devices remote build passed. |
+| Signed plugin packages | Passed | Four ZIP packages built; package signature, manifest, extraction, backend and assets tests passed. |
+| Marketplace lifecycle | Passed | Integration coverage: tenant isolation, install, enable, disable, uninstall, update and audit. |
+| Browser E2E | Passed | 34/34 Playwright tests; real remote loaded; list, filters, views and DELETE without body. Six templates captured in Light/Dark. |
+| CI #1310 | Failed — docs only | 156/157 backend tests; `test/docs-hygiene.test.ts` requires `docs/mvp-progress.md` to contain tables only. Angular and browser jobs passed. |
+| CI #1311 | Pending | Re-run required after restoring the required table-only format. |
+| VPS / staging | Not verified | Upload ZIP with real signing key; verify runtime mount, protected remoteEntry/assets and Nginx/CSP headers. |
+| Tenant / visual acceptance | Not verified | Confirm Starter/Pro/Enterprise assignments and existing tenant access; inspect six templates in both modes without changing tenant data. |
+| Documents / Control Horario | Planned | Backends remain signed packages; frontend migration to Native Federation is future work, not included in PR #244. |
+| Phase 5 — Quality gates / bug hunt | Not started | Out of scope for PR #244. |
+| Phase 6 — Docs / hygiene | Not started | Out of scope beyond the progress-table constraint. |
+| Production | Untouched | No deployment or data changes made; `main` remains unchanged. |
