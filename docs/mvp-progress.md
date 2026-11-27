@@ -56,3 +56,11 @@
 - Angular also emitted four NG8107 optional-chain warnings in the template. They are warnings, not the build-stopping errors, and are not changed in this correction.
 - Commit: `ed3cca83f4ae8c81c400865800c9db49cdbcf6db`.
 - Source correction only; no tests, builds, or GitHub workflows were run. VPS compilation and package/signature generation remain unverified.
+
+
+### First successful Connected Devices package build — 2026-11-27
+- VPS ran `npm run build:plugin-packages` successfully after the QR loader typing correction. Backend TypeScript compilation and the Angular Native Federation remote build completed; the package script emitted ZIPs for Connected Devices, Time Tracking, Hello World, and Documents.
+- Connected Devices artifact reported by the VPS: `artifacts/plugin-packages/connected-devices-0.2.0.zip`, 612,217 bytes, 108 files, SHA-256 `fa8d75ab00c3dd8da0d67b4ecb2700d3d7441886fb4f289ddb591413309a8e46`. This is a build-script report, not yet an independent ZIP-content or signature verification.
+- Angular emitted four NG8107 warnings caused by optional chaining on properties typed as non-nullable. Updated the Connected Devices template to remove those redundant optional chains for `device.grantedCapabilities.length` and the pending-device grant map lookups.
+- Warning cleanup commit: `2ab89e4cddc0a310076a9eb61c68ddf94a1156a8`.
+- The first package build is successful. Warning-free rebuild, ZIP inspection, cryptographic signature verification, upload/installation, tenant entitlement activation, runtime loading, and final VPS validation remain pending. Do not merge to `main` until these release gates are completed.
