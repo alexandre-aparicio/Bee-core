@@ -16,7 +16,7 @@ on:
       - "tsconfig.json"
       - ".github/workflows/ci.yml"
   push:
-    branches: [main, refactor/template-base-and-packages, integration/template-refactor-into-main]
+    branches: [main, refactor/template-base-and-packages, integration/template-refactor-into-main, refactor/native-angular-plugin-runtime]
 
 permissions:
   contents: read
@@ -27,7 +27,6 @@ concurrency:
 
 jobs:
   backend:
-    if: github.event_name != 'pull_request' || github.head_ref != 'refactor/native-angular-plugin-runtime'
     name: Backend build and tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -86,7 +85,6 @@ jobs:
           }
 
   template-browser-tests:
-    if: github.event_name != 'pull_request' || github.head_ref != 'refactor/native-angular-plugin-runtime'
     name: Template browser tests and screenshots
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -116,7 +114,6 @@ jobs:
           retention-days: 14
 
   web:
-    if: github.event_name != 'pull_request' || github.head_ref != 'refactor/native-angular-plugin-runtime'
     name: Angular web build
     runs-on: ubuntu-latest
     timeout-minutes: 15
