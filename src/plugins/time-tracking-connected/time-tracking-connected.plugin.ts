@@ -16,7 +16,7 @@ type DeviceAuthenticator = {
 export const timeTrackingConnectedPlugin: BeePlugin = {
   manifest: {
     name: "time-tracking-connected",
-    version: "0.1.0",
+    version: "0.1.1",
     description: "Connected-device actions for Control Horario",
     dependencies: ["connected-devices", "time-tracking"],
     requiredServices: ["mongoDbName", "sessionIdSecret"],
@@ -67,7 +67,7 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
     const authorize = async (request: any, reply: any, capability: string) => {
       const device = await deviceAuth.authenticateDevice(request, reply);
       if (!device) return null;
-        const [extensionAvailable, granted] = await Promise.all([
+      const [extensionAvailable, granted] = await Promise.all([
         access.isPluginAvailable(device.tenantId, "time-tracking-connected"),
         deviceAuth.hasCapability(device.tenantId, device.id, capability)
       ]);
