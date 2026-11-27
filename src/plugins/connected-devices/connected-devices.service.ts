@@ -11,7 +11,7 @@ export const CONNECTED_DEVICE_CAPABILITIES = Object.freeze([
 ] as const);
 export type ConnectedDeviceCapability=typeof CONNECTED_DEVICE_CAPABILITIES[number];
 export function hashDeviceSecret(value:string):string{return createHash("sha256").update(value,"utf8").digest("hex");}
-export function normalizeRequestedCapabilities(value:unknown,availableIds:ReadonlySet<string>=new Set(CONNECTED_DEVICE_CAPABILITIES)):string[]{
+export function normalizeRequestedCapabilities(value:unknown,availableIds:ReadonlySet<string>=new Set()):string[]{
  if(!Array.isArray(value)||value.length>30)throw new Error("Choose up to 30 available capabilities.");
  const result=[...new Set(value.map(item=>String(item??"").trim()))];
  if(result.some(item=>!availableIds.has(item)))throw new Error("One or more requested capabilities are not currently available.");
