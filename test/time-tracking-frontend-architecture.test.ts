@@ -37,8 +37,8 @@ test("Control Horario is built as a signed Native Federation remote", async () =
   assert.match(backendPlugin, /version: "0\.2\.3"/);
   const remoteSource = await readFile(resolve(root, "plugins/time-tracking/frontend/src/time-tracking.component.ts"), "utf8");
   const remoteApi = await readFile(resolve(root, "plugins/time-tracking/frontend/src/time-tracking-api.service.ts"), "utf8");
-  assert.doesNotMatch(remoteSource, /apps\\/web\\/src\\/app/);
-  assert.doesNotMatch(remoteApi, /BeeI18nService/);
+  assert.ok(!remoteSource.includes("apps/web/src/app"));
+  assert.ok(!remoteApi.includes("BeeI18nService"));
   assert.ok(builder.includes('if (definition.id === "connected-devices")'));
   assert.ok(builder.includes('plugins/connected-devices/frontend/src/assets/qrcode.min.js'));
 });
