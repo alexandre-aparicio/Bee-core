@@ -1,6 +1,7 @@
 | Scope | Status | Evidence / remaining work |
 |---|---|---|
 | Main CI baseline | Done | CI Run 987, SHA `e4598686`; ZIP-only Connected Devices merge baseline. |
+| Main post-PR #242 regression | Fix committed; CI pending | Main SHA `8e10f21`: Playwright tenant-view selector aligned from obsolete `List view` to the current `Table view`; no assertion removed. CI Run `45984312140` is validating the correction. |
 | Baseline diagnostics | Partial | TODO=0, FIXME=0, HACK=0 verified by CI Run #45802486238; browser console-error guard remains NOT verified. |
 | Phase 1 — Retire Team Notes | Done | PR #219 merge `b3aa4c6`; tenant data preserved; CI run #45706575499. |
 | Phase 2 — Generic plugin contract | Done | PR #220 merge `d49f7d9`; exact-head CI run #45713713078, 3/3 jobs green. |
