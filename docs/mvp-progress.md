@@ -30,11 +30,11 @@
 | Documents backend | Migración en curso | ZIP y runtime común; retirar fallback bundled solo tras publicación y verificación real. |
 | Documents frontend | Migración planificada | Crear remote Native Federation en `plugins/documents/frontend`; preservar ACL, publicaciones y blobs. |
 | Hola Mundo | Ejemplo legacy | ZIP con HTML/JS en iframe sandbox; no es patrón para módulos Angular first-party. |
-| CI rama Native Federation | Verde en ejecución previa; integración con main no verificada | La ejecución previa de la rama no sustituye a las pruebas de esta integración. Confirmar SHA y jobs en GitHub antes de darla por válida. |
+| CI rama Native Federation | PASS integrado | Run #1307, SHA `fe234b7`; backend, Angular y Playwright: 3/3 jobs green. |
 | CI main | Verde en ejecución previa | Commit `dc43d30`; backend, Angular y Playwright completados correctamente. |
-| Integración de rama con main | En validación aislada | Esta fila solo podrá actualizarse tras resolver conflictos, ejecutar las pruebas integradas y obtener CI verde sobre el commit candidato. |
+| Integración de rama con main | CI PASS; pre-merge pendiente | 194 commits ahead, 0 behind; run #1307 green. Pendiente validación de instalación/despliegue y revisión final antes del merge. |
 | VPS / navegador | No verificado | Carga real, navegación, estilos, QR y flujos críticos pendientes. |
 | Migración de Documents y Control Horario | Planificada | No migrar hasta validar Connected Devices en producción y acordar la secuencia de migración. |
 
 | Verificación backend 27/11/2026 | PASS local | 157/157 tests con Node 22.22.3 y MongoDB 9.0.8; detalle en `docs/backend-validation-2026-11-27.md`. |
-| CI integración PR #244, run #1300 | FAIL | Host/remote Angular, ruta de salida Playwright y límite documental; correcciones en curso. |
+| CI integración PR #244, run #1307 | PASS | 3/3 jobs green: backend 157/157, Angular host/remote, Playwright 34/34. |
