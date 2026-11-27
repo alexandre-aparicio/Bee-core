@@ -88,7 +88,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!await isConnectedDeviceOwnerActive(access,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
   const available=await capabilities.listAvailable(tenant.tenantId,access),availableIds=new Set(available.map((item:any)=>item.id));
   let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[],availableIds);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
-  if(granted.some(capability=>!device.requestedCapabilities.includes(capability)))return reply.code(400).send({error:"Granted capabilities must be a subset of the device request."});
+  if(granted.some(capability=>!(device.requestedCapabilities??[]).includes(capability)))return reply.code(400).send({error:"Granted capabilities must be a subset of the device request."});
   const now=new Date(),result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:now}},{$set:{status:"active",grantedCapabilities:granted,approvedAt:now,approvedBy:tenant.userId,updatedAt:now}});
   if(!result.modifiedCount)return reply.code(409).send({error:"The device request changed. Refresh and try again."});
   const updated=await repository.devices.findOne({tenantId:tenant.tenantId,id});return {success:true,device:updated?publicDevice(updated):null};
@@ -186,7 +186,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  ctx.server.get("/connected-devices/device/me",async(request:any,reply:any)=>{
   const device=await authenticateDevice(request,reply);if(!device)return;
   const available=await capabilities.listAvailable(device.tenantId,access);
-  const allowed=available.filter((item:any)=>device.grantedCapabilities.includes(item.id));
+  const allowed=available.filter((item:any)=>(device.grantedCapabilities??[]).includes(item.id));
   return {device:{...publicDevice(device),requestedCapabilities:(device.requestedCapabilities??[]).filter((id:string)=>available.some((item:any)=>item.id===id)),grantedCapabilities:allowed.map((item:any)=>item.id)},capabilities:allowed};
  });
  ctx.server.get("/connected-devices/device/capabilities",async(request:any,reply:any)=>{
