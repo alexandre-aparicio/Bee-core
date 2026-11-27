@@ -45,7 +45,7 @@
               <button type="button" [class.is-active]="view==='cards'" [attr.aria-pressed]="view==='cards'" (click)="view='cards'" aria-label="Card view" title="Card view">▦</button>
               <button type="button" [class.is-active]="view==='table'" [attr.aria-pressed]="view==='table'" (click)="view='table'" aria-label="Table view" title="Table view">☷</button>
             </div>
-            <button type="button" class="bee-button bee-button--primary" (click)="openCreate()">＋ New device</button>
+            <button type="button" class="bee-button bee-button--primary" (click)="openCreate()">＋ Pair device</button>
           </div>
         </div>
 
@@ -90,7 +90,7 @@
                 <input type="checkbox" [checked]="grants[device.id].includes(capability)" (change)="toggleGrant(device.id,capability,$any($event.target).checked)">
                 {{capabilityLabel(capability)}}
               </label>
-              <button type="button" class="bee-button bee-button--primary" (click)="approve(device)" [disabled]="busy || !grants[device.id].length">Approve selected</button>
+              <button type="button" class="bee-button bee-button--primary" (click)="approve(device)" [disabled]="busy">Approve selected</button>
             </div>
             <footer class="bee-device-card__footer">
               <span class="bee-text-muted">{{device.appVersion || device.deviceType}}</span>
@@ -133,7 +133,7 @@
 
       <div class="bee-modal-overlay" *ngIf="modalOpen" (click)="closeModal()">
         <section class="bee-modal" role="dialog" aria-modal="true" aria-labelledby="device-modal-title" (click)="$event.stopPropagation()" (keydown.escape)="closeModal()" tabindex="-1">
-          <header class="bee-modal__header"><div><span class="bee-eyebrow">DEVICE REGISTRATION</span><h3 id="device-modal-title">New device</h3><p>Choose the permissions this device may request. They still require explicit approval.</p></div>
+          <header class="bee-modal__header"><div><span class="bee-eyebrow">DEVICE REGISTRATION</span><h3 id="device-modal-title">New device</h3><p>Pair this device now. Optional capabilities require explicit approval and can also be granted later.</p></div>
             <button type="button" class="bee-icon-button" (click)="closeModal()" aria-label="Close dialog">×</button>
           </header>
           <div *ngIf="!pairing" class="bee-modal__body">
