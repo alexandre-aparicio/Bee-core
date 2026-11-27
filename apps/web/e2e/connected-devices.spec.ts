@@ -49,13 +49,14 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
       status: "active", requestedCapabilities: ["scanner.use"], grantedCapabilities: ["scanner.use"],
       owner: { name: "QA Owner", email: "owner@example.test" }, lastSeenAt: "2026-11-25T10:00:00.000Z"
     }],
-    deleteCalls: 0, deleteBody: null, runtimeCalls: 0, deviceListCalls: 0
+    deleteCalls: 0, deleteBody: null, runtimeCalls: 0, deviceListCalls: 0, apiRequests: []
   };
 
   await page.route("**/api/**", async (route: any) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/\/+$/, "");
     const method = route.request().method();
+    state.apiRequests.push({ method, path });
     let body: any = {};
     if (path.endsWith("/auth/refresh")) {
       body = { accessToken: fixture.accessToken, tenantId: fixture.tenantId, user: fixture.user, platformRole: null };
@@ -126,7 +127,10 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
   await expect(component.getByRole("heading", { name: "Connected devices" })).toBeVisible({ timeout: 15000 });
   await expect(page.locator('iframe[title="connected-devices plugin"]')).toHaveCount(0);
   await expect(component.locator(".bee-stat-card")).toHaveCount(4);
-  await expect(component.getByText("QA Scanner")).toBeVisible();
+  await expect.poll(() => state.deviceListCalls, {
+    message: "Connected Devices list request was not handled. API calls: " + JSON.stringify(state.apiRequests)
+  }).toBeGreaterThan(0);
+  await expect(component.getByText("QA Scanner"), "Device list was requested but QA Scanner did not render").toBeVisible();
 
   await component.getByRole("searchbox", { name: "Search devices" }).fill("QA");
   await expect(component.getByText("QA Scanner")).toBeVisible();
