@@ -1,4 +1,19 @@
 import { test, expect } from "./quality-gates";
+import { existsSync, readdirSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
+
+function findRemoteEntry(directory: string): string | undefined {
+  if (!existsSync(directory)) return undefined;
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const candidate = resolve(directory, entry.name);
+    if (entry.isFile() && entry.name === "remoteEntry.json") return directory;
+    if (entry.isDirectory()) {
+      const nested = findRemoteEntry(candidate);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+}
 
 type Fixture = {
   accessToken: string;
@@ -20,7 +35,9 @@ async function authenticate(page: Page, fixture: Fixture): Promise<void> {
   }, serialized);
 }
 
-test("Connected Devices uses its native Angular frontend and sends a bodyless DELETE", async ({ page }) => {
+test("Connected Devices loads the packaged Native Federation frontend and sends a bodyless DELETE", async ({ page }) => {
+  const remoteRoot = findRemoteEntry(resolve(process.cwd(), "dist/connected-devices-remote"));
+  expect(remoteRoot, "Connected Devices federation remote must be built before the browser test").toBeTruthy();
   const fixture: Fixture = {
     accessToken: "connected-devices-e2e-token",
     tenantId: "tenant-connected-devices-e2e",
@@ -55,7 +72,16 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
       }] };
     } else if (path.endsWith("/marketplace/plugins/connected-devices/runtime")) {
       state.runtimeCalls += 1;
-      body = { pluginId: "connected-devices", version: "0.1.5", entrypoint: "frontend/index.html", apiPrefixes: ["/connected-devices"] };
+      body = {
+        pluginId: "connected-devices",
+        version: "0.2.0",
+        transport: "native-federation",
+        remoteEntry: "frontend/remoteEntry.json",
+        remoteName: "connectedDevices",
+        exposedModule: "./Component",
+        assetToken: "connected-devices-e2e-asset-token-2026",
+        apiPrefixes: ["/connected-devices"]
+      };
     } else if (path.endsWith("/templates/preferences") || path.endsWith("/templates/public")) {
       body = { selection: { public: "aurora", dashboard: "midnight" }, installedTemplates: ["aurora", "editorial", "studio", "midnight", "paper", "glass"] };
     } else if (path.endsWith("/notifications")) {
@@ -72,6 +98,22 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
       body = { success: true };
     }
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  // Serve the real Federation output through the protected-asset URL shape.
+  // This tests the package's remoteEntry and emitted chunks, not a host registration.
+  await page.route("**/api/plugin-packages/connected-devices/0.2.0/assets/**", async route => {
+    const pathname = new URL(route.request().url()).pathname;
+    const marker = "/frontend/";
+    const markerIndex = pathname.indexOf(marker);
+    if (markerIndex < 0 || !remoteRoot) return route.fulfill({ status: 404 });
+    const assetPath = decodeURIComponent(pathname.slice(markerIndex + marker.length));
+    const filePath = resolve(remoteRoot, assetPath);
+    const relativePath = relative(remoteRoot, filePath);
+    if (!relativePath || relativePath.startsWith(".." + sep) || relativePath === ".." || !existsSync(filePath)) {
+      return route.fulfill({ status: 404 });
+    }
+    return route.fulfill({ path: filePath });
   });
 
   await authenticate(page, fixture);
@@ -105,5 +147,5 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
   expect(state.deleteCalls).toBe(1);
   expect(state.deleteBody).toBeNull();
   expect(state.deleteContentType).toBeUndefined();
-  expect(state.runtimeCalls).toBe(0);
+  expect(state.runtimeCalls).toBe(1);
 });

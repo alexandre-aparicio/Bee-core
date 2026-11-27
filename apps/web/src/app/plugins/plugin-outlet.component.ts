@@ -1,8 +1,9 @@
-import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, ViewContainerRef } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, Type, ViewChild, ViewContainerRef } from "@angular/core";
+import { loadRemoteModule } from "@angular-architects/native-federation";
 import { BeePluginFrontendRegistry } from "./plugin-frontend-registry.service";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
 
-type RemotePluginRuntime = { pluginId: string; version: string; entrypoint: string; apiPrefixes: string[] };
+type RemotePluginRuntime = { pluginId: string; version: string; transport: "native-federation" | "legacy-iframe"; remoteEntry?: string; remoteName?: string; exposedModule?: string; assetToken?: string; entrypoint?: string; apiPrefixes: string[] };
 type RemoteFrame = { pluginId: string; apiPrefixes: string[]; ready: boolean };
 
 @Component({
@@ -85,6 +86,60 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       const runtime = await this.loadRemoteRuntime(pluginId);
       if (sequence !== this.renderSequence) return;
       if (!runtime) continue;
+      if (runtime.transport === "native-federation" && runtime.remoteEntry) {
+        try {
+          if (!runtime.assetToken) throw new Error("Native plugin asset authorization is missing");
+          const remoteAssetBaseUrl = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" +
+            encodeURIComponent(runtime.version) + "/assets/" + encodeURIComponent(runtime.assetToken) + "/frontend/";
+          const remoteEntryUrl = remoteAssetBaseUrl + runtime.remoteEntry.slice("frontend/".length).split("/").map(encodeURIComponent).join("/");
+          // Native Federation's v3 loader assumes the fetched JSON is a valid
+          // FederationInfo and iterates remoteEntry.exposes without checking the
+          // HTTP response. A protected-asset 404 therefore surfaces as the
+          // misleading "exposes is not iterable" TypeError. Validate the actual
+          // response first so authorization/path failures remain diagnosable.
+          const entryResponse = await fetch(remoteEntryUrl, {
+            method: "GET",
+            cache: "no-store",
+            credentials: "omit",
+            referrerPolicy: "no-referrer"
+          });
+          if (!entryResponse.ok) {
+            throw new Error("Native plugin remote entry request failed (HTTP " + entryResponse.status + ")");
+          }
+          const entryMetadata = await entryResponse.json() as { name?: unknown; exposes?: unknown; shared?: unknown };
+          if (entryMetadata.name !== runtime.remoteName || !Array.isArray(entryMetadata.exposes) ||
+              !entryMetadata.exposes.some(expose => typeof expose === "object" && expose !== null &&
+                (expose as Record<string, unknown>)["key"] === runtime.exposedModule) ||
+              !Array.isArray(entryMetadata.shared)) {
+            throw new Error("Native plugin remote entry has an invalid Native Federation v3 manifest");
+          }
+          const remoteModule = await loadRemoteModule({
+            remoteEntry: remoteEntryUrl,
+            remoteName: runtime.remoteName!,
+            exposedModule: runtime.exposedModule!
+          }) as Record<string, unknown>;
+          // A resolved remote has already evaluated ESM in this realm, even if its
+          // view is now stale. Track it before any early return so uninstall/revoke
+          // can force a host reload and discard the evaluated module graph.
+          this.registry.markRemoteLoaded(pluginId);
+          if (sequence !== this.renderSequence) {
+            if (!this.pluginIds.includes(pluginId)) window.location.reload();
+            return;
+          }
+          const componentType = (remoteModule["PluginComponent"] ?? remoteModule["default"]) as Type<unknown> | undefined;
+          if (typeof componentType !== "function") throw new Error("Native plugin did not expose its Angular component");
+          const component = this.host.createComponent(componentType);
+          component.setInput("tenantId", this.tenantId);
+          component.setInput("role", this.role);
+          component.setInput("accessToken", this.accessToken);
+          component.setInput("section", this.section);
+          component.setInput("assetBaseUrl", remoteAssetBaseUrl);
+        } catch (error) {
+          console.error("Could not mount native Angular plugin", { pluginId, version: runtime.version, error });
+        }
+        continue;
+      }
+      if (!runtime.entrypoint) continue;
       const frame = document.createElement("iframe");
       frame.title = pluginId + " plugin";
       frame.setAttribute("sandbox", "allow-scripts");
@@ -145,18 +200,27 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   private async loadRemoteRuntime(pluginId: string): Promise<RemotePluginRuntime | null> {
+    const cached = this.registry.getRemoteRuntime(pluginId);
+    if (cached && typeof cached === "object") return cached as RemotePluginRuntime;
     if (!this.accessToken) return null;
     try {
-      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(pluginId) + "/runtime", {
+      const response = await fetch("/api/marketplace/plugins/" + encodeURIComponent(this.registry.runtimeReference(pluginId)) + "/runtime", {
         method: "GET",
+        cache: "no-store",
         credentials: "omit",
         headers: { authorization: "Bearer " + this.accessToken }
       });
       if (!response.ok) return null;
       const value = await response.json() as Partial<RemotePluginRuntime>;
-      if (value.pluginId !== pluginId || typeof value.version !== "string" || typeof value.entrypoint !== "string" ||
-          !value.entrypoint.startsWith("frontend/") || !Array.isArray(value.apiPrefixes) ||
-          value.apiPrefixes.some(prefix => typeof prefix !== "string")) return null;
+      if (value.pluginId !== pluginId || typeof value.version !== "string" ||
+          !["native-federation", "legacy-iframe"].includes(String(value.transport)) ||
+          !Array.isArray(value.apiPrefixes) || value.apiPrefixes.some(prefix => typeof prefix !== "string")) return null;
+      if (value.transport === "native-federation") {
+        if (typeof value.remoteEntry !== "string" || !value.remoteEntry.startsWith("frontend/") || typeof value.assetToken !== "string" || value.assetToken.length < 20 || typeof value.remoteName !== "string" || !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value.remoteName) || typeof value.exposedModule !== "string" || !value.exposedModule.startsWith("./")) return null;
+      } else if (typeof value.entrypoint !== "string" || !value.entrypoint.startsWith("frontend/")) {
+        return null;
+      }
+      this.registry.setRemoteRuntime(pluginId, value, 240_000);
       return value as RemotePluginRuntime;
     } catch {
       return null;

@@ -13,7 +13,7 @@ import type { BeeContext, BeeLogger, BeePlugin, BeePluginRuntimeControl } from "
 import { BeePluginServices } from "./core/plugin-services.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { replaceRuntimePlugin, unregisterRuntimePlugin } from "./core/runtime-plugin-registry.js";
-import { hasPluginEntitlement, isPluginInstalled, isPluginEnabled, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
+import { hasPluginEntitlement, isPluginInstalled, isPluginEnabled, isPlatformPluginEnabled, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
 import { resolveTenantContext, type TenantClaims } from "./core/tenant-context.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
@@ -188,15 +188,16 @@ app.get("/plugins", async () => ({ plugins: plugins.list() }));
 app.get<{Params:{pluginId:string;version:string;"*":string}}>("/plugin-packages/:pluginId/:version/assets/*",async(request,reply)=>{
   const {pluginId,version}=request.params;
   const assetPath=String(request.params["*"]??"");
-  if(!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(pluginId)||!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\\\")||assetPath.includes("\\0")){
+  if(!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\")||assetPath.includes("\0")){
     return reply.code(404).send({error:"Plugin asset not found"});
   }
   const db=mongoClient.db(environment.mongoDbName);
   const packageRecord=await db.collection("platform_plugin_packages").findOne({pluginId,version,status:"installed",source:"zip",runtimeState:"loaded"});
   if(!packageRecord||typeof packageRecord.packageDirectory!=="string")return reply.code(404).send({error:"Plugin asset not found"});
   const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId,version});
-  const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;assets?:string[]}}|undefined;
-  const allowed=new Set([...(manifest?.frontend?.assets??[]),...(manifest?.frontend?.entrypoint?[manifest.frontend.entrypoint]:[])]);
+  const manifest=versionRecord?.manifest as {frontend?:{entrypoint?:string;remoteEntry?:string;assets?:string[]}}|undefined;
+  if(manifest?.frontend?.remoteEntry)return reply.code(404).send({error:"Native plugin assets require tenant authorization"});
+  const allowed=new Set([...(manifest?.frontend?.assets??[]),...(manifest?.frontend?.entrypoint?[manifest.frontend.entrypoint]:[]),...(manifest?.frontend?.remoteEntry?[manifest.frontend.remoteEntry]:[])]);
   if(!allowed.has(assetPath))return reply.code(404).send({error:"Plugin asset not found"});
   const packageDirectory=resolve(packageRecord.packageDirectory);
   const assetFile=resolve(packageDirectory,assetPath);
@@ -204,13 +205,83 @@ app.get<{Params:{pluginId:string;version:string;"*":string}}>("/plugin-packages/
   if(!relativeAsset||relativeAsset.startsWith(".."+sep)||isAbsolute(relativeAsset))return reply.code(404).send({error:"Plugin asset not found"});
   let data:Buffer;
   try{data=await readFile(assetFile);}catch{return reply.code(404).send({error:"Plugin asset not found"});}
-  const contentTypes:Record<string,string>={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".woff2":"font/woff2"};
+  const contentTypes:Record<string,string>={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".mjs":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".woff2":"font/woff2"};
   reply.header("Content-Type",contentTypes[extname(assetPath).toLowerCase()]??"application/octet-stream");
   reply.header("X-Content-Type-Options","nosniff");
   reply.header("Cache-Control","public, max-age=300");
   reply.header("Content-Security-Policy","default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'");
   return reply.send(data);
 });
+app.get<{Params:{pluginId:string;version:string;assetToken:string;"*":string}}>("/plugin-packages/:pluginId/:version/assets/:assetToken/*",async(request,reply)=>{
+  const {pluginId,version,assetToken}=request.params;
+  const assetPath=String(request.params["*"]??"");
+  const deny=(reason:string)=>{
+    logger.warn("Protected plugin asset request denied",{pluginId,version,assetPath,reason});
+    return reply.code(404).send({error:"Plugin asset not found"});
+  };
+
+  // Do not log the bearer token or any tenant/user/session identifiers.
+  logger.info("Protected plugin asset request received",{pluginId,version,assetPath});
+  if(!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||!assetPath.startsWith("frontend/")||assetPath.includes("..")||assetPath.includes("\\")||assetPath.includes("\0")){
+    return deny("invalid_asset_path");
+  }
+
+  let claims:any;
+  try { claims=app.jwt.verify(assetToken); }
+  catch(error) {
+    logger.warn("Protected plugin asset token verification failed",{pluginId,version,error:error instanceof Error?error.name:"unknown"});
+    return deny("invalid_or_expired_token");
+  }
+  if(claims?.purpose!=="plugin-asset"||claims.pluginId!==pluginId||claims.version!==version||typeof claims.tenantId!=="string"||typeof claims.userId!=="string"||typeof claims.sessionId!=="string"||!["dashboard","backend"].includes(claims.client)){
+    return deny("invalid_token_claims");
+  }
+
+  const db=mongoClient.db(environment.mongoDbName);
+  const [session,membership,user,entitled,installed,enabled,platformEnabled,packageRecord]=await Promise.all([
+    db.collection("refresh_sessions").findOne({id:claims.sessionId,userId:claims.userId,tenantId:claims.tenantId,client:claims.client,revokedAt:null,expiresAt:{$gt:new Date()}},{projection:{_id:1}}),
+    db.collection("memberships").findOne({tenantId:claims.tenantId,userId:claims.userId,status:"active"},{projection:{_id:1}}),
+    db.collection("users").findOne({id:claims.userId,enabled:true,allowedClients:claims.client},{projection:{_id:1}}),
+    hasPluginEntitlement(db,claims.tenantId,pluginId),
+    isPluginInstalled(db,claims.tenantId,pluginId),
+    isPluginEnabled(db,claims.tenantId,pluginId),
+    isPlatformPluginEnabled(db,pluginId),
+    db.collection("platform_plugin_packages").findOne({pluginId,version,status:"installed",source:"zip",runtimeState:"loaded"})
+  ]);
+  if(!session||!membership||!user||!entitled||!installed||!enabled||!platformEnabled||!packageRecord||typeof packageRecord.packageDirectory!=="string"){
+    return deny("authorization_or_package_state_failed:"+JSON.stringify({
+      session:!!session,membership:!!membership,user:!!user,entitled,installed,enabled,
+      platformEnabled,packageRecord:!!packageRecord,packageDirectory:typeof packageRecord?.packageDirectory==="string"
+    }));
+  }
+
+  const versionRecord=await db.collection("platform_plugin_package_versions").findOne({pluginId,version});
+  const manifest=versionRecord?.manifest as {frontend?:{remoteEntry?:string;assets?:string[]}}|undefined;
+  const allowed=new Set([...(manifest?.frontend?.assets??[]),...(manifest?.frontend?.remoteEntry?[manifest.frontend.remoteEntry]:[])]);
+  if(!manifest?.frontend?.remoteEntry||!allowed.has(assetPath)){
+    return deny("manifest_asset_not_allowlisted:"+JSON.stringify({versionRecord:!!versionRecord,remoteEntry:manifest?.frontend?.remoteEntry??null,allowed:allowed.has(assetPath)}));
+  }
+
+  const packageDirectory=resolve(packageRecord.packageDirectory);
+  const assetFile=resolve(packageDirectory,assetPath);
+  const relativeAsset=relative(packageDirectory,assetFile);
+  if(!relativeAsset||relativeAsset.startsWith(".."+sep)||isAbsolute(relativeAsset))return deny("asset_path_outside_package");
+  let data:Buffer;
+  try{data=await readFile(assetFile);}
+  catch(error){
+    logger.warn("Protected plugin asset file read failed",{pluginId,version,assetPath,error:error instanceof Error?error.name:"unknown"});
+    return deny("asset_file_missing_or_unreadable");
+  }
+
+  const contentTypes:Record<string,string>={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".mjs":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json",".wasm":"application/wasm",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".webp":"image/webp",".avif":"image/avif",".gif":"image/gif",".ico":"image/x-icon",".woff":"font/woff",".woff2":"font/woff2",".ttf":"font/ttf"};
+  reply.header("Content-Type",contentTypes[extname(assetPath).toLowerCase()]??"application/octet-stream");
+  reply.header("X-Content-Type-Options","nosniff");
+  // Asset grants are bearer credentials embedded in the URL. Never let a browser
+  // cache them or forward their URL as a Referer to subsequent remote chunks.
+  reply.header("Cache-Control","private, no-store");
+  reply.header("Referrer-Policy","no-referrer");
+  return reply.send(data);
+});
+
 app.get("/", async () => ({
   name: "Bee-Core",
   slogan: "All Is a Plugin",

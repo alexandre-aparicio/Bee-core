@@ -9,13 +9,40 @@ const DIST = join(ROOT, "dist");
 const OUTPUT = resolve(process.env.BEE_PLUGIN_PACKAGE_OUTPUT ?? "artifacts/plugin-packages");
 const RUNTIME_VERSION = process.env.BEE_RUNTIME_VERSION ?? "0.3.1";
 const PACKAGES = [
-  { id: "connected-devices", name: "Connected Devices", version: "0.1.5", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants.", frontend: { routes: [], apiPrefixes: ["/connected-devices"] } },
+  { id: "connected-devices", name: "Connected Devices", version: "0.2.0", entry: "plugins/connected-devices/connected-devices.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant device pairing, identity and capability grants.", frontendDist: process.env.BEE_CONNECTED_DEVICES_FEDERATION_DIST ?? "apps/web/dist/connected-devices-remote/browser", frontend: { routes: [{ path: "/dashboard/connected-devices", component: "connected-devices" }], remoteEntry: "frontend/remoteEntry.json", remoteName: "connectedDevices", exposedModule: "./Component", assets: [], apiPrefixes: ["/connected-devices"] } },
   { id: "time-tracking", name: "Control Horario", version: "0.2.2", entry: "plugins/time-tracking/time-tracking.plugin.js", dependencies: ["auth", "organizations"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "automatic", category: "productivity", description: "Employee time clock, breaks and work-session history.", migrations: [{ id: "001_create_time_tracking_indexes", checksum: "cab33997679133194d812b3f7ef827097ca45a925dcfcc55083a58bc90321b37", phase: "install" }], frontend: { routes: [], apiPrefixes: ["/time-tracking"] } },
   { id: "hello-world", name: "Hola Mundo", version: "0.1.0", entry: "plugins/hello-world/hello-world.plugin.js", dependencies: ["auth", "organizations"], requiredServices: [], tenantDependencies: [], activationPolicy: "manual", category: "website", description: "Minimal tenant plugin used to verify the generic package lifecycle.", frontend: { routes: [{ path: "/hello-world", component: "hello-world" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: [] } },
   { id: "documents", name: "Documents", version: "0.1.5", entry: "plugins/documents/documents.plugin.js", dependencies: ["auth", "organizations", "files"], requiredServices: ["mongoDbName", "sessionIdSecret"], tenantDependencies: [], activationPolicy: "manual", category: "platform", description: "Tenant document library, folder ACLs and controlled public delivery.", frontendSource: "src/plugins/documents/frontend", frontend: { routes: [{ path: "/dashboard/documents", component: "documents" }], entrypoint: "frontend/index.html", assets: ["frontend/index.html", "frontend/main.js"], apiPrefixes: ["/documents", "/public/documents"] } }
 ];
 
 
+
+async function collectFrontendDistribution(sourceDirectory) {
+  const root = resolve(ROOT, sourceDirectory);
+  const files = new Map();
+  async function visit(directory) {
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      const absolute = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(absolute);
+      } else if (entry.isFile()) {
+        const relativePath = relative(root, absolute).split(sep).join("/");
+        if (!relativePath || relativePath.startsWith("../") || relativePath.includes("\\") || relativePath.includes("\0")) {
+          throw new Error("Federation output contains an unsafe path");
+        }
+        files.set("frontend/" + relativePath, await readFile(absolute));
+      } else {
+        throw new Error("Federation output may contain regular files only");
+      }
+    }
+  }
+  await visit(root);
+  if (!files.has("frontend/remoteEntry.json")) {
+    throw new Error("Connected Devices Federation output is missing frontend/remoteEntry.json");
+  }
+  return files;
+}
 
 async function discoverPluginManifests(distDir) {
   const sourceRoot = join(ROOT, "src", "plugins");
@@ -149,6 +176,25 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
     const wrapperPath = "dist/backend/index.mjs";
     files.set(wrapperPath, Buffer.from("export { " + exportName(definition.id) + " as default } from \"../" + definition.entry.replaceAll("\\", "/") + "\";\n"));
     files.set("package.json", Buffer.from(JSON.stringify({ type: "module", private: true }, null, 2) + "\n"));
+    if (definition.frontendDist && definition.frontend) {
+      const remoteFiles = await collectFrontendDistribution(definition.frontendDist);
+      const remoteEntryBytes = remoteFiles.get(definition.frontend.remoteEntry);
+      if (!remoteEntryBytes) throw new Error("Connected Devices remote entry is missing from the package output");
+      let remoteEntry;
+      try {
+        remoteEntry = JSON.parse(remoteEntryBytes.toString("utf8"));
+      } catch {
+        throw new Error("Connected Devices remoteEntry.json is not valid JSON");
+      }
+      if (remoteEntry?.name !== definition.frontend.remoteName ||
+          !Array.isArray(remoteEntry.exposes) ||
+          !remoteEntry.exposes.some(expose => expose?.key === definition.frontend.exposedModule) ||
+          !Array.isArray(remoteEntry.shared)) {
+        throw new Error("Connected Devices remoteEntry.json does not match the Native Federation v3 manifest contract");
+      }
+      for (const [assetPath, data] of remoteFiles) files.set(assetPath, data);
+      definition.frontend.assets = [...remoteFiles.keys()].sort();
+    }
     if (definition.frontendSource && definition.frontend) {
       for (const asset of definition.frontend.assets ?? []) {
         const sourcePath = join(ROOT, definition.frontendSource, asset.slice("frontend/".length));
@@ -181,6 +227,7 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
     for (const requiredPath of [
       manifest.backend.entrypoint,
       ...(manifest.frontend.entrypoint ? [manifest.frontend.entrypoint] : []),
+      ...(manifest.frontend.remoteEntry ? [manifest.frontend.remoteEntry] : []),
       ...(manifest.frontend.assets ?? [])
     ]) {
       if (!files.has(requiredPath)) throw new Error("Package " + definition.id + " is missing declared asset: " + requiredPath);

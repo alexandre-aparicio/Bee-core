@@ -16,7 +16,7 @@ on:
       - "tsconfig.json"
       - ".github/workflows/ci.yml"
   push:
-    branches: [main, refactor/template-base-and-packages, integration/template-refactor-into-main]
+    branches: [main, refactor/template-base-and-packages, integration/template-refactor-into-main, refactor/native-angular-plugin-runtime]
 
 permissions:
   contents: read
@@ -52,6 +52,10 @@ jobs:
         run: npm ci
       - name: Build backend
         run: npm run build
+      - name: Install web dependencies for signed remote package
+        run: npm ci --prefix apps/web
+      - name: Build Connected Devices federation remote
+        run: npm --prefix apps/web run build:connected-devices-remote
       - name: Verify signed Documents package generation
         shell: bash
         run: |
@@ -96,6 +100,10 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Build production Angular host
+        run: npm run build
+      - name: Build Connected Devices federation remote
+        run: npm run build:connected-devices-remote
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run smoke and template browser tests; capture template screenshots

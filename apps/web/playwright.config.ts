@@ -6,9 +6,9 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:4200', browserName: 'chromium', headless: true },
   webServer: {
-    command: 'npm run start -- --port 4200',
+    command: 'node scripts/serve-production.mjs',
     url: 'http://127.0.0.1:4200',
     reuseExistingServer: !process.env.CI,
-    timeout: 120000
+    timeout: 30000
   }
 });

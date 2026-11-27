@@ -9,13 +9,54 @@
       "prefix": "bee",
       "architect": {
         "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "projectName": "bee-core-web",
+            "tsConfig": "tsconfig.federation.json",
+            "esmsInitOptions": {
+              "nonce": "__BEE_CSP_NONCE__"
+            }
+          },
+          "configurations": {
+            "production": {
+              "target": "bee-core-web:esbuild:production"
+            },
+            "development": {
+              "target": "bee-core-web:esbuild:development",
+              "dev": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "bee-core-web:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 4200
+          },
+          "configurations": {
+            "development": {
+              "target": "bee-core-web:serve-original:development",
+              "dev": true
+            },
+            "production": {
+              "target": "bee-core-web:serve-original:production"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "esbuild": {
           "builder": "@angular/build:application",
           "options": {
             "outputPath": "dist",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
-              "zone.js"
+              "zone.js",
+              "es-module-shims"
             ],
             "tsConfig": "tsconfig.app.json",
             "assets": [
@@ -72,6 +113,10 @@
             "outputMode": "static"
           },
           "configurations": {
+            "development": {
+              "optimization": false,
+              "sourceMap": true
+            },
             "production": {
               "optimization": {
                 "scripts": true,
@@ -86,15 +131,95 @@
           },
           "defaultConfiguration": "production"
         },
-        "serve": {
+        "serve-original": {
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "bee-core-web:build:production"
+              "buildTarget": "bee-core-web:esbuild:production"
             },
             "development": {
-              "buildTarget": "bee-core-web:build"
+              "buildTarget": "bee-core-web:esbuild:development"
             }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    },
+    "connected-devices-remote": {
+      "projectType": "application",
+      "root": "../../plugins/connected-devices/frontend",
+      "sourceRoot": "../../plugins/connected-devices/frontend/src",
+      "prefix": "bee",
+      "architect": {
+        "esbuild": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/connected-devices-remote",
+            "index": "../../plugins/connected-devices/frontend/src/index.html",
+            "browser": "../../plugins/connected-devices/frontend/src/main.ts",
+            "polyfills": [
+              "zone.js",
+              "es-module-shims"
+            ],
+            "tsConfig": "../../plugins/connected-devices/frontend/tsconfig.app.json",
+            "assets": [
+              {
+                "glob": "qrcode.min.js",
+                "input": "../../plugins/connected-devices/frontend/src/assets",
+                "output": "assets"
+              }
+            ],
+            "styles": []
+          },
+          "configurations": {
+            "production": {
+              "optimization": true,
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "projectName": "connected-devices-remote",
+            "tsConfig": "../../plugins/connected-devices/frontend/tsconfig.federation.json"
+          },
+          "configurations": {
+            "production": {
+              "target": "connected-devices-remote:esbuild:production"
+            },
+            "development": {
+              "target": "connected-devices-remote:esbuild:development",
+              "dev": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve-original": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "connected-devices-remote:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "connected-devices-remote:esbuild:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "connected-devices-remote:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 4201
           },
           "defaultConfiguration": "development"
         }
