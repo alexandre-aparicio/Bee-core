@@ -100,6 +100,8 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Build Connected Devices federation remote
+        run: npm run build:connected-devices-remote
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run smoke and template browser tests; capture template screenshots
