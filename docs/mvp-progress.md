@@ -18,7 +18,7 @@
 - Marketplace: pruebas de integración cubren concesión/aislamiento tenant, instalación, activación, desactivación, desinstalación, actualización y auditoría.
 - Playwright: 34/34 correctos; incluye carga del remote Native Federation real, listado, filtros, vistas y DELETE sin body.
 - Capturas de seis plantillas en claro/oscuro publicadas como artefacto CI `bee-core-template-screenshots`.
-- Diff revisado: 85 archivos; sin conflictos reportados, sin comentarios ni hilos de revisión pendientes.
+- Inventario del diff: 85 archivos; GitHub no reporta conflictos, comentarios ni hilos de revisión pendientes.
 - El E2E del remote simula API y entrega de assets protegidos; no acredita el endpoint real tras Nginx en el VPS.
 - La revisión de configuración Nginx/CSP es estática; no equivale a una comprobación HTTP en despliegue.
 
