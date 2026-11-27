@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.22.3
           cache: npm
       - name: Install dependencies
         run: npm ci
@@ -54,6 +54,8 @@ jobs:
         run: npm run build
       - name: Install web dependencies for signed remote package
         run: npm ci --prefix apps/web
+      - name: Link host dependencies for remote source resolution
+        run: ln -s "$GITHUB_WORKSPACE/apps/web/node_modules" "$GITHUB_WORKSPACE/plugins/connected-devices/frontend/node_modules"
       - name: Build Connected Devices federation remote
         run: npm --prefix apps/web run build:connected-devices-remote
       - name: Verify signed Documents package generation
@@ -95,11 +97,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.22.2
+          node-version: 22.22.3
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Link host dependencies for remote source resolution
+        run: ln -s "$GITHUB_WORKSPACE/apps/web/node_modules" "$GITHUB_WORKSPACE/plugins/connected-devices/frontend/node_modules"
       - name: Build production Angular host
         run: npm run build
       - name: Build Connected Devices federation remote
@@ -128,7 +132,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.22.2
+          node-version: 22.22.3
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
       - name: Install dependencies
