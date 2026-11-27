@@ -113,6 +113,10 @@
             "outputMode": "static"
           },
           "configurations": {
+            "development": {
+              "optimization": false,
+              "sourceMap": true
+            },
             "production": {
               "optimization": {
                 "scripts": true,
