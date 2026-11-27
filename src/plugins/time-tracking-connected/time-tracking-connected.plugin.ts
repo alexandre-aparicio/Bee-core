@@ -26,7 +26,6 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
   },
 
   async initialize(ctx) {
-    const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
     const access = ctx.services?.get<PluginAccessService>("core.plugin-access");
     const registry = ctx.services?.get<ConnectedDeviceCapabilities>("connected-devices.capabilities");
     const deviceAuth = ctx.services?.get<DeviceAuthenticator>("connected-devices.device-auth");
@@ -68,40 +67,23 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
     const authorize = async (request: any, reply: any, capability: string) => {
       const device = await deviceAuth.authenticateDevice(request, reply);
       if (!device) return null;
-      const [extensionAvailable, timeTrackingAvailable, granted] = await Promise.all([
+        const [extensionAvailable, granted] = await Promise.all([
         access.isPluginAvailable(device.tenantId, "time-tracking-connected"),
-        access.isPluginAvailable(device.tenantId, "time-tracking"),
         deviceAuth.hasCapability(device.tenantId, device.id, capability)
       ]);
-      if (!extensionAvailable || !timeTrackingAvailable || !granted) {
+      if (!extensionAvailable || !granted) {
         reply.code(403).send({ error: "This device is not authorized for the requested Control Horario action." });
         return null;
       }
-      if (!await access.isTenantUserActive(device.tenantId, device.ownerUserId)) {
-        reply.code(403).send({ error: "The device owner is no longer an active company member." });
-        return null;
-      }
-      const membership = await db.collection<{ role: string; restrictionRoleIds?: string[] }>("memberships").findOne(
-        { tenantId: device.tenantId, userId: device.ownerUserId, status: "active" },
-        { projection: { role: 1, restrictionRoleIds: 1, _id: 0 } }
-      );
-      const role = membership?.role === "super_admin" ? "owner" : membership?.role;
-      const permission = capability === "time-tracking.records.read" ? "time-tracking.read" : "time-tracking.clock";
-      // Match the current Control Horario manifest defaults. Unknown/custom roles and
-      // restricted memberships fail closed until the device contract can resolve their
-      // full user permission context from Core.
-      const defaultGrant = ["owner", "admin", "manager", "member"].includes(String(role));
-      if (!membership || !defaultGrant || (membership.restrictionRoleIds?.length ?? 0) > 0) {
-        reply.code(403).send({ error: "The device owner does not have the required Control Horario permission: " + permission });
-        return null;
-      }
+      // Control Horario owns effective role, custom-role and restriction checks.
+      // The business service repeats these checks immediately before executing.
       return device;
     };
     const operationInput = (request: any, device: any) => ({
       tenantId: device.tenantId,
       userId: device.ownerUserId,
       operationId: String(request.body?.operationId ?? ""),
-      limit: request.query?.limit
+      limit: request.query?.limit === undefined ? undefined : Number(request.query.limit)
     });
     const sendResult = (reply: any, result: { statusCode: number; body: unknown }) => reply.code(result.statusCode).send(result.body);
 
