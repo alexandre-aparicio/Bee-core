@@ -1,14 +1,18 @@
 | Área | Estado | Evidencia / pendiente |
 |---|---|---|
-| Core y contrato genérico | Integrado | Baseline de fases anteriores verificado en CI histórica; esta rama mantiene sus cambios aislados. |
+| Core y contrato genérico | Integrado | Shell, auth, tenant context, navegación y outlet genérico permanecen en Core. |
 | Connected Devices backend | Integrado en paquete | Backend independiente, permisos tenant-scoped, activación manual y ZIP firmado. |
-| Connected Devices frontend | Integrado en remoto Angular | Native Federation v3; componente, plantilla, estilos y QR dentro del proyecto remoto. Sin registro feature estático en Core. |
-| Carga dinámica | Implementada; VPS pendiente | Outlet genérico valida remoteEntry y monta el componente Angular en el mismo documento. |
-| Navegación | Implementada | Rutas del manifiesto se proyectan al catálogo autorizado del tenant y al registro remoto. |
+| Connected Devices frontend | Native Federation implementado | Remote Angular separado; comparte Angular singleton con el host y expone `./Component`. |
+| Carga dinámica | Implementada; VPS pendiente | Outlet valida remoteEntry v3 y monta el componente en el mismo documento. |
+| Navegación | Implementada | Rutas del manifiesto se proyectan al catálogo autorizado del tenant. |
 | Seguridad de assets | Implementada; 404 pendiente | Token temporal, allowlist, validación de tenant/usuario/entitlement/instalación/activación y no-store. |
-| Diagnóstico VPS | Pendiente | ZIP 0.2.0 monta, pero el remoteEntry protegido devuelve HTTP 404. Diagnóstico seguro añadido; falta desplegarlo y reproducir. |
-| GitHub Actions | En validación | Build Angular y backend verdes. Playwright ya arranca Native Federation y la prueba Connected Devices pasa; 32/34 tests pasaron en el último resultado. Corregidos dos fixtures/locators obsoletos: EventSource ahora recibe 204 SSE y Tenants usa el nombre actual `Table view`. CI del commit correctivo pendiente. |
-| Tests | En validación | Sin desactivar aserciones: corregido el `module-shim` del servidor estático; el stream de plantillas se simula con 204 (cierre SSE válido) y el selector de tabla se alinea con la UI actual. Esperando reejecución completa. |
-| Documentación | En actualización | Formato de tablas y máximo 40 líneas exigidos por docs-hygiene. |
-| VPS / navegador | No verificado | Rebuild, subida/activación tenant, carga real del remoto, estilos y flujo QR pendientes. El 404 no está resuelto. |
-| Pull / merge | No hacer todavía | Esperar CI completamente verde y validación del remoto en VPS. |
+| Control Horario backend | ZIP firmado | Versión 0.2.2; conservar migraciones y datos tenant-scoped. |
+| Control Horario frontend | Migración planificada | Retirar registro Angular estático y crear remote Native Federation en `plugins/time-tracking/frontend`. |
+| Documents backend | Migración en curso | ZIP y runtime común; retirar fallback bundled solo tras publicación y verificación real. |
+| Documents frontend | Migración planificada | Crear remote Native Federation en `plugins/documents/frontend`; preservar ACL, publicaciones y blobs. |
+| Hola Mundo | Ejemplo legacy | ZIP con HTML/JS en iframe sandbox; no es patrón para módulos Angular first-party. |
+| CI rama Native Federation | Verde | Commit `4dcf2b6`; backend, Angular y Playwright completados correctamente. |
+| CI main | Verde | Commit `dc43d30`; backend, Angular y Playwright completados correctamente. |
+| Diagnóstico VPS | Pendiente | ZIP Connected Devices 0.2.0: remoteEntry protegido devuelve HTTP 404; falta reproducir tras despliegue. |
+| VPS / navegador | No verificado | Carga real, navegación, estilos, QR y flujos críticos pendientes. |
+| Pull / merge | No hacer todavía | Esperar corrección del 404 y validación real en VPS; después migrar Documents y Control Horario. |
