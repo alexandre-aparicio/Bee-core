@@ -251,5 +251,39 @@ These options appear in Connected Devices only while the extension is available.
 - [ ] Cross-tenant isolation, membership changes, revoked/suspended devices and extension lifecycle are covered by automated tests.
 - [ ] The Control Horario Connected reference extension demonstrates clock-in, clock-out and records-read without adding a dependency from Connected Devices to Control Horario.
 
-This is an architectural decision and implementation plan only; the capability registry, extension contract, UI checks, Android discovery changes and Control Horario Connected package are not yet implemented.
+### Implementation status — capability extensions
+
+The first implementation slice is now present on `feature/connected-devices-capability-extensions`. It has **not been built, tested or validated on the VPS yet**; automated tests and GitHub workflows are intentionally deferred until the end-to-end implementation is ready.
+
+Implemented in source:
+- Connected Devices publishes a typed, runtime capability registry service. Extension declarations have stable IDs, provider package IDs, labels, descriptions, groups, order and operation names.
+- The base capability catalogue is empty unless an extension registers declarations. The former hard-coded capability list is no longer used as the default allowlist.
+- Dashboard API exposes the tenant-available catalogue at `GET /connected-devices/capabilities`.
+- Pairing accepts zero requested capabilities. Pair-device remains available even when no extension is installed.
+- Administrators can replace the grant set for an active device through `PATCH /connected-devices/:deviceId/capabilities`; the backend validates each ID against the currently available catalogue.
+- Device discovery is available through `GET /connected-devices/device/capabilities` and `GET /connected-devices/device/me`; both return only currently available, granted capabilities.
+- The Connected Devices Angular remote loads its catalogue dynamically, offers pairing with an empty catalogue, and renders optional per-device grant controls only when declarations exist.
+- A separate signed-package definition and backend plugin source for `time-tracking-connected` contributes `time-tracking.clock-in`, `time-tracking.clock-out` and `time-tracking.records.read`. Its operations delegate to the existing Control Horario handlers, check device grants, package availability and active owner membership, and fail closed for unsupported/restricted roles.
+- The separate `alexandre-aparicio/Bee-devices` repository now contains an Ionic/Angular + Capacitor app scaffold with ML Kit QR scanning, pairing approval polling, dynamic capability discovery, the three Control Horario actions and unlink. Device credentials remain memory-only.
+
+New API surface:
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/connected-devices/capabilities` | Returns declarations from extensions available to the active tenant. |
+| PATCH | `/connected-devices/:deviceId/capabilities` | Owner/admin replaces the active device's granted capability IDs. |
+| GET | `/connected-devices/device/capabilities` | Companion obtains only the capabilities currently granted and available. |
+| GET | `/connected-devices/device/time-tracking/status` | Control Horario Connected returns the owner's current session. |
+| GET | `/connected-devices/device/time-tracking/sessions` | Returns the owner's own closed sessions. |
+| POST | `/connected-devices/device/time-tracking/clock-in` | Registers entry with an idempotency operation ID. |
+| POST | `/connected-devices/device/time-tracking/clock-out` | Registers exit with an idempotency operation ID. |
+
+Remaining before VPS acceptance:
+- Secure persistence using Android Keystore and lifecycle-aware capability refresh in Bee Devices.
+- Resolve full custom-role and restriction-role permission context through a Core-owned authorization contract rather than the current fail-closed restriction.
+- Add lifecycle handling to clear extension grants when an extension is uninstalled, and verify package disable/re-enable behavior.
+- Build and install the signed Connected Devices 0.3.0 and Time Tracking Connected 0.1.0 packages, build/sync the Android app, and validate on the VPS/device.
+- Run the agreed backend, package, browser, security and Android integration tests only after the implementation is complete.
+
+No tests or GitHub Actions have been run for this implementation slice. The existing main branch and deployed VPS have not been changed.
 
