@@ -8,6 +8,12 @@
     }@if (message) {
     <p class="tt-message" role="status">{{message}}</p>
   }
+  <nav class="tt-section-nav" [attr.aria-label]="t('title')">
+    <button type="button" [class.is-active]="activeSection==='my-day'" (click)="setSection('my-day')">{{t('my_day')}}</button>
+    <button type="button" [class.is-active]="activeSection==='schedule'" (click)="setSection('schedule')">{{t(canManage?'schedule_planning':'my_schedule')}}</button>
+    <button type="button" [class.is-active]="activeSection==='history'" (click)="setSection('history')">{{t('history')}}</button>
+    <button type="button" [class.is-active]="activeSection==='requests'" (click)="setSection('requests')">{{t(canManage?'incidents':'requests')}}</button>
+  </nav>
   <div class="tt-content-wrapper">
     <main class="tt-content bee-page__content">
       @if (activeSection==='my-day') {
