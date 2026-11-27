@@ -256,7 +256,7 @@ These options appear in Connected Devices only while the extension is available.
 The first implementation slice is now present on `feature/connected-devices-capability-extensions`. It has **not been built, tested or validated on the VPS yet**; automated tests and GitHub workflows are intentionally deferred until the end-to-end implementation is ready.
 
 Implemented in source:
-- Connected Devices publishes a typed, runtime capability registry service. Extension declarations have stable IDs, provider package IDs, labels, descriptions, groups, order and operation names.
+- Connected Devices publishes a typed, runtime capability registry service. Extension declarations have stable IDs, contract version 1, provider package IDs, labels, descriptions, groups, order, required packages and operation names.
 - The base capability catalogue is empty unless an extension registers declarations. The former hard-coded capability list is no longer used as the default allowlist.
 - Dashboard API exposes the tenant-available catalogue at `GET /connected-devices/capabilities`.
 - Pairing accepts zero requested capabilities. Pair-device remains available even when no extension is installed.
