@@ -12,6 +12,7 @@ test("Control Horario uses the Core plugin access contract and plugin-owned rout
 
   assert.match(plugin, /core\.plugin-access/);
   assert.match(plugin, /registerTimeTrackingRoutes\(ctx, repository, access\)/);
+  assert.match(plugin, /apiPrefixes: \["\\/time-tracking"\]/);
   assert.match(routes, /access\.isPluginAvailable\(tenant\.tenantId, "time-tracking"\)/);
   assert.match(routes, /access\.isTenantUserActive\(tenant\.tenantId, tenant\.userId\)/);
   assert.match(routes, /requireTenantPermissions\("time-tracking\.manage"\)/);
