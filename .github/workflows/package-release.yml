@@ -28,17 +28,19 @@ jobs:
         run: npm ci
       - name: Install web dependencies for the federation remote
         run: npm ci --prefix apps/web
-      - name: Build Connected Devices federation remote
-        run: node scripts/build-connected-devices-remote.mjs
-      - name: Require the configured package signing key
+      - name: Build and verify signed ZIP packages
         shell: bash
         run: |
+          set -euo pipefail
           if [[ -z "$BEE_PLUGIN_PUBLISHER_PRIVATE_KEY" ]]; then
             echo "::error::Configure the BEE_PLUGIN_PUBLISHER_PRIVATE_KEY repository secret before building release packages."
             exit 1
           fi
-      - name: Build three signed ZIP packages
-        run: npm run build:plugin-packages
+          mkdir -p secrets
+          trap 'rm -rf secrets artifacts' EXIT
+          printf '%s\n' "$BEE_PLUGIN_PUBLISHER_PRIVATE_KEY" > secrets/plugin-publisher-private.pem
+          openssl pkey -in secrets/plugin-publisher-private.pem -pubout -out secrets/plugin-publisher-public.pem
+          npm run build:plugin-packages
       - uses: actions/upload-artifact@v4
         with:
           name: bee-core-first-party-plugin-packages
