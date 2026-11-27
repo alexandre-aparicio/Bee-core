@@ -5,10 +5,12 @@
 `time-tracking-connected` is an optional signed plugin package. It depends on both `connected-devices` and `time-tracking`.
 
 - Connected Devices owns pairing, device credentials, device lifecycle, the capability registry and per-device grants.
-- Control Horario owns time-entry records, validation, idempotency and business rules.
-- Time Tracking Connected is the adapter between an authenticated device and the Control Horario device-operation contract. It owns no time-entry collections and does not import Control Horario repositories or HTTP handlers.
+- Control Horario owns its Native Federation frontend, time-entry records, validation, idempotency, effective permissions and business rules.
+- Time Tracking Connected is a thin adapter between an authenticated device and the Control Horario device-operation contract. It owns no time-entry collections and does not import Control Horario repositories or HTTP routes.
 
-The package is manual-activation and contributes capabilities only while both `time-tracking-connected` and `time-tracking` are available for the tenant.
+The architecture follows the package boundary established by `refactor/time-tracking-connected-devices-architecture`: Control Horario remains an independently installable business package with its own frontend remote and API prefix. The companion extension is a separate package; it does not become a frontend feature or dependency of Connected Devices.
+
+The package is manual-activation and contributes capabilities only while the extension and its required business package are available for the tenant.
 
 ## Capability declarations
 
@@ -20,16 +22,20 @@ The package is manual-activation and contributes capabilities only while both `t
 
 Each declaration contains contract version 1, a stable ID, display label/description, group/order, operation names, provider package ID and required package IDs. The registry returns only declarations whose provider and dependencies are available to the active tenant.
 
+The initial Android scope intentionally remains limited to clock-in, clock-out and own-record reads. Breaks, schedules and correction workflows remain Control Horario business functionality and are not exposed as companion capabilities until their mobile interaction and permission model are designed explicitly.
+
 ## Runtime service contracts
 
 Connected Devices publishes:
 - `connected-devices.capabilities`: registration and tenant-filtered discovery of extension declarations.
 - `connected-devices.device-auth`: authenticate the device credential and authorize a capability against a live declaration, active device, active owner membership and the persisted per-device grant.
 
-Control Horario 0.2.3 publishes:
+Control Horario 0.2.4 publishes:
 - `time-tracking.device-api`: clock-in, clock-out, status and own-session reads. It delegates to the existing Control Horario handlers, preserving their validation, idempotency and response status codes.
+- Before executing a handler, the service verifies that Control Horario is available for the tenant, the linked user is an active member, and the user's effective permission set includes the required Control Horario permissions.
+- Effective permissions are resolved from Core's tenant role policy, plugin permission catalogue, custom-role grants and restriction roles. Unsupported or incomplete authorization context fails closed. The device extension no longer duplicates role defaults or assumes that a role name implies permission.
 
-Time Tracking Connected consumes these services through `ctx.services`. It does not import either module's private repository or route implementation.
+Time Tracking Connected consumes these services through `ctx.services`. It does not import either module's private repository or route implementation. It checks device authentication, extension availability and the per-device capability grant; Control Horario remains the authority for business authorization.
 
 ## Device API
 
@@ -42,12 +48,12 @@ The extension uses its own non-overlapping API prefix, separate from Connected D
 | GET | `/time-tracking-connected/device/status` | `time-tracking.records.read` |
 | GET | `/time-tracking-connected/device/sessions` | `time-tracking.records.read` |
 
-Every request authenticates `Authorization: Bearer <device-credential>`. The server derives tenant and owner user IDs from the stored device record; it never accepts them from the request body. Clock operations require an `operationId` and use the existing Control Horario handler. The device owner must still be an active company member and have an allowed Control Horario role; unknown/custom roles and restricted memberships currently fail closed.
+Every request authenticates `Authorization: Bearer <device-credential>`. The server derives tenant and owner user IDs from the stored device record; it never accepts them from the request body. Clock operations require an `operationId` and use the existing Control Horario handler. The device capability grant and Control Horario's effective user permissions are both required; neither replaces the other.
 
 ## Package publication
 
-The package builder includes `time-tracking-connected` as a separate signed ZIP package version 0.1.0. Its manifest dependencies are `connected-devices` and `time-tracking`. Connected Devices is version 0.3.0 and Control Horario is version 0.2.3 because these versions publish the required runtime contracts.
+The package builder includes `time-tracking-connected` as a separate signed ZIP package version 0.1.1. Its manifest dependencies are `connected-devices` and `time-tracking`. Connected Devices is version 0.3.0 and Control Horario is version 0.2.4 because the latter publishes the permission-aware device service contract.
 
 ## Validation status
 
-Source and package-builder definitions are present on `feature/connected-devices-capability-extensions`. No build, test, GitHub workflow, package signing or VPS validation has been run yet. Final validation is intentionally deferred until the end-to-end implementation is ready.
+Source and package-builder definitions are present on `feature/connected-devices-capability-extensions`. They have not been built, tested, signed or validated on the VPS. GitHub Actions and automated tests remain intentionally deferred until the end-to-end implementation is ready.
