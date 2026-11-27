@@ -161,6 +161,78 @@ export async function resolveTenantContext(
   };
 }
 
+/**
+ * Resolve the effective permission set for an active tenant member without
+ * creating a dashboard session. This is reserved for trusted server-side
+ * service contracts (for example a paired device acting as its linked user).
+ * Platform super-admin identities fail closed because their MFA/session proof
+ * cannot be established by a device credential.
+ */
+export async function resolveTenantUserPermissions(
+  db: Db,
+  tenantId: string,
+  userId: string
+): Promise<readonly string[] | null> {
+  const [tenant, user, membership] = await Promise.all([
+    db.collection<{ id: string; status?: string }>("tenants").findOne({ id: tenantId }),
+    db.collection<{ id: string; enabled: boolean; platformRole?: string }>("users").findOne({ id: userId, enabled: true }),
+    db.collection<{ role: MembershipRole; customRoleId?: string; restrictionRoleIds?: string[] }>("memberships")
+      .findOne({ tenantId, userId, status: "active" })
+  ]);
+  if (!tenant || tenant.status === "suspended" || !user || !membership) return null;
+  if (membership.role === "super_admin" || user.platformRole === "superadmin") return null;
+
+  const sources = await activeTenantPluginPermissionSources(db, tenantId);
+  const catalog = composePermissionCatalog(sources);
+  const pluginPermissionKeys = catalog.filter(item => !CORE_PERMISSION_KEYS.includes(item.key)).map(item => item.key);
+  let permissions: readonly string[];
+
+  if (membership.role === "custom") {
+    if (!membership.customRoleId) return null;
+    const customRole = await db.collection<CustomRolePolicy>("company_roles")
+      .findOne({ id: membership.customRoleId, tenantId });
+    if (!customRole || customRole.mode === "restriction") return null;
+    try {
+      const policy = await db.collection<{ id: string; tenantAssignablePermissions: string[] }>("platform_permission_policies")
+        .findOne({ id: "global" }, { projection: { tenantAssignablePermissions: 1 } });
+      const allowed = policy?.tenantAssignablePermissions;
+      const coreAllowed = CORE_PERMISSION_CATALOG.filter(item => item.customRoleAssignable).map(item => item.key);
+      permissions = permissionsForCustomRole(customRole, [
+        ...(Array.isArray(allowed) ? allowed : coreAllowed),
+        ...pluginPermissionKeys
+      ]);
+    } catch {
+      return null;
+    }
+  } else {
+    if (!Object.prototype.hasOwnProperty.call(COMPANY_ROLE_PERMISSIONS, membership.role)) return null;
+    const roleKey = membership.role === "super_admin" ? "owner" : membership.role;
+    const defaults = sources.flatMap(source =>
+      (source.permissions ?? [])
+        .filter(permission => permission.defaultGrants?.[roleKey as "owner" | "admin" | "manager" | "member"])
+        .map(permission => permission.key)
+    );
+    permissions = [...COMPANY_ROLE_PERMISSIONS[membership.role], ...defaults];
+  }
+
+  const restrictionIds = Array.isArray(membership.restrictionRoleIds)
+    ? [...new Set(membership.restrictionRoleIds)]
+    : [];
+  if (restrictionIds.length) {
+    if (membership.role === "owner" || membership.role === "super_admin") return null;
+    const restrictions = await db.collection<CustomRolePolicy>("company_roles")
+      .find({ id: { $in: restrictionIds }, tenantId, mode: "restriction" }).toArray();
+    if (restrictions.length !== restrictionIds.length) return null;
+    try {
+      permissions = applyPermissionRestrictions(permissions, restrictions);
+    } catch {
+      return null;
+    }
+  }
+
+  return permissions;
+}
+
 export function hasTenantPermission(context: TenantContext, permission: string): boolean {
   return context.permissions.includes(permission);
 }
