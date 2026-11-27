@@ -52,8 +52,13 @@ Every request authenticates `Authorization: Bearer <device-credential>`. The ser
 
 ## Package publication
 
-The package builder includes `time-tracking-connected` as a separate signed ZIP package version 0.1.1. Its manifest dependencies are `connected-devices` and `time-tracking`. Connected Devices is version 0.3.0 and Control Horario is version 0.2.4 because the latter publishes the permission-aware device service contract.
+The package builder includes `time-tracking-connected` as a separate signed ZIP package version 0.1.2. It declares two distinct dependency layers:
+
+- Runtime dependencies (`dependencies`): `connected-devices` and `time-tracking`; these must be installed globally and loaded before the extension can mount.
+- Tenant installation dependencies (`tenantDependencies`): `connected-devices` and `time-tracking`; both must be entitled, installed and enabled for the company before Marketplace accepts the extension install or activation. The same dependency check is repeated by the durable install worker, so a direct API/job path cannot bypass the gate.
+
+This is deliberately not a dependency from Control Horario to Connected Devices. Control Horario remains independently installable and usable in web. Only the optional `time-tracking-connected` adapter requires both modules. The platform ZIP installer also rejects publication when a required runtime dependency is missing or incompatible. Connected Devices is version 0.3.0 and Control Horario is version 0.2.4 because the latter publishes the permission-aware device service contract.
 
 ## Validation status
 
-Source and package-builder definitions are present on `feature/connected-devices-capability-extensions`. They have not been built, tested, signed or validated on the VPS. GitHub Actions and automated tests remain intentionally deferred until the end-to-end implementation is ready.
+Source and package-builder definitions are present on `feature/connected-devices-capability-extensions`. The package manifest now declares both mandatory tenant dependencies as well as both runtime dependencies. The installer/activation flow already resolves the tenant dependency list and checks entitlement, installed state and enabled state before accepting or executing installation. They have not been built, tested, signed or validated on the VPS. GitHub Actions and automated tests remain intentionally deferred until the end-to-end implementation is ready.
