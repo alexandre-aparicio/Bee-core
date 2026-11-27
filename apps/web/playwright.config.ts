@@ -6,9 +6,9 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:4200', browserName: 'chromium', headless: true },
   webServer: {
-    command: 'npx ng run bee-core-web:serve:development',
+    command: 'node scripts/serve-production.mjs',
     url: 'http://127.0.0.1:4200',
     reuseExistingServer: !process.env.CI,
-    timeout: 300000
+    timeout: 30000
   }
 });
