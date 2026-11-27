@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, resolve, sep } from 'node:path';
 
@@ -53,6 +53,19 @@ const server = createServer((request, response) => {
     response.end();
     return;
   }
+  if (file === resolve(root, 'index.html')) {
+    // Match the production Nginx rewrite: Native Federation v3 relies on
+    // es-module-shims for the import map, including bootstrap dynamic imports.
+    // Leaving main as a classic/native script bypasses that map and makes
+    // bare Angular imports fail before the application can start.
+    const html = readFileSync(file, 'utf8').replace(
+      '<script src="main-',
+      '<script type="module-shim" src="main-'
+    );
+    response.end(html);
+    return;
+  }
+
   createReadStream(file).pipe(response);
 });
 
