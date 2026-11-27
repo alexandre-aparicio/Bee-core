@@ -33,19 +33,51 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  // Public companion exchange: the one-time QR token is consumed once. The returned
  // credential is separate and remains unusable until tenant-admin approval.
  ctx.server.post("/connected-devices/pair",async(request:any,reply:any)=>{
-  const token=clean(request.body?.token,256);if(token.length<40)return reply.code(400).send({error:"Invalid pairing token."});
-  const challenge=await repository.challenges.findOne({tokenHash:hashDeviceSecret(token),status:"issued",expiresAt:{$gt:new Date()}});
-  if(!challenge)return reply.code(410).send({error:"Pairing code is invalid, expired or already used."});
-  const [available,ownerActive]=await Promise.all([access.isPluginAvailable(challenge.tenantId,"connected-devices"),access.isTenantUserActive(challenge.tenantId,challenge.userId)]);
-  if(!available||!ownerActive)return reply.code(403).send({error:"Connected Devices, company or pairing user is no longer active."});
-  const name=clean(request.body?.name,80),deviceType=clean(request.body?.deviceType,40)||"companion",platform=clean(request.body?.platform,40)||"unknown";
-  if(!name)return reply.code(400).send({error:"Device name is required."});
-  const {deviceCredential}=createPairingSecrets(),now=new Date(),deviceId=randomUUID();
-  const device:ConnectedDeviceRecord={id:deviceId,tenantId:challenge.tenantId,ownerUserId:challenge.userId,requestedBy:challenge.userId,name,deviceType,platform,appVersion:clean(request.body?.appVersion,40)||null,requestedCapabilities:normalizeRequestedCapabilities(challenge.requestedCapabilities),grantedCapabilities:[],credentialHash:hashDeviceSecret(deviceCredential),status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null};
-  const claimed=await repository.challenges.updateOne({id:challenge.id,status:"issued",expiresAt:{$gt:now}},{$set:{status:"claimed",claimedAt:now,deviceId}});
-  if(!claimed.modifiedCount)return reply.code(410).send({error:"Pairing code has already been used."});
-  try{await repository.devices.insertOne(device);}catch(error){await repository.challenges.updateOne({id:challenge.id,status:"claimed",deviceId},{$set:{status:"issued",claimedAt:null,deviceId:null}});throw error;}
-  return reply.code(201).send({deviceId,pairingSecret:deviceCredential,status:"pending",approvalExpiresAt:device.pairingExpiresAt});
+  let phase="validate-token";
+  try {
+   const token=clean(request.body?.token,256);
+   if(token.length<40)return reply.code(400).send({error:"Invalid pairing token."});
+   phase="find-challenge";
+   const challenge=await repository.challenges.findOne({tokenHash:hashDeviceSecret(token),status:"issued",expiresAt:{$gt:new Date()}});
+   if(!challenge)return reply.code(410).send({error:"Pairing code is invalid, expired or already used."});
+   phase="check-tenant-access";
+   const [available,ownerActive]=await Promise.all([access.isPluginAvailable(challenge.tenantId,"connected-devices"),access.isTenantUserActive(challenge.tenantId,challenge.userId)]);
+   if(!available||!ownerActive)return reply.code(403).send({error:"Connected Devices, company or pairing user is no longer active."});
+   phase="validate-device";
+   const name=clean(request.body?.name,80),deviceType=clean(request.body?.deviceType,40)||"companion",platform=clean(request.body?.platform,40)||"unknown";
+   if(!name)return reply.code(400).send({error:"Device name is required."});
+   const {deviceCredential}=createPairingSecrets(),now=new Date(),deviceId=randomUUID();
+   const device:ConnectedDeviceRecord={id:deviceId,tenantId:challenge.tenantId,ownerUserId:challenge.userId,requestedBy:challenge.userId,name,deviceType,platform,appVersion:clean(request.body?.appVersion,40)||null,requestedCapabilities:normalizeRequestedCapabilities(challenge.requestedCapabilities),grantedCapabilities:[],credentialHash:hashDeviceSecret(deviceCredential),status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null};
+   phase="claim-challenge";
+   const claimed=await repository.challenges.updateOne({id:challenge.id,status:"issued",expiresAt:{$gt:now}},{$set:{status:"claimed",claimedAt:now,deviceId}});
+   if(!claimed.modifiedCount)return reply.code(410).send({error:"Pairing code has already been used."});
+   phase="insert-device";
+   try {
+    await repository.devices.insertOne(device);
+   } catch(error) {
+    phase="rollback-challenge";
+    try {
+     await repository.challenges.updateOne({id:challenge.id,status:"claimed",deviceId},{$set:{status:"issued",claimedAt:null,deviceId:null}});
+    } catch(rollbackError) {
+     ctx.logger.error("Connected Devices pairing rollback failed", {
+      phase:"rollback-challenge",
+      errorName:rollbackError instanceof Error?rollbackError.name:"UnknownError",
+      errorMessage:rollbackError instanceof Error?rollbackError.message:String(rollbackError),
+      stack:rollbackError instanceof Error?rollbackError.stack:undefined
+     });
+    }
+    throw error;
+   }
+   return reply.code(201).send({deviceId,pairingSecret:deviceCredential,status:"pending",approvalExpiresAt:device.pairingExpiresAt});
+  } catch(error) {
+   ctx.logger.error("Connected Devices pairing request failed", {
+    phase,
+    errorName:error instanceof Error?error.name:"UnknownError",
+    errorMessage:error instanceof Error?error.message:String(error),
+    stack:error instanceof Error?error.stack:undefined
+   });
+   return reply.code(500).send({error:"Pairing could not be completed. Please try again."});
+  }
  });
  ctx.server.get("/connected-devices/pairing-status",async(request:any,reply:any)=>{
   const secret=clean(request.headers["x-device-pairing-secret"],256);if(secret.length<40)return reply.code(401).send({error:"Pairing secret required."});
