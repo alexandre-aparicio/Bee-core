@@ -15,7 +15,10 @@
             "tsConfig": "tsconfig.federation.json",
             "esmsInitOptions": {
               "nonce": "__BEE_CSP_NONCE__"
-            }
+            },
+            "entryPoints": [
+              "src/main.ts"
+            ]
           },
           "configurations": {
             "production": {
@@ -35,7 +38,12 @@
             "rebuildDelay": 500,
             "dev": true,
             "cacheExternalArtifacts": false,
-            "port": 4200
+            "port": 4200,
+            "entryPoints": [
+              "src/main.ts"
+            ],
+            "projectName": "bee-core-web",
+            "tsConfig": "tsconfig.federation.json"
           },
           "configurations": {
             "development": {
@@ -147,10 +155,10 @@
     },
     "connected-devices-remote": {
       "projectType": "application",
-      "root": "../../plugins/connected-devices/frontend",
+      "root": ".",
       "sourceRoot": "../../plugins/connected-devices/frontend/src",
       "prefix": "bee",
-      "architect": {
+      "targets": {
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
@@ -162,13 +170,6 @@
               "es-module-shims"
             ],
             "tsConfig": "../../plugins/connected-devices/frontend/tsconfig.app.json",
-            "assets": [
-              {
-                "glob": "qrcode.min.js",
-                "input": "../../plugins/connected-devices/frontend/src/assets",
-                "output": "assets"
-              }
-            ],
             "styles": []
           },
           "configurations": {
@@ -187,7 +188,10 @@
           "builder": "@angular-architects/native-federation:build",
           "options": {
             "projectName": "connected-devices-remote",
-            "tsConfig": "../../plugins/connected-devices/frontend/tsconfig.federation.json"
+            "tsConfig": "../../plugins/connected-devices/frontend/tsconfig.federation.json",
+            "entryPoints": [
+              "../../plugins/connected-devices/frontend/src/main.ts"
+            ]
           },
           "configurations": {
             "production": {
@@ -219,7 +223,11 @@
             "rebuildDelay": 500,
             "dev": true,
             "cacheExternalArtifacts": false,
-            "port": 4201
+            "port": 4201,
+            "entryPoints": [
+              "../../plugins/connected-devices/frontend/src/main.ts"
+            ],
+            "projectName": "connected-devices-remote"
           },
           "defaultConfiguration": "development"
         }
@@ -228,5 +236,31 @@
   },
   "cli": {
     "analytics": false
+  },
+  "schematics": {
+    "@schematics/angular:component": {
+      "type": "component"
+    },
+    "@schematics/angular:directive": {
+      "type": "directive"
+    },
+    "@schematics/angular:service": {
+      "type": "service"
+    },
+    "@schematics/angular:guard": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:interceptor": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:module": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:pipe": {
+      "typeSeparator": "."
+    },
+    "@schematics/angular:resolver": {
+      "typeSeparator": "."
+    }
   }
 }

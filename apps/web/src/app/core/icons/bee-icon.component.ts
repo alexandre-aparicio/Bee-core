@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideActivity, lucideBell, lucideBuilding2, lucideChevronDown, lucideChevronRight,
@@ -36,6 +36,7 @@ const ICONS: Record<string, string> = {
     lucideWorkflow, lucideSearch, lucideRefreshCw, lucidePlus, lucideClock, lucideCalendarDays, lucideHistory, lucideClipboardList
   })],
   template: '<ng-icon [name]="resolvedIcon" [size]="size" [strokeWidth]="strokeWidth"></ng-icon>',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [':host{display:inline-flex;align-items:center;justify-content:center;line-height:1;flex:none}ng-icon{display:inline-flex;align-items:center;justify-content:center;}']
 })
 export class BeeIconComponent {

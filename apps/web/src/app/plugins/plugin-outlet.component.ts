@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, Type, ViewChild, ViewContainerRef } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, Type, ViewChild, ViewContainerRef, ChangeDetectionStrategy } from "@angular/core";
 import { loadRemoteModule } from "@angular-architects/native-federation";
 import { BeePluginFrontendRegistry } from "./plugin-frontend-registry.service";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
@@ -9,6 +9,7 @@ type RemoteFrame = { pluginId: string; apiPrefixes: string[]; ready: boolean };
 @Component({
   selector: "bee-plugin-outlet",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `<div #remoteHost class="bee-plugin-remote-host"></div><ng-container #pluginHost></ng-container>`
 })
 export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDestroy {
@@ -92,7 +93,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
           const remoteAssetBaseUrl = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" +
             encodeURIComponent(runtime.version) + "/assets/" + encodeURIComponent(runtime.assetToken) + "/frontend/";
           const remoteEntryUrl = remoteAssetBaseUrl + runtime.remoteEntry.slice("frontend/".length).split("/").map(encodeURIComponent).join("/");
-          // Native Federation's v3 loader assumes the fetched JSON is a valid
+          // Native Federation's v4 loader assumes the fetched JSON is a valid
           // FederationInfo and iterates remoteEntry.exposes without checking the
           // HTTP response. A protected-asset 404 therefore surfaces as the
           // misleading "exposes is not iterable" TypeError. Validate the actual
@@ -111,7 +112,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
               !entryMetadata.exposes.some(expose => typeof expose === "object" && expose !== null &&
                 (expose as Record<string, unknown>)["key"] === runtime.exposedModule) ||
               !Array.isArray(entryMetadata.shared)) {
-            throw new Error("Native plugin remote entry has an invalid Native Federation v3 manifest");
+            throw new Error("Native plugin remote entry has an invalid Native Federation v4 manifest");
           }
           const remoteModule = await loadRemoteModule({
             remoteEntry: remoteEntryUrl,

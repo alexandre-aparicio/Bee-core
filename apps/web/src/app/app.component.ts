@@ -6,7 +6,7 @@ import { BeeStudioPageComponent } from './templates/packages/studio/pages/public
 import { BeeMidnightPageComponent } from './templates/packages/midnight/pages/dashboard.component';
 import { BeePaperPageComponent } from './templates/packages/paper/pages/dashboard.component';
 import { BeeGlassPageComponent } from './templates/packages/glass/pages/dashboard.component';
-import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateEngine } from './templates/template-engine.service';
@@ -15,7 +15,8 @@ import { BeeI18nService } from './i18n/bee-i18n.service';
 import { BeePluginFrontendRegistry } from './plugins/plugin-frontend-registry.service';
 import { BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent } from './templates/packages';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], changeDetection: ChangeDetectionStrategy.Eager,
+ templateUrl: './app.component.html' })
 export class AppComponent implements OnInit, OnDestroy {
   constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService, private readonly zone: NgZone, private readonly pluginFrontends: BeePluginFrontendRegistry) {}
 

@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input, OnChanges, SimpleChanges } from "@angular/core";
+import { Component, Input, OnChanges, SimpleChanges, ChangeDetectionStrategy } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
 type AuditEvent = { id:string; actorId:string; action:string; outcome:"success"|"denied"; resourceType?:string; resourceId?:string; metadata?:Record<string,string|number|boolean|null>; occurredAt:string };
@@ -8,42 +8,59 @@ type AuditEvent = { id:string; actorId:string; action:string; outcome:"success"|
   selector: "bee-audit-log",
   standalone: true,
   imports: [CommonModule, FormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <section id="activity" class="panel bee-dashboard-card bee-audit-log" *ngIf="canRead">
-      <div class="panel-heading">
-        <div><h2>Activity log</h2><p>Security and workspace events for the active company.</p></div>
-        <div class="bee-audit-log__controls">
-          <select aria-label="Audit action" [(ngModel)]="action" (ngModelChange)="load(1)">
-            <option value="">All events</option>
-            <option *ngFor="let item of actionOptions" [value]="item.value">{{item.label}}</option>
-          </select>
-          <button type="button" (click)="load(page)" [disabled]="loading">Refresh</button>
+    @if (canRead) {
+      <section id="activity" class="panel bee-dashboard-card bee-audit-log">
+        <div class="panel-heading">
+          <div><h2>Activity log</h2><p>Security and workspace events for the active company.</p></div>
+          <div class="bee-audit-log__controls">
+            <select aria-label="Audit action" [(ngModel)]="action" (ngModelChange)="load(1)">
+              <option value="">All events</option>
+              @for (item of actionOptions; track item) {
+                <option [value]="item.value">{{item.label}}</option>
+              }
+            </select>
+            <button type="button" (click)="load(page)" [disabled]="loading">Refresh</button>
+          </div>
         </div>
-      </div>
-      <div *ngIf="loading" class="bee-audit-log__state">Loading activity…</div>
-      <div *ngIf="error" class="bee-audit-log__error bee-status--danger" role="alert">{{error}}</div>
-      <div *ngIf="!loading && !events.length && !error" class="bee-audit-log__state">No activity matches this filter.</div>
-      <div class="bee-audit-log__table-wrap" *ngIf="events.length">
-        <table class="bee-audit-log__table">
-          <thead><tr><th>Event</th><th>Actor</th><th>Result</th><th>When</th><th>Details</th></tr></thead>
-          <tbody>
-            <tr *ngFor="let event of events; trackBy: trackEvent">
-              <td><strong>{{label(event.action)}}</strong><small>{{event.resourceType || "workspace"}}</small></td>
-              <td><code>{{event.actorId}}</code></td>
-              <td><span class="bee-audit-log__outcome" [class.is-denied]="event.outcome === 'denied'" [class.bee-status--danger]="event.outcome === 'denied'" [class.bee-status--success]="event.outcome === 'success'">{{event.outcome}}</span></td>
-              <td>{{event.occurredAt | date:"medium"}}</td>
-              <td><small>{{details(event)}}</small></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="bee-audit-log__pagination" *ngIf="events.length || page > 1">
-        <button type="button" (click)="load(page - 1)" [disabled]="page <= 1 || loading">Previous</button>
-        <span>Page {{page}}</span>
-        <button type="button" (click)="load(page + 1)" [disabled]="!hasMore || loading">Next</button>
-      </div>
-    </section>
-  `
+        @if (loading) {
+          <div class="bee-audit-log__state">Loading activity…</div>
+        }
+        @if (error) {
+          <div class="bee-audit-log__error bee-status--danger" role="alert">{{error}}</div>
+        }
+        @if (!loading && !events.length && !error) {
+          <div class="bee-audit-log__state">No activity matches this filter.</div>
+        }
+        @if (events.length) {
+          <div class="bee-audit-log__table-wrap">
+            <table class="bee-audit-log__table">
+              <thead><tr><th>Event</th><th>Actor</th><th>Result</th><th>When</th><th>Details</th></tr></thead>
+              <tbody>
+                @for (event of events; track trackEvent($index, event)) {
+                  <tr>
+                    <td><strong>{{label(event.action)}}</strong><small>{{event.resourceType || "workspace"}}</small></td>
+                    <td><code>{{event.actorId}}</code></td>
+                    <td><span class="bee-audit-log__outcome" [class.is-denied]="event.outcome === 'denied'" [class.bee-status--danger]="event.outcome === 'denied'" [class.bee-status--success]="event.outcome === 'success'">{{event.outcome}}</span></td>
+                    <td>{{event.occurredAt | date:"medium"}}</td>
+                    <td><small>{{details(event)}}</small></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        @if (events.length || page > 1) {
+          <div class="bee-audit-log__pagination">
+            <button type="button" (click)="load(page - 1)" [disabled]="page <= 1 || loading">Previous</button>
+            <span>Page {{page}}</span>
+            <button type="button" (click)="load(page + 1)" [disabled]="!hasMore || loading">Next</button>
+          </div>
+        }
+      </section>
+    }
+    `
 })
 export class AuditLogComponent implements OnChanges {
   @Input() tenantId = "";

@@ -1,6 +1,7 @@
+import { provideZoneChangeDetection } from "@angular/core";
 import { bootstrapApplication } from "@angular/platform-browser";
-import { provideHttpClient } from "@angular/common/http";
+import { provideHttpClient, withXhr } from "@angular/common/http";
 import { AppComponent } from "./app/app.component";
 
-bootstrapApplication(AppComponent, { providers: [provideHttpClient()] })
+bootstrapApplication(AppComponent, { providers: [provideZoneChangeDetection(),provideHttpClient(withXhr())] })
   .catch(error => console.error(error));

@@ -12,7 +12,7 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   const angular = JSON.parse(await readFile(resolve(root, "apps/web/angular.json"), "utf8"));
   const webPackage = JSON.parse(await readFile(resolve(root, "apps/web/package.json"), "utf8"));
   const webLock = JSON.parse(await readFile(resolve(root, "apps/web/package-lock.json"), "utf8"));
-  const federation = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.js"), "utf8");
+  const federation = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.mjs"), "utf8");
   const remoteContract = await readFile(resolve(root, "plugins/connected-devices/frontend/src/plugin.component.ts"), "utf8");
   const component = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.ts"), "utf8");
   const componentHtml = await readFile(resolve(root, "plugins/connected-devices/frontend/src/connected-devices.component.html"), "utf8");
@@ -44,7 +44,8 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   assert.match(remoteStyles, /\.bee-device-card/);
   assert.doesNotMatch(coreStyles, /bee-device-card|bee-pairing/);
   assert.ok(angular.projects["connected-devices-remote"], "Connected Devices must have its own Angular remote build target");
-  assert.equal(angular.projects["connected-devices-remote"].architect.build.builder, "@angular-architects/native-federation:build");
+  assert.equal(angular.projects["connected-devices-remote"].targets.build.builder, "@angular-architects/native-federation:build");
+    assert.equal(angular.projects["connected-devices-remote"].targets.esbuild.builder, "@angular/build:application");
   for (const [name, version] of Object.entries(webPackage.devDependencies)) {
     if (name.startsWith("@angular-") || name.startsWith("@softarc/") || name === "es-module-shims") {
       assert.equal(webLock.packages[""].devDependencies?.[name], version, `apps/web/package-lock.json must pin ${name}`);
@@ -57,7 +58,7 @@ test("Connected Devices signed ZIP declares and packages its federation remote",
   const builder = await readFile(resolve(root, "scripts/build-plugin-packages.mjs"), "utf8");
   const plugin = await readFile(resolve(root, "src/plugins/connected-devices/connected-devices.plugin.ts"), "utf8");
   const manifest = await readFile(resolve(root, "src/plugins/connected-devices/plugin.manifest.ts"), "utf8");
-  const packageConfig = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.js"), "utf8");
+  const packageConfig = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.mjs"), "utf8");
   assert.match(builder, /frontendDist:\s*process\.env\.BEE_CONNECTED_DEVICES_FEDERATION_DIST/);
   assert.match(builder, /frontend\/remoteEntry\.json/);
   assert.match(builder, /definition\.frontend\.remoteEntry/);

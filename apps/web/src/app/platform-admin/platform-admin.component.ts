@@ -1,5 +1,5 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, Input, OnInit, Output, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 
 type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'suspended';createdAt:string;membersCount?:number};
@@ -7,7 +7,8 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
 @Component({
  selector:'bee-platform-admin',
  standalone:true,
- imports:[CommonModule,FormsModule],
+ imports: [FormsModule],
+ changeDetection: ChangeDetectionStrategy.Eager,
  template:`
  <section class="platform-admin">
    @if (!managedTenantId) {
@@ -16,7 +17,9 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
          <div class="plugin-settings__search">
            <span aria-hidden="true">⌕</span>
            <input type="search" [value]="search" (input)="search=$any($event.target).value" placeholder="Search tenants…" aria-label="Search tenants">
-           <button *ngIf="search" type="button" (click)="search=''" aria-label="Clear search">×</button>
+           @if (search) {
+             <button type="button" (click)="search=''" aria-label="Clear search">×</button>
+           }
          </div>
        </div>
        <div class="plugin-settings__toolbar-actions">
@@ -33,118 +36,118 @@ type PlatformCompany={id:string;name:string;slug?:string|null;status:'active'|'s
      @else if(!companies.length){<div class="platform-admin__empty">No tenants have been created yet.</div>}
      @else if(!filteredCompanies.length){<div class="platform-admin__empty">No tenants match your search.</div>}
      @else if(viewMode==='cards'){
-       <div class="platform-admin__cards">
-         @for(c of filteredCompanies;track c.id){
-           <article class="platform-company-card">
-             <div class="platform-company-card__top">
-               <span class="platform-company-card__mark">{{c.name.charAt(0).toUpperCase()}}</span>
-               <div class="platform-company-card__menu-wrap">
-                 <button type="button" class="platform-company-card__dots" aria-label="Company actions" [attr.aria-expanded]="openMenuId===c.id" (click)="toggleMenu(c.id)">⋮</button>
-                 @if(openMenuId===c.id){<div class="platform-company-card__menu">
-                   <button type="button" disabled>Disable</button>
-                   <button type="button" disabled>Message</button>
-                   <button type="button" (click)="manageCompany.emit(c.id);openMenuId=''">Manage</button>
-                 </div>}
-               </div>
+     <div class="platform-admin__cards">
+       @for(c of filteredCompanies;track c.id){
+         <article class="platform-company-card">
+           <div class="platform-company-card__top">
+             <span class="platform-company-card__mark">{{c.name.charAt(0).toUpperCase()}}</span>
+             <div class="platform-company-card__menu-wrap">
+               <button type="button" class="platform-company-card__dots" aria-label="Company actions" [attr.aria-expanded]="openMenuId===c.id" (click)="toggleMenu(c.id)">⋮</button>
+               @if(openMenuId===c.id){<div class="platform-company-card__menu">
+                 <button type="button" disabled>Disable</button>
+                 <button type="button" disabled>Message</button>
+                 <button type="button" (click)="manageCompany.emit(c.id);openMenuId=''">Manage</button>
+               </div>}
              </div>
-             <h3>{{c.name}}</h3>
-             <p class="platform-company-card__slug">{{c.slug || 'No public subdomain'}}</p>
-             <div class="platform-company-card__meta">
-               <span [class.is-suspended]="c.status==='suspended'"><i></i>{{c.status}}</span>
-               <span>{{c.membersCount ?? 0}} members</span>
-             </div>
-             <div class="platform-company-card__footer"><button type="button" (click)="manageCompany.emit(c.id)">Manage tenant ↗</button></div>
-           </article>
-         }
-       </div>
-     } @else {
-       <div class="platform-admin__table-wrap"><table class="platform-admin__table">
-         <thead><tr><th>Tenant</th><th>Subdomain</th><th>Members</th><th>Status</th><th>Actions</th></tr></thead>
-         <tbody>@for(c of filteredCompanies;track c.id){<tr>
-           <td><strong>{{c.name}}</strong><small>{{c.id}}</small></td>
-           <td>{{c.slug || '—'}}</td><td>{{c.membersCount ?? 0}}</td>
-           <td><span class="platform-company-status" [class.is-suspended]="c.status==='suspended'">{{c.status}}</span></td>
-           <td><div class="platform-company-card__menu-wrap">
-             <button type="button" class="platform-company-card__dots" aria-label="Company actions" [attr.aria-expanded]="openMenuId===c.id" (click)="toggleMenu(c.id)">⋮</button>
-             @if(openMenuId===c.id){<div class="platform-company-card__menu">
-               <button type="button" disabled>Disable</button><button type="button" disabled>Message</button>
-               <button type="button" (click)="manageCompany.emit(c.id);openMenuId=''">Manage</button>
-             </div>}
-           </div></td>
-         </tr>}</tbody>
-       </table></div>
-     }
-   } @else {
-     <div class="platform-admin__manage-head">
-       <div><span class="platform-admin__eyebrow">SETTINGS / TENANTS</span><h2>{{managedCompany?.name || 'Company management'}}</h2><p>Manage this tenant and its platform-level configuration</p></div>
-       <button type="button" class="platform-admin__back" (click)="backToList.emit()">All Tenants</button>
-     </div>
-     @if(error){<p class="platform-admin__error bee-status--danger">{{error}}</p>}
-     @if(managedCompany){
-       <div class="platform-admin__tenant-summary">
-         <article class="platform-admin__detail"><span>Company ID</span><strong>{{managedCompany.id}}</strong></article>
-         <article class="platform-admin__detail"><span>Public subdomain</span><strong>{{managedCompany.slug || 'Not configured'}}</strong></article>
-         <article class="platform-admin__detail"><span>Members</span><strong>{{managedCompany.membersCount ?? 0}}</strong></article>
-         <article class="platform-admin__detail"><span>Status</span><strong class="platform-company-status" [class.is-suspended]="managedCompany.status==='suspended'">{{managedCompany.status}}</strong></article>
-       </div>
-       <nav class="platform-admin__tenant-tabs" role="tablist" aria-label="Tenant details">
-         <button type="button" role="tab" [class.is-active]="tenantTab==='general'" [attr.aria-selected]="tenantTab==='general'" (click)="tenantTab='general'">General</button>
-         <button type="button" role="tab" [class.is-active]="tenantTab==='users'" [attr.aria-selected]="tenantTab==='users'" (click)="tenantTab='users';loadTenantUsers()">Users <span>{{managedCompany.membersCount ?? 0}}</span></button>
-         <button type="button" role="tab" [class.is-active]="tenantTab==='plugins'" [attr.aria-selected]="tenantTab==='plugins'" (click)="tenantTab='plugins';loadTenantPlugins()">Plugins <span>{{tenantPlugins.length}}</span></button>
-       </nav>
-       @if(tenantTab==='general'){
-         <div class="platform-admin__tenant-tab-content">
-           <div class="platform-admin__manage-section">
-             <div><h3>Company status</h3><p>Control whether this company is active on the platform.</p></div>
-             <button type="button" (click)="toggle(managedCompany)" [disabled]="busy">{{managedCompany.status==='active'?'Suspend company':'Activate company'}}</button>
            </div>
-           <article class="platform-admin__detail"><span>Tenant identity</span><strong>{{managedCompany.name}}</strong><small>{{managedCompany.slug || 'No public subdomain configured'}}</small></article>
-         </div>
-       } @else if(tenantTab==='users'){
-         <div class="platform-admin__tenant-tab-content">
-           @if(usersLoading){<div class="platform-admin__empty">Loading tenant users…</div>}
-           @else if(!tenantUsers.length){<div class="platform-admin__empty">No active or invited memberships found.</div>}
-           @else {<div class="platform-admin__tenant-list">
-             @for(user of tenantUsers;track user.userId){<article class="platform-admin__tenant-row">
-               <span class="platform-admin__tenant-avatar">{{(user.email||'?').charAt(0).toUpperCase()}}</span>
-               <div class="platform-admin__tenant-user"><strong>{{user.email}}</strong><small>{{user.status}}</small></div>
-               <span class="platform-admin__tenant-role">{{user.role}}</span>
-             </article>}
-           </div>}
-         </div>
-       } @else {
-         <div class="platform-admin__tenant-tab-content">
-           @if(tenantPluginsLoading){<div class="platform-admin__empty">Loading tenant plugins…</div>}
-           @else if(!tenantPlugins.length){<div class="platform-admin__empty">No plugin catalogue entries available.</div>}
-           @else {<div class="platform-admin__tenant-list">
-             @for(plugin of tenantPlugins;track plugin.id){<article class="platform-admin__tenant-plugin">
-               <div class="platform-admin__tenant-plugin-main"><span class="platform-admin__tenant-plugin-mark">⌘</span><div><strong>{{plugin.name}}</strong><small>{{plugin.description || plugin.id}} · v{{plugin.version}}</small></div></div>
-               <div class="platform-admin__tenant-plugin-status"><span class="platform-company-status" [class.is-suspended]="!plugin.installed||!plugin.enabled||!plugin.entitled">{{plugin.installed?(plugin.enabled?(plugin.entitled?'Active':'Blocked'):'Inactive'):'Not installed on platform'}}</span><small>{{!plugin.installed?'Platform package unavailable':plugin.enabled?(plugin.entitled?'Active for this company':'Enabled but access is not granted'):plugin.entitled?'Available · inactive for this company':'Access not granted'}}</small></div>
-               @if(plugin.installed && (plugin.enabled || plugin.entitled)){<button type="button" class="platform-admin__tenant-plugin-action" (click)="toggleTenantPlugin(managedCompany,plugin)" [disabled]="busy||pluginBusyId===managedCompany.id || (!plugin.enabled && !plugin.entitled)">{{plugin.enabled ? 'Deactivate' : 'Activate'}}</button>}
-               @if(plugin.installed && !plugin.entitled){<button type="button" class="platform-admin__tenant-plugin-action" (click)="setTenantPluginGrant(managedCompany,plugin,true)" [disabled]="pluginBusyId===managedCompany.id">Grant access</button>}
-               @else if(plugin.installed && plugin.accessSource==='manual'){<button type="button" class="platform-admin__tenant-plugin-action" (click)="setTenantPluginGrant(managedCompany,plugin,false)" [disabled]="pluginBusyId===managedCompany.id">Revoke grant</button>}
-             </article>}
-           </div>}
-         </div>
+           <h3>{{c.name}}</h3>
+           <p class="platform-company-card__slug">{{c.slug || 'No public subdomain'}}</p>
+           <div class="platform-company-card__meta">
+             <span [class.is-suspended]="c.status==='suspended'"><i></i>{{c.status}}</span>
+             <span>{{c.membersCount ?? 0}} members</span>
+           </div>
+           <div class="platform-company-card__footer"><button type="button" (click)="manageCompany.emit(c.id)">Manage tenant ↗</button></div>
+         </article>
        }
-     } @else {<div class="platform-admin__empty">The requested company could not be found.</div>}
-   }
-   @if(showCreateModal){
-     <div class="platform-admin__modal-backdrop" (click)="closeCreate()">
-       <section class="platform-admin__modal" role="dialog" aria-modal="true" aria-labelledby="platform-create-title" (click)="$event.stopPropagation()">
-         <div class="platform-admin__modal-head"><div><span class="platform-admin__eyebrow">TENANT MANAGEMENT</span><h2 id="platform-create-title">Create a tenant</h2><p>Create a tenant and configure its first owner.</p></div><button type="button" aria-label="Close" (click)="closeCreate()">×</button></div>
-         <form class="platform-admin-form" (ngSubmit)="create()">
-           <label>Company name</label><input name="companyName" [(ngModel)]="name" required minlength="2" maxlength="120" placeholder="Dragchart">
-           <label>Public subdomain slug</label><input name="companySlug" [(ngModel)]="slug" pattern="[a-z0-9-]+" maxlength="48" placeholder="dragchart">
-           <small>Public address: {{slug || '[company-slug]'}}.beecore.beeprojects.net</small>
-           <label>Owner email</label><input name="ownerEmail" type="email" [(ngModel)]="ownerEmail" required placeholder="owner@company.com">
-           <label>Initial password (new user only)</label><input name="ownerPassword" type="password" [(ngModel)]="ownerPassword" minlength="12" placeholder="At least 12 characters">
-           @if(error){<p class="platform-admin__error bee-status--danger">{{error}}</p>}
-           <div class="platform-admin__modal-actions"><button type="button" class="platform-admin__cancel" (click)="closeCreate()">Cancel</button><button type="submit" [disabled]="busy">{{busy?'Creating…':'Create tenant'}}</button></div>
-         </form>
-       </section>
      </div>
+   } @else {
+     <div class="platform-admin__table-wrap"><table class="platform-admin__table">
+       <thead><tr><th>Tenant</th><th>Subdomain</th><th>Members</th><th>Status</th><th>Actions</th></tr></thead>
+       <tbody>@for(c of filteredCompanies;track c.id){<tr>
+         <td><strong>{{c.name}}</strong><small>{{c.id}}</small></td>
+         <td>{{c.slug || '—'}}</td><td>{{c.membersCount ?? 0}}</td>
+         <td><span class="platform-company-status" [class.is-suspended]="c.status==='suspended'">{{c.status}}</span></td>
+         <td><div class="platform-company-card__menu-wrap">
+           <button type="button" class="platform-company-card__dots" aria-label="Company actions" [attr.aria-expanded]="openMenuId===c.id" (click)="toggleMenu(c.id)">⋮</button>
+           @if(openMenuId===c.id){<div class="platform-company-card__menu">
+             <button type="button" disabled>Disable</button><button type="button" disabled>Message</button>
+             <button type="button" (click)="manageCompany.emit(c.id);openMenuId=''">Manage</button>
+           </div>}
+         </div></td>
+       </tr>}</tbody>
+     </table></div>
    }
+ } @else {
+   <div class="platform-admin__manage-head">
+     <div><span class="platform-admin__eyebrow">SETTINGS / TENANTS</span><h2>{{managedCompany?.name || 'Company management'}}</h2><p>Manage this tenant and its platform-level configuration</p></div>
+     <button type="button" class="platform-admin__back" (click)="backToList.emit()">All Tenants</button>
+   </div>
+   @if(error){<p class="platform-admin__error bee-status--danger">{{error}}</p>}
+   @if(managedCompany){
+     <div class="platform-admin__tenant-summary">
+       <article class="platform-admin__detail"><span>Company ID</span><strong>{{managedCompany.id}}</strong></article>
+       <article class="platform-admin__detail"><span>Public subdomain</span><strong>{{managedCompany.slug || 'Not configured'}}</strong></article>
+       <article class="platform-admin__detail"><span>Members</span><strong>{{managedCompany.membersCount ?? 0}}</strong></article>
+       <article class="platform-admin__detail"><span>Status</span><strong class="platform-company-status" [class.is-suspended]="managedCompany.status==='suspended'">{{managedCompany.status}}</strong></article>
+     </div>
+     <nav class="platform-admin__tenant-tabs" role="tablist" aria-label="Tenant details">
+       <button type="button" role="tab" [class.is-active]="tenantTab==='general'" [attr.aria-selected]="tenantTab==='general'" (click)="tenantTab='general'">General</button>
+       <button type="button" role="tab" [class.is-active]="tenantTab==='users'" [attr.aria-selected]="tenantTab==='users'" (click)="tenantTab='users';loadTenantUsers()">Users <span>{{managedCompany.membersCount ?? 0}}</span></button>
+       <button type="button" role="tab" [class.is-active]="tenantTab==='plugins'" [attr.aria-selected]="tenantTab==='plugins'" (click)="tenantTab='plugins';loadTenantPlugins()">Plugins <span>{{tenantPlugins.length}}</span></button>
+     </nav>
+     @if(tenantTab==='general'){
+       <div class="platform-admin__tenant-tab-content">
+         <div class="platform-admin__manage-section">
+           <div><h3>Company status</h3><p>Control whether this company is active on the platform.</p></div>
+           <button type="button" (click)="toggle(managedCompany)" [disabled]="busy">{{managedCompany.status==='active'?'Suspend company':'Activate company'}}</button>
+         </div>
+         <article class="platform-admin__detail"><span>Tenant identity</span><strong>{{managedCompany.name}}</strong><small>{{managedCompany.slug || 'No public subdomain configured'}}</small></article>
+       </div>
+     } @else if(tenantTab==='users'){
+       <div class="platform-admin__tenant-tab-content">
+         @if(usersLoading){<div class="platform-admin__empty">Loading tenant users…</div>}
+         @else if(!tenantUsers.length){<div class="platform-admin__empty">No active or invited memberships found.</div>}
+         @else {<div class="platform-admin__tenant-list">
+         @for(user of tenantUsers;track user.userId){<article class="platform-admin__tenant-row">
+           <span class="platform-admin__tenant-avatar">{{(user.email||'?').charAt(0).toUpperCase()}}</span>
+           <div class="platform-admin__tenant-user"><strong>{{user.email}}</strong><small>{{user.status}}</small></div>
+           <span class="platform-admin__tenant-role">{{user.role}}</span>
+         </article>}
+       </div>}
+     </div>
+   } @else {
+     <div class="platform-admin__tenant-tab-content">
+       @if(tenantPluginsLoading){<div class="platform-admin__empty">Loading tenant plugins…</div>}
+       @else if(!tenantPlugins.length){<div class="platform-admin__empty">No plugin catalogue entries available.</div>}
+       @else {<div class="platform-admin__tenant-list">
+       @for(plugin of tenantPlugins;track plugin.id){<article class="platform-admin__tenant-plugin">
+         <div class="platform-admin__tenant-plugin-main"><span class="platform-admin__tenant-plugin-mark">⌘</span><div><strong>{{plugin.name}}</strong><small>{{plugin.description || plugin.id}} · v{{plugin.version}}</small></div></div>
+         <div class="platform-admin__tenant-plugin-status"><span class="platform-company-status" [class.is-suspended]="!plugin.installed||!plugin.enabled||!plugin.entitled">{{plugin.installed?(plugin.enabled?(plugin.entitled?'Active':'Blocked'):'Inactive'):'Not installed on platform'}}</span><small>{{!plugin.installed?'Platform package unavailable':plugin.enabled?(plugin.entitled?'Active for this company':'Enabled but access is not granted'):plugin.entitled?'Available · inactive for this company':'Access not granted'}}</small></div>
+         @if(plugin.installed && (plugin.enabled || plugin.entitled)){<button type="button" class="platform-admin__tenant-plugin-action" (click)="toggleTenantPlugin(managedCompany,plugin)" [disabled]="busy||pluginBusyId===managedCompany.id || (!plugin.enabled && !plugin.entitled)">{{plugin.enabled ? 'Deactivate' : 'Activate'}}</button>}
+         @if(plugin.installed && !plugin.entitled){<button type="button" class="platform-admin__tenant-plugin-action" (click)="setTenantPluginGrant(managedCompany,plugin,true)" [disabled]="pluginBusyId===managedCompany.id">Grant access</button>}
+         @else if(plugin.installed && plugin.accessSource==='manual'){<button type="button" class="platform-admin__tenant-plugin-action" (click)="setTenantPluginGrant(managedCompany,plugin,false)" [disabled]="pluginBusyId===managedCompany.id">Revoke grant</button>}
+       </article>}
+     </div>}
+   </div>
+ }
+ } @else {<div class="platform-admin__empty">The requested company could not be found.</div>}
+ }
+ @if(showCreateModal){
+   <div class="platform-admin__modal-backdrop" (click)="closeCreate()">
+     <section class="platform-admin__modal" role="dialog" aria-modal="true" aria-labelledby="platform-create-title" (click)="$event.stopPropagation()">
+       <div class="platform-admin__modal-head"><div><span class="platform-admin__eyebrow">TENANT MANAGEMENT</span><h2 id="platform-create-title">Create a tenant</h2><p>Create a tenant and configure its first owner.</p></div><button type="button" aria-label="Close" (click)="closeCreate()">×</button></div>
+       <form class="platform-admin-form" (ngSubmit)="create()">
+         <label>Company name</label><input name="companyName" [(ngModel)]="name" required minlength="2" maxlength="120" placeholder="Dragchart">
+         <label>Public subdomain slug</label><input name="companySlug" [(ngModel)]="slug" pattern="[a-z0-9-]+" maxlength="48" placeholder="dragchart">
+         <small>Public address: {{slug || '[company-slug]'}}.beecore.beeprojects.net</small>
+         <label>Owner email</label><input name="ownerEmail" type="email" [(ngModel)]="ownerEmail" required placeholder="owner@company.com">
+         <label>Initial password (new user only)</label><input name="ownerPassword" type="password" [(ngModel)]="ownerPassword" minlength="12" placeholder="At least 12 characters">
+         @if(error){<p class="platform-admin__error bee-status--danger">{{error}}</p>}
+         <div class="platform-admin__modal-actions"><button type="button" class="platform-admin__cancel" (click)="closeCreate()">Cancel</button><button type="submit" [disabled]="busy">{{busy?'Creating…':'Create tenant'}}</button></div>
+       </form>
+     </section>
+   </div>
+ }
  </section>`
 })
 export class PlatformAdminComponent implements OnInit {
