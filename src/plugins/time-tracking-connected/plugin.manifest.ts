@@ -8,7 +8,6 @@ export const PLUGIN_MANIFEST = {
   dependencies: ["connected-devices", "time-tracking"],
   requiredServices: ["mongoDbName", "sessionIdSecret"],
   optionalServices: [],
-  tenantDependencies: ["connected-devices", "time-tracking"],
   activationPolicy: "manual" as const,
   migrations: [],
   permissions: []
