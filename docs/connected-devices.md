@@ -264,7 +264,7 @@ Implemented in source:
 - Device discovery is available through `GET /connected-devices/device/capabilities` and `GET /connected-devices/device/me`; both return only currently available, granted capabilities.
 - The Connected Devices Angular remote loads its catalogue dynamically, offers pairing with an empty catalogue, and renders optional per-device grant controls only when declarations exist.
 - A separate signed-package definition and backend plugin source for `time-tracking-connected` contributes `time-tracking.clock-in`, `time-tracking.clock-out` and `time-tracking.records.read`. Its operations delegate to the existing Control Horario handlers, check device grants, package availability and active owner membership, and fail closed for unsupported/restricted roles.
-- The separate `alexandre-aparicio/Bee-devices` repository now contains an Ionic/Angular + Capacitor app scaffold with ML Kit QR scanning, pairing approval polling, dynamic capability discovery, the three Control Horario actions and unlink. Device credentials remain memory-only.
+- The separate `alexandre-aparicio/Bee-devices` repository branch `feature/capability-aware-companion` now contains an Ionic/Angular + Capacitor app scaffold with ML Kit QR scanning, pairing approval polling, dynamic capability discovery, the three Control Horario actions, unlink and capability refresh on app resume. Device credentials remain memory-only.
 
 New API surface:
 
@@ -285,5 +285,5 @@ Remaining before VPS acceptance:
 - Build and install the signed Connected Devices 0.3.0 and Time Tracking Connected 0.1.0 packages, build/sync the Android app, and validate on the VPS/device.
 - Run the agreed backend, package, browser, security and Android integration tests only after the implementation is complete.
 
-No tests or GitHub Actions have been run for this implementation slice. The existing main branch and deployed VPS have not been changed.
+No tests or GitHub Actions have been run for this implementation slice. Bee-Core `main` and the deployed VPS have not been changed. Bee Devices work is isolated on `feature/capability-aware-companion`; its `main` branch remains at its original scaffold commit.
 
