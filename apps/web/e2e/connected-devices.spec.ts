@@ -49,12 +49,12 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
       status: "active", requestedCapabilities: ["scanner.use"], grantedCapabilities: ["scanner.use"],
       owner: { name: "QA Owner", email: "owner@example.test" }, lastSeenAt: "2026-11-25T10:00:00.000Z"
     }],
-    deleteCalls: 0, deleteBody: null, runtimeCalls: 0
+    deleteCalls: 0, deleteBody: null, runtimeCalls: 0, deviceListCalls: 0
   };
 
   await page.route("**/api/**", async (route: any) => {
     const url = new URL(route.request().url());
-    const path = url.pathname;
+    const path = url.pathname.replace(/\\/+$/, "");
     const method = route.request().method();
     let body: any = {};
     if (path.endsWith("/auth/refresh")) {
@@ -89,6 +89,7 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
     } else if (path.endsWith("/i18n/preferences") || path.endsWith("/users/me/preferences")) {
       body = { effectiveLanguage: "en", requestedLanguage: "en" };
     } else if (path.endsWith("/connected-devices") && method === "GET") {
+      state.deviceListCalls += 1;
       body = { devices: state.devices, canManage: true };
     } else if (path.endsWith("/connected-devices/device-e2e") && method === "DELETE") {
       state.deleteCalls += 1;
@@ -148,4 +149,5 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
   expect(state.deleteBody).toBeNull();
   expect(state.deleteContentType).toBeUndefined();
   expect(state.runtimeCalls).toBe(1);
+  expect(state.deviceListCalls).toBeGreaterThan(0);
 });
