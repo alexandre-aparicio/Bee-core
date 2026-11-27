@@ -64,3 +64,11 @@
 - Angular emitted four NG8107 warnings caused by optional chaining on properties typed as non-nullable. Updated the Connected Devices template to remove those redundant optional chains for `device.grantedCapabilities.length` and the pending-device grant map lookups.
 - Warning cleanup commit: `2ab89e4cddc0a310076a9eb61c68ddf94a1156a8`.
 - The first package build is successful. Warning-free rebuild, ZIP inspection, cryptographic signature verification, upload/installation, tenant entitlement activation, runtime loading, and final VPS validation remain pending. Do not merge to `main` until these release gates are completed.
+
+### VPS native remote-entry failure — 2026-11-27
+- The installed Connected Devices ZIP contains both `frontend/remoteEntry.json` (19.8 KB) and `frontend/importmap.json` (5.0 KB), and the backend logs confirm that package `0.2.0` mounted successfully. The browser nevertheless reports HTTP 404 followed by Native Federation's opaque `exposes is not iterable` exception.
+- The v3 loader assumes the remote-entry fetch succeeded and immediately iterates `exposes`; when the protected asset endpoint returns its JSON 404 body, the loader reports a misleading schema TypeError. The host now performs a no-store, credential-free preflight, checks HTTP status, and validates the v3 `name`, `exposes[]`, exposed key, and `shared[]` contract before calling `loadRemoteModule`.
+- The signed package builder now validates the same remote-entry contract before including the federation output in a ZIP, preventing malformed or incompatible remotes from being released.
+- Commits: `7cc04cec9f246056341cadd76ddcc2b69ec3eb23` and `3840d7c933243f1891195ee123e734b549486a3c`.
+- These are source changes only. No tests, builds, or GitHub Actions/CI were run. The HTTP 404 authorization/path cause is not yet identified; the new host error will expose the actual HTTP status rather than the misleading `exposes` TypeError. VPS pull, package rebuild/re-sign/re-upload, and browser verification remain pending. Do not merge to `main`.
+
