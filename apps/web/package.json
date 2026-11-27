@@ -4,32 +4,37 @@
   "version": "0.2.0",
   "scripts": {
     "start": "ng serve --host 0.0.0.0",
-    "build": "ng build",
+    "build": "ng build bee-core-web --configuration production",
     "test:e2e": "playwright test",
     "audit:production": "npm audit --omit=dev",
     "audit:styles": "node scripts/audit-styles.mjs src",
     "check:template-tokens": "node scripts/check-template-tokens.mjs",
-    "lint:styles": "npx --yes stylelint@18.1.0 --config stylelint.config.mjs \"src/app/**/*.css\" \"src/assets/**/*.css\" \"src/styles.css\""
+    "lint:styles": "npx --yes stylelint@18.1.0 --config stylelint.config.mjs \"src/app/**/*.css\" \"src/assets/**/*.css\" \"src/styles.css\"",
+    "build:connected-devices-remote": "ng build connected-devices-remote --configuration production"
   },
   "dependencies": {
-    "@angular/common": "19.2.15",
-    "@angular/compiler": "19.2.15",
-    "@angular/core": "19.2.15",
-    "@angular/forms": "19.2.15",
-    "@angular/platform-browser": "19.2.15",
-    "@angular/router": "19.2.15",
-    "rxjs": "7.8.2",
-    "tslib": "2.8.1",
-    "zone.js": "0.15.1",
+    "@angular/cdk": "22.2.7",
+    "@angular/common": "22.2.7",
+    "@angular/compiler": "22.2.7",
+    "@angular/core": "22.2.7",
+    "@angular/forms": "22.2.7",
+    "@angular/platform-browser": "22.2.7",
+    "@angular/router": "22.2.7",
     "@ng-icons/core": "31.4.0",
     "@ng-icons/lucide": "31.4.0",
-    "@angular/cdk": "19.2.15"
+    "rxjs": "7.8.2",
+    "tslib": "2.8.1",
+    "zone.js": "0.15.1"
   },
   "devDependencies": {
-    "@angular/build": "19.2.15",
-    "@angular/cli": "19.2.15",
-    "@angular/compiler-cli": "19.2.15",
+    "@angular/animations": "22.2.7",
+    "@angular/build": "22.2.7",
+    "@angular/cli": "22.2.7",
+    "@angular/compiler-cli": "22.2.7",
     "@playwright/test": "1.65.1",
-    "typescript": "5.8.3"
+    "@softarc/native-federation-node": "3.5.6",
+    "es-module-shims": "2.8.4",
+    "typescript": "6.0.3",
+    "@angular-architects/native-federation": "22.2.5"
   }
 }

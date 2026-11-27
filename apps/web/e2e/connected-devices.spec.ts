@@ -1,4 +1,19 @@
 import { test, expect } from "./quality-gates";
+import { existsSync, readdirSync } from "node:fs";
+import { relative, resolve, sep } from "node:path";
+
+function findRemoteEntry(directory: string): string | undefined {
+  if (!existsSync(directory)) return undefined;
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const candidate = resolve(directory, entry.name);
+    if (entry.isFile() && entry.name === "remoteEntry.json") return directory;
+    if (entry.isDirectory()) {
+      const nested = findRemoteEntry(candidate);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+}
 
 type Fixture = {
   accessToken: string;
@@ -20,7 +35,9 @@ async function authenticate(page: Page, fixture: Fixture): Promise<void> {
   }, serialized);
 }
 
-test("Connected Devices uses its native Angular frontend and sends a bodyless DELETE", async ({ page }) => {
+test("Connected Devices loads the packaged Native Federation frontend and sends a bodyless DELETE", async ({ page }) => {
+  const remoteRoot = findRemoteEntry(resolve(process.cwd(), "dist/connected-devices-remote"));
+  expect(remoteRoot, "Connected Devices federation remote must be built before the browser test").toBeTruthy();
   const fixture: Fixture = {
     accessToken: "connected-devices-e2e-token",
     tenantId: "tenant-connected-devices-e2e",
@@ -32,13 +49,14 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
       status: "active", requestedCapabilities: ["scanner.use"], grantedCapabilities: ["scanner.use"],
       owner: { name: "QA Owner", email: "owner@example.test" }, lastSeenAt: "2026-11-25T10:00:00.000Z"
     }],
-    deleteCalls: 0, deleteBody: null, runtimeCalls: 0
+    deleteCalls: 0, deleteBody: null, runtimeCalls: 0, deviceListCalls: 0, apiRequests: []
   };
 
   await page.route("**/api/**", async (route: any) => {
     const url = new URL(route.request().url());
-    const path = url.pathname;
+    const path = url.pathname.replace(/\/+$/, "");
     const method = route.request().method();
+    state.apiRequests.push({ method, path });
     let body: any = {};
     if (path.endsWith("/auth/refresh")) {
       body = { accessToken: fixture.accessToken, tenantId: fixture.tenantId, user: fixture.user, platformRole: null };
@@ -55,7 +73,16 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
       }] };
     } else if (path.endsWith("/marketplace/plugins/connected-devices/runtime")) {
       state.runtimeCalls += 1;
-      body = { pluginId: "connected-devices", version: "0.1.5", entrypoint: "frontend/index.html", apiPrefixes: ["/connected-devices"] };
+      body = {
+        pluginId: "connected-devices",
+        version: "0.2.0",
+        transport: "native-federation",
+        remoteEntry: "frontend/remoteEntry.json",
+        remoteName: "connectedDevices",
+        exposedModule: "./Component",
+        assetToken: "connected-devices-e2e-asset-token-2026",
+        apiPrefixes: ["/connected-devices"]
+      };
     } else if (path.endsWith("/templates/preferences") || path.endsWith("/templates/public")) {
       body = { selection: { public: "aurora", dashboard: "midnight" }, installedTemplates: ["aurora", "editorial", "studio", "midnight", "paper", "glass"] };
     } else if (path.endsWith("/notifications")) {
@@ -63,6 +90,7 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
     } else if (path.endsWith("/i18n/preferences") || path.endsWith("/users/me/preferences")) {
       body = { effectiveLanguage: "en", requestedLanguage: "en" };
     } else if (path.endsWith("/connected-devices") && method === "GET") {
+      state.deviceListCalls += 1;
       body = { devices: state.devices, canManage: true };
     } else if (path.endsWith("/connected-devices/device-e2e") && method === "DELETE") {
       state.deleteCalls += 1;
@@ -74,6 +102,22 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   });
 
+  // Serve the real Federation output through the protected-asset URL shape.
+  // This tests the package's remoteEntry and emitted chunks, not a host registration.
+  await page.route("**/api/plugin-packages/connected-devices/0.2.0/assets/**", async route => {
+    const pathname = new URL(route.request().url()).pathname;
+    const marker = "/frontend/";
+    const markerIndex = pathname.indexOf(marker);
+    if (markerIndex < 0 || !remoteRoot) return route.fulfill({ status: 404 });
+    const assetPath = decodeURIComponent(pathname.slice(markerIndex + marker.length));
+    const filePath = resolve(remoteRoot, assetPath);
+    const relativePath = relative(remoteRoot, filePath);
+    if (!relativePath || relativePath.startsWith(".." + sep) || relativePath === ".." || !existsSync(filePath)) {
+      return route.fulfill({ status: 404 });
+    }
+    return route.fulfill({ path: filePath });
+  });
+
   await authenticate(page, fixture);
   await page.goto("/dashboard");
   await expect(page.locator(".bee-dash-company-switcher select")).toHaveValue(fixture.tenantId, { timeout: 15000 });
@@ -83,7 +127,10 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
   await expect(component.getByRole("heading", { name: "Connected devices" })).toBeVisible({ timeout: 15000 });
   await expect(page.locator('iframe[title="connected-devices plugin"]')).toHaveCount(0);
   await expect(component.locator(".bee-stat-card")).toHaveCount(4);
-  await expect(component.getByText("QA Scanner")).toBeVisible();
+  await expect.poll(() => state.deviceListCalls, {
+    message: "Connected Devices list request was not handled. API calls: " + JSON.stringify(state.apiRequests)
+  }).toBeGreaterThan(0);
+  await expect(component.getByText("QA Scanner"), "Device list was requested but QA Scanner did not render").toBeVisible();
 
   await component.getByRole("searchbox", { name: "Search devices" }).fill("QA");
   await expect(component.getByText("QA Scanner")).toBeVisible();
@@ -105,5 +152,6 @@ test("Connected Devices uses its native Angular frontend and sends a bodyless DE
   expect(state.deleteCalls).toBe(1);
   expect(state.deleteBody).toBeNull();
   expect(state.deleteContentType).toBeUndefined();
-  expect(state.runtimeCalls).toBe(0);
+  expect(state.runtimeCalls).toBe(1);
+  expect(state.deviceListCalls).toBeGreaterThan(0);
 });

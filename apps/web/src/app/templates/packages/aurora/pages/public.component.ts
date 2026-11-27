@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BeeTemplateSlotComponent } from '../../../template-slot.component';
 import type { AppComponent } from '../../../../app.component';
@@ -28,6 +28,7 @@ import type { AppComponent } from '../../../../app.component';
   } @else {
     <div class="bee-layout" [ngClass]="vm.layoutClass('public')" [attr.data-bee-layout]="vm.layoutId('public')"><bee-template-slot name="header"></bee-template-slot><header class="site-header"><a class="brand" href="/">Bee-Core</a><nav class="nav-links"><a href="#features">Platform</a><a href="#plugins">Plugins</a></nav><button (click)="vm.togglePublicThemeMode()">{{vm.publicThemeMode()==='dark'?'Light':'Dark'}} mode</button><a href="/login">Sign in</a></header><main><section class="hero"><h1>Build less core.<br>Plugin everything.</h1><p>A modular foundation for products that grow with you.</p><a href="/login">Open dashboard</a></section><section id="features"><h2>Composable plugins</h2><p>Extend capabilities without bloating the core.</section><bee-template-slot name="content"></bee-template-slot></main><footer><bee-template-slot name="footer"></bee-template-slot><span>Bee-Core</span></footer></div>
   }`,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
   .tenant-aurora{min-height:100vh;padding:0 clamp(22px,6vw,100px);background:radial-gradient(ellipse at 80% 20%,color-mix(in srgb,var(--bee-accent) 45%,transparent) 0%,transparent 38%),radial-gradient(ellipse at 20% 65%,color-mix(in srgb,var(--bee-accent-strong) 35%,transparent) 0%,transparent 38%),var(--bee-bg);color:var(--bee-text);font-family:Inter,ui-sans-serif,system-ui}
   .aurora-nav{max-width:1240px;margin:auto;min-height:84px;display:flex;align-items:center;justify-content:space-between;gap:24px;border-bottom:1px solid var(--bee-border)}

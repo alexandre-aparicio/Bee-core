@@ -1,5 +1,5 @@
-import { CommonModule } from "@angular/common";
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from "@angular/core";
+
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ChangeDetectionStrategy } from "@angular/core";
 
 type MarketplacePlugin = {
   id: string;
@@ -21,54 +21,93 @@ type MarketplacePlugin = {
 @Component({
   selector: "bee-marketplace",
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <section id="plugins" class="panel bee-dashboard-card bee-marketplace">
       <div class="panel-heading">
         <div><h2>Company plugin marketplace</h2><p>Only packages available to this company's plan or purchases are shown.</p></div>
         <button class="bee-marketplace__refresh" type="button" (click)="load()" [disabled]="loading">Refresh</button>
       </div>
-      <div *ngIf="loading" class="bee-marketplace__state">Loading company plugins…</div>
-      <div *ngIf="error" class="bee-marketplace__error" role="alert">{{error}}</div>
-      <div *ngIf="!loading && !error && plugins.length === 0" class="bee-marketplace__state">No plugins are currently available for this company.</div>
-      <div class="bee-marketplace__list" *ngIf="!loading && plugins.length">
-        <article class="bee-marketplace__item" *ngFor="let plugin of plugins; trackBy: trackPlugin">
-          <div class="bee-marketplace__icon">{{plugin.system ? '◈' : '▣'}}</div>
-          <div class="bee-marketplace__details">
-            <div class="bee-marketplace__title"><strong>{{plugin.name}}</strong><span class="bee-marketplace__version">v{{plugin.version}}</span></div>
-            <p>{{plugin.description}}</p>
-            <div class="bee-marketplace__meta">
-              <span>{{plugin.category}}</span>
-              <span *ngIf="plugin.accessSource === 'plan'">Included in plan</span>
-              <span *ngIf="plugin.accessSource === 'purchase'">Purchased add-on</span>
-              <span *ngIf="plugin.accessSource === 'manual'">Granted by Superadmin</span>
-              <span *ngIf="!plugin.entitled">Not included</span>
-              <span *ngIf="plugin.installed" class="bee-marketplace__installed bee-status--success">Installed</span>
-              <span *ngIf="plugin.installed" class="bee-marketplace__activation">{{plugin.enabled ? (plugin.entitled ? "Active" : "Blocked") : "Inactive"}}</span>
-            </div>
-          </div>
-          <div class="bee-marketplace__actions">
-            <button *ngIf="canManage && plugin.entitled && !plugin.installed" type="button" (click)="install(plugin)" [disabled]="busyId !== ''">
-              {{busyId === plugin.id ? 'Installing…' : 'Install'}}
-            </button>
-            <button *ngIf="canManage && plugin.installed" type="button" (click)="toggleActivation(plugin)" [disabled]="busyId !== '' || (!plugin.enabled && !plugin.entitled)">
-              {{busyId === plugin.id ? (plugin.enabled ? 'Deactivating…' : 'Activating…') : plugin.enabled ? 'Deactivate' : 'Activate'}}
-            </button>
-            <button *ngIf="canManage && plugin.installed && !plugin.system" type="button" class="bee-marketplace__remove" (click)="uninstall(plugin)" [disabled]="busyId !== ''">
-              {{busyId === plugin.id ? 'Uninstalling…' : 'Uninstall'}}
-            </button>
-            <button *ngIf="canManage && plugin.installed && !plugin.system && plugin.installedVersion && plugin.installedVersion !== plugin.version" type="button" (click)="update(plugin)" [disabled]="busyId !== ''">
-              {{busyId === plugin.id ? 'Updating…' : 'Update to v' + plugin.version}}
-            </button>
-            <span *ngIf="plugin.installed && plugin.system" class="bee-marketplace__system">System</span>
-            <span *ngIf="!plugin.entitled && plugin.purchasable" class="bee-marketplace__locked">Available as add-on</span>
-            <span *ngIf="!plugin.entitled && !plugin.purchasable" class="bee-marketplace__locked">Plan required</span>
-          </div>
-        </article>
-      </div>
-      <div *ngIf="message" class="bee-marketplace__message" role="status">{{message}}</div>
+      @if (loading) {
+        <div class="bee-marketplace__state">Loading company plugins…</div>
+      }
+      @if (error) {
+        <div class="bee-marketplace__error" role="alert">{{error}}</div>
+      }
+      @if (!loading && !error && plugins.length === 0) {
+        <div class="bee-marketplace__state">No plugins are currently available for this company.</div>
+      }
+      @if (!loading && plugins.length) {
+        <div class="bee-marketplace__list">
+          @for (plugin of plugins; track trackPlugin($index, plugin)) {
+            <article class="bee-marketplace__item">
+              <div class="bee-marketplace__icon">{{plugin.system ? '◈' : '▣'}}</div>
+              <div class="bee-marketplace__details">
+                <div class="bee-marketplace__title"><strong>{{plugin.name}}</strong><span class="bee-marketplace__version">v{{plugin.version}}</span></div>
+                <p>{{plugin.description}}</p>
+                <div class="bee-marketplace__meta">
+                  <span>{{plugin.category}}</span>
+                  @if (plugin.accessSource === 'plan') {
+                    <span>Included in plan</span>
+                  }
+                  @if (plugin.accessSource === 'purchase') {
+                    <span>Purchased add-on</span>
+                  }
+                  @if (plugin.accessSource === 'manual') {
+                    <span>Granted by Superadmin</span>
+                  }
+                  @if (!plugin.entitled) {
+                    <span>Not included</span>
+                  }
+                  @if (plugin.installed) {
+                    <span class="bee-marketplace__installed bee-status--success">Installed</span>
+                  }
+                  @if (plugin.installed) {
+                    <span class="bee-marketplace__activation">{{plugin.enabled ? (plugin.entitled ? "Active" : "Blocked") : "Inactive"}}</span>
+                  }
+                </div>
+              </div>
+              <div class="bee-marketplace__actions">
+                @if (canManage && plugin.entitled && !plugin.installed) {
+                  <button type="button" (click)="install(plugin)" [disabled]="busyId !== ''">
+                    {{busyId === plugin.id ? 'Installing…' : 'Install'}}
+                  </button>
+                }
+                @if (canManage && plugin.installed) {
+                  <button type="button" (click)="toggleActivation(plugin)" [disabled]="busyId !== '' || (!plugin.enabled && !plugin.entitled)">
+                    {{busyId === plugin.id ? (plugin.enabled ? 'Deactivating…' : 'Activating…') : plugin.enabled ? 'Deactivate' : 'Activate'}}
+                  </button>
+                }
+                @if (canManage && plugin.installed && !plugin.system) {
+                  <button type="button" class="bee-marketplace__remove" (click)="uninstall(plugin)" [disabled]="busyId !== ''">
+                    {{busyId === plugin.id ? 'Uninstalling…' : 'Uninstall'}}
+                  </button>
+                }
+                @if (canManage && plugin.installed && !plugin.system && plugin.installedVersion && plugin.installedVersion !== plugin.version) {
+                  <button type="button" (click)="update(plugin)" [disabled]="busyId !== ''">
+                    {{busyId === plugin.id ? 'Updating…' : 'Update to v' + plugin.version}}
+                  </button>
+                }
+                @if (plugin.installed && plugin.system) {
+                  <span class="bee-marketplace__system">System</span>
+                }
+                @if (!plugin.entitled && plugin.purchasable) {
+                  <span class="bee-marketplace__locked">Available as add-on</span>
+                }
+                @if (!plugin.entitled && !plugin.purchasable) {
+                  <span class="bee-marketplace__locked">Plan required</span>
+                }
+              </div>
+            </article>
+          }
+        </div>
+      }
+      @if (message) {
+        <div class="bee-marketplace__message" role="status">{{message}}</div>
+      }
     </section>
-  `
+    `
 })
 export class BeeMarketplaceComponent implements OnInit, OnChanges {
   @Input() tenantId = "";
@@ -158,6 +197,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       if (!response.ok) throw new Error(result.error || "Plugin activation failed");
       await this.load();
       this.message = plugin.name + (enabled ? " activated for this company." : " deactivated for this company. Tenant data was preserved.");
+      window.dispatchEvent(new CustomEvent("bee:plugins-changed", { detail: { pluginId: plugin.pluginKey || plugin.id, action: enabled ? "activate" : "deactivate" } }));
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Plugin activation failed";
     } finally {
@@ -185,6 +225,7 @@ export class BeeMarketplaceComponent implements OnInit, OnChanges {
       await this.load();
       const action = operation === "update" ? "update" : method === "POST" ? "install" : "uninstall";
       this.message = action === "update" ? plugin.name + " updated for this company." : action === "install" ? plugin.name + " installed for this company." : plugin.name + " uninstalled. Company data is preserved.";
+      window.dispatchEvent(new CustomEvent("bee:plugins-changed", { detail: { pluginId: plugin.pluginKey || plugin.id, action } }));
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Plugin action failed";
     } finally {

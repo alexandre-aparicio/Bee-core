@@ -1,15 +1,20 @@
 | Scope | Status | Evidence / remaining work |
 |---|---|---|
-| Main CI baseline | Done | CI Run 987, SHA `e4598686`; ZIP-only Connected Devices merge baseline. |
-| Main post-PR #242 regression | Done | Fix `8e10f21`: Playwright tenant-view selector aligned to current `Table view`; no assertion removed. Main CI Run `45984398635`, SHA `dc43d30`, passed 3/3 jobs. |
-| Baseline diagnostics | Partial | TODO=0, FIXME=0, HACK=0 verified by CI Run #45802486238; browser console-error guard remains NOT verified. |
-| Phase 1 — Retire Team Notes | Done | PR #219 merge `b3aa4c6`; tenant data preserved; CI run #45706575499. |
-| Phase 2 — Generic plugin contract | Done | PR #220 merge `d49f7d9`; exact-head CI run #45713713078, 3/3 jobs green. |
-| Phase 3 — Control Horario baseline | Done | PR #221 merge `be4d291`; exact-head CI run #45718122238, 3/3 jobs green. Follow-up cleanup/i18n: PR #226 merged `e53f6aa`; exact-head CI run #45799701387 and post-merge main CI run #45799981184, both 3/3 green. |
-| Phase 4 — Connected Devices ZIP-only baseline | Done | CI Run 987, SHA `e4598686`; signed ZIP runtime and tenant-scoped discovery baseline. |
-| Phase 4 follow-ups — A1 plan migration and A2 host theme bridge | Done | Exact-head CI Run #45795256451, SHA `9b590846b19b2171c4cc101361a748379a2efcf9`; backend, Angular and browser 3/3 green, including migration and theme e2e. |
-| Phases 0–2 documentation/architecture corrections | Done | PR #227 merged `5ca53cc`; exact-head CI Run #45802486238 and post-merge main CI Run #45803313494, both backend, Angular and browser 3/3 green. |
-| Connected Devices 0.1.5 dashboard | Implemented; CI pending | Native Angular directory updated with four summary metrics, search and status/type filters, cards/table modes, and QR pairing modal. Uses shared primitives in `templates/base/base.css`; no component-local styles. Backend routes and tenant/security model unchanged. Visual checks across six templates and Light/Dark still pending. |\n| Phase 5 — Quality gates and bug hunt | NOT started | Out of scope for this task. |
-| Phase 6 — Docs and hygiene | NOT started | Out of scope for this task. |
-| Human / VPS checks | NOT verified | Owner must rebuild/sign/upload Control Horario `0.2.1` and Connected Devices ZIPs; verify Starter/Pro/Enterprise assignments and existing tenant access; visually inspect Connected Devices in every template/mode. Never delete tenant data. |
-| Native Angular plugin architecture | Documented; migration in progress | ADR and runtime guide define Native Federation for first-party Angular plugins. Connected Devices is the reference; Documents and Control Horario are planned migrations. Legacy iframe remains for isolated HTML/JS packages. |\n
+| Main baseline | Done | PRs #219–#227 integrated; generic plugin contract and tenant isolation retained. |
+| Connected Devices ZIP baseline | Done | Signed ZIP runtime, tenant-scoped discovery and legacy assignment migration verified before Native Federation. |
+| Native Federation architecture | Done | ADR defines Native Federation for first-party Angular remotes; isolated HTML/JS plugins remain in iframe. |
+| PR #244 — Angular 22 / Connected Devices | CI verified | Candidate branch `integration/full-stack-modernization`; current CI must pass on exact HEAD before merge. |
+| CI #1308 | Passed | SHA `1651470bd0c0fbb90280ce6a2583f726202acc93`; backend, Angular and browser jobs 3/3 green. |
+| Backend suite | Passed | CI: 157 tests, 157 passed, 0 failed, 0 skipped. |
+| Angular / Federation builds | Passed | Clean `npm ci`; production host build and Connected Devices remote build passed. |
+| Signed plugin packages | Passed | Four ZIP packages built; package signature, manifest, extraction, backend and assets tests passed. |
+| Marketplace lifecycle | Passed | Integration coverage: tenant isolation, install, enable, disable, uninstall, update and audit. |
+| Browser E2E | Passed | 34/34 Playwright tests; real remote loaded; list, filters, views and DELETE without body. Six templates captured in Light/Dark. |
+| CI #1310 | Failed — docs only | 156/157 backend tests; `test/docs-hygiene.test.ts` requires `docs/mvp-progress.md` to contain tables only. Angular and browser jobs passed. |
+| CI #1311 | Pending | Re-run required after restoring the required table-only format. |
+| VPS / staging | Not verified | Upload ZIP with real signing key; verify runtime mount, protected remoteEntry/assets and Nginx/CSP headers. |
+| Tenant / visual acceptance | Not verified | Confirm Starter/Pro/Enterprise assignments and existing tenant access; inspect six templates in both modes without changing tenant data. |
+| Documents / Control Horario | Planned | Backends remain signed packages; frontend migration to Native Federation is future work, not included in PR #244. |
+| Phase 5 — Quality gates / bug hunt | Not started | Out of scope for PR #244. |
+| Phase 6 — Docs / hygiene | Not started | Out of scope beyond the progress-table constraint. |
+| Production | Untouched | No deployment or data changes made; `main` remains unchanged. |

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BeeTemplateSlotRegistry, type BeeTemplateSlotName } from './template-slot-registry.service';
 
@@ -10,6 +10,7 @@ import { BeeTemplateSlotRegistry, type BeeTemplateSlotName } from './template-sl
   selector: 'bee-template-slot',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="bee-template-slot" [attr.data-bee-slot]="name">
       @for (item of contributions; track item.pluginId) {

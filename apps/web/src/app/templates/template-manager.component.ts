@@ -1,5 +1,5 @@
-import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
+
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateEngine } from './template-engine.service';
 import type { BeeTemplateTarget } from './template.types';
@@ -7,7 +7,7 @@ import type { BeeTemplateTarget } from './template.types';
 @Component({
   selector: 'bee-template-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <section class="bee-template-manager bee-dashboard-card" aria-label="Template manager">
       <div class="bee-template-manager__heading">
@@ -93,6 +93,7 @@ import type { BeeTemplateTarget } from './template.types';
       </div>
     </section>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .bee-template-manager__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
     .bee-template-manager__eyebrow{display:block;font-size:10px;font-weight:700;letter-spacing:.16em;opacity:.58}

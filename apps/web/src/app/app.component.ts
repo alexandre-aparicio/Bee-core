@@ -6,7 +6,7 @@ import { BeeStudioPageComponent } from './templates/packages/studio/pages/public
 import { BeeMidnightPageComponent } from './templates/packages/midnight/pages/dashboard.component';
 import { BeePaperPageComponent } from './templates/packages/paper/pages/dashboard.component';
 import { BeeGlassPageComponent } from './templates/packages/glass/pages/dashboard.component';
-import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BeeTemplateEngine } from './templates/template-engine.service';
@@ -15,7 +15,8 @@ import { BeeI18nService } from './i18n/bee-i18n.service';
 import { BeePluginFrontendRegistry } from './plugins/plugin-frontend-registry.service';
 import { BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent } from './templates/packages';
 
-@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], templateUrl: './app.component.html' })
+@Component({ selector: 'bee-root', standalone: true, imports: [CommonModule, FormsModule, BeeAuroraLayoutComponent, BeeEditorialLayoutComponent, BeeStudioLayoutComponent, BeeMidnightLayoutComponent, BeePaperLayoutComponent, BeeGlassLayoutComponent, BeeAuroraPageComponent, BeeEditorialPageComponent, BeeStudioPageComponent, BeeMidnightPageComponent, BeePaperPageComponent, BeeGlassPageComponent], changeDetection: ChangeDetectionStrategy.Eager,
+ templateUrl: './app.component.html' })
 export class AppComponent implements OnInit, OnDestroy {
   constructor(private readonly templates: BeeTemplateEngine, private readonly i18n: BeeI18nService, private readonly zone: NgZone, private readonly pluginFrontends: BeePluginFrontendRegistry) {}
 
@@ -30,13 +31,16 @@ export class AppComponent implements OnInit, OnDestroy {
     } else if (!['/login', '/register', '/forgot', '/invite/accept'].includes(this.path)) void this.loadPublicTenant();
   }
 
-  private readonly handlePluginsChanged = (): void => {
+  private readonly handlePluginsChanged = (event: Event): void => {
+    const detail = (event as CustomEvent<{ pluginId?: string; action?: string }>).detail;
+    const updatedRemoteId = detail?.action === "update" && typeof detail.pluginId === "string" && this.pluginFrontends.loadedRemotePluginIds().includes(detail.pluginId) ? detail.pluginId : "";
     void this.refreshTenantPlugins().then(() => {
       // The settings component can dispatch this event from an async request.
       // Re-enter Angular explicitly so the sidebar is rendered immediately.
       this.zone.run(() => {
         const pluginId = this.pluginFrontends.pluginForSection(this.activeSection);
         if (pluginId && !this.isPluginEnabled(pluginId)) this.navigateSection('dashboard');
+        if (updatedRemoteId) window.location.reload();
       });
     });
   };
@@ -103,7 +107,29 @@ export class AppComponent implements OnInit, OnDestroy {
   companyError = '';
   companyBusy = false;
   activePlugins: string[] = [];
-  setActivePlugins(pluginIds: string[]): void { this.activePlugins = [...new Set(pluginIds)]; this.i18n.setInstalledModules(this.activePlugins); for (const id of this.activePlugins) { const translations=this.pluginFrontends.resolve(id)?.translations; if (translations) { this.i18n.registerCatalog(id, "en", translations.en); this.i18n.registerCatalog(id, "es", translations.es); } } }
+  setActivePlugins(pluginIds: string[]): void {
+    const next = [...new Set(pluginIds)];
+    const removedLoadedRemote = this.pluginFrontends.loadedRemotePluginIds().filter(id => this.activePlugins.includes(id) && !next.includes(id));
+    this.activePlugins = next;
+    this.i18n.setInstalledModules(this.activePlugins);
+    for (const id of this.activePlugins) {
+      const translations = this.pluginFrontends.resolve(id)?.translations;
+      if (translations) {
+        this.i18n.registerCatalog(id, "en", translations.en);
+        this.i18n.registerCatalog(id, "es", translations.es);
+      }
+    }
+    if (removedLoadedRemote.length) {
+      if (removedLoadedRemote.includes(this.activeSection)) {
+        window.history.replaceState({}, "", "/dashboard");
+        this.path = "/dashboard";
+        this.activeSection = "dashboard";
+      }
+      // A loaded ESM remote cannot be unloaded in-place. Reload the host after
+      // its tenant activation is revoked so no remote code remains in the JS realm.
+      window.location.reload();
+    }
+  }
   isPluginEnabled(pluginId: string): boolean { return this.activePlugins.includes(pluginId); }
   private async refreshTenantPlugins(): Promise<void> {
     if (!this.auth?.accessToken || !this.activeCompanyId) {
@@ -122,13 +148,17 @@ export class AppComponent implements OnInit, OnDestroy {
         .filter(Boolean);
       this.pluginFrontends.setRemoteNavigation(enabledPackages.flatMap((plugin: any) => {
         const pluginId = String(plugin.pluginKey || '');
+        // The catalogue's public id is session-masked. Keep it as the runtime
+        // reference; the pluginKey remains the stable internal frontend id.
+        const runtimeRef = String(plugin.id || '');
         const route = Array.isArray(plugin.frontendRoutes)
           ? plugin.frontendRoutes.find((item: any) => typeof item?.path === 'string' && item.path.startsWith('/dashboard/'))?.path
           : undefined;
-        if (!pluginId || !route || this.pluginFrontends.resolve(pluginId)) return [];
+        if (!pluginId || !runtimeRef || !route || this.pluginFrontends.resolve(pluginId)) return [];
         const label = String(plugin.name || pluginId);
         return [{
           pluginId,
+          runtimeRef,
           navigation: { id: pluginId, label, labelEs: String(plugin.nameEs || label), icon: 'plugins', group: 'WORKSPACE', route }
         }];
       }));

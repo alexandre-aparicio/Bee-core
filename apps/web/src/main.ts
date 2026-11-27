@@ -1,5 +1,7 @@
-import { bootstrapApplication } from '@angular/platform-browser';
-import { provideHttpClient } from '@angular/common/http';
-import { AppComponent } from './app/app.component';
-
-bootstrapApplication(AppComponent, { providers: [provideHttpClient()] }).catch((error) => console.error(error));
+// Keep the federation bootstrap compatible with the classic script tag emitted by
+// the Native Federation builder. Dynamic import() is valid in classic scripts;
+// a static import would fail before the application can initialise.
+void import("@angular-architects/native-federation")
+  .then(({ initFederation }) => initFederation({}))
+  .then(() => import("./bootstrap"))
+  .catch(error => console.error("Bee Core federation initialisation failed", error));
