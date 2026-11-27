@@ -5,9 +5,16 @@
     "types": [],
     "baseUrl": "../../../apps/web",
     "paths": {
-      "*": ["node_modules/*"]
+      "*": [
+        "node_modules/*"
+      ]
     }
   },
-  "files": ["src/main.ts"],
-  "include": ["src/**/*.d.ts"]
+  "files": [
+    "src/main.ts",
+    "src/plugin.component.ts"
+  ],
+  "include": [
+    "src/**/*.d.ts"
+  ]
 }
