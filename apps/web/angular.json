@@ -250,8 +250,7 @@
               "es-module-shims"
             ],
             "tsConfig": "../../plugins/time-tracking/frontend/tsconfig.app.json",
-            "styles": [],
-            "projectName": "time-tracking-remote"
+            "styles": []
           },
           "configurations": {
             "production": {
@@ -272,10 +271,7 @@
             "tsConfig": "../../plugins/time-tracking/frontend/tsconfig.federation.json",
             "entryPoints": [
               "../../plugins/time-tracking/frontend/src/main.ts"
-            ],
-            "outputPath": "dist/time-tracking-remote",
-            "index": "../../plugins/time-tracking/frontend/src/index.html",
-            "browser": "../../plugins/time-tracking/frontend/src/main.ts"
+            ]
           },
           "configurations": {
             "production": {
@@ -307,14 +303,11 @@
             "rebuildDelay": 500,
             "dev": true,
             "cacheExternalArtifacts": false,
-            "port": 4201,
+            "port": 4202,
             "entryPoints": [
               "../../plugins/time-tracking/frontend/src/main.ts"
             ],
-            "projectName": "time-tracking-remote",
-            "outputPath": "dist/time-tracking-remote",
-            "index": "../../plugins/time-tracking/frontend/src/index.html",
-            "browser": "../../plugins/time-tracking/frontend/src/main.ts"
+            "projectName": "time-tracking-remote"
           },
           "defaultConfiguration": "development"
         }
