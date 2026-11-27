@@ -37,7 +37,7 @@ jobs:
             exit 1
           fi
           mkdir -p secrets
-          trap 'rm -rf secrets artifacts' EXIT
+          trap 'rm -rf secrets' EXIT
           printf '%s\n' "$BEE_PLUGIN_PUBLISHER_PRIVATE_KEY" > secrets/plugin-publisher-private.pem
           openssl pkey -in secrets/plugin-publisher-private.pem -pubout -out secrets/plugin-publisher-public.pem
           npm run build:plugin-packages
