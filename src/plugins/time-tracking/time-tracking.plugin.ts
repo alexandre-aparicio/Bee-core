@@ -1,6 +1,7 @@
 import type { BeePlugin } from "../../core/types.js";
 import { TimeTrackingRepository } from "./time-tracking.repository.js";
 import { registerTimeTrackingRoutes } from "./time-tracking.controller.js";
+import { createTimeTrackingHandlers } from "./time-tracking.handlers.js";
 import { createTimeTrackingDeviceApi } from "./time-tracking-device.contract.js";
 
 const timeTrackingIndexes = [
