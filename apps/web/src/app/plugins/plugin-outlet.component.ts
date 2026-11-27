@@ -3,7 +3,7 @@ import { loadRemoteModule } from "@angular-architects/native-federation";
 import { BeePluginFrontendRegistry } from "./plugin-frontend-registry.service";
 import { BeeI18nService } from "../i18n/bee-i18n.service";
 
-type RemotePluginRuntime = { pluginId: string; version: string; transport: "native-federation" | "legacy-iframe"; remoteEntry?: string; remoteName?: string; exposedModule?: string; assetToken?: string; entrypoint?: string; apiPrefixes: string[] };
+type RemotePluginRuntime = { pluginId: string; version: string; transport: "native-federation" | "legacy-iframe"; remoteEntry?: string; remoteName?: string; exposedModule?: string; entrypoint?: string; apiPrefixes: string[] };
 type RemoteFrame = { pluginId: string; apiPrefixes: string[]; ready: boolean };
 
 @Component({
@@ -89,9 +89,8 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
       if (!runtime) continue;
       if (runtime.transport === "native-federation" && runtime.remoteEntry) {
         try {
-          if (!runtime.assetToken) throw new Error("Native plugin asset authorization is missing");
           const remoteAssetBaseUrl = "/api/plugin-packages/" + encodeURIComponent(pluginId) + "/" +
-            encodeURIComponent(runtime.version) + "/assets/" + encodeURIComponent(runtime.assetToken) + "/frontend/";
+            encodeURIComponent(runtime.version) + "/assets/frontend/";
           const remoteEntryUrl = remoteAssetBaseUrl + runtime.remoteEntry.slice("frontend/".length).split("/").map(encodeURIComponent).join("/");
           // Native Federation's v4 loader assumes the fetched JSON is a valid
           // FederationInfo and iterates remoteEntry.exposes without checking the
@@ -217,7 +216,7 @@ export class BeePluginOutletComponent implements AfterViewInit, OnChanges, OnDes
           !["native-federation", "legacy-iframe"].includes(String(value.transport)) ||
           !Array.isArray(value.apiPrefixes) || value.apiPrefixes.some(prefix => typeof prefix !== "string")) return null;
       if (value.transport === "native-federation") {
-        if (typeof value.remoteEntry !== "string" || !value.remoteEntry.startsWith("frontend/") || typeof value.assetToken !== "string" || value.assetToken.length < 20 || typeof value.remoteName !== "string" || !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value.remoteName) || typeof value.exposedModule !== "string" || !value.exposedModule.startsWith("./")) return null;
+        if (typeof value.remoteEntry !== "string" || !value.remoteEntry.startsWith("frontend/") || typeof value.remoteName !== "string" || !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value.remoteName) || typeof value.exposedModule !== "string" || !value.exposedModule.startsWith("./")) return null;
       } else if (typeof value.entrypoint !== "string" || !value.entrypoint.startsWith("frontend/")) {
         return null;
       }

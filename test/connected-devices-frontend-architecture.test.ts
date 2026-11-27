@@ -59,6 +59,9 @@ test("Connected Devices signed ZIP declares and packages its federation remote",
   const plugin = await readFile(resolve(root, "src/plugins/connected-devices/connected-devices.plugin.ts"), "utf8");
   const manifest = await readFile(resolve(root, "src/plugins/connected-devices/plugin.manifest.ts"), "utf8");
   const packageConfig = await readFile(resolve(root, "plugins/connected-devices/frontend/federation.config.mjs"), "utf8");
+  const host = await readFile(resolve(root, "src/index.ts"), "utf8");
+  const marketplace = await readFile(resolve(root, "src/plugins/marketplace/marketplace.plugin.ts"), "utf8");
+  const outlet = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-outlet.component.ts"), "utf8");
   assert.match(builder, /frontendDist:\s*process\.env\.BEE_CONNECTED_DEVICES_FEDERATION_DIST/);
   assert.match(builder, /frontend\/remoteEntry\.json/);
   assert.match(builder, /definition\.frontend\.remoteEntry/);
@@ -66,5 +69,12 @@ test("Connected Devices signed ZIP declares and packages its federation remote",
   assert.match(manifest, /version: "0\.2\.0"/);
   assert.match(packageConfig, /\.\/Component/);
   assert.match(builder, /definition\.frontend\.assets = \[\.\.\.remoteFiles\.keys\(\)\]/);
+  assert.match(host, /\/plugin-packages\/:pluginId\/:version\/assets\/\*/);
+  assert.doesNotMatch(host, /assets\/:assetToken/);
+  assert.doesNotMatch(host, /Native plugin assets require tenant authorization/);
+  assert.match(host, /manifest\?\.frontend\?\.assets/);
+  assert.doesNotMatch(marketplace, /assetToken|plugin-asset/);
+  assert.doesNotMatch(outlet, /assetToken/);
+  assert.match(outlet, /\/assets\/frontend\//);
   await assert.rejects(access(resolve(root, "apps/web/src/app/connected-devices/connected-devices.component.ts")));
 });
