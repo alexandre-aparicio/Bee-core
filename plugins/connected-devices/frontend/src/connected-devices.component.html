@@ -69,20 +69,20 @@
             <div class="bee-device-card__details">
               <div><span>Owner</span><strong>{{device.owner?.name || device.owner?.email || '—'}}</strong></div>
               <div><span>Last connection</span><strong>{{device.lastSeenAt ? (device.lastSeenAt | date:'medium') : 'Never'}}</strong></div>
-              <div><span>Granted capabilities</span><strong>{{device.grantedCapabilities?.length || 0}}</strong></div>
+              <div><span>Granted capabilities</span><strong>{{device.grantedCapabilities.length || 0}}</strong></div>
             </div>
             <div class="bee-device-card__capabilities">
               <span *ngFor="let capability of (device.grantedCapabilities || []).slice(0,3)" class="bee-badge">{{capability}}</span>
               <span *ngIf="(device.grantedCapabilities || []).length>3" class="bee-badge">+{{device.grantedCapabilities.length-3}}</span>
-              <span *ngIf="!device.grantedCapabilities?.length" class="bee-text-muted">No capabilities granted</span>
+              <span *ngIf="!device.grantedCapabilities.length" class="bee-text-muted">No capabilities granted</span>
             </div>
             <div *ngIf="device.status==='pending' && canManage" class="bee-device-card__approval">
               <strong>Requested permissions</strong>
               <label *ngFor="let capability of device.requestedCapabilities">
-                <input type="checkbox" [checked]="grants[device.id]?.includes(capability)" (change)="toggleGrant(device.id,capability,$any($event.target).checked)">
+                <input type="checkbox" [checked]="grants[device.id].includes(capability)" (change)="toggleGrant(device.id,capability,$any($event.target).checked)">
                 {{capability}}
               </label>
-              <button type="button" class="bee-button bee-button--primary" (click)="approve(device)" [disabled]="busy || !grants[device.id]?.length">Approve selected</button>
+              <button type="button" class="bee-button bee-button--primary" (click)="approve(device)" [disabled]="busy || !grants[device.id].length">Approve selected</button>
             </div>
             <footer class="bee-device-card__footer">
               <span class="bee-text-muted">{{device.appVersion || device.deviceType}}</span>
@@ -108,7 +108,7 @@
                 <td><strong>{{device.name}}</strong><small class="bee-text-muted">{{device.deviceType}} · {{device.platform}}</small></td>
                 <td>{{device.owner?.name || device.owner?.email || '—'}}</td>
                 <td><span class="bee-badge" [ngClass]="statusClass(device.status)">{{statusLabel(device.status)}}</span></td>
-                <td>{{device.grantedCapabilities?.length || 0}}</td>
+                <td>{{device.grantedCapabilities.length || 0}}</td>
                 <td>{{device.lastSeenAt ? (device.lastSeenAt | date:'medium') : 'Never'}}</td>
                 <td *ngIf="canManage"><details class="bee-menu"><summary aria-label="Device actions">⋮</summary><div role="menu">
                   <button *ngIf="device.status==='active'" type="button" role="menuitem" (click)="act(device,'suspend')">Suspend</button>
