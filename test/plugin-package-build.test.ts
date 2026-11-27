@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { Script } from "node:vm";
 import { buildPluginPackages } from "../scripts/build-plugin-packages.mjs";
 import { installSignedPluginZip } from "../src/core/plugin-zip-installer.js";
 
