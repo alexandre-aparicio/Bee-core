@@ -1,6 +1,6 @@
 import type { BeePlugin } from "../../core/types.js";
 import { TimeTrackingRepository } from "./time-tracking.repository.js";
-import { registerTimeTrackingRoutes } from "./time-tracking.controller.js";
+import { registerTimeTrackingRoutes } from "./time-tracking.routes.js";
 import { createTimeTrackingHandlers } from "./time-tracking.handlers.js";
 import { createTimeTrackingDeviceApi } from "./time-tracking-device.contract.js";
 import { resolveTenantUserPermissions } from "../../core/tenant-context.js";
@@ -47,7 +47,7 @@ export const timeTrackingPlugin: BeePlugin = {
     if (!access) throw new Error("Control Horario requires the Core plugin access contract.");
     const repository = new TimeTrackingRepository(db);
     await repository.initializeIndexes();
-    await registerTimeTrackingRoutes(ctx, repository);
+    await registerTimeTrackingRoutes(ctx, repository, access);
     const deviceApi = createTimeTrackingDeviceApi(
       createTimeTrackingHandlers(repository, String(ctx.config.sessionIdSecret ?? "")),
       async (input, operation) => {
