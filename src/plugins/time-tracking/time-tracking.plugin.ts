@@ -1,6 +1,7 @@
 import type { BeePlugin } from "../../core/types.js";
 import { TimeTrackingRepository } from "./time-tracking.repository.js";
 import { registerTimeTrackingRoutes } from "./time-tracking.controller.js";
+import { createTimeTrackingDeviceApi } from "./time-tracking-device.contract.js";
 
 const timeTrackingIndexes = [
   { key: { tenantId: 1, id: 1 }, options: { unique: true, name: "time_tracking_tenant_session_unique" } },
@@ -42,6 +43,8 @@ export const timeTrackingPlugin: BeePlugin = {
     const repository = new TimeTrackingRepository(db);
     await repository.initializeIndexes();
     await registerTimeTrackingRoutes(ctx, repository);
+    const deviceApi = createTimeTrackingDeviceApi(createTimeTrackingHandlers(repository, String(ctx.config.sessionIdSecret ?? "")));
+    ctx.services?.register("time-tracking.device-api", deviceApi);
     ctx.logger.info("Time Tracking initialized: clock, weekly schedules and correction review.");
   }
 };
