@@ -568,7 +568,7 @@ test('Settings > Tenants supports card/list views, tenant management and create 
   await page.goto('/dashboard/settings/tenants');
   await expect(page.getByRole('heading', { name: 'Tenants', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Acme Studio' })).toBeVisible();
-  await page.getByTitle('List view').click();
+  await page.getByTitle('Table view').click();
   await expect(page.locator('.platform-admin__table')).toBeVisible();
   await expect(page.locator('.platform-admin__table')).toContainText('Acme Studio');
   await page.getByTitle('Card view').click();
