@@ -56,14 +56,14 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const secret=clean(request.headers["x-device-pairing-secret"],256);if(secret.length<40)return reply.code(401).send({error:"Pairing secret required."});
   const device=await repository.devices.findOne({credentialHash:hashDeviceSecret(secret)});
   if(!device||(device.pairingExpiresAt<=new Date()&&device.status==="pending"))return reply.code(404).send({error:"Pairing request expired."});
-  const [available,ownerActive]=await Promise.all([access.isPluginAvailable(device.tenantId,"connected-devices"),isConnectedDeviceOwnerActive(access,device)]);
-  if(!available||!ownerActive){
+  const [pluginAvailable,ownerActive]=await Promise.all([access.isPluginAvailable(device.tenantId,"connected-devices"),isConnectedDeviceOwnerActive(access,device)]);
+  if(!pluginAvailable||!ownerActive){
    if(!ownerActive)await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:{$ne:"revoked"}},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
    return reply.code(403).send({error:"Connected Devices or the device owner membership is no longer active."});
   }
   if(device.status==="revoked"||device.status==="suspended"||device.status==="unlinked")return reply.code(403).send({error:"Device access is not active."});
   const available=await capabilities.listAvailable(device.tenantId,access),availableIds=new Set(available.map((item:any)=>item.id));
-  return {status:device.status,deviceId:device.id,grantedCapabilities:device.status==="active"?(device.grantedCapabilities??[]).filter((id:string)=>availableIds.has(id)):[],capabilities:device.status==="active"?available.filter((item:any)=>device.grantedCapabilities.includes(item.id)):[]};
+  return {status:device.status,deviceId:device.id,grantedCapabilities:device.status==="active"?(device.grantedCapabilities??[]).filter((id:string)=>availableIds.has(id)):[],capabilities:device.status==="active"?available.filter((item:any)=>(device.grantedCapabilities??[]).includes(item.id)):[]};
  });
  ctx.server.get("/connected-devices",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
@@ -77,7 +77,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const ownerById=new Map(owners.map((owner:any)=>[owner.id,{name:owner.name,email:owner.email}]));
   return {devices:devices.map((device:ConnectedDeviceRecord)=>({...publicDevice(device),
    requestedCapabilities:(device.requestedCapabilities??[]).filter((id:string)=>availableIds.has(id)),
-   grantedCapabilities:device.grantedCapabilities.filter((id:string)=>availableIds.has(id)),
+   grantedCapabilities:(device.grantedCapabilities??[]).filter((id:string)=>availableIds.has(id)),
    ...(canManage?{owner:ownerById.get(device.ownerUserId)??{name:"Former member",email:""}}:{})})),canManage};
  });
  ctx.server.post("/connected-devices/:deviceId/approve",async(request:any,reply:any)=>{
