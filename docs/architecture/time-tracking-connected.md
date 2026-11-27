@@ -18,7 +18,7 @@ The package is manual-activation and contributes capabilities only while both `t
 | `time-tracking.clock-out` | Clock out | `time-tracking` |
 | `time-tracking.records.read` | Read own status and sessions | `time-tracking` |
 
-Each declaration contains a stable ID, localized display label/description, group/order, operation names, provider package ID and required package IDs. The registry returns only declarations whose provider and dependencies are available to the active tenant.
+Each declaration contains contract version 1, a stable ID, display label/description, group/order, operation names, provider package ID and required package IDs. The registry returns only declarations whose provider and dependencies are available to the active tenant.
 
 ## Runtime service contracts
 
