@@ -72,3 +72,9 @@
 - Commits: `7cc04cec9f246056341cadd76ddcc2b69ec3eb23` and `3840d7c933243f1891195ee123e734b549486a3c`.
 - These are source changes only. No tests, builds, or GitHub Actions/CI were run. The HTTP 404 authorization/path cause is not yet identified; the new host error will expose the actual HTTP status rather than the misleading `exposes` TypeError. VPS pull, package rebuild/re-sign/re-upload, and browser verification remain pending. Do not merge to `main`.
 
+### Protected Connected Devices asset 404 — 2026-11-27
+- VPS logs confirm the connected-devices@0.2.0 ZIP package mounts and reaches runtime state loaded; the existing asset route returned generic 404 responses without logging which authorization, manifest, or filesystem check failed.
+- Added safe server-side denial diagnostics to the token-protected asset route. Logs include plugin/version/asset path and boolean authorization-check outcomes, but never log the bearer token or tenant/user/session identifiers. All external denials retain the same generic 404 response.
+- Corrected the protected route's path-validation escaping while adding the diagnostics; the version regex now matches semantic-version digits and the traversal checks test a literal backslash and NUL correctly.
+- Commits: 0a36fc24b6c2b461ce62bd622117ec464caf787f (diagnostic instrumentation) and 2a8195e1633085e8bf59aaf16d1b3525faa5dd48 (path-validation escaping correction).
+- Source changes only. No tests, builds, or GitHub Actions/CI were run. Pull/rebuild the backend on the VPS and reproduce one request; use the resulting Protected plugin asset request denied reason to apply the final authorization/path fix. Do not merge to main.
