@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { BeeI18nService } from "../../../../../apps/web/src/app/i18n/bee-i18n.service";
+import { BeeI18nService } from "../../../../apps/web/src/app/i18n/bee-i18n.service";
 
 /** API boundary for the Time Tracking plugin, following the DocumentsApiService pattern. */
 @Injectable()
