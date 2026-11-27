@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
 let connectedDevicesQrPromise: Promise<void> | undefined;
@@ -40,7 +40,7 @@ const CAPABILITIES = [
   imports: [CommonModule, FormsModule],
   templateUrl: "./connected-devices.component.html"
 })
-export class BeeConnectedDevicesComponent implements OnChanges {
+export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   @ViewChild("qrContainer") private qrContainer?: ElementRef<HTMLDivElement>;
   constructor(private readonly changeDetector: ChangeDetectorRef) {}
   @Input() tenantId = "";
@@ -77,6 +77,13 @@ export class BeeConnectedDevicesComponent implements OnChanges {
     });
   }
 
+  ngOnInit(): void {
+    // Native Federation mounts this component dynamically. Start the initial
+    // device query from the lifecycle hook as well as input changes so the
+    // first render cannot remain empty if inputs are assigned before the view
+    // is attached to the host change-detection tree.
+    if (this.accessToken) void this.load();
+  }
   ngOnChanges(): void {
     if (this.assetBaseUrl && !connectedDevicesQrPromise) void this.loadQrLibrary().catch(error => { this.error = error instanceof Error ? error.message : "Could not load the QR renderer."; });
     if (this.accessToken) void this.load();
