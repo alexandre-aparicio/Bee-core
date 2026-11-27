@@ -1,6 +1,7 @@
 import type { PluginAccessService } from "../../core/plugin-services.js";
 
 export type ConnectedDeviceCapabilityDefinition = {
+  contractVersion: 1;
   id: string;
   providerPlugin: string;
   label: string;
@@ -12,7 +13,7 @@ export type ConnectedDeviceCapabilityDefinition = {
 };
 
 export interface ConnectedDeviceCapabilityRegistry {
-  register(providerPlugin: string, definitions: Omit<ConnectedDeviceCapabilityDefinition, "providerPlugin">[]): void;
+  register(providerPlugin: string, definitions: Omit<ConnectedDeviceCapabilityDefinition, "providerPlugin" | "contractVersion">[]): void;
   listAvailable(tenantId: string, access: PluginAccessService): Promise<ConnectedDeviceCapabilityDefinition[]>;
   getAvailable(tenantId: string, capabilityId: string, access: PluginAccessService): Promise<ConnectedDeviceCapabilityDefinition | null>;
 }
@@ -23,7 +24,7 @@ const OPERATION_PATTERN = /^[a-z][a-z0-9.-]*$/;
 export class ConnectedDeviceCapabilities implements ConnectedDeviceCapabilityRegistry {
   private readonly definitions = new Map<string, ConnectedDeviceCapabilityDefinition>();
 
-  register(providerPlugin: string, definitions: Omit<ConnectedDeviceCapabilityDefinition, "providerPlugin">[]): void {
+  register(providerPlugin: string, definitions: Omit<ConnectedDeviceCapabilityDefinition, "providerPlugin" | "contractVersion">[]): void {
     if (!/^[a-z][a-z0-9-]*$/.test(providerPlugin)) throw new Error("Invalid capability provider plugin ID.");
     if (!Array.isArray(definitions) || definitions.length === 0) throw new Error("A capability provider must declare at least one capability.");
     const pending = definitions.map((item) => {
@@ -39,7 +40,7 @@ export class ConnectedDeviceCapabilities implements ConnectedDeviceCapabilityReg
           requiresPlugins.some(plugin => !/^[a-z][a-z0-9-]*$/.test(plugin))) {
         throw new Error("Invalid Connected Devices capability declaration: " + id);
       }
-      return { id, providerPlugin, label, description, group, order: item.order, operations, requiresPlugins };
+      return { contractVersion: 1 as const, id, providerPlugin, label, description, group, order: item.order, operations, requiresPlugins };
     });
     for (const item of pending) {
       const existing = this.definitions.get(item.id);
