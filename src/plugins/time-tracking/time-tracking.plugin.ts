@@ -3,6 +3,8 @@ import { TimeTrackingRepository } from "./time-tracking.repository.js";
 import { registerTimeTrackingRoutes } from "./time-tracking.controller.js";
 import { createTimeTrackingHandlers } from "./time-tracking.handlers.js";
 import { createTimeTrackingDeviceApi } from "./time-tracking-device.contract.js";
+import { resolveTenantUserPermissions } from "../../core/tenant-context.js";
+import type { PluginAccessService } from "../../core/plugin-services.js";
 
 const timeTrackingIndexes = [
   { key: { tenantId: 1, id: 1 }, options: { unique: true, name: "time_tracking_tenant_session_unique" } },
@@ -41,10 +43,21 @@ export const timeTrackingPlugin: BeePlugin = {
   }],
   async initialize(ctx) {
     const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    const access = ctx.services?.get<PluginAccessService>("core.plugin-access");
+    if (!access) throw new Error("Control Horario requires the Core plugin access contract.");
     const repository = new TimeTrackingRepository(db);
     await repository.initializeIndexes();
     await registerTimeTrackingRoutes(ctx, repository);
-    const deviceApi = createTimeTrackingDeviceApi(createTimeTrackingHandlers(repository, String(ctx.config.sessionIdSecret ?? "")));
+    const deviceApi = createTimeTrackingDeviceApi(
+      createTimeTrackingHandlers(repository, String(ctx.config.sessionIdSecret ?? "")),
+      async (input, operation) => {
+        if (!await access.isPluginAvailable(input.tenantId, "time-tracking")) return false;
+        if (!await access.isTenantUserActive(input.tenantId, input.userId)) return false;
+        const permissions = await resolveTenantUserPermissions(db, input.tenantId, input.userId);
+        if (!permissions?.includes("time-tracking.read")) return false;
+        return operation !== "clock" || permissions.includes("time-tracking.clock");
+      }
+    );
     ctx.services?.register("time-tracking.device-api", deviceApi);
     ctx.logger.info("Time Tracking initialized: clock, weekly schedules and correction review.");
   }
