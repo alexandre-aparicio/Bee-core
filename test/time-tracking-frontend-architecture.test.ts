@@ -1,10 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-test("Control Horario is built as a signed Native Federation remote", async () => {
+test("Control Horario is built as a signed Native Federation remote and is absent from the host Angular app", async () => {
   const root = process.cwd();
+  await assert.rejects(access(resolve(root, "apps/web/src/app/time-tracking")), "the obsolete host Control Horario source directory must not exist");
+  const hostRegistrations = await readFile(resolve(root, "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
+  assert.doesNotMatch(hostRegistrations, /timeTrackingFrontend|time-tracking/i, "Control Horario must not be statically registered in the Angular host");
   const angular = JSON.parse(await readFile(resolve(root, "apps/web/angular.json"), "utf8"));
   const webPackage = JSON.parse(await readFile(resolve(root, "apps/web/package.json"), "utf8"));
   const rootPackage = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));

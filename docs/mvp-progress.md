@@ -20,4 +20,5 @@
 | Phase 5 — Quality gates / bug hunt | Not started | Broader cross-plugin regression and security review remain outstanding. |
 | Phase 6 — Docs / hygiene | In progress | Progress is tracked here; keep this file table-only because `test/docs-hygiene.test.ts` enforces that format. |
 | Production | Not confirmed | VPS validation was reported by the user; production scope/status has not been independently established. |
+| Control Horario host duplicate cleanup | Implemented | Removed the obsolete Angular host implementation and orphaned host translation catalogue; the signed Native Federation remote remains the sole frontend implementation. |
 | Connected Devices connector-only permissions | Merged into `main` — VPS visual acceptance passed | PR #253; merge `a337e8c54e3c762824beba1197a8c6f591827f4a`. CI #1369: 165/165 backend tests, signed ZIP checks, host/remotes and 34/34 Playwright passed. Owner-confirmed VPS visual test: New device shows only the three `time-tracking-connected` permissions. Legacy stale capabilities remain stored but hidden; stale pending approvals return 409. |
