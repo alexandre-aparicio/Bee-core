@@ -2,7 +2,8 @@
 export const PLUGIN_MANIFEST = {
   id: "time-tracking-connected",
   name: "Time Tracking Connected",
-  version: "0.1.2",
+  version: "0.1.3",
+  deviceConnector: true,
   description: "Connected-device actions for Control Horario.",
   category: "productivity",
   dependencies: ["connected-devices", "time-tracking"],
