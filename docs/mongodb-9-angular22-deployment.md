@@ -94,6 +94,6 @@ La CI valida los builds, pruebas y componentes de despliegue configurados en Git
 
 ## CI y verificación automatizada
 
-Los workflows `ci.yml` y `mongodb-9-compatibility.yml` utilizan MongoDB `9.0.4` y Node.js `22.22.3`. Se mantienen ambos: el CI general cubre backend, Angular, remotes, paquetes firmados y Playwright; el workflow dedicado conserva la comprobación explícita de `mongodb@7.9.1` y la publicación de manifiestos de dependencias. Así no se duplican matrices de versiones diferentes.
+Los workflows `ci.yml` y `mongodb-9-compatibility.yml` utilizan MongoDB `9.0.4` y Node.js `22.22.3`. Se mantienen ambos: el CI general cubre backend, Angular, remotes, paquetes firmados y Playwright; el workflow dedicado conserva la comprobación explícita de `mongodb@7.9.1` y la publicación de manifiestos de dependencias. El workflow adicional `deployment-compatibility.yml` valida Compose, autenticación/versión de MongoDB `9.0.4` y builds Docker, sin definir otra matriz Node.js. Ningún workflow de esta familia prueba una versión distinta de MongoDB.
 
 La validación de MongoDB 9 en el VPS indicada en el progreso del proyecto es manual y reportada por el propietario; no se presenta como una ejecución automatizada ni como resultado de GitHub Actions.
