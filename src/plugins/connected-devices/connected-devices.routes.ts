@@ -30,7 +30,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const challenge=await repository.challenges.findOne(filter);
   if(!challenge)return reply.code(404).send({error:"Active pairing challenge not found."});
   const cancelled=await repository.challenges.updateOne({tenantId:tenant.tenantId,id,status:challenge.status},{$set:{status:"cancelled"}});
-  if(!cancelled.modifiedCount)return reply.code(409).send({error:"The pairing request changed. Refresh and try again."});
+  if(!cancelled.matchedCount)return reply.code(409).send({error:"The pairing request changed. Refresh and try again."});
   if(challenge.status==="claimed"&&challenge.deviceId){
    await repository.devices.updateOne({tenantId:tenant.tenantId,id:challenge.deviceId,status:{$in:["pending","active"]}},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:new Date()}});
   }
@@ -64,7 +64,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
     createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null
    };
    const claimed=await repository.challenges.updateOne({id:challenge.id,status:"issued",expiresAt:{$gt:now}},{$set:{status:"claimed",claimedAt:now,deviceId}});
-   if(!claimed.modifiedCount)return reply.code(410).send({error:"Pairing code has already been used."});
+   if(!claimed.matchedCount)return reply.code(410).send({error:"Pairing code has already been used."});
    try{
     await repository.devices.insertOne(device);
    }catch(error){
@@ -123,7 +123,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[],permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid permissions"});}
   if(granted.some(capability=>!device.requestedCapabilities.includes(capability)))return reply.code(400).send({error:"Granted capabilities must be a subset of the device request."});
   const now=new Date(),result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:now}},{$set:{status:"active",grantedCapabilities:granted,approvedAt:now,approvedBy:tenant.userId,updatedAt:now}});
-  if(!result.modifiedCount)return reply.code(409).send({error:"The device request changed. Refresh and try again."});
+  if(!result.matchedCount)return reply.code(409).send({error:"The device request changed. Refresh and try again."});
   const updated=await repository.devices.findOne({tenantId:tenant.tenantId,id});return {success:true,device:updated?publicDevice(updated,availableKeys):null,availablePermissions:permissions};
  });
  ctx.server.post("/connected-devices/:deviceId/suspend",async(request:any,reply:any)=>{
@@ -131,7 +131,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!isDeviceAdministrator(tenant))return reply.code(403).send({error:"Organization administrator permission required."});
   const id=clean(request.params.deviceId,64),now=new Date(),invalidatedCredential=hashDeviceSecret(randomUUID()+randomUUID());
   const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"active"},{$set:{status:"suspended",credentialHash:invalidatedCredential,grantedCapabilities:[],updatedAt:now}});
-  if(!result.modifiedCount)return reply.code(404).send({error:"Active device not found."});
+  if(!result.matchedCount)return reply.code(404).send({error:"Active device not found."});
   return {success:true};
  });
  ctx.server.post("/connected-devices/:deviceId/activate",async(request:any,reply:any)=>{
@@ -148,7 +148,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!isDeviceAdministrator(tenant))filter.ownerUserId=tenant.userId;
   const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential);
   const result=await repository.devices.updateOne(filter,{$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:tenant.userId,updatedAt:now}});
-  if(!result.modifiedCount)return reply.code(404).send({error:"Device not found or already unlinked."});
+  if(!result.matchedCount)return reply.code(404).send({error:"Device not found or already unlinked."});
   return {success:true};
  });
  ctx.server.delete("/connected-devices/:deviceId",async(request:any,reply:any)=>{
@@ -165,7 +165,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!isDeviceAdministrator(tenant))return reply.code(403).send({error:"Organization administrator permission required to revoke devices."});
   const id=clean(request.params.deviceId,64),filter:any={tenantId:tenant.tenantId,id,status:{$in:["pending","active","suspended"]}};
   const now=new Date(),invalidatedCredential=hashDeviceSecret(randomUUID()+randomUUID()),result=await repository.devices.updateOne(filter,{$set:{status:"revoked",credentialHash:invalidatedCredential,revokedAt:now,revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:now}});
-  if(!result.modifiedCount)return reply.code(404).send({error:"Device not found or access already revoked."});
+  if(!result.matchedCount)return reply.code(404).send({error:"Device not found or access already revoked."});
   return {success:true};
  });
  ctx.server.patch("/connected-devices/:deviceId",async(request:any,reply:any)=>{
@@ -173,7 +173,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const id=clean(request.params.deviceId,64),name=clean(request.body?.name,80);if(!name)return reply.code(400).send({error:"A device name is required."});
   const filter:any={tenantId:tenant.tenantId,id,status:{$ne:"revoked"}};if(!isDeviceAdministrator(tenant))filter.ownerUserId=tenant.userId;
   const result=await repository.devices.updateOne(filter,{$set:{name,updatedAt:new Date()}});
-  if(!result.modifiedCount)return reply.code(404).send({error:"Device not found."});return {success:true};
+  if(!result.matchedCount)return reply.code(404).send({error:"Device not found."});return {success:true};
  });
  ctx.server.post("/connected-devices/device/unlink",async(request:any,reply:any)=>{
   const secret=clean(request.headers["x-device-pairing-secret"],256),id=clean(request.body?.deviceId,64);
@@ -186,7 +186,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
    {tenantId:device.tenantId,id:device.id,credentialHash,status:{$in:["pending","active"]}},
    {$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:"device",updatedAt:now}}
   );
-  if(!result.modifiedCount)return reply.code(409).send({error:"The device state changed. Refresh and try again."});
+  if(!result.matchedCount)return reply.code(409).send({error:"The device state changed. Refresh and try again."});
   await repository.challenges.updateMany({tenantId:device.tenantId,deviceId:device.id,status:"claimed"},{$set:{status:"cancelled"}});
   return {success:true};
  });
@@ -199,7 +199,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const device=await authenticateDevice(request,reply);if(!device)return;
   const current=String(request.headers.authorization??"").slice(7).trim(),next=createPairingSecrets().deviceCredential;
   const result=await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active",credentialHash:hashDeviceSecret(current)},{$set:{credentialHash:hashDeviceSecret(next),updatedAt:new Date()}});
-  if(!result.modifiedCount)return reply.code(409).send({error:"Credential changed. Authenticate again and retry."});
+  if(!result.matchedCount)return reply.code(409).send({error:"Credential changed. Authenticate again and retry."});
   return {credential:next,rotatedAt:new Date().toISOString()};
  });
  ctx.server.get("/connected-devices/device/me",async(request:any,reply:any)=>{
