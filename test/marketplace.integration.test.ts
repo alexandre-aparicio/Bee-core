@@ -16,7 +16,7 @@ import { TRUSTED_PLUGIN_PACKAGES, type PluginPackageDefinition } from "../src/co
 import { unmaskResourceId } from "../src/core/session-id.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import { BeePluginServices } from "../src/core/plugin-services.js";
-import { getTenantPluginCatalog, hasPluginEntitlement, isPluginInstalled, isPluginEnabled } from "../src/core/plugin-entitlements.js";
+import { getTenantConnectorPermissionsFromCatalog, getTenantPluginCatalog, hasPluginEntitlement, isPluginInstalled, isPluginEnabled } from "../src/core/plugin-entitlements.js";
 import { resolveTenantContext, type TenantClaims } from "../src/core/tenant-context.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
@@ -143,6 +143,10 @@ test("company plans and purchases control plugin visibility, installation and ac
             pluginId: plugin.id, key: permission.key, module: permission.module,
             resource: permission.resource, action: permission.action, label: permission.label
           })));
+      },
+      getTenantConnectorPermissions: async (tenantId: string) => {
+        const catalog = await getTenantPluginCatalog(db, tenantId);
+        return getTenantConnectorPermissionsFromCatalog(catalog);
       }
     });
     registerRuntimePlugin(connectedDevicesRuntimeFixture);
@@ -205,13 +209,14 @@ test("company plans and purchases control plugin visibility, installation and ac
       grantedAt: now
     });
 
-    // Simulate the separately installed connector ZIP time-tracking-connected-0.1.2.
+    // Simulate the separately installed connector ZIP time-tracking-connected-0.1.3.
     // Its manifest permission is the only source of the scanner capability used by pairing.
     await db.collection("plugin_catalog").insertOne({
       id: "time-tracking-connected",
       name: "Time Tracking Connected",
-      version: "0.1.2",
+      version: "0.1.3",
       description: "Connector-provided device permissions",
+      deviceConnector: true,
       category: "productivity",
       purchasable: false,
       system: false,
@@ -231,7 +236,8 @@ test("company plans and purchases control plugin visibility, installation and ac
     await db.collection("platform_plugin_packages").insertOne({
       pluginId: "time-tracking-connected",
       name: "Time Tracking Connected",
-      version: "0.1.2",
+      version: "0.1.3",
+      deviceConnector: true,
       status: "installed",
       source: "zip",
       runtimeState: "loaded",
@@ -249,7 +255,7 @@ test("company plans and purchases control plugin visibility, installation and ac
     await db.collection("tenant_plugin_installations").insertOne({
       tenantId: "market-alpha",
       pluginId: "time-tracking-connected",
-      version: "0.1.2",
+      version: "0.1.3",
       status: "installed",
       enabled: true,
       installedAt: now,
