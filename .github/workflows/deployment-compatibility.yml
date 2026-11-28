@@ -1,0 +1,76 @@
+name: MongoDB 9 and Angular 22 deployment
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - chore/mongodb9-angular22-deployment
+
+permissions:
+  contents: read
+
+jobs:
+  deployment:
+    name: Docker Compose and MongoDB 9 validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell scripts
+        run: |
+          bash -n instalacion-limpia.sh
+          bash -n docker/mongo-init/01-create-app-user.sh
+      - name: Prepare CI environment
+        run: |
+          cat > .env <<'EOF'
+          MONGO_ROOT_USERNAME=ci-root
+          MONGO_ROOT_PASSWORD=ci-root-password
+          MONGODB_DB=bee_core
+          MONGO_APP_USERNAME=ci-app
+          MONGO_APP_PASSWORD=ci-app-password
+          JWT_SECRET=ci-jwt-secret-with-enough-length
+          AUTH_MFA_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef
+          BEE_MAIL_ENCRYPTION_KEY=abcdef0123456789abcdef0123456789
+          BEE_WEB_PORT=8080
+          EOF
+      - name: Validate Compose configuration
+        run: |
+          export COMPOSE_PROJECT_NAME=bee-core-ci
+          docker compose config --quiet
+          docker compose config --images | grep -Fxq 'mongo:9.0.4'
+      - name: Start MongoDB 9.0.4 and verify authentication
+        run: |
+          export COMPOSE_PROJECT_NAME=bee-core-ci
+          docker compose pull mongodb
+          docker compose up -d mongodb
+          for attempt in $(seq 1 60); do
+            status=$(docker inspect bee-core-mongodb --format '{{.State.Health.Status}}')
+            if [[ "$status" == "healthy" ]]; then
+              break
+            fi
+            if [[ "$status" == "unhealthy" || "$attempt" -eq 60 ]]; then
+              docker compose logs mongodb
+              exit 1
+            fi
+            sleep 2
+          done
+          version=$(docker exec bee-core-mongodb sh -lc '
+            mongosh --quiet \
+              -u "$MONGO_INITDB_ROOT_USERNAME" \
+              -p "$MONGO_INITDB_ROOT_PASSWORD" \
+              --authenticationDatabase admin \
+              --eval "db.version()"
+          ')
+          echo "MongoDB version: $version"
+          [[ "$version" == "9.0.4" ]]
+      - name: Build backend and frontend Docker images
+        run: |
+          export COMPOSE_PROJECT_NAME=bee-core-ci
+          docker compose build --pull bee-core web
+      - name: Clean up CI containers and volumes
+        if: always()
+        run: |
+          export COMPOSE_PROJECT_NAME=bee-core-ci
+          docker compose down -v --remove-orphans
