@@ -5,7 +5,7 @@ import { TenantCollection } from "../../core/tenant-collection.js";
 import { rollbackTenantPluginMigrations, runTenantPluginMigrations } from "../../core/plugin-migrations.js";
 import { claimPluginInstallJob, completePluginInstallJob, renewPluginInstallJobLease, enqueuePluginInstallJob, enqueuePluginUpdateJob, enqueuePluginUninstallJob, ensurePluginInstallJobIndexes, failPluginInstallJob, type PluginInstallJob } from "../../core/plugin-install-jobs.js";
 import { resolveTenantContext, hasTenantPermission } from "../../core/tenant-context.js";
-import { appendTenantAuditEvent, ensureTenantAuditIndexes, type TenantAuditEvent } from "../../core/audit-log.js";
+import { appendTenantAuditEvent, ensureTenantAuditIndexes, ensureTenantAuditOutboxIndexes, prepareTenantAuditOutboxEvent, commitTenantAuditOutboxEvent, dispatchTenantAuditOutbox, type TenantAuditEvent, type TenantAuditOutboxRecord } from "../../core/audit-log.js";
 import { tenantSlugFromHost } from "../../core/tenant-domain.js";
 import { maskResourceId, unmaskResourceId } from "../../core/session-id.js";
 import { ensurePlatformPluginRegistry, setPlatformPackageAvailable, setPlatformPackageInstalled } from "../../core/platform-plugin-registry.js";
@@ -27,6 +27,7 @@ import {
 
 let installWorkerTimer: ReturnType<typeof setInterval> | undefined;
 let installWorkerTask: Promise<void> | undefined;
+let auditOutboxTimer: ReturnType<typeof setInterval> | undefined;
 
 export const marketplacePlugin: BeePlugin = {
   manifest: { requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: ["billingWebhookSecret","publicBaseDomain"],
@@ -59,9 +60,11 @@ export const marketplacePlugin: BeePlugin = {
     const publicPlugin=(tenant:import("../../core/tenant-context.js").TenantContext,plugin:any)=>({...plugin,pluginKey:String(plugin.id),id:mask(tenant,String(plugin.id),"plugin"),...(Array.isArray(plugin.dependencies)?{dependencies:plugin.dependencies.map((id:string)=>mask(tenant,id,"plugin"))}:{})});
     const publicJob=(tenant:import("../../core/tenant-context.js").TenantContext,job:any)=>({id:mask(tenant,String(job.id),"job"),pluginId:mask(tenant,String(job.pluginId),"plugin"),action:job.action,status:job.status,attempts:job.attempts,maxAttempts:job.maxAttempts,createdAt:job.createdAt,updatedAt:job.updatedAt,startedAt:job.startedAt??null,finishedAt:job.finishedAt??null});
     const auditEvents:Collection<TenantAuditEvent>=db.collection("tenant_audit_events");
+    const auditOutbox:Collection<TenantAuditOutboxRecord>=db.collection("tenant_audit_outbox");
     const installJobs:Collection<PluginInstallJob>=db.collection<PluginInstallJob>("plugin_install_jobs");
     await ensurePluginInstallJobIndexes(installJobs);
     await ensureTenantAuditIndexes(auditEvents);
+    await ensureTenantAuditOutboxIndexes(auditOutbox);
     const auditMarketplaceEvent=async(event:{tenantId:string;actorId:string;action:TenantAuditEvent["action"];outcome:TenantAuditEvent["outcome"];resourceType?:string;resourceId?:string;metadata?:TenantAuditEvent["metadata"]})=>{try{const record:import("../../core/audit-log.js").AuditEventInput={id:randomUUID(),occurredAt:new Date(),tenantId:event.tenantId,actorId:event.actorId,action:event.action,outcome:event.outcome,resourceType:event.resourceType,resourceId:event.resourceId,metadata:event.metadata};await appendTenantAuditEvent(auditEvents,record);}catch(error){ctx.logger.error("Marketplace audit event write failed",{action:event.action,tenantId:event.tenantId,error});}};
     await seedPluginCommerce(db);
     // The durable job lease is the source of truth for crash recovery; do not rewrite live installation state at startup.
@@ -567,7 +570,7 @@ export const marketplacePlugin: BeePlugin = {
           if (job.action === "uninstall") {
             if (trusted.system) throw new Error("System plugins cannot be uninstalled");
             const installation = await db.collection("tenant_plugin_installations").findOne({ tenantId: job.tenantId, pluginId: job.pluginId });
-            if (!installation || !["installed", "uninstalling"].includes(String(installation.status))) throw new Error("Plugin is not installed");
+            if (!installation || !["installed", "uninstalling", "uninstalled"].includes(String(installation.status))) throw new Error("Plugin is not installed");
             const otherInstalled = await db.collection("tenant_plugin_installations")
               .find({ tenantId: job.tenantId, status: "installed", pluginId: { $ne: job.pluginId } })
               .toArray();
@@ -575,21 +578,31 @@ export const marketplacePlugin: BeePlugin = {
               const dependent = await getMarketplacePackage(String(installed.pluginId));
               if (dependent?.dependencies.includes(job.pluginId)) throw new Error("Plugin is required by installed plugin: " + installed.pluginId);
             }
-            await db.collection("tenant_plugin_installations").updateOne(
-              { tenantId: job.tenantId, pluginId: job.pluginId, status: { $in: ["installed", "uninstalling"] } },
-              { $set: { status: "uninstalling", updatedAt: new Date() } }
-            );
-            // External package uninstall must retain tenant-owned collections.
-            // Data cleanup is a separate, explicit operation and is never implicit in uninstall.
-            const externalRuntimePackage = !getTrustedPluginPackage(job.pluginId) && Boolean(getRuntimePlugin(job.pluginId));
-            if (!externalRuntimePackage) await trusted.uninstallTenant?.(db, job.tenantId);
-            await db.collection("tenant_plugin_installations").updateOne(
-              { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
-              { $set: { status: "uninstalled", updatedAt: new Date() }, $unset: { error: "" } }
-            );
+            // Persist the audit intent before changing installation state. The durable
+            // job status is the commit marker used by the outbox dispatcher after a crash.
+            const uninstallAudit = await prepareTenantAuditOutboxEvent(auditOutbox, {
+              tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success",
+              resourceType: "plugin", resourceId: job.pluginId,
+              metadata: { version: trusted.version, jobId: job.id },
+              idempotencyKey: "plugin.uninstalled:" + job.id
+            });
+            if (installation.status !== "uninstalled") {
+              await db.collection("tenant_plugin_installations").updateOne(
+                { tenantId: job.tenantId, pluginId: job.pluginId, status: { $in: ["installed", "uninstalling"] } },
+                { $set: { status: "uninstalling", updatedAt: new Date() } }
+              );
+              // External package uninstall must retain tenant-owned collections.
+              // Data cleanup is a separate, explicit operation and is never implicit in uninstall.
+              const externalRuntimePackage = !getTrustedPluginPackage(job.pluginId) && Boolean(getRuntimePlugin(job.pluginId));
+              if (!externalRuntimePackage) await trusted.uninstallTenant?.(db, job.tenantId);
+              await db.collection("tenant_plugin_installations").updateOne(
+                { tenantId: job.tenantId, pluginId: job.pluginId, status: "uninstalling" },
+                { $set: { status: "uninstalled", updatedAt: new Date() }, $unset: { error: "" } }
+              );
+            }
             if (tenantRecord.kind === "super") await setPlatformPackageAvailable(db, job.pluginId);
             const completed = await completePluginInstallJob(installJobs, job, workerId, trusted.version);
-            if (completed) await auditMarketplaceEvent({ tenantId: job.tenantId, actorId: job.actorId, action: "plugin.uninstalled", outcome: "success", resourceType: "plugin", resourceId: job.pluginId, metadata: { version: trusted.version, jobId: job.id } });
+            if (completed) await commitTenantAuditOutboxEvent(auditOutbox, uninstallAudit.id);
           } else if (job.action === "install") {
             if (!await hasPluginEntitlement(db, job.tenantId, job.pluginId)) throw new Error("Plugin entitlement is no longer active");
             for (const dependency of await getDependencyOrder(job.pluginId)) {
@@ -696,11 +709,17 @@ export const marketplacePlugin: BeePlugin = {
     installWorkerTimer = setInterval(() => {
       if (!workerBusy) installWorkerTask = processInstallJob();
     }, 500);
+    auditOutboxTimer = setInterval(() => {
+      void dispatchTenantAuditOutbox(db, ctx.logger).catch(error => ctx.logger.error("Tenant audit outbox worker failed", { error }));
+    }, 500);
+    auditOutboxTimer.unref();
 
     ctx.logger.info("Marketplace plugin initialized: company catalog is filtered by plan and purchase entitlements.");
   },
   async stop() {
     if (installWorkerTimer) clearInterval(installWorkerTimer);
+    if (auditOutboxTimer) clearInterval(auditOutboxTimer);
+    auditOutboxTimer = undefined;
     installWorkerTimer = undefined;
     await installWorkerTask;
     installWorkerTask = undefined;
