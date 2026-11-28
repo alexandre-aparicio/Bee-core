@@ -75,7 +75,7 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
       state.runtimeCalls += 1;
       body = {
         pluginId: "connected-devices",
-        version: "0.2.0",
+        version: "0.4.0",
         transport: "native-federation",
         remoteEntry: "frontend/remoteEntry.json",
         remoteName: "connectedDevices",
