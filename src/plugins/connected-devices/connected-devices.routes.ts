@@ -141,9 +141,11 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  ctx.server.post("/connected-devices/:deviceId/suspend",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
   if(!isDeviceAdministrator(tenant))return reply.code(403).send({error:"Organization administrator permission required."});
-  const id=clean(request.params.deviceId,64),now=new Date(),invalidatedCredential=hashDeviceSecret(randomUUID()+randomUUID());
-  const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"active"},{$set:{status:"suspended",credentialHash:invalidatedCredential,grantedCapabilities:[],updatedAt:now}});
-  if(!result.matchedCount)return reply.code(404).send({error:"Active device not found."});
+  const id=clean(request.params.deviceId,64),now=new Date(),invalidatedCredential=hashDeviceSecret(randomUUID()+randomUUID()),audit=await prepareDeviceAudit(tenant,id,"device.suspended","active","suspended");
+  if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not suspended. Retry shortly."});
+  const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"active"},{$set:{status:"suspended",credentialHash:invalidatedCredential,grantedCapabilities:[],updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
+  if(!result.matchedCount){await cancelTenantAuditOutboxEvent(auditOutbox,audit.id);return reply.code(404).send({error:"Active device not found."});}
+  await finishDeviceAudit(audit);
   return {success:true};
  });
  ctx.server.post("/connected-devices/:deviceId/activate",async(request:any,reply:any)=>{
