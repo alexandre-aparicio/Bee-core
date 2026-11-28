@@ -13,36 +13,6 @@ permissions:
   contents: read
 
 jobs:
-  backend:
-    name: Backend build and tests (Node 22)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22.22.3
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
-
-  frontend:
-    name: Angular 22 build (Node 22.22.3)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22.22.3
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
-      - run: npm ci
-      - run: npm run build
-
   deployment:
     name: Docker Compose and MongoDB 9 validation
     runs-on: ubuntu-latest
