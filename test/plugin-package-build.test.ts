@@ -61,7 +61,7 @@ test("five first-party modules build as independently signed ZIP packages", { sk
     );
     assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking", "time-tracking-connected"]);
     assert.equal(existsSync(join(archivesDirectory, "connected-devices-0.3.0.zip")), false, "a stale Connected Devices ZIP must be removed after a successful release build");
-    assert.ok(existsSync(join(archivesDirectory, "connected-devices-0.3.2.zip")), "the current Connected Devices release must be the only ZIP left in the output directory");
+    assert.ok(existsSync(join(archivesDirectory, "connected-devices-0.4.0.zip")), "the current Connected Devices release must be the only ZIP left in the output directory");
     for (const item of built) {
       assert.ok(item.bytes > 100);
       const installed = await installSignedPluginZip({
@@ -82,7 +82,7 @@ test("five first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /Hola Mundo/);
         assert.match(script, /bee-plugin:ready/);
       } else if (item.id === "connected-devices") {
-        assert.equal(installed.manifest.version, "0.3.2");
+        assert.equal(installed.manifest.version, "0.4.0");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.deepEqual(installed.manifest.frontend.routes, [{ path: "/dashboard/connected-devices", component: "connected-devices" }]);
