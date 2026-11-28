@@ -20,3 +20,4 @@
 | Phase 5 — Quality gates / bug hunt | Not started | Broader cross-plugin regression and security review remain outstanding. |
 | Phase 6 — Docs / hygiene | In progress | Progress is tracked here; keep this file table-only because `test/docs-hygiene.test.ts` enforces that format. |
 | Production | Not confirmed | VPS validation was reported by the user; production scope/status has not been independently established. |
+| Connected Devices connector-only permissions | In progress — PR pending | Optional signed `deviceConnector` manifest marker; tenant permission contract filters only explicitly marked connectors and requires entitled, installed, enabled and globally enabled. Existing stale device capabilities remain stored but are hidden from projections; stale pending requests cannot be approved (409). |
