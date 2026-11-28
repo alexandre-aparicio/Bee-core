@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {CONNECTED_DEVICE_CAPABILITIES,createPairingSecrets,hashDeviceSecret,isConnectedDeviceOwnerActive,isDeviceAdministrator,normalizeRequestedCapabilities,publicDevice} from "../src/plugins/connected-devices/connected-devices.service.js";
 test("capability requests are unique, bounded and restricted to the supported vocabulary",()=>{
  assert.deepEqual(normalizeRequestedCapabilities(["scanner.use","scanner.use","catalog.read"]),["scanner.use","catalog.read"]);
- assert.throws(()=>normalizeRequestedCapabilities(["admin.root"]),/not supported/);
+ assert.throws(()=>normalizeRequestedCapabilities(["admin.root"]),/not currently available/);
  assert.throws(()=>normalizeRequestedCapabilities(Array(11).fill("scanner.use")),/up to 10/);
  assert.equal(CONNECTED_DEVICE_CAPABILITIES.includes("pos.order.write"),true);
  assert.deepEqual(normalizeRequestedCapabilities(["device.status.write"],new Set(["device.status.write"])),["device.status.write"]);
