@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Collection } from "mongodb";
 import { cancelTenantAuditOutboxEvent, commitTenantAuditOutboxEvent, dispatchTenantAuditOutbox, prepareTenantAuditOutboxEvent, type TenantAuditOutboxRecord, type AuditAction } from "../../core/audit-log.js";
 
 import { createPairingSecrets, hashDeviceSecret, isConnectedDeviceOwnerActive, isDeviceAdministrator, normalizeRequestedCapabilities, publicDevice } from "./connected-devices.service.js";
@@ -7,7 +8,7 @@ const clean=(value:unknown,max=80):string=>String(value??"").replace(/[<>\u0000-
 
 export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  const {repository,dashboardTenant,authenticateDevice,access,availablePermissions}=deps;
- const auditOutbox=repository.db.collection<TenantAuditOutboxRecord>("tenant_audit_outbox");
+ const auditOutbox=repository.db.collection("tenant_audit_outbox") as Collection<TenantAuditOutboxRecord>;
  const prepareDeviceAudit=async(tenant:any,deviceId:string,action:AuditAction,fromStatus:string,toStatus:string,actorId=tenant.userId)=>{
   try{return await prepareTenantAuditOutboxEvent(auditOutbox,{tenantId:tenant.tenantId,actorId,action,outcome:"success",resourceType:"device",resourceId:deviceId,metadata:{fromStatus,toStatus}});}
   catch(error){ctx.logger?.error("Could not persist Connected Devices audit intent",{tenantId:tenant.tenantId,deviceId,action,error});return null;}
