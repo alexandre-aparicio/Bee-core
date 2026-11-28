@@ -5,7 +5,7 @@ export class BeeEventBus {
 
   constructor(
     private readonly namespace?: string,
-    private readonly sharedEvents: ReadonlySet<string> = new Set(["bee.started"]),
+    private readonly sharedEvents: ReadonlySet<string> = new Set(["bee.started", "membership.status.changed"]),
     listeners?: Map<string, Set<Listener>>
   ) {
     this.listeners = listeners ?? new Map<string, Set<Listener>>();
