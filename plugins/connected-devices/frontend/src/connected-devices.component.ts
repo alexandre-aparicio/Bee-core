@@ -101,7 +101,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit, OnDestro
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || "Connected Devices request failed (" + response.status + ").");
+    if (!response.ok) throw new Error(response.status === 403 ? "You do not have permission to manage connected devices. Ask an organization owner or administrator for access." : payload.error || "Connected Devices request failed (" + response.status + ").");
     return payload;
   }
   async load(): Promise<void> {
@@ -207,8 +207,8 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit, OnDestro
     if (!grantedCapabilities.length) return;
     await this.runAction(() => this.request("/connected-devices/" + encodeURIComponent(device.id) + "/approve", "POST", { grantedCapabilities }), "Device approved.");
   }
-  async act(device: Device, action: "suspend" | "activate" | "unlink" | "revoke" | "delete"): Promise<void> {
-    const labels: Record<string, string> = { suspend: "suspend", activate: "reactivate", unlink: "unlink", revoke: "revoke access to", delete: "delete" };
+  async act(device: Device, action: "suspend" | "unlink" | "revoke" | "delete"): Promise<void> {
+    const labels: Record<string, string> = { suspend: "suspend", unlink: "unlink", revoke: "revoke access to", delete: "delete" };
     if (!window.confirm("Are you sure you want to " + labels[action] + " " + device.name + "?")) return;
     const path = "/connected-devices/" + encodeURIComponent(device.id) + (action === "delete" ? "" : "/" + action);
     await this.runAction(() => this.request(path, action === "delete" ? "DELETE" : "POST", action === "delete" ? undefined : {}), "Action completed.");
