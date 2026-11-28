@@ -132,7 +132,9 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(device.requestedCapabilities.some((capability:string)=>!availableKeys.has(capability)))return reply.code(409).send({error:"A requested connector permission is no longer available. Recreate the pairing request before approving this device."});
   let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[],permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid permissions"});}
   if(granted.some(capability=>!device.requestedCapabilities.includes(capability)))return reply.code(400).send({error:"Granted capabilities must be a subset of the device request."});
-  const now=new Date(),result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:now}},{$set:{status:"active",grantedCapabilities:granted,approvedAt:now,approvedBy:tenant.userId,updatedAt:now}});
+  const now=new Date(),audit=await prepareDeviceAudit(tenant,id,"device.approved","pending","active");
+   if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not approved. Retry shortly."});
+   const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:now}},{$set:{status:"active",grantedCapabilities:granted,approvedAt:now,approvedBy:tenant.userId,updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
   if(!result.matchedCount)return reply.code(409).send({error:"The device request changed. Refresh and try again."});
   const updated=await repository.devices.findOne({tenantId:tenant.tenantId,id});return {success:true,device:updated?publicDevice(updated,availableKeys):null,availablePermissions:permissions};
  });
