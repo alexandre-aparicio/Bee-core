@@ -2,7 +2,7 @@
 export const PLUGIN_MANIFEST = {
   id: "connected-devices",
   name: "Connected Devices",
-  version: "0.2.0",
+  version: "0.3.1",
   description: "Tenant device pairing, identity and capability grants.",
   category: "platform",
   dependencies: ["auth", "organizations"],
