@@ -13,7 +13,7 @@ import type { BeeContext, BeeLogger, BeePlugin, BeePluginRuntimeControl } from "
 import { BeePluginServices } from "./core/plugin-services.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { replaceRuntimePlugin, unregisterRuntimePlugin } from "./core/runtime-plugin-registry.js";
-import { getTenantPluginCatalog, hasPluginEntitlement, isPluginInstalled, isPluginEnabled, isPlatformPluginEnabled, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
+import { getTenantConnectorPermissionsFromCatalog, getTenantPluginCatalog, hasPluginEntitlement, isPluginInstalled, isPluginEnabled, isPlatformPluginEnabled, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
 import { resolveTenantContext, type TenantClaims } from "./core/tenant-context.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
@@ -337,6 +337,10 @@ async function bootstrap(): Promise<void> {
           resource: permission.resource, action: permission.action, label: permission.label
         })))
         .sort((a, b) => a.pluginId.localeCompare(b.pluginId) || a.key.localeCompare(b.key));
+    },
+    getTenantConnectorPermissions: async (tenantId: string) => {
+      const catalog = await getTenantPluginCatalog(db, tenantId);
+      return getTenantConnectorPermissionsFromCatalog(catalog);
     },
     isTenantUserActive: async (tenantId: string, userId: string) => {
       const [tenant, membership, user] = await Promise.all([
