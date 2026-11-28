@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: mongodb-9-${{ github.workflow }}-${{ github.ref }}
@@ -51,10 +51,19 @@ jobs:
             package-lock.json
             apps/web/package-lock.json
 
-      - name: Update MongoDB driver and lockfile
-        run: npm install --package-lock-only mongodb@7.9.1 --save
+      - name: Regenerate and commit MongoDB driver lockfile
+        run: |
+          rm -f package-lock.json
+          npm install --package-lock-only mongodb@7.9.1 --save
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: lock MongoDB Node.js driver 7.9.1"
+            git push
+          fi
 
-      - name: Install backend dependencies from updated lockfile
+      - name: Install backend dependencies from committed lockfile
         run: npm ci
 
       - name: Verify MongoDB Node.js driver 7.9.1
