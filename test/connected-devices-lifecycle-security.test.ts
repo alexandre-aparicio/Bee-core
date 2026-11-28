@@ -10,6 +10,7 @@ import {
   hashDeviceSecret,
   hasConnectedDeviceCapability
 } from "../src/plugins/connected-devices/connected-devices.service.js";
+import { dispatchTenantAuditOutbox, prepareTenantAuditOutboxEvent, type TenantAuditOutboxRecord } from "../src/core/audit-log.js";
 import { registerConnectedDevicesRoutes } from "../src/plugins/connected-devices/connected-devices.routes.js";
 
 const uri = process.env.MONGODB_TEST_URI;
@@ -188,12 +189,39 @@ test("two concurrent revocations have exactly one winner", { skip: !uri }, async
   assert.equal((await f.heartbeat("double-revoke-" + credential)).statusCode, 401);
 }));
 
-test("lifecycle audit events are not currently emitted (tracked limitation)", { skip: !uri }, async () => withFixture(async f => {
+test("device lifecycle transitions emit tenant-scoped durable audit events", { skip: !uri }, async () => withFixture(async f => {
   await f.insertDevice({ id: "audit-gap-device" });
   const suspended = await f.app.inject({ method: "POST", url: "/connected-devices/audit-gap-device/suspend", headers: f.ownerA });
   assert.equal(suspended.statusCode, 200);
-  const rows = await f.db.collection("tenant_audit_events").find({ tenantId: "tenant-a", resourceId: "audit-gap-device" }).toArray();
-  assert.equal(rows.length, 0, "audit remains an explicit unresolved gap until it can be committed atomically with the lifecycle transition");
+  const rows = await f.db.collection("tenant_audit_events").find({ tenantId: "tenant-a", resourceType: "device", resourceId: "audit-gap-device" }).toArray();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].action, "device.suspended");
+  assert.equal(rows[0].actorId, "owner-a");
+  assert.equal(rows[0].outcome, "success");
+  assert.deepEqual(rows[0].metadata, { fromStatus: "active", toStatus: "suspended" });
+  const outbox = await f.db.collection<TenantAuditOutboxRecord>("tenant_audit_outbox").findOne({ id: rows[0].id });
+  assert.equal(outbox?.status, "delivered");
+  assert.equal((await f.repository.devices.findOne({ id: "audit-gap-device" }))?.pendingAuditEventIds?.length ?? 0, 0);
+}));
+
+test("audit outbox recovers a committed device transition after a process crash", { skip: !uri }, async () => withFixture(async f => {
+  await f.insertDevice({ id: "audit-crash-recovery" });
+  const outbox = f.db.collection<TenantAuditOutboxRecord>("tenant_audit_outbox");
+  const event = await prepareTenantAuditOutboxEvent(outbox, {
+    tenantId: "tenant-a", actorId: "owner-a", action: "device.revoked", outcome: "success",
+    resourceType: "device", resourceId: "audit-crash-recovery",
+    metadata: { fromStatus: "active", toStatus: "revoked" }
+  });
+  await f.repository.devices.updateOne(
+    { tenantId: "tenant-a", id: "audit-crash-recovery", status: "active" },
+    { $set: { status: "revoked" }, $addToSet: { pendingAuditEventIds: event.id } }
+  );
+  // Simulate a crash before commitTenantAuditOutboxEvent; the resource marker is authoritative.
+  await dispatchTenantAuditOutbox(f.db);
+  await dispatchTenantAuditOutbox(f.db);
+  assert.equal(await f.db.collection("tenant_audit_events").countDocuments({ tenantId: "tenant-a", id: event.id }), 1);
+  assert.equal((await outbox.findOne({ id: event.id }))?.status, "delivered");
+  assert.equal((await f.repository.devices.findOne({ id: "audit-crash-recovery" }))?.pendingAuditEventIds?.length ?? 0, 0);
 }));
 
 
