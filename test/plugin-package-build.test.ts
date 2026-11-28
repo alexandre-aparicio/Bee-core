@@ -36,7 +36,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
   }
 });
 
-test("four first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
+test("five first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const root = await mkdtemp(join(tmpdir(), "bee-first-party-packages-"));
   try {
@@ -59,7 +59,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
       }),
       /does not match/
     );
-    assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking"]);
+    assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking", "time-tracking-connected"]);
     assert.equal(existsSync(join(archivesDirectory, "connected-devices-0.3.0.zip")), false, "a stale Connected Devices ZIP must be removed after a successful release build");
     assert.ok(existsSync(join(archivesDirectory, "connected-devices-0.3.2.zip")), "the current Connected Devices release must be the only ZIP left in the output directory");
     for (const item of built) {
@@ -72,6 +72,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
       });
       assert.equal(installed.manifest.id, item.id);
       assert.ok(installed.extractedFiles >= 4);
+      assert.equal(installed.manifest.deviceConnector, item.id === "time-tracking-connected" ? true : undefined,
+        "only the explicitly marked Time Tracking Connected package may carry the device connector marker");
       if (item.id === "hello-world") {
         assert.equal(installed.manifest.frontend.entrypoint, "frontend/index.html");
         assert.ok(installed.manifest.frontend.assets?.includes("frontend/main.js"));
@@ -116,6 +118,12 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.ok(outlet.includes("if (body !== undefined)"), "generic API proxy must omit Content-Type when DELETE has no body");
         const simulator = await readFile(resolve(process.cwd(), "apps/web/src/assets/device-simulator/device-simulator.js"), "utf8");
         assert.ok(simulator.includes('method:"POST",body:"{}"'));
+      } else if (item.id === "time-tracking-connected") {
+        assert.equal(installed.manifest.version, "0.1.3");
+        assert.equal(installed.manifest.deviceConnector, true);
+        assert.deepEqual(installed.manifest.permissions.map(permission => permission.key), [
+          "time-tracking-connected.clock-in", "time-tracking-connected.clock-out", "time-tracking-connected.records.read"
+        ]);
       } else if (item.id === "time-tracking") {
         assert.equal(installed.manifest.version, "0.2.3", "the package version bump must exercise the tenant upgrade path");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
