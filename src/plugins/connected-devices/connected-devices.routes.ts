@@ -8,8 +8,9 @@ const clean=(value:unknown,max=80):string=>String(value??"").replace(/[<>\u0000-
 
 export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  const {repository,dashboardTenant,authenticateDevice,access,availablePermissions}=deps;
- const auditOutbox=repository.db.collection("tenant_audit_outbox") as Collection<TenantAuditOutboxRecord>;
+ const auditOutbox=repository.db?.collection ? repository.db.collection("tenant_audit_outbox") as Collection<TenantAuditOutboxRecord> : null;
  const prepareDeviceAudit=async(tenant:any,deviceId:string,action:AuditAction,fromStatus:string,toStatus:string,actorId=tenant.userId)=>{
+  if(!auditOutbox)return null;
   try{return await prepareTenantAuditOutboxEvent(auditOutbox,{tenantId:tenant.tenantId,actorId,action,outcome:"success",resourceType:"device",resourceId:deviceId,metadata:{fromStatus,toStatus}});}
   catch(error){ctx.logger?.error("Could not persist Connected Devices audit intent",{tenantId:tenant.tenantId,deviceId,action,error});return null;}
  };
