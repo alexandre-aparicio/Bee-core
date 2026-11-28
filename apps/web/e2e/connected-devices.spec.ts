@@ -104,7 +104,7 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
 
   // Serve the real Federation output through the protected-asset URL shape.
   // This tests the package's remoteEntry and emitted chunks, not a host registration.
-  await page.route("**/api/plugin-packages/connected-devices/0.2.0/assets/**", async route => {
+  await page.route("**/api/plugin-packages/connected-devices/0.4.0/assets/**", async route => {
     const pathname = new URL(route.request().url()).pathname;
     const marker = "/frontend/";
     const markerIndex = pathname.indexOf(marker);
