@@ -31,7 +31,7 @@ Only a tenant owner, administrator or super administrator may approve, invoke th
 
 The legacy `credentialHash` field remains the compatibility default: records without any credential-version field continue to authenticate while active. On suspend/revoke the hash itself is replaced, so reactivation cannot restore the old credential.
 
-### Explicit outstanding security limitations
+### Audit guarantees and remaining security limitations
 
 - Device lifecycle audit uses a durable MongoDB outbox because the deployment runs MongoDB 9.0.4 as a standalone server (no replica-set transactions are configured). The API first persists a prepared audit intent; the same single-document device update that changes state adds the intent ID to `pendingAuditEventIds`. The dispatcher promotes only intents with that resource commit marker, writes the tenant-scoped event idempotently, and then marks the outbox row delivered. If audit intent storage fails, approval/suspend/revoke/unlink fail closed with HTTP 503 and do not change device state. If delivery fails after the state change, the committed outbox item remains retryable; audit delivery is asynchronous and must not be reported as synchronously complete until the event appears in `tenant_audit_events`.
 - Plugin uninstall audit follows the same outbox: the intent is persisted before uninstall, but is promoted only after the durable lifecycle job reaches `succeeded`. A failed job cancels its prepared intent. The stable job idempotency key and unique tenant event ID prevent duplicate audit rows on worker retries or crashes.
