@@ -88,6 +88,10 @@ Only a signed plugin manifest with the explicit optional field `deviceConnector:
 
 Existing device records and pairing challenges are not deleted or migrated when a permission ceases to be available. Their unavailable requested/granted capability keys remain stored for history, but Connected Devices API projections filter them out. New pairing requests for non-connector keys return HTTP 400; a legacy challenge or pending device whose requested keys are no longer available cannot be claimed/approved and returns HTTP 409. Approval accepts only currently available connector keys. This is intentionally fail-closed and preserves device records; no MongoDB migration is required.
 
+### VPS visual acceptance — 2026-11-28
+
+After merging PR [#253](https://github.com/alexandre-aparicio/Bee-core/pull/253) into `main` (merge commit `a337e8c54e3c762824beba1197a8c6f591827f4a`), the project owner confirmed that the VPS visual test passed: **Connected Devices → New device** displays only the three capabilities declared by `time-tracking-connected` (`time-tracking-connected.clock-in`, `time-tracking-connected.clock-out`, and `time-tracking-connected.records.read`). The three ordinary `time-tracking` permissions are no longer offered for device pairing. This is owner-reported manual VPS acceptance; the automated backend, signed-package and browser checks are recorded separately in CI #1369.
+
 ## Example use cases
 
 ### Live location and field operations
