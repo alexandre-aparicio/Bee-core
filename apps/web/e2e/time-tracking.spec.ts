@@ -190,7 +190,7 @@ test("owner can save a weekly schedule and approve a team correction", async ({ 
   await page.goto("/dashboard");
   await expect(page.locator(".bee-dash-company-switcher select")).toHaveValue(auth.tenantId, { timeout: 15000 });
   await page.getByRole("button", { name: /Control Horario/ }).click();
-  const scheduleNav = page.getByRole("button", { name: /^(Horarios|Schedules|Mi horario|My schedule)$/ });
+  const scheduleNav = page.getByRole("button", { name: /^(Horarios|Schedules|Mi horario|My schedule|Planificación de horarios|Schedule planning)$/ });
   try {
     await expect(scheduleNav).toBeVisible({ timeout: 5000 });
   } catch (error) {
