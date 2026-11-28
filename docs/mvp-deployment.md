@@ -81,44 +81,77 @@ The API health endpoint is available internally at `http://bee-core:3000/health`
 
 ## Data persistence
 
-- MongoDB data: Docker volume `bee_core_mongodb_data`
-- Private file data: Docker volume `bee_core_files`
+The production Compose project persists three independent data sets:
 
-List volumes:
+- MongoDB: Docker volume `bee_core_mongodb_data` (users, tenants, sessions, plugin state and business records).
+- Private files: Docker volume `bee_core_files` mounted at `/data/bee-files`.
+- Uploaded plugin packages: Docker volume `bee_core_plugins` mounted at `/data/bee-plugins`.
+
+The actual Docker volume names are prefixed by the Compose project name. Resolve them from the running backend container instead of assuming a fixed prefix:
 
 ```bash
-docker volume ls | grep bee_core
+compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+backend_id=$("${compose[@]}" ps -q bee-core)
+files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+plugins_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-plugins"}}{{.Name}}{{end}}{{end}}')
+test -n "$files_volume" && test -n "$plugins_volume"
 ```
 
 ## Backup
 
-Create a compressed logical backup using the official MongoDB Database Tools image. Run it on the private Compose network so MongoDB remains unpublished on the host:
+Load the protected deployment configuration and identify the exact private Compose network. The application database user can read the configured application database; use the root account only for restore operations that create a separate database.
 
 ```bash
+set -euo pipefail
+set -a
+. ./.env
+set +a
 mkdir -p backups
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
-docker run --rm --network "$network" -v "$PWD/backups:/backup" \
-  mongodb/mongodb-database-tools:100.12.2 \
-  mongodump --uri="mongodb://mongodb:27017/bee_core" \
-  --archive="/backup/bee_core-$(date +%F).archive" --gzip
+chmod 700 backups
+
+compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+mongodb_id=$("${compose[@]}" ps -q mongodb)
+backend_id=$("${compose[@]}" ps -q bee-core)
+network=$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
+files_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-files"}}{{.Name}}{{end}}{{end}}')
+plugins_volume=$(docker inspect "$backend_id" --format '{{range .Mounts}}{{if eq .Destination "/data/bee-plugins"}}{{.Name}}{{end}}{{end}}')
+test -n "$network" && test -n "$files_volume" && test -n "$plugins_volume"
+
+stamp=$(date +%F)
+docker run --rm --network "$network" -e MONGO_APP_USERNAME -e MONGO_APP_PASSWORD -e MONGODB_DB -v "$PWD/backups:/backup" mongodb/mongodb-database-tools:100.12.2 mongodump --host mongodb:27017 --username "$MONGO_APP_USERNAME" --password "$MONGO_APP_PASSWORD" --authenticationDatabase "$MONGODB_DB" --db "$MONGODB_DB" --archive="/backup/bee-core-$stamp.archive" --gzip
+
+docker run --rm -v "$files_volume:/source:ro" -v "$PWD/backups:/backup" ubuntu:22.04 tar -czf "/backup/bee-core-files-$stamp.tar.gz" -C /source .
+docker run --rm -v "$plugins_volume:/source:ro" -v "$PWD/backups:/backup" ubuntu:22.04 tar -czf "/backup/bee-core-plugins-$stamp.tar.gz" -C /source .
 ```
 
-Copy backups off-server, encrypt them, and define retention. A backup on the same VPS is not sufficient disaster recovery.
+This backs up the database, private file volume and uploaded plugin-package volume. Keep all three archives from the same maintenance window. Copy them off-server, encrypt them, restrict access and define retention. A backup on the same VPS is not sufficient disaster recovery.
 
 ## Restore drill
 
-Restore into a separate database first; never overwrite the live database during a drill:
+Never restore over the live database or live volumes during a drill. Restore MongoDB into a separate database using the root account, then restore the file/package archives into new temporary volumes:
 
 ```bash
-network=$(docker network ls --filter label=com.docker.compose.project --format '{{.Name}}' | grep '_default$' | head -n1)
-docker run --rm --network "$network" -v "$PWD/backups:/backup" \
-  mongodb/mongodb-database-tools:100.12.2 \
-  mongorestore --uri="mongodb://mongodb:27017/bee_core_restore" \
-  --archive="/backup/bee_core-YYYY-MM-DD.archive" --gzip \
-  --nsInclude='bee_core.*' --nsFrom='bee_core.*' --nsTo='bee_core_restore.*'
+set -euo pipefail
+set -a
+. ./.env
+set +a
+compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+mongodb_id=$("${compose[@]}" ps -q mongodb)
+network=$(docker inspect "$mongodb_id" --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}')
+stamp=YYYY-MM-DD
+restore_db="${MONGODB_DB}_restore"
+restore_files_volume="bee-core-files-restore"
+restore_plugins_volume="bee-core-plugins-restore"
+
+docker run --rm --network "$network" -e MONGO_ROOT_USERNAME -e MONGO_ROOT_PASSWORD -e MONGODB_DB -e RESTORE_DB="$restore_db" -v "$PWD/backups:/backup" mongodb/mongodb-database-tools:100.12.2 mongorestore --host mongodb:27017 --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --archive="/backup/bee-core-$stamp.archive" --gzip --nsInclude="$MONGODB_DB.*" --nsFrom="$MONGODB_DB.*" --nsTo="$restore_db.*"
+
+docker volume create "$restore_files_volume" >/dev/null
+docker volume create "$restore_plugins_volume" >/dev/null
+docker run --rm -v "$restore_files_volume:/target" -v "$PWD/backups:/backup:ro" ubuntu:22.04 tar -xzf "/backup/bee-core-files-$stamp.tar.gz" -C /target
+docker run --rm -v "$restore_plugins_volume:/target" -v "$PWD/backups:/backup:ro" ubuntu:22.04 tar -xzf "/backup/bee-core-plugins-$stamp.tar.gz" -C /target
 ```
 
-Verify application-critical collections and records in the restored database before considering the drill successful. The CI workflow exercises a sentinel-record round-trip; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
+Verify the restored database's critical collections and records, compare file/package contents and test that restored plugin packages can be re-verified at startup. Remove the temporary database and volumes after the drill. The CI workflow exercises sentinel-record and volume round-trips; it does not replace scheduled encrypted off-site backups, retention policies or periodic restores against production-sized data.
 
 ## Update
 
