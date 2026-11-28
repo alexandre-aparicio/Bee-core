@@ -7,12 +7,12 @@ Lifecycle transitions are explicit. Any transition not listed below is rejected 
 | Current state | Action / next state | Actor | Result |
 |---|---|---|---|
 | pending | approve → active | Tenant owner/admin/super_admin | Allowed only while the pairing request is valid and the owner membership is active |
-| pending | revoke → revoked | Tenant owner/admin/super_admin | Allowed; credential hash is replaced and grants are cleared |
-| pending | unlink → unlinked | Device owner or tenant administrator | Allowed; credential hash is replaced and grants are cleared |
+| pending | revoke → revoked | Tenant owner/admin/super_admin | Allowed; credential lookup ID and hash are replaced and grants are cleared |
+| pending | unlink → unlinked | Device owner or tenant administrator | Allowed; credential lookup ID and hash are replaced and grants are cleared |
 | pending | expire → expired | System | Allowed when pairing expiry is reached |
-| active | suspend → suspended | Tenant owner/admin/super_admin | Allowed; credential hash is replaced and grants are cleared |
-| active | revoke → revoked | Tenant owner/admin/super_admin | Allowed; terminal, credential hash is replaced and grants are cleared |
-| active | unlink → unlinked | Device owner or tenant administrator | Allowed; credential hash is replaced and grants are cleared |
+| active | suspend → suspended | Tenant owner/admin/super_admin | Allowed; credential lookup ID and hash are replaced and grants are cleared |
+| active | revoke → revoked | Tenant owner/admin/super_admin | Allowed; terminal, credential lookup ID and hash are replaced and grants are cleared |
+| active | unlink → unlinked | Device owner or tenant administrator | Allowed; credential lookup ID and hash are replaced and grants are cleared |
 | suspended | revoke → revoked | Tenant owner/admin/super_admin | Allowed; terminal |
 | suspended | unlink → unlinked | Device owner or tenant administrator | Allowed; terminal |
 | expired | unlink → unlinked | Device owner or tenant administrator | Allowed to clean up an expired record |
@@ -21,7 +21,7 @@ No transition out of `revoked` or `unlinked` is allowed. `expired` cannot be app
 
 ### Credentials and re-pairing
 
-Device credentials are stored as SHA-256 hashes. Suspending or revoking a device replaces the stored hash with a fresh, random, unusable hash and clears granted capabilities. This invalidates legacy records too; no new credential-version field or migration is required. The former credential cannot authenticate through Connected Devices or the Time Tracking Connected credential lookup because both query the same stored hash and require `status: "active"`.
+New device credentials use an opaque random `credentialId` lookup key plus a 48-byte secret (`credentialId.secret`). MongoDB looks up the record by the indexed public identifier; the server hashes only the secret with SHA-256 and compares fixed-length digests with Node.js `timingSafeEqual`. New credentials never use secret-hash equality as the lookup key. Legacy records without `credentialId` retain a lazy compatibility path: they are found by their historical SHA-256 hash and the digest is still verified with `timingSafeEqual`; no bulk migration is required. Rotating, suspending, revoking or unlinking replaces both the lookup ID and secret hash, invalidating the previous credential and clearing grants.
 
 A suspended device cannot be reactivated in place. The backend `/activate` operation returns HTTP 409 with instructions to generate a new QR challenge; the dashboard deliberately does not offer a Reactivate action. The companion must pair again, creating a new pending device record and credential; a tenant administrator must approve that new record. Revocation is terminal and cannot be undone.
 
@@ -29,14 +29,14 @@ A suspended device cannot be reactivated in place. The backend `/activate` opera
 
 Only a tenant owner, administrator or super administrator may approve, invoke the legacy activate endpoint (which returns the re-pairing 409), suspend, or revoke. A regular member receives HTTP 403 for suspend, activate and revoke, including for their own device. The owner/admin restriction does not remove the existing unlink operation. Lifecycle updates use a single MongoDB `updateOne` filtered by tenant, device ID and expected current state; `modifiedCount` is checked so concurrent transitions cannot both win. Cross-tenant IDs are not included in the tenant-scoped update and return the same not-found response as an unknown ID.
 
-The legacy `credentialHash` field remains the compatibility default: records without any credential-version field continue to authenticate while active. On suspend/revoke the hash itself is replaced, so reactivation cannot restore the old credential.
+The legacy `credentialHash` field remains supported only for records without `credentialId`; successful legacy authentication does not silently rotate a credential the client does not know. A user-initiated credential rotation or a new pairing moves the record to the lookup-ID format. Suspend/revoke/unlink rotate both fields, so reactivation cannot restore the old credential.
 
 ### Audit guarantees and remaining security limitations
 
 - Device lifecycle audit uses a durable MongoDB outbox because the deployment runs MongoDB 9.0.4 as a standalone server (no replica-set transactions are configured). The API first persists a prepared audit intent; the same single-document device update that changes state adds the intent ID to `pendingAuditEventIds`. The dispatcher promotes only intents with that resource commit marker, writes the tenant-scoped event idempotently, and then marks the outbox row delivered. If audit intent storage fails, approval/suspend/revoke/unlink fail closed with HTTP 503 and do not change device state. If delivery fails after the state change, the committed outbox item remains retryable; audit delivery is asynchronous and must not be reported as synchronously complete until the event appears in `tenant_audit_events`.
 - Plugin uninstall audit follows the same outbox: the intent is persisted before uninstall, but is promoted only after the durable lifecycle job reaches `succeeded`. A failed job cancels its prepared intent. The stable job idempotency key and unique tenant event ID prevent duplicate audit rows on worker retries or crashes.
-- Credential hashes are stored as SHA-256 and are never intentionally returned by API projections. MongoDB hash lookup is not a constant-time comparison; this PR does not change credential storage/comparison. A constant-time credential verification design remains unresolved.
-- Membership removal is fail-closed and causes the device to be terminally revoked when the device next authenticates or its capability is checked; this is lazy enforcement, not a proactive membership-change cascade.
+- Credential secrets are never intentionally returned by API projections. New-format credentials are located by opaque ID and verified with constant-time digest comparison; only pre-existing records use the documented lazy hash-lookup fallback.
+- Membership suspension emits the shared `membership.status.changed` event. Connected Devices revokes all pending/active/suspended devices for that member, rotates their credential lookup IDs and hashes, clears grants, and records `device.revoked` through the durable audit outbox. The membership row carries `deviceRevocationPending` until the cascade completes; startup recovery retries pending cascades after a process crash. Existing authentication/capability checks remain fail-closed as a secondary guard.
 - This PR does not change Time Tracking Connected implementation or its remote UI. The shared credential hash replacement and active-state check invalidate prior credentials at that connector boundary.
 
 
@@ -68,10 +68,7 @@ Recorded GitHub Actions evidence:
 - Browser tests: Playwright 34/34 passed.
 - Deployment compatibility: Docker Compose configuration, authenticated MongoDB 9.0.4 startup and Docker image builds passed.
 
-The merge implements the lifecycle authorization, invalidation, terminal-revocation, tenant-isolation and concurrency behavior described above. These passing checks do **not** close the following security findings, which remain explicit for external audit:
-1. Lifecycle actions do not yet emit tenant-audit events. The existing Organizations audit helper is not a durable atomic participant in the lifecycle state transition. Do not treat device lifecycle operations as fully audit-trailed until a transaction-safe or outbox-based implementation is added and tested.
-2. Device credentials use SHA-256 hashes looked up through MongoDB equality; this is not constant-time verification.
-3. Membership removal is enforced lazily at the next device authentication/capability check, not by an immediate membership-change cascade.
+The PR 1–3 security changes provide lifecycle authorization, durable audit outbox delivery, tenant-isolated state transitions, proactive membership revocation with startup recovery, and constant-time verification for new-format device credentials. Legacy credentials remain supported through a compatibility lookup path until the device is re-paired or the credential is explicitly rotated.
 
 The CI results establish the tested build and regression baseline; they do not certify these three outstanding controls or constitute a third-party security assessment.
 
