@@ -30,7 +30,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 Use Docker Engine and Docker Compose plugin v2.24 or newer. Configure HTTPS and firewall access before exposing the service to real users. This MVP deployment is a test/deployment candidate, not a security-certified production release. See the deployment guide for verification, persistence, backup and restore instructions.
 
-## API endpoints
+## MongoDB 9.0.4 and Angular 22 deployment\n\nFor the VPS-specific MongoDB 9.0.4 / Angular 22.2.7 versions, the destructive clean-install procedure, and the data-preserving update procedure, see [MongoDB 9.0.4 and Angular 22 deployment](docs/mongodb-9-angular22-deployment.md).\n\n## API endpoints
 
 `/health`, `/plugins`, `/auth/login`, `/auth/refresh`, `/auth/me`, `/auth/logout`.
 
