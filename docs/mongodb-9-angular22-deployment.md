@@ -34,11 +34,19 @@ El instalador:
 
 ### Datos que elimina y datos que conserva
 
-**ATENCIÓN: la instalación limpia es destructiva para la base de datos.** Si existe el volumen Compose esperado `bee-core_bee_core_mongodb_data` (nombre habitual con el proyecto `bee-core`), el script elimina exclusivamente ese volumen después de comprobar sus etiquetas. Se crea así una base de datos vacía; no se migran ni recuperan los datos MongoDB anteriores.
+**ATENCIÓN: la instalación limpia es completamente destructiva para los datos persistentes de Bee-Core.** Después de validar las etiquetas Compose, el script elimina los tres volúmenes del proyecto `bee-core` si existen:
 
-El instalador no ejecuta `docker compose down -v` y no elimina los volúmenes `bee_core_files` ni `bee_core_plugins`. Los archivos privados y los paquetes de plugins persistidos quedan fuera del borrado de la base de datos.
+- `bee-core_bee_core_mongodb_data`: base de datos MongoDB, usuarios, tenants, configuraciones, instalaciones e historial.
+- `bee-core_bee_core_files`: archivos privados almacenados por la plataforma.
+- `bee-core_bee_core_plugins`: ZIP de plugins, versiones extraídas y paquetes almacenados.
 
-Antes de una instalación limpia, realiza y verifica las copias de seguridad necesarias. No uses este script como procedimiento de actualización ordinaria.
+Así se evita que una base de datos recién creada encuentre paquetes ZIP antiguos en el volumen de plugins y responda `This plugin version is already stored`.
+
+El script valida primero los nombres y las etiquetas de TODOS los volúmenes. Si detecta un volumen con etiquetas inesperadas, se detiene antes de eliminar cualquiera. No utiliza `docker compose down -v`: elimina explícitamente solo esos tres volúmenes validados. Si alguno no existe, simplemente se creará vacío al arrancar Compose.
+
+Se conservan los archivos de configuración del VPS, incluido `.env`, además de los archivos locales no versionados que el script no elimina. Las copias de seguridad deben estar fuera de esos volúmenes.
+
+Antes de ejecutar una instalación limpia, realiza y verifica las copias de seguridad necesarias. **No uses este script para actualizaciones ordinarias**, porque perderás todos los datos persistentes, incluidos archivos y paquetes de plugins.
 
 ## Actualización normal: conservar los datos
 
