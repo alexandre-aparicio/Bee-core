@@ -1,11 +1,12 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, OnInit, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
 let connectedDevicesQrPromise: Promise<void> | undefined;
 
 type Device = {
   id: string;
+  pairingChallengeId?: string;
   name: string;
   deviceType: string;
   platform: string;
@@ -28,7 +29,7 @@ type DeviceView = "cards" | "table";
   imports: [CommonModule, FormsModule],
   templateUrl: "./connected-devices.component.html"
 })
-export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
+export class BeeConnectedDevicesComponent implements OnChanges, OnInit, OnDestroy {
   @ViewChild("qrContainer") private qrContainer?: ElementRef<HTMLDivElement>;
   constructor(private readonly changeDetector: ChangeDetectorRef) {}
   @Input() tenantId = "";
@@ -52,6 +53,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   busy = false;
   error = "";
   message = "";
+  private pairingWatchTimer?: number;
 
   get activeCount(): number { return this.devices.filter(device => device.status === "active").length; }
   get pendingCount(): number { return this.devices.filter(device => device.status === "pending").length; }
@@ -71,6 +73,9 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
     // first render cannot remain empty if inputs are assigned before the view
     // is attached to the host change-detection tree.
     if (this.accessToken) void this.load();
+  }
+  ngOnDestroy(): void {
+    this.stopPairingWatch();
   }
   ngOnChanges(): void {
     if (this.assetBaseUrl && !connectedDevicesQrPromise) void this.loadQrLibrary().catch(error => { this.error = error instanceof Error ? error.message : "Could not load the QR renderer."; });
@@ -148,8 +153,29 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
       this.pairing = await this.request("/connected-devices/pairing-challenges", "POST", { requestedCapabilities: this.selectedCapabilities });
       this.changeDetector.detectChanges();
       this.renderQr();
+      this.startPairingWatch();
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not generate the pairing code."; }
     finally { this.busy = false; }
+  }
+  private startPairingWatch(): void {
+    this.stopPairingWatch();
+    this.pairingWatchTimer = window.setInterval(() => void this.checkPairingClaim(), 2000);
+  }
+  private stopPairingWatch(): void {
+    if (this.pairingWatchTimer !== undefined) window.clearInterval(this.pairingWatchTimer);
+    this.pairingWatchTimer = undefined;
+  }
+  private async checkPairingClaim(): Promise<void> {
+    if (!this.pairing || this.loading) return;
+    const challengeId = this.pairing.challengeId;
+    await this.load();
+    const claimed = this.devices.find(device => device.pairingChallengeId === challengeId && device.status === "pending");
+    if (!claimed) return;
+    this.stopPairingWatch();
+    this.modalOpen = false;
+    this.pairing = null;
+    this.message = "Device request received. Review the requested permissions and approve the device below.";
+    this.changeDetector.detectChanges();
   }
   private renderQr(): void {
     const container = this.qrContainer?.nativeElement;
