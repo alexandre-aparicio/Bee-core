@@ -43,6 +43,7 @@ test("five first-party modules build as independently signed ZIP packages", { sk
     const archivesDirectory = join(root, "archives");
     await mkdir(archivesDirectory, { recursive: true });
     await writeFile(join(archivesDirectory, "connected-devices-0.3.0.zip"), "stale package");
+    await writeFile(join(archivesDirectory, "connected-devices-0.3.2.zip"), "previous release");
     const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
     const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     const built = await buildPluginPackages({
@@ -61,6 +62,7 @@ test("five first-party modules build as independently signed ZIP packages", { sk
     );
     assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking", "time-tracking-connected"]);
     assert.equal(existsSync(join(archivesDirectory, "connected-devices-0.3.0.zip")), false, "a stale Connected Devices ZIP must be removed after a successful release build");
+    assert.equal(existsSync(join(archivesDirectory, "connected-devices-0.3.2.zip")), false, "the previous Connected Devices release must be removed after a successful release build");
     assert.ok(existsSync(join(archivesDirectory, "connected-devices-0.4.0.zip")), "the current Connected Devices release must be the only ZIP left in the output directory");
     for (const item of built) {
       assert.ok(item.bytes > 100);
@@ -83,6 +85,7 @@ test("five first-party modules build as independently signed ZIP packages", { sk
         assert.match(script, /bee-plugin:ready/);
       } else if (item.id === "connected-devices") {
         assert.equal(installed.manifest.version, "0.4.0");
+        assert.deepEqual(installed.manifest.migrations, [], "the release must not migrate or rewrite existing device credentials");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.deepEqual(installed.manifest.frontend.routes, [{ path: "/dashboard/connected-devices", component: "connected-devices" }]);
