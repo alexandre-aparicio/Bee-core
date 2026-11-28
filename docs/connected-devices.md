@@ -68,7 +68,7 @@ Recorded GitHub Actions evidence:
 - Browser tests: Playwright 34/34 passed.
 - Deployment compatibility: Docker Compose configuration, authenticated MongoDB 9.0.4 startup and Docker image builds passed.
 
-The PR 1–3 security changes provide lifecycle authorization, durable audit outbox delivery, tenant-isolated state transitions, proactive membership revocation with startup recovery, and constant-time verification for new-format device credentials. Legacy credentials remain supported through a compatibility lookup path until the device is re-paired or the credential is explicitly rotated.
+The changes proposed by PR 3, together with the already merged PR 1 and PR 2, provide lifecycle authorization, durable audit outbox delivery, tenant-isolated state transitions, proactive membership revocation with startup recovery, and constant-time verification for new-format device credentials. Legacy credentials remain supported through a compatibility lookup path until the device is re-paired or the credential is explicitly rotated.
 
 The CI results establish the tested build and regression baseline; they do not certify these three outstanding controls or constitute a third-party security assessment.
 
