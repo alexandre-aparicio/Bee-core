@@ -78,7 +78,7 @@ async function withFixture(run: (fixture: any) => Promise<void>): Promise<void> 
       requestedBy: input.ownerUserId ?? "owner-a", pairingChallengeId: "challenge-" + input.id,
       name: input.id, deviceType: "mobile", platform: "android", appVersion: null,
       requestedCapabilities: [permission.key], grantedCapabilities: input.granted ?? [permission.key],
-      credentialHash: hashDeviceSecret(input.credential ?? credential), status: input.status ?? "active",
+      credentialHash: hashDeviceSecret(input.credential ?? (input.id + "-" + credential)), status: input.status ?? "active",
       pairingExpiresAt: new Date(Date.now() + 15 * 60_000), createdAt: now, updatedAt: now,
       approvedAt: now, approvedBy: "owner-a", revokedAt: null, revokedBy: null, lastSeenAt: null
     };
@@ -86,7 +86,7 @@ async function withFixture(run: (fixture: any) => Promise<void>): Promise<void> 
     await repository.devices.insertOne(record);
     return record;
   };
-  const heartbeat = (value = credential) => app.inject({
+  const heartbeat = (value: string) => app.inject({
     method: "POST", url: "/connected-devices/device/heartbeat",
     headers: { authorization: "Bearer " + value }
   });
@@ -119,17 +119,17 @@ test("admin suspension invalidates a legacy credential and reactivation cannot r
   await f.insertDevice({ id: "legacy-suspend" }); // Legacy records have no credentialVersion field.
   const suspended = await f.app.inject({ method: "POST", url: "/connected-devices/legacy-suspend/suspend", headers: f.ownerA });
   assert.equal(suspended.statusCode, 200);
-  assert.equal((await f.heartbeat()).statusCode, 401);
+  assert.equal((await f.heartbeat("legacy-suspend-" + credential)).statusCode, 401);
   const activated = await f.app.inject({ method: "POST", url: "/connected-devices/legacy-suspend/activate", headers: f.ownerA });
   assert.equal(activated.statusCode, 409, "old credentials must never be restored; a new QR pairing is required");
-  assert.equal((await f.heartbeat()).statusCode, 401);
+  assert.equal((await f.heartbeat("terminal-revoke-" + credential)).statusCode, 401);
 }));
 
 test("admin revocation is terminal and invalidates the previous credential", { skip: !uri }, async () => withFixture(async f => {
   await f.insertDevice({ id: "terminal-revoke" });
   const revoked = await f.app.inject({ method: "POST", url: "/connected-devices/terminal-revoke/revoke", headers: f.ownerA });
   assert.equal(revoked.statusCode, 200);
-  assert.equal((await f.heartbeat()).statusCode, 401);
+  assert.equal((await f.heartbeat("membership-device-" + credential)).statusCode, 401);
   const activate = await f.app.inject({ method: "POST", url: "/connected-devices/terminal-revoke/activate", headers: f.ownerA });
   assert.ok([404, 409].includes(activate.statusCode));
   assert.equal(await f.repository.devices.countDocuments({ id: "terminal-revoke", status: "revoked" }), 1);
@@ -157,7 +157,7 @@ test("suspended and revoked devices cannot retain connector capabilities", { ski
 test("membership revocation lazily terminally revokes the member's device", { skip: !uri }, async () => withFixture(async f => {
   await f.insertDevice({ id: "membership-device", ownerUserId: "member-a" });
   await f.db.collection("memberships").updateOne({ tenantId: "tenant-a", userId: "member-a" }, { $set: { status: "suspended" } });
-  assert.equal((await f.heartbeat()).statusCode, 401);
+  assert.equal((await f.heartbeat("approve-race-" + credential)).statusCode, 401);
   const record = await f.repository.devices.findOne({ id: "membership-device" });
   assert.equal(record?.status, "revoked");
   assert.equal(record?.revokedBy, "system:membership-revoked");
@@ -173,7 +173,7 @@ test("concurrent approval and revocation leave no active device credential", { s
   assert.ok([200, 404].includes(revoke.statusCode));
   const record = await f.repository.devices.findOne({ id: "approve-race" });
   assert.equal(record?.status, "revoked");
-  assert.equal((await f.heartbeat()).statusCode, 401);
+  assert.equal((await f.heartbeat("double-revoke-" + credential)).statusCode, 401);
 }));
 
 test("two concurrent revocations have exactly one winner", { skip: !uri }, async () => withFixture(async f => {
