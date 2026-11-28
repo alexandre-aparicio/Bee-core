@@ -16,6 +16,18 @@ type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"
 type CreateCompanyBody = { name?:string; slug?:string };
 type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; restrictionRoleIds?:string[]; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
 
+/**
+ * A suspended membership must not be reactivated until every connected device
+ * revocation queued by that suspension has been durably processed.
+ */
+export async function completePendingDeviceRevocationBeforeReactivation(input:{
+ emitSuspensionEvent:()=>Promise<void>;
+ hasPendingRevocation:()=>Promise<boolean>;
+}):Promise<boolean>{
+ await input.emitSuspensionEvent();
+ return !(await input.hasPendingRevocation());
+}
+
 export const organizationsPlugin:BeePlugin={
  manifest:{ requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: ["publicBaseDomain"],name:"organizations",version:"0.1.0",description:"Company records, user memberships and active-company session context",dependencies:["auth"]},
  async initialize(ctx){
@@ -414,13 +426,15 @@ export const organizationsPlugin:BeePlugin={
     // outstanding. Complete the durable revocation first; otherwise a failed or
     // interrupted event could be erased by clearing deviceRevocationPending.
     try{
-     await ctx.events.emit("membership.status.changed",{tenantId:req.params.companyId,userId:target.userId,actorId:auth.user!.id,status:"suspended",updatedAt:target.updatedAt});
+     const completed=await completePendingDeviceRevocationBeforeReactivation({
+      emitSuspensionEvent:()=>ctx.events.emit("membership.status.changed",{tenantId:req.params.companyId,userId:target.userId,actorId:auth.user!.id,status:"suspended",updatedAt:target.updatedAt}),
+      hasPendingRevocation:async()=>Boolean(await memberships.findOne({id:target.id,tenantId:req.params.companyId,status:"suspended",deviceRevocationPending:true},{projection:{id:1}}))
+     });
+     if(!completed)return reply.code(503).send({error:"Pending device revocation has not completed. The membership remains suspended; retry shortly."});
     }catch(error){
      ctx.logger.error("Pending device revocation must complete before membership reactivation",{tenantId:req.params.companyId,userId:target.userId,error});
      return reply.code(503).send({error:"Pending device revocation could not be completed. The membership remains suspended; retry shortly."});
     }
-    const pending=await memberships.findOne({id:target.id,tenantId:req.params.companyId,status:"suspended",deviceRevocationPending:true},{projection:{id:1}});
-    if(pending)return reply.code(503).send({error:"Pending device revocation has not completed. The membership remains suspended; retry shortly."});
    }
    const now=new Date();
    await memberships.updateOne({id:target.id},{$set:{status,updatedAt:now,...(status==="suspended"?{deviceRevocationPending:true}:{})},...(status==="active"?{$unset:{deviceRevocationPending:""}}:{})});
