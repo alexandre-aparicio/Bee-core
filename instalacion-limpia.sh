@@ -90,11 +90,13 @@ done
 
 echo
 echo "=== VERSIÓN MONGODB ==="
-docker exec bee-core-mongodb mongosh --quiet \
-  -u "$MONGO_ROOT_USERNAME" \
-  -p "$MONGO_ROOT_PASSWORD" \
+docker exec bee-core-mongodb sh -lc '
+mongosh --quiet \
+  -u "$MONGO_INITDB_ROOT_USERNAME" \
+  -p "$MONGO_INITDB_ROOT_PASSWORD" \
   --authenticationDatabase admin \
-  --eval 'db.version()'
+  --eval "db.version()"
+'
 
 echo
 echo "=== ESTADO FINAL ==="
