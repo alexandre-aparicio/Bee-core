@@ -332,7 +332,7 @@ export const platformAdminPlugin:BeePlugin={
      {id:manifest.id},
      {$set:{
       name:manifest.name,version:manifest.version,description:manifest.description,category:manifest.category,
-      dependencies:manifest.tenantDependencies??[],permissions:manifest.permissions??[],
+      dependencies:manifest.tenantDependencies??[],permissions:manifest.permissions??[],deviceConnector:manifest.deviceConnector===true,
       activationPolicy:manifest.activationPolicy??"manual",frontendRoutes:Array.isArray(manifest.frontend?.routes)?manifest.frontend.routes:[],codeAvailable:false,status:"published"
      },$setOnInsert:{createdAt:now,visibleInPlans:[],includedInPlans:[],purchasable:false,system:false}},
      {upsert:true}
