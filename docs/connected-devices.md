@@ -2,7 +2,7 @@
 
 ## Runtime, packaging and plan migration
 
-Connected Devices is delivered as a signed ZIP package containing its backend entrypoint and its Angular Native Federation frontend. The frontend source, HTML template, component-scoped styles and QR renderer live under `plugins/connected-devices/frontend`; the package builder adds the separately built remote artifacts to the signed ZIP. The core web application contains only the generic federation host and plugin outlet: it does not statically import or register the Connected Devices component. The remote exposes `PluginComponent` and is mounted in the host Angular view tree with `ViewContainerRef.createComponent`; Connected Devices does not use an iframe. The Marketplace runtime endpoint issues a short-lived, tenant-session-bound asset grant, and every remote asset request revalidates the session, membership, user, entitlement, installation, enablement and loaded package state. The component calls the tenant-scoped `/api/connected-devices` routes with the current dashboard access token. The Connected Devices package version is `0.2.0`.
+Connected Devices is delivered as a signed ZIP package containing its backend entrypoint and its Angular Native Federation frontend. The frontend source, HTML template, component-scoped styles and QR renderer live under `plugins/connected-devices/frontend`; the package builder adds the separately built remote artifacts to the signed ZIP. The core web application contains only the generic federation host and plugin outlet: it does not statically import or register the Connected Devices component. The remote exposes `PluginComponent` and is mounted in the host Angular view tree with `ViewContainerRef.createComponent`; Connected Devices does not use an iframe. The Marketplace runtime endpoint issues a short-lived, tenant-session-bound asset grant, and every remote asset request revalidates the session, membership, user, entitlement, installation, enablement and loaded package state. The component calls the tenant-scoped `/api/connected-devices` routes with the current dashboard access token. The Connected Devices package version is `0.3.2`.
 
 The legacy bundled plan inclusion is restored by a one-time, ledgered migration after the signed ZIP is installed and its runtime is loaded. It creates `plugin_plan_package_assignments` for Starter, Pro and Enterprise only when no assignment or migration-ledger entry exists. Assignments use `source: "legacy-bundled-migration"`. The ledger records pre-existing assignments and explicit Platform Admin removals, so a later startup cannot silently re-add a package removed by an administrator. The migration changes no tenant installation, device, pairing or other tenant data.
 
@@ -17,6 +17,22 @@ The device simulator deliberately remains a separate developer/test asset at `ap
 Actual signed ZIP publication, the one-time plan confirmation, tenant installation/upgrade/uninstall/reinstall, and visual checks of the remotely mounted component in every template and mode remain owner-side operational checks. Automated checks are intentionally deferred until the agreed final validation phase.
 
 Status: **Phase A implementation** — the plugin is optional and independently installed/enabled per tenant. No POS, inventory, GPS tracking or realtime business workflow is included.
+
+## Functional validation — 2026-11-28
+
+The current `main` pairing flow was functionally validated by the project owner against the VPS using the physical Bee-devices Android companion.
+
+Confirmed journey:
+1. Bee-Core enables device pairing and presents a QR challenge.
+2. Android scans the QR and submits the pairing request.
+3. Bee-Core closes the QR modal and shows the device as pending manual approval.
+4. An administrator explicitly approves the device in Bee-Core.
+5. Android polling receives the server-side status transition from `pending` to `active`.
+6. The Android UI transitions to the paired state and displays the capabilities returned by Bee-Core.
+
+The Android companion UI refresh fix was merged in Bee-devices PR [#8](https://github.com/alexandre-aparicio/Bee-devices/pull/8), merge commit `4900e2641951b7d44d90226167bd2a649033e57c`. The corresponding CI workflow built the Angular app and Android debug APK successfully. The owner subsequently built and installed the debug APK on the physical device and confirmed the pairing flow works.
+
+This is a functional end-to-end acceptance result for QR pairing and explicit approval. It is not a claim that every lifecycle/security scenario or background execution mode has been fully regression-tested.
 
 ## Product vision
 
@@ -122,7 +138,7 @@ Potential API operations include creating/cancelling a pairing challenge, exchan
 
 ### Phase A — Secure pairing and device registry
 
-Implementation status on `feat/connected-devices-plugin`:
+Implementation and validation status on `main` (updated 2026-11-28):
 - [x] Standalone backend plugin (`connected-devices`) with no dependency on TPV, Documents, Inventory or other business plugins; only the shared Auth runtime is required.
 - [x] Tenant-scoped device and pairing-challenge collections with indexes.
 - [x] Five-minute, random, one-time QR pairing token stored only as a SHA-256 hash; replay/expiry checks and atomic claim.
@@ -132,11 +148,13 @@ Implementation status on `feat/connected-devices-plugin`:
 - [x] Immediate credential revocation and tenant/plugin activation checks on dashboard and device authentication.
 - [x] Heartbeat and exported `hasConnectedDeviceCapability(db, tenantId, deviceId, capability)` contract for future consumer plugins.
 - [x] Device suspension/reactivation by owner/admin and one-time credential rotation by the authenticated device; revoked credentials are replaced atomically.
+- [x] CI validation of the backend/web build and browser checks in the merged Connected Devices changes.
+- [x] VPS end-to-end pairing validation with the Android companion: QR scan, request appears pending in Bee-Core, explicit admin approval, Android receives `active` and transitions to paired.
 - [ ] Audit events, rate limiting and operational alerting.
-- [ ] Automated integration coverage for cross-tenant isolation, expiry/replay, approval, membership removal and revoked credentials.
-- [ ] Runtime validation/build/CI and end-to-end companion-client scan test.
+- [ ] Automated security regression coverage for cross-tenant isolation, expiry/replay, membership removal and revoked credentials.
+- [ ] Extended runtime regression for suspend/reactivate/revoke, credential rotation and app background/restart scenarios.
 
-The phase remains **in progress** until the remaining controls and security tests are complete. The QR payload contains only the one-time pairing token; it never contains a reusable device credential.
+The core pairing and approval journey has passed functional validation on the VPS with a physical Android device (owner-confirmed 2026-11-28). Phase A remains **in progress** until the remaining security controls and regression coverage are complete. The QR payload contains only the one-time pairing token; it never contains a reusable device credential.
 
 ### Phase B — Companion client and realtime foundation
 - Publish a versioned device API/SDK and minimal companion application.
