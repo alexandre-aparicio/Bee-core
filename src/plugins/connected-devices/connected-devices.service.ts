@@ -10,10 +10,10 @@ export const CONNECTED_DEVICE_CAPABILITIES = Object.freeze([
 ] as const);
 export type ConnectedDeviceCapability=typeof CONNECTED_DEVICE_CAPABILITIES[number];
 export function hashDeviceSecret(value:string):string{return createHash("sha256").update(value,"utf8").digest("hex");}
-export function normalizeRequestedCapabilities(value:unknown):string[]{
+export function normalizeRequestedCapabilities(value:unknown,availableIds:ReadonlySet<string>=new Set(CONNECTED_DEVICE_CAPABILITIES)):string[]{
  if(!Array.isArray(value)||value.length>10)throw new Error("Choose up to 10 supported capabilities.");
  const result=[...new Set(value.map(item=>String(item??"").trim()))];
- if(result.some(item=>!CONNECTED_DEVICE_CAPABILITIES.includes(item as ConnectedDeviceCapability)))throw new Error("One or more requested capabilities are not supported.");
+ if(result.some(item=>!availableIds.has(item)))throw new Error("One or more requested capabilities are not currently available.");
  return result;
 }
 export function isDeviceAdministrator(tenant:PluginTenantContext):boolean{return tenant.role==="owner"||tenant.role==="admin"||tenant.role==="super_admin";}

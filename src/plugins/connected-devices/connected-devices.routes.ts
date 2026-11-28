@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { createPairingSecrets, hashDeviceSecret, isConnectedDeviceOwnerActive, isDeviceAdministrator, normalizeRequestedCapabilities, publicDevice } from "./connected-devices.service.js";
+import { CONNECTED_DEVICE_CAPABILITIES, createPairingSecrets, hashDeviceSecret, isConnectedDeviceOwnerActive, isDeviceAdministrator, normalizeRequestedCapabilities, publicDevice } from "./connected-devices.service.js";
 import type { ConnectedDeviceRecord } from "./connected-devices.repository.js";
 const clean=(value:unknown,max=80):string=>String(value??"").replace(/[<>\u0000-\u001f]/g,"").trim().slice(0,max);
 
@@ -8,7 +8,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  const {repository,dashboardTenant,authenticateDevice,access}=deps;
  ctx.server.post("/connected-devices/pairing-challenges",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
-  let requestedCapabilities:string[];try{requestedCapabilities=normalizeRequestedCapabilities(request.body?.requestedCapabilities??[]);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
+  let requestedCapabilities:string[];try{requestedCapabilities=normalizeRequestedCapabilities(request.body?.requestedCapabilities??[],new Set<string>(CONNECTED_DEVICE_CAPABILITIES));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
   const now=new Date();
   const outstanding=await repository.challenges.countDocuments({tenantId:tenant.tenantId,userId:tenant.userId,status:"issued",expiresAt:{$gt:now}});
   if(outstanding>=5)return reply.code(429).send({error:"You already have five active pairing codes. Cancel one or wait for them to expire."});
@@ -41,7 +41,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const name=clean(request.body?.name,80),deviceType=clean(request.body?.deviceType,40)||"companion",platform=clean(request.body?.platform,40)||"unknown";
   if(!name)return reply.code(400).send({error:"Device name is required."});
   const {deviceCredential}=createPairingSecrets(),now=new Date(),deviceId=randomUUID();
-  const device:ConnectedDeviceRecord={id:deviceId,tenantId:challenge.tenantId,ownerUserId:challenge.userId,requestedBy:challenge.userId,name,deviceType,platform,appVersion:clean(request.body?.appVersion,40)||null,requestedCapabilities:normalizeRequestedCapabilities(challenge.requestedCapabilities),grantedCapabilities:[],credentialHash:hashDeviceSecret(deviceCredential),status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null};
+  const device:ConnectedDeviceRecord={id:deviceId,tenantId:challenge.tenantId,ownerUserId:challenge.userId,requestedBy:challenge.userId,name,deviceType,platform,appVersion:clean(request.body?.appVersion,40)||null,requestedCapabilities:normalizeRequestedCapabilities(challenge.requestedCapabilities,new Set<string>(CONNECTED_DEVICE_CAPABILITIES)),grantedCapabilities:[],credentialHash:hashDeviceSecret(deviceCredential),status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null};
   const claimed=await repository.challenges.updateOne({id:challenge.id,status:"issued",expiresAt:{$gt:now}},{$set:{status:"claimed",claimedAt:now,deviceId}});
   if(!claimed.modifiedCount)return reply.code(410).send({error:"Pairing code has already been used."});
   try{await repository.devices.insertOne(device);}catch(error){await repository.challenges.updateOne({id:challenge.id,status:"claimed",deviceId},{$set:{status:"issued",claimedAt:null,deviceId:null}});throw error;}
@@ -76,7 +76,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const id=clean(request.params.deviceId,64),device=await repository.devices.findOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:new Date()}});
   if(!device)return reply.code(404).send({error:"Pending device not found or pairing request expired."});
   if(!await isConnectedDeviceOwnerActive(access,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
-  let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[]);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
+  let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[],new Set<string>(CONNECTED_DEVICE_CAPABILITIES));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
   if(granted.some(capability=>!device.requestedCapabilities.includes(capability)))return reply.code(400).send({error:"Granted capabilities must be a subset of the device request."});
   const now=new Date(),result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:now}},{$set:{status:"active",grantedCapabilities:granted,approvedAt:now,approvedBy:tenant.userId,updatedAt:now}});
   if(!result.modifiedCount)return reply.code(409).send({error:"The device request changed. Refresh and try again."});
