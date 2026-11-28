@@ -62,6 +62,7 @@ export async function appendTenantAuditEvent(
 }
 
 export async function ensureTenantAuditIndexes(collection: Collection<TenantAuditEvent>): Promise<void> {
+  await collection.createIndex({ tenantId: 1, id: 1 }, { unique: true, name: "audit_tenant_event_id_unique" });
   await collection.createIndex({ tenantId: 1, occurredAt: -1 }, { name: "audit_tenant_time" });
   await collection.createIndex({ tenantId: 1, occurredAt: -1, id: -1 }, { name: "audit_tenant_time_id" });
   await collection.createIndex({ tenantId: 1, actorId: 1, occurredAt: -1 }, { name: "audit_tenant_actor_time" });
