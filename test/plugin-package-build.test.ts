@@ -19,7 +19,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
     const built = await buildPluginPackages({
       privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
       publicKeyPem: publicKey.export({ type: "spki", format: "pem" }).toString(),
-      outputDir: archivesDirectory
+      outputDir: join(root, "archives")
     });
     const timeTracking = built.find(item => item.id === "time-tracking");
     assert.ok(timeTracking);
