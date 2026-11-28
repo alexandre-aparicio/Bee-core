@@ -1,14 +1,20 @@
 import { randomUUID } from "node:crypto";
 
-import { CONNECTED_DEVICE_CAPABILITIES, createPairingSecrets, hashDeviceSecret, isConnectedDeviceOwnerActive, isDeviceAdministrator, normalizeRequestedCapabilities, publicDevice } from "./connected-devices.service.js";
+import { createPairingSecrets, hashDeviceSecret, isConnectedDeviceOwnerActive, isDeviceAdministrator, normalizeRequestedCapabilities, publicDevice } from "./connected-devices.service.js";
 import type { ConnectedDeviceRecord } from "./connected-devices.repository.js";
 const clean=(value:unknown,max=80):string=>String(value??"").replace(/[<>\u0000-\u001f]/g,"").trim().slice(0,max);
 
 export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
- const {repository,dashboardTenant,authenticateDevice,access}=deps;
+ const {repository,dashboardTenant,authenticateDevice,access,availablePermissions}=deps;
+ ctx.server.get("/connected-devices/permissions",async(request:any,reply:any)=>{
+  const tenant=await dashboardTenant(request,reply);if(!tenant)return;
+  return {permissions:await availablePermissions(tenant.tenantId)};
+ });
  ctx.server.post("/connected-devices/pairing-challenges",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
-  let requestedCapabilities:string[];try{requestedCapabilities=normalizeRequestedCapabilities(request.body?.requestedCapabilities??[],new Set<string>(CONNECTED_DEVICE_CAPABILITIES));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
+  const permissions=await availablePermissions(tenant.tenantId);
+  let requestedCapabilities:string[];try{requestedCapabilities=normalizeRequestedCapabilities(request.body?.requestedCapabilities??[],permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid permissions"});}
+  if(!permissions.length)return reply.code(409).send({error:"No installed connector has declared device permissions for this company."});
   const now=new Date();
   const outstanding=await repository.challenges.countDocuments({tenantId:tenant.tenantId,userId:tenant.userId,status:"issued",expiresAt:{$gt:now}});
   if(outstanding>=5)return reply.code(429).send({error:"You already have five active pairing codes. Cancel one or wait for them to expire."});
@@ -36,16 +42,17 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const token=clean(request.body?.token,256);if(token.length<40)return reply.code(400).send({error:"Invalid pairing token."});
   const challenge=await repository.challenges.findOne({tokenHash:hashDeviceSecret(token),status:"issued",expiresAt:{$gt:new Date()}});
   if(!challenge)return reply.code(410).send({error:"Pairing code is invalid, expired or already used."});
-  const [available,ownerActive]=await Promise.all([access.isPluginAvailable(challenge.tenantId,"connected-devices"),access.isTenantUserActive(challenge.tenantId,challenge.userId)]);
+  const [available,ownerActive,permissions]=await Promise.all([access.isPluginAvailable(challenge.tenantId,"connected-devices"),access.isTenantUserActive(challenge.tenantId,challenge.userId),availablePermissions(challenge.tenantId)]);
   if(!available||!ownerActive)return reply.code(403).send({error:"Connected Devices, company or pairing user is no longer active."});
   const name=clean(request.body?.name,80),deviceType=clean(request.body?.deviceType,40)||"companion",platform=clean(request.body?.platform,40)||"unknown";
   if(!name)return reply.code(400).send({error:"Device name is required."});
+  if(challenge.requestedCapabilities.some((permission:string)=>!permissions.some((item:any)=>item.key===permission)))return reply.code(409).send({error:"A requested connector permission is no longer available. Generate a new pairing QR code."});
   const {deviceCredential}=createPairingSecrets(),now=new Date(),deviceId=randomUUID();
-  const device:ConnectedDeviceRecord={id:deviceId,tenantId:challenge.tenantId,ownerUserId:challenge.userId,requestedBy:challenge.userId,name,deviceType,platform,appVersion:clean(request.body?.appVersion,40)||null,requestedCapabilities:normalizeRequestedCapabilities(challenge.requestedCapabilities,new Set<string>(CONNECTED_DEVICE_CAPABILITIES)),grantedCapabilities:[],credentialHash:hashDeviceSecret(deviceCredential),status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null};
+  const device:ConnectedDeviceRecord={id:deviceId,tenantId:challenge.tenantId,ownerUserId:challenge.userId,requestedBy:challenge.userId,pairingChallengeId:challenge.id,name,deviceType,platform,appVersion:clean(request.body?.appVersion,40)||null,requestedCapabilities:normalizeRequestedCapabilities(challenge.requestedCapabilities,permissions),grantedCapabilities:[],credentialHash:hashDeviceSecret(deviceCredential),status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null};
   const claimed=await repository.challenges.updateOne({id:challenge.id,status:"issued",expiresAt:{$gt:now}},{$set:{status:"claimed",claimedAt:now,deviceId}});
   if(!claimed.modifiedCount)return reply.code(410).send({error:"Pairing code has already been used."});
   try{await repository.devices.insertOne(device);}catch(error){await repository.challenges.updateOne({id:challenge.id,status:"claimed",deviceId},{$set:{status:"issued",claimedAt:null,deviceId:null}});throw error;}
-  return reply.code(201).send({deviceId,pairingSecret:deviceCredential,status:"pending",approvalExpiresAt:device.pairingExpiresAt});
+  return reply.code(201).send({deviceId,pairingSecret:deviceCredential,status:"pending",approvalExpiresAt:device.pairingExpiresAt,requestedPermissions:device.requestedCapabilities,availablePermissions:permissions});
  });
  ctx.server.get("/connected-devices/pairing-status",async(request:any,reply:any)=>{
   const secret=clean(request.headers["x-device-pairing-secret"],256);if(secret.length<40)return reply.code(401).send({error:"Pairing secret required."});
@@ -57,7 +64,10 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
    return reply.code(403).send({error:"Connected Devices or the device owner membership is no longer active."});
   }
   if(device.status==="revoked"||device.status==="suspended"||device.status==="unlinked")return reply.code(403).send({error:"Device access is not active."});
-  return {status:device.status,deviceId:device.id,grantedCapabilities:device.status==="active"?device.grantedCapabilities:[]};
+  const permissions=await availablePermissions(device.tenantId);
+  const availableKeys=new Set(permissions.map((permission:any)=>permission.key));
+  const granted=device.grantedCapabilities.filter((key:string)=>availableKeys.has(key));
+  return {status:device.status,deviceId:device.id,requestedPermissions:device.requestedCapabilities,grantedCapabilities:device.status==="active"?granted:[],grantedPermissions:device.status==="active"?granted:[],availablePermissions:permissions};
  });
  ctx.server.get("/connected-devices",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
@@ -76,11 +86,12 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const id=clean(request.params.deviceId,64),device=await repository.devices.findOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:new Date()}});
   if(!device)return reply.code(404).send({error:"Pending device not found or pairing request expired."});
   if(!await isConnectedDeviceOwnerActive(access,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
-  let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[],new Set<string>(CONNECTED_DEVICE_CAPABILITIES));}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid capabilities"});}
+  const permissions=await availablePermissions(tenant.tenantId);
+  let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[],permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid permissions"});}
   if(granted.some(capability=>!device.requestedCapabilities.includes(capability)))return reply.code(400).send({error:"Granted capabilities must be a subset of the device request."});
   const now=new Date(),result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:now}},{$set:{status:"active",grantedCapabilities:granted,approvedAt:now,approvedBy:tenant.userId,updatedAt:now}});
   if(!result.modifiedCount)return reply.code(409).send({error:"The device request changed. Refresh and try again."});
-  const updated=await repository.devices.findOne({tenantId:tenant.tenantId,id});return {success:true,device:updated?publicDevice(updated):null};
+  const updated=await repository.devices.findOne({tenantId:tenant.tenantId,id});return {success:true,device:updated?publicDevice(updated):null,availablePermissions:permissions};
  });
  ctx.server.post("/connected-devices/:deviceId/suspend",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
@@ -162,6 +173,10 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   return {credential:next,rotatedAt:new Date().toISOString()};
  });
  ctx.server.get("/connected-devices/device/me",async(request:any,reply:any)=>{
-  const device=await authenticateDevice(request,reply);if(!device)return;return {device:publicDevice(device)};
+  const device=await authenticateDevice(request,reply);if(!device)return;
+  const permissions=await availablePermissions(device.tenantId);
+  const availableKeys=new Set(permissions.map((permission:any)=>permission.key));
+  const granted=device.grantedCapabilities.filter((key:string)=>availableKeys.has(key));
+  return {device:{...publicDevice(device),grantedCapabilities:granted,grantedPermissions:granted},availablePermissions:permissions};
  });
 }

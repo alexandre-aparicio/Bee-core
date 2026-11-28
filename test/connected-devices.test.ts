@@ -1,13 +1,12 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {CONNECTED_DEVICE_CAPABILITIES,createPairingSecrets,hashDeviceSecret,isConnectedDeviceOwnerActive,isDeviceAdministrator,normalizeRequestedCapabilities,publicDevice} from "../src/plugins/connected-devices/connected-devices.service.js";
-test("capability requests are unique, bounded and restricted to the supported vocabulary",()=>{
- assert.deepEqual(normalizeRequestedCapabilities(["scanner.use","scanner.use","catalog.read"]),["scanner.use","catalog.read"]);
- assert.throws(()=>normalizeRequestedCapabilities(["admin.root"]),/not currently available/);
- assert.throws(()=>normalizeRequestedCapabilities(Array(11).fill("scanner.use")),/up to 10/);
- assert.equal(CONNECTED_DEVICE_CAPABILITIES.includes("pos.order.write"),true);
- assert.deepEqual(normalizeRequestedCapabilities(["device.status.write"],new Set(["device.status.write"])),["device.status.write"]);
- assert.throws(()=>normalizeRequestedCapabilities(["device.status.write"],new Set()),/not currently available/);
+import {createPairingSecrets,hashDeviceSecret,isConnectedDeviceOwnerActive,isDeviceAdministrator,normalizeRequestedCapabilities,publicDevice} from "../src/plugins/connected-devices/connected-devices.service.js";
+test("device permission requests are sourced from connector manifests and restricted to active package declarations",()=>{
+ const declared=[{pluginId:"time-tracking-connected",key:"time-tracking-connected.clock",module:"time-tracking-connected",resource:"clock",action:"create",label:"Register working time"},{pluginId:"time-tracking-connected",key:"time-tracking-connected.location",module:"time-tracking-connected",resource:"location",action:"read",label:"Share location"}];
+ assert.deepEqual(normalizeRequestedCapabilities(["time-tracking-connected.clock","time-tracking-connected.clock","time-tracking-connected.location"],declared),["time-tracking-connected.clock","time-tracking-connected.location"]);
+ assert.throws(()=>normalizeRequestedCapabilities(["admin.root"],declared),/not declared/);
+ assert.throws(()=>normalizeRequestedCapabilities(Array(101).fill("time-tracking-connected.clock"),declared),/up to 100/);
+ assert.deepEqual(normalizeRequestedCapabilities([],[]),[]);
 });
 test("device credentials are stored as one-way SHA-256 hashes",()=>{
  const secret="a".repeat(64),digest=hashDeviceSecret(secret);

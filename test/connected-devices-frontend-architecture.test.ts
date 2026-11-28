@@ -33,6 +33,8 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   assert.match(federation, /singleton:\s*true/);
   assert.match(component, /fetch\("\/api"\s*\+/);
   assert.match(component, /\/connected-devices/);
+  assert.match(component, /connected-devices\/permissions/);
+  assert.doesNotMatch(component, /const CAPABILITIES =/);
   assert.match(component, /assetBaseUrl/);
   assert.match(component, /loadQrLibrary/);
   assert.match(outlet, /setInput\("assetBaseUrl"/);
@@ -65,8 +67,8 @@ test("Connected Devices signed ZIP declares and packages its federation remote",
   assert.match(builder, /frontendDist:\s*process\.env\.BEE_CONNECTED_DEVICES_FEDERATION_DIST/);
   assert.match(builder, /frontend\/remoteEntry\.json/);
   assert.match(builder, /definition\.frontend\.remoteEntry/);
-  assert.match(plugin, /version:"0\.3\.1"/);
-  assert.match(manifest, /version: "0\.3\.1"/);
+  assert.match(plugin, /version:"0.3.1"/);
+  assert.match(manifest, /version: "0.3.1"/);
   assert.match(packageConfig, /\.\/Component/);
   assert.match(builder, /definition\.frontend\.assets = \[\.\.\.remoteFiles\.keys\(\)\]/);
   assert.match(host, /\/plugin-packages\/:pluginId\/:version\/assets\/\*/);

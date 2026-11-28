@@ -63,8 +63,12 @@ export interface PluginUserSummary {
 }
 
 /** Host-owned authorization and identity contract exposed to feature plugins. */
+export interface TenantPluginPermission { pluginId:string; key:string; module:string; resource:string; action:string; label:string; }
+
 export interface PluginAccessService {
   isPluginAvailable(tenantId: string, pluginId: string): Promise<boolean>;
+  /** Permissions declared by packages installed, entitled and enabled for this tenant. */
+  getTenantPluginPermissions(tenantId: string): Promise<TenantPluginPermission[]>;
   isTenantUserActive(tenantId: string, userId: string): Promise<boolean>;
   resolveTenantContext(user: unknown, sessionSecret: string): Promise<PluginTenantContext | null>;
   getTenantUserSummaries(tenantId: string, userIds: string[]): Promise<PluginUserSummary[]>;

@@ -1,11 +1,12 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, OnInit, ViewChild } from "@angular/core";
+import { ChangeDetectorRef, Component, ElementRef, Input, OnChanges, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
 let connectedDevicesQrPromise: Promise<void> | undefined;
 
 type Device = {
   id: string;
+  pairingChallengeId?: string;
   name: string;
   deviceType: string;
   platform: string;
@@ -18,20 +19,8 @@ type Device = {
   createdAt?: string;
 };
 type Pairing = { challengeId: string; qrPayload: string; expiresAt: string };
+type Permission = { pluginId: string; key: string; module: string; resource: string; action: string; label: string };
 type DeviceView = "cards" | "table";
-
-const CAPABILITIES = [
-  { id: "device.status.write", label: "Device status" },
-  { id: "scanner.use", label: "Scanner" },
-  { id: "camera.capture", label: "Camera" },
-  { id: "catalog.read", label: "Read catalog" },
-  { id: "inventory.read", label: "Read inventory" },
-  { id: "inventory.write", label: "Write inventory" },
-  { id: "pos.session.read", label: "Read POS session" },
-  { id: "pos.order.write", label: "Create POS orders" },
-  { id: "location.read", label: "Location" },
-  { id: "notifications.receive", label: "Notifications" }
-] as const;
 
 @Component({
   selector: "bee-connected-devices",
@@ -40,7 +29,7 @@ const CAPABILITIES = [
   imports: [CommonModule, FormsModule],
   templateUrl: "./connected-devices.component.html"
 })
-export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
+export class BeeConnectedDevicesComponent implements OnChanges, OnInit, OnDestroy {
   @ViewChild("qrContainer") private qrContainer?: ElementRef<HTMLDivElement>;
   constructor(private readonly changeDetector: ChangeDetectorRef) {}
   @Input() tenantId = "";
@@ -49,9 +38,9 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   @Input() assetBaseUrl = "";
   @Input() section = "";
 
-  readonly capabilities = CAPABILITIES;
+  capabilities: Permission[] = [];
   devices: Device[] = [];
-  selectedCapabilities: string[] = ["device.status.write"];
+  selectedCapabilities: string[] = [];
   grants: Record<string, string[]> = {};
   pairing: Pairing | null = null;
   search = "";
@@ -64,6 +53,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   busy = false;
   error = "";
   message = "";
+  private pairingWatchTimer?: number;
 
   get activeCount(): number { return this.devices.filter(device => device.status === "active").length; }
   get pendingCount(): number { return this.devices.filter(device => device.status === "pending").length; }
@@ -84,6 +74,9 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
     // is attached to the host change-detection tree.
     if (this.accessToken) void this.load();
   }
+  ngOnDestroy(): void {
+    this.stopPairingWatch();
+  }
   ngOnChanges(): void {
     if (this.assetBaseUrl && !connectedDevicesQrPromise) void this.loadQrLibrary().catch(error => { this.error = error instanceof Error ? error.message : "Could not load the QR renderer."; });
     if (this.accessToken) void this.load();
@@ -92,7 +85,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   clearFilters(): void { this.search = ""; this.statusFilter = "all"; this.typeFilter = "all"; }
   openCreate(): void {
     this.error = ""; this.message = ""; this.pairing = null;
-    this.selectedCapabilities = ["device.status.write"];
+    this.selectedCapabilities = [];
     this.modalOpen = true;
   }
   closeModal(): void {
@@ -115,8 +108,9 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
     if (!this.accessToken || this.loading) return;
     this.loading = true; this.error = "";
     try {
-      const result = await this.request("/connected-devices");
+      const [result, permissionResult] = await Promise.all([this.request("/connected-devices"), this.request("/connected-devices/permissions")]);
       this.devices = Array.isArray(result.devices) ? result.devices : [];
+      this.capabilities = Array.isArray(permissionResult.permissions) ? permissionResult.permissions : [];
       this.canManage = Boolean(result.canManage);
       for (const device of this.devices) if (device.status === "pending" && !this.grants[device.id]) this.grants[device.id] = [...(device.requestedCapabilities || [])];
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not load devices."; }
@@ -128,6 +122,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
       this.changeDetector.detectChanges();
     }
   }
+  permissionLabel(key: string): string { return this.capabilities.find(permission => permission.key === key)?.label || key; }
   toggleCapability(id: string, checked: boolean): void { this.selectedCapabilities = checked ? [...this.selectedCapabilities, id] : this.selectedCapabilities.filter(item => item !== id); }
   toggleGrant(deviceId: string, id: string, checked: boolean): void {
     const current = this.grants[deviceId] || [];
@@ -158,8 +153,29 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
       this.pairing = await this.request("/connected-devices/pairing-challenges", "POST", { requestedCapabilities: this.selectedCapabilities });
       this.changeDetector.detectChanges();
       this.renderQr();
+      this.startPairingWatch();
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not generate the pairing code."; }
     finally { this.busy = false; }
+  }
+  private startPairingWatch(): void {
+    this.stopPairingWatch();
+    this.pairingWatchTimer = window.setInterval(() => void this.checkPairingClaim(), 2000);
+  }
+  private stopPairingWatch(): void {
+    if (this.pairingWatchTimer !== undefined) window.clearInterval(this.pairingWatchTimer);
+    this.pairingWatchTimer = undefined;
+  }
+  private async checkPairingClaim(): Promise<void> {
+    if (!this.pairing || this.loading) return;
+    const challengeId = this.pairing.challengeId;
+    await this.load();
+    const claimed = this.devices.find(device => device.pairingChallengeId === challengeId && device.status === "pending");
+    if (!claimed) return;
+    this.stopPairingWatch();
+    this.modalOpen = false;
+    this.pairing = null;
+    this.message = "Device request received. Review the requested permissions and approve the device below.";
+    this.changeDetector.detectChanges();
   }
   private renderQr(): void {
     const container = this.qrContainer?.nativeElement;

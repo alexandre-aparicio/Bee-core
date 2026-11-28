@@ -2,7 +2,7 @@ import type { Collection, Db, Document } from "mongodb";
 
 export type ConnectedDeviceStatus = "pending" | "active" | "suspended" | "revoked" | "expired" | "unlinked";
 export type ConnectedDeviceRecord = Document & {
-  id:string; tenantId:string; ownerUserId:string; requestedBy:string; name:string;
+  id:string; tenantId:string; ownerUserId:string; requestedBy:string; pairingChallengeId?:string; name:string;
   deviceType:string; platform:string; appVersion:string|null;
   requestedCapabilities:string[]; grantedCapabilities:string[]; credentialHash:string;
   status:ConnectedDeviceStatus; pairingExpiresAt:Date; createdAt:Date; updatedAt:Date;

@@ -232,6 +232,86 @@
           "defaultConfiguration": "development"
         }
       }
+    },
+    "time-tracking-remote": {
+      "projectType": "application",
+      "root": ".",
+      "sourceRoot": "../../plugins/time-tracking/frontend/src",
+      "prefix": "bee",
+      "architect": {
+        "esbuild": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/time-tracking-remote",
+            "index": "../../plugins/time-tracking/frontend/src/index.html",
+            "browser": "../../plugins/time-tracking/frontend/src/main.ts",
+            "polyfills": [
+              "zone.js",
+              "es-module-shims"
+            ],
+            "tsConfig": "../../plugins/time-tracking/frontend/tsconfig.app.json",
+            "styles": []
+          },
+          "configurations": {
+            "production": {
+              "optimization": true,
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "projectName": "time-tracking-remote",
+            "tsConfig": "../../plugins/time-tracking/frontend/tsconfig.federation.json",
+            "entryPoints": [
+              "../../plugins/time-tracking/frontend/src/main.ts"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "target": "time-tracking-remote:esbuild:production"
+            },
+            "development": {
+              "target": "time-tracking-remote:esbuild:development",
+              "dev": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve-original": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "time-tracking-remote:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "time-tracking-remote:esbuild:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "time-tracking-remote:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 4202,
+            "entryPoints": [
+              "../../plugins/time-tracking/frontend/src/main.ts"
+            ],
+            "projectName": "time-tracking-remote"
+          },
+          "defaultConfiguration": "development"
+        }
+      }
     }
   },
   "cli": {

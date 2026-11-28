@@ -254,6 +254,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
         description: plugin.description,
         category: plugin.category,
         frontendRoutes: Array.isArray(plugin.frontendRoutes) ? plugin.frontendRoutes : [],
+        permissions: Array.isArray(plugin.permissions) ? plugin.permissions : [],
         purchasable: plugin.purchasable,
         system: plugin.system,
         activationPolicy: plugin.activationPolicy ?? "manual",

@@ -56,6 +56,8 @@ jobs:
         run: npm ci --prefix apps/web
       - name: Build Connected Devices federation remote
         run: node scripts/build-connected-devices-remote.mjs
+      - name: Build Time Tracking federation remote
+        run: node scripts/build-time-tracking-remote.mjs
       - name: Verify signed Documents package generation
         shell: bash
         run: |
@@ -104,6 +106,8 @@ jobs:
         run: npm run build
       - name: Build Connected Devices federation remote
         run: node ../../scripts/build-connected-devices-remote.mjs
+      - name: Build Time Tracking federation remote
+        run: node ../../scripts/build-time-tracking-remote.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run smoke and template browser tests; capture template screenshots
@@ -145,5 +149,7 @@ jobs:
         run: npm run build
       - name: Build Connected Devices federation remote
         run: node ../../scripts/build-connected-devices-remote.mjs
+      - name: Build Time Tracking federation remote
+        run: node ../../scripts/build-time-tracking-remote.mjs
       - name: Validate Playwright test discovery
         run: npm run test:e2e -- --list

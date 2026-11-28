@@ -1,6 +1,7 @@
 import type { BeePlugin } from "../../core/types.js";
 import { TimeTrackingRepository } from "./time-tracking.repository.js";
-import { registerTimeTrackingRoutes } from "./time-tracking.controller.js";
+import { registerTimeTrackingRoutes } from "./time-tracking.routes.js";
+import type { PluginAccessService } from "../../core/plugin-services.js";
 
 const timeTrackingIndexes = [
   { key: { tenantId: 1, id: 1 }, options: { unique: true, name: "time_tracking_tenant_session_unique" } },
@@ -11,12 +12,12 @@ const timeTrackingIndexes = [
 export const timeTrackingPlugin: BeePlugin = {
   manifest: { requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: [],
     name: "time-tracking",
-    version: "0.2.2",
+    version: "0.2.3",
     description: "Employee time clock, breaks and work-session history",
     dependencies: ["auth", "organizations"],
     scope: "tenant",
     activationPolicy: "automatic",
-    frontend: { routes: [{ path: "/dashboard/time-tracking", component: "bee-time-tracking" }] }
+    apiPrefixes: ["/time-tracking"],
   },
   tenantMigrations: [{
     id: "001_create_time_tracking_indexes",
@@ -39,9 +40,11 @@ export const timeTrackingPlugin: BeePlugin = {
   }],
   async initialize(ctx) {
     const db = ctx.mongoClient.db(String(ctx.config.mongoDbName ?? "bee_core"));
+    const access = ctx.services?.get<PluginAccessService>("core.plugin-access");
+    if (!access) throw new Error("Control Horario requires the Core plugin access contract.");
     const repository = new TimeTrackingRepository(db);
     await repository.initializeIndexes();
-    await registerTimeTrackingRoutes(ctx, repository);
+    await registerTimeTrackingRoutes(ctx, repository, access);
     ctx.logger.info("Time Tracking initialized: clock, weekly schedules and correction review.");
   }
 };

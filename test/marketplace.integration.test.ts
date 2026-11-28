@@ -16,7 +16,7 @@ import { TRUSTED_PLUGIN_PACKAGES, type PluginPackageDefinition } from "../src/co
 import { unmaskResourceId } from "../src/core/session-id.js";
 import { BeeEventBus } from "../src/core/event-bus.js";
 import { BeePluginServices } from "../src/core/plugin-services.js";
-import { hasPluginEntitlement, isPluginInstalled, isPluginEnabled } from "../src/core/plugin-entitlements.js";
+import { getTenantPluginCatalog, hasPluginEntitlement, isPluginInstalled, isPluginEnabled } from "../src/core/plugin-entitlements.js";
 import { resolveTenantContext, type TenantClaims } from "../src/core/tenant-context.js";
 import type { BeeContext, BeeLogger } from "../src/core/types.js";
 
@@ -135,6 +135,14 @@ test("company plans and purchases control plugin visibility, installation and ac
           name: String(user.name ?? [user.firstName, user.lastName].filter(Boolean).join(" ")).trim(),
           email: String(user.email ?? "")
         }));
+      },
+      getTenantPluginPermissions: async (tenantId: string) => {
+        const catalog = await getTenantPluginCatalog(db, tenantId);
+        return catalog.filter(plugin => plugin.id !== "connected-devices" && plugin.entitled && plugin.installed && plugin.enabled)
+          .flatMap(plugin => (plugin.permissions ?? []).map(permission => ({
+            pluginId: plugin.id, key: permission.key, module: permission.module,
+            resource: permission.resource, action: permission.action, label: permission.label
+          })));
       }
     });
     registerRuntimePlugin(connectedDevicesRuntimeFixture);
@@ -195,6 +203,57 @@ test("company plans and purchases control plugin visibility, installation and ac
       pluginId: "connected-devices",
       status: "granted",
       grantedAt: now
+    });
+
+    // Simulate the separately installed connector ZIP time-tracking-connected-0.1.2.
+    // Its manifest permission is the only source of the scanner capability used by pairing.
+    await db.collection("plugin_catalog").insertOne({
+      id: "time-tracking-connected",
+      name: "Time Tracking Connected",
+      version: "0.1.2",
+      description: "Connector-provided device permissions",
+      category: "productivity",
+      purchasable: false,
+      system: false,
+      dependencies: [],
+      activationPolicy: "manual",
+      permissions: [{
+        key: "scanner.use",
+        module: "time-tracking-connected",
+        resource: "scanner",
+        action: "use",
+        label: "Use scanner",
+        defaultGrants: { owner: true, admin: true, manager: false, member: false }
+      }],
+      codeAvailable: true,
+      status: "published"
+    });
+    await db.collection("platform_plugin_packages").insertOne({
+      pluginId: "time-tracking-connected",
+      name: "Time Tracking Connected",
+      version: "0.1.2",
+      status: "installed",
+      source: "zip",
+      runtimeState: "loaded",
+      globallyEnabled: true,
+      createdAt: now,
+      updatedAt: now
+    });
+    await db.collection("tenant_plugin_entitlements").insertOne({
+      id: "time-tracking-connected-alpha-grant",
+      tenantId: "market-alpha",
+      pluginId: "time-tracking-connected",
+      status: "granted",
+      grantedAt: now
+    });
+    await db.collection("tenant_plugin_installations").insertOne({
+      tenantId: "market-alpha",
+      pluginId: "time-tracking-connected",
+      version: "0.1.2",
+      status: "installed",
+      enabled: true,
+      installedAt: now,
+      updatedAt: now
     });
     const connectedDevicesRepository = new ConnectedDevicesRepository(db);
     await connectedDevicesRepository.initializeIndexes();
@@ -271,6 +330,7 @@ test("company plans and purchases control plugin visibility, installation and ac
       payload: { token: qrToken, name: "Alpha scanner", deviceType: "mobile", platform: "android" }
     });
     assert.equal(pairedDevice.statusCode, 201);
+    assert.deepEqual(pairedDevice.json().availablePermissions.map((permission: { key: string }) => permission.key), ["scanner.use"], "companion permissions must come only from installed connector manifests, never Connected Devices own permissions");
     const deviceId = pairedDevice.json().deviceId as string;
     const pairingSecret = pairedDevice.json().pairingSecret as string;
     const approved = await app.inject({
@@ -378,7 +438,7 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const alphaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCatalog.statusCode, 200);
-    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["connected devices", "private files", "team workspace"]);
+    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["connected devices", "private files", "team workspace", "time tracking connected"]);
     const alphaItemsOffer = alphaCatalog.json().plugins.find((plugin: { name: string }) => plugin.name.toLowerCase() === "team workspace");
     const alphaItemsPluginRef = alphaItemsOffer.id as string;
     assert.equal(alphaItemsOffer.pluginKey, "workspace", "frontend registry key must remain stable while the resource reference stays opaque");

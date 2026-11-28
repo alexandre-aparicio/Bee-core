@@ -69,18 +69,18 @@
             <div class="bee-device-card__details">
               <div><span>Owner</span><strong>{{device.owner?.name || device.owner?.email || '—'}}</strong></div>
               <div><span>Last connection</span><strong>{{device.lastSeenAt ? (device.lastSeenAt | date:'medium') : 'Never'}}</strong></div>
-              <div><span>Granted capabilities</span><strong>{{device.grantedCapabilities.length || 0}}</strong></div>
+              <div><span>Granted permissions</span><strong>{{device.grantedCapabilities.length || 0}}</strong></div>
             </div>
             <div class="bee-device-card__capabilities">
-              <span *ngFor="let capability of (device.grantedCapabilities || []).slice(0,3)" class="bee-badge">{{capability}}</span>
+              <span *ngFor="let capability of (device.grantedCapabilities || []).slice(0,3)" class="bee-badge">{{permissionLabel(capability)}}</span>
               <span *ngIf="(device.grantedCapabilities || []).length>3" class="bee-badge">+{{device.grantedCapabilities.length-3}}</span>
-              <span *ngIf="!device.grantedCapabilities.length" class="bee-text-muted">No capabilities granted</span>
+              <span *ngIf="!device.grantedCapabilities.length" class="bee-text-muted">No permissions granted</span>
             </div>
             <div *ngIf="device.status==='pending' && canManage" class="bee-device-card__approval">
               <strong>Requested permissions</strong>
               <label *ngFor="let capability of device.requestedCapabilities">
                 <input type="checkbox" [checked]="grants[device.id].includes(capability)" (change)="toggleGrant(device.id,capability,$any($event.target).checked)">
-                {{capability}}
+                {{permissionLabel(capability)}}
               </label>
               <button type="button" class="bee-button bee-button--primary" (click)="approve(device)" [disabled]="busy || !grants[device.id].length">Approve selected</button>
             </div>
@@ -102,7 +102,7 @@
 
         <div class="bee-table-wrap" *ngIf="filteredDevices.length && view==='table'">
           <table>
-            <thead><tr><th>Device</th><th>Owner</th><th>Status</th><th>Capabilities</th><th>Last connection</th><th *ngIf="canManage">Actions</th></tr></thead>
+            <thead><tr><th>Device</th><th>Owner</th><th>Status</th><th>Permissions</th><th>Last connection</th><th *ngIf="canManage">Actions</th></tr></thead>
             <tbody>
               <tr *ngFor="let device of filteredDevices; trackBy: trackDevice">
                 <td><strong>{{device.name}}</strong><small class="bee-text-muted">{{device.deviceType}} · {{device.platform}}</small></td>
@@ -129,9 +129,9 @@
             <button type="button" class="bee-icon-button" (click)="closeModal()" aria-label="Close dialog">×</button>
           </header>
           <div *ngIf="!pairing" class="bee-modal__body">
-            <strong>Requested capabilities</strong>
+            <strong>Requested permissions</strong>
             <div class="bee-choice-grid">
-              <label *ngFor="let capability of capabilities"><input type="checkbox" [checked]="selectedCapabilities.includes(capability.id)" (change)="toggleCapability(capability.id,$any($event.target).checked)">{{capability.label}}</label>
+              <label *ngFor="let permission of capabilities"><input type="checkbox" [checked]="selectedCapabilities.includes(permission.key)" (change)="toggleCapability(permission.key,$any($event.target).checked)">{{permission.label}} <small>{{permission.pluginId}}</small></label>
             </div>
             <p class="bee-text-muted">A QR code is valid for five minutes. Scanning it does not grant access until an administrator approves the device.</p>
           </div>
