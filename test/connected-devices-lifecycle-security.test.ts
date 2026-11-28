@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
 import jwt from "@fastify/jwt";
@@ -26,7 +27,7 @@ const credential = "legacy-device-credential-for-security-regression-test-000000
 async function withFixture(run: (fixture: any) => Promise<void>): Promise<void> {
   const client = new MongoClient(uri!);
   await client.connect();
-  const db = client.db("bee_device_lifecycle_" + crypto.randomUUID());
+  const db = client.db("bee_device_lifecycle_" + randomUUID());
   const app = Fastify();
   app.register(jwt, { secret });
   const memberships = db.collection("memberships");
