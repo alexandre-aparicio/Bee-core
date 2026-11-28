@@ -42,7 +42,7 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
   const device=await repository.devices.findOne({credentialHash:hashDeviceSecret(credential),status:"active"});
   if(!device)return null;
   if(!await isConnectedDeviceOwnerActive(access,device)){
-   await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+   await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{status:"revoked",credentialHash:hashDeviceSecret(randomBytes(48).toString("base64url")),revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
    return null;
   }
   const available=await access.isPluginAvailable(device.tenantId,"connected-devices");
