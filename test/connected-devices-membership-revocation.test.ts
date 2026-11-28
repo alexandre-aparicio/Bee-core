@@ -15,7 +15,8 @@ async function withPluginFixture(
 ): Promise<void> {
   const client = new MongoClient(uri!);
   await client.connect();
-  const db = client.db("bee_connected_device_membership_" + randomUUID());
+  // MongoDB database names are limited to 63 characters.
+  const db = client.db("bee_cd_member_" + randomUUID());
   const app = Fastify();
   const rootEvents = new BeeEventBus();
   const access = {
