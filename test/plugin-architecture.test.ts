@@ -138,7 +138,7 @@ test("generic host paths contain no feature-specific branches outside the explic
     // The registry contains only host package metadata and generic retirement exceptions.
     "src/plugins/plugin-manifest-registry.ts": ["files", "time-tracking"],
     // Feature IDs may appear only in the declarative registration list.
-    "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents", "time-tracking"],
+    "apps/web/src/app/plugins/plugin-frontend-registrations.ts": ["documents"],
     // These generic uses refer to browser file inputs and package archive files, not plugin IDs.
     "src/plugins/platform-admin/platform-admin.plugin.ts": ["files"],
     "apps/web/src/app/plugins/plugin-settings.component.ts": ["files"]

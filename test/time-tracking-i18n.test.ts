@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 test("Control Horario English and Spanish catalogues have identical keys", async () => {
   const source = await readFile(
-    resolve(process.cwd(), "apps/web/src/app/i18n/catalogs/modules/time-tracking.catalog.ts"),
+    resolve(process.cwd(), "plugins/time-tracking/frontend/src/time-tracking.catalog.ts"),
     "utf8"
   );
   const english = source.match(/export const TIME_TRACKING_EN = \{([\s\S]*?)\} as const;/)?.[1];
@@ -23,9 +23,9 @@ test("Control Horario English and Spanish catalogues have identical keys", async
 
 test("Control Horario UI and backend error codes resolve to catalogue entries", async () => {
   const root = process.cwd();
-  const catalog = await readFile(resolve(root, "apps/web/src/app/i18n/catalogs/modules/time-tracking.catalog.ts"), "utf8");
-  const component = await readFile(resolve(root, "apps/web/src/app/time-tracking/time-tracking.component.ts"), "utf8");
-  const template = await readFile(resolve(root, "apps/web/src/app/time-tracking/time-tracking.component.html"), "utf8");
+  const catalog = await readFile(resolve(root, "plugins/time-tracking/frontend/src/time-tracking.catalog.ts"), "utf8");
+  const component = await readFile(resolve(root, "plugins/time-tracking/frontend/src/time-tracking.component.ts"), "utf8");
+  const template = await readFile(resolve(root, "plugins/time-tracking/frontend/src/time-tracking.component.html"), "utf8");
   const handlers = await readFile(resolve(root, "src/plugins/time-tracking/time-tracking.handlers.ts"), "utf8");
   const english = catalog.match(/export const TIME_TRACKING_EN = \{([\s\S]*?)\} as const;/)?.[1] ?? "";
   const catalogueKeys = new Set([...english.matchAll(/^\s*"([^"]+)":/gm)].map(match => match[1]));

@@ -135,7 +135,14 @@ test("five first-party modules build as independently signed ZIP packages", { sk
         assert.equal(installed.manifest.frontend.exposedModule, "./Component");
         assert.ok(installed.manifest.frontend.apiPrefixes.includes("/time-tracking"));
         assert.ok(installed.manifest.frontend.assets.includes("frontend/remoteEntry.json"));
+        assert.ok(installed.manifest.frontend.assets.some((asset: string) => asset.endsWith(".js")), "the signed ZIP must include the Time Tracking remote JavaScript assets");
+        for (const asset of installed.manifest.frontend.assets as string[]) {
+          assert.ok(existsSync(join(installed.packageDirectory, asset)), "missing signed Time Tracking frontend asset: " + asset);
+        }
         assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.frontend.remoteEntry)));
+        const timeTrackingRemoteEntry = JSON.parse(await readFile(join(installed.packageDirectory, installed.manifest.frontend.remoteEntry), "utf8"));
+        assert.equal(timeTrackingRemoteEntry.name, installed.manifest.frontend.remoteName);
+        assert.ok(timeTrackingRemoteEntry.exposes.some((entry: { key?: string }) => entry.key === installed.manifest.frontend.exposedModule));
         assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)));
       } else if (item.id === "documents") {
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
