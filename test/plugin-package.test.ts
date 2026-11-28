@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { CORE_RUNTIME_PLUGIN_IDS, validatePluginManifest, satisfiesPluginVersion, type BeeBusinessPluginManifest } from "../src/core/plugin-package.js";
-import { resolvePluginDependencyOrder } from "../src/core/plugin-entitlements.js";
+import { getTenantConnectorPermissionsFromCatalog, resolvePluginDependencyOrder } from "../src/core/plugin-entitlements.js";
 
 const validManifest: BeeBusinessPluginManifest = {
   id: "crm.contacts",
@@ -26,6 +26,34 @@ const validManifest: BeeBusinessPluginManifest = {
 
 test("plugin manifest accepts a complete, versioned and signed package contract", () => {
   assert.doesNotThrow(() => validatePluginManifest(validManifest));
+});
+
+test("device connector marker is optional, strictly boolean and absent by default", () => {
+  assert.doesNotThrow(() => validatePluginManifest(validManifest));
+  assert.equal((validManifest as any).deviceConnector, undefined);
+  assert.doesNotThrow(() => validatePluginManifest({ ...validManifest, deviceConnector: true }));
+  assert.throws(() => validatePluginManifest({ ...validManifest, deviceConnector: "true" }), /device connector marker/i);
+});
+
+test("tenant connector permission selection requires the explicit marker and every availability state", () => {
+  const permission = { key: "connector.clock", module: "connector", resource: "clock", action: "create", label: "Clock" };
+  const catalog = [
+    { id: "ordinary-plugin", entitled: true, installed: true, enabled: true, globallyEnabled: true, permissions: [{ ...permission, key: "ordinary.read" }] },
+    { id: "disabled-connector", deviceConnector: true, entitled: true, installed: true, enabled: false, globallyEnabled: true, permissions: [{ ...permission, key: "disabled.clock" }] },
+    { id: "uninstalled-connector", deviceConnector: true, entitled: true, installed: false, enabled: false, globallyEnabled: true, permissions: [{ ...permission, key: "uninstalled.clock" }] },
+    { id: "globally-disabled-connector", deviceConnector: true, entitled: true, installed: true, enabled: false, globallyEnabled: false, permissions: [{ ...permission, key: "global.clock" }] },
+    { id: "not-entitled-connector", deviceConnector: true, entitled: false, installed: true, enabled: true, globallyEnabled: true, permissions: [{ ...permission, key: "not-entitled.clock" }] },
+    { id: "active-connector", deviceConnector: true, entitled: true, installed: true, enabled: true, globallyEnabled: true, permissions: [
+      { ...permission, key: "active.clock-in" }, { ...permission, key: "active.clock-out" }, { ...permission, key: "active.records.read" }
+    ] }
+  ];
+  assert.deepEqual(getTenantConnectorPermissionsFromCatalog(catalog).map(item => item.key), [
+    "active.clock-in", "active.clock-out", "active.records.read"
+  ]);
+  const tenantA = getTenantConnectorPermissionsFromCatalog(catalog);
+  const tenantB = getTenantConnectorPermissionsFromCatalog(catalog.filter(item => item.id !== "active-connector"));
+  assert.equal(tenantA.length, 3);
+  assert.equal(tenantB.length, 0, "connector grants from one tenant catalog must not leak into another");
 });
 
 test("plugin manifest rejects unsafe paths, invalid IDs, duplicate permissions and invalid digests", () => {
