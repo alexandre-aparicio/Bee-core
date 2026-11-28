@@ -66,6 +66,15 @@ test("company plans and purchases control plugin visibility, installation and ac
     }
     throw new Error("Timed out waiting for plugin install job " + jobId);
   };
+  const waitForTenantAuditEvent = async (filter: Record<string, unknown>) => {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      const count = await db.collection("tenant_audit_events").countDocuments(filter);
+      if (count > 0) return count;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return db.collection("tenant_audit_events").countDocuments(filter);
+  };
   const passwordHash = await bcrypt.hash("Test-password-12345", 10);
   const now = new Date();
   await db.collection("tenants").insertMany([
@@ -529,7 +538,8 @@ test("company plans and purchases control plugin visibility, installation and ac
     assert.equal(foreignUninstallJobRead.statusCode, 404, "uninstall jobs must be tenant-scoped");
     const betaUninstallJob = await waitForInstallJob(betaUninstallJobId);
     assert.equal(betaUninstallJob.action, "uninstall");
-    assert.equal(await db.collection("tenant_audit_events").countDocuments({tenantId:"market-beta",action:"plugin.uninstalled",resourceType:"plugin",resourceId:"workspace"}),1,"successful plugin uninstall should be tenant-audited once");
+    const betaUninstallAuditCount = await waitForTenantAuditEvent({tenantId:"market-beta",action:"plugin.uninstalled",resourceType:"plugin",resourceId:"workspace"});
+    assert.equal(betaUninstallAuditCount,1,"successful plugin uninstall should be tenant-audited once");
     const betaAfterUninstall = await app.inject({ method: "GET", url: "/workspace-items", headers: { authorization: "Bearer " + betaToken } });
     assert.equal(betaAfterUninstall.statusCode, 403);
     assert.equal(await db.collection("tenant_workspace_items").countDocuments({ tenantId: "market-beta" }), 1);
