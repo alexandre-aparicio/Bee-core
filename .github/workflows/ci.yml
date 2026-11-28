@@ -167,3 +167,136 @@ jobs:
         run: node ../../scripts/build-time-tracking-remote.mjs
       - name: Validate Playwright test discovery
         run: npm run test:e2e -- --list
+
+  angular-migration:
+    name: Sequential Angular 19 to 22 migration rehearsal
+    if: github.event_name == 'pull_request' && github.head_ref == 'security/angular-22-migration-runner'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - id: migration-state
+        name: Check migration marker
+        run: |
+          if [ -f .angular-migration-complete ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: apps/web
+      - uses: actions/setup-node@v4
+        if: steps.migration-state.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install current lockfile
+        if: steps.migration-state.outputs.run == 'true'
+        run: npm ci
+      - name: Capture migration baseline and configure temporary git identity
+        if: steps.migration-state.outputs.run == 'true'
+        run: |
+          echo "MIGRATION_BASE=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        working-directory: .
+      - name: Migrate Angular core and CLI 19 to 20
+        if: steps.migration-state.outputs.run == 'true'
+        run: |
+          npx ng update @angular/core@20 @angular/cli@20
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular core and CLI to 20"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
+      - name: Migrate Angular CDK 19 to 20
+        if: steps.migration-state.outputs.run == 'true'
+        run: |
+          npx ng update @angular/cdk@20
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular CDK to 20"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
+      - name: Migrate Angular core and CLI 20 to 21
+        if: steps.migration-state.outputs.run == 'true'
+        run: |
+          npx ng update @angular/core@21 @angular/cli@21
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular core and CLI to 21"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
+      - name: Migrate Angular CDK 20 to 21
+        if: steps.migration-state.outputs.run == 'true'
+        run: |
+          npx ng update @angular/cdk@21
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular CDK to 21"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
+      - name: Migrate Angular core and CLI 21 to 22
+        if: steps.migration-state.outputs.run == 'true'
+        run: |
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
+          npx ng update @angular/core@22 @angular/cli@22 --allow-dirty
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular core and CLI to 22"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
+      - name: Migrate Angular CDK 21 to 22
+        if: steps.migration-state.outputs.run == 'true'
+        run: |
+          npx ng update @angular/cdk@22
+          git -C "$GITHUB_WORKSPACE" add -A
+          git -C "$GITHUB_WORKSPACE" commit -m "temp: migrate Angular CDK to 22"
+          test -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain)"
+      - name: Verify regenerated lockfile
+        if: steps.migration-state.outputs.run == 'true'
+        run: npm ci
+      - name: Audit production dependencies
+        if: steps.migration-state.outputs.run == 'true'
+        run: npm run audit:production
+      - name: Angular production build
+        if: steps.migration-state.outputs.run == 'true'
+        run: npm run build
+      - name: Validate Playwright test discovery
+        run: npm run test:e2e -- --list
+      - name: Mark successful migration
+        if: steps.migration-state.outputs.run == 'true' && success()
+        run: touch .angular-migration-complete
+      - name: Create migration patch artifact
+        if: always()
+        working-directory: .
+        run: |
+          set -euo pipefail
+          rm -f apps/web/.angular-migration-complete
+          git add -N apps/web || true
+          git diff --binary "$MIGRATION_BASE" -- apps/web > "$RUNNER_TEMP/angular-migration.patch"
+          git diff --stat "$MIGRATION_BASE" -- apps/web
+          test -s "$RUNNER_TEMP/angular-migration.patch" || printf 'No Angular migration changes were produced.\n' > "$RUNNER_TEMP/angular-migration.patch"
+      - name: Upload generated migration patch
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-22-migration-patch
+          path: ${{ runner.temp }}/angular-migration.patch
+          retention-days: 7
+      - name: Publish verified Angular 22 branch
+        if: steps.migration-state.outputs.run == 'true' && success()
+        working-directory: .
+        env:
+          TARGET_BRANCH: security/angular-22-migrated-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/angular-migration.patch"
+          git fetch origin main
+          git switch --detach origin/main
+          git switch -c "$TARGET_BRANCH"
+          git apply "$RUNNER_TEMP/angular-migration.patch"
+          sed -i 's/^FROM node:22-alpine AS build$/FROM node:22.22.3-alpine AS build/' apps/web/Dockerfile
+          grep -Fqx 'FROM node:22.22.3-alpine AS build' apps/web/Dockerfile
+          git add apps/web
+          git commit -m "security(web): migrate Angular to 22 and pin Node 22.22.3"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "Published $TARGET_BRANCH"
