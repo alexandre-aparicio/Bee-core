@@ -15,9 +15,10 @@ export function normalizeRequestedCapabilities(value:unknown,availablePermission
  return result;
 }
 export function isDeviceAdministrator(tenant:PluginTenantContext):boolean{return tenant.role==="owner"||tenant.role==="admin"||tenant.role==="super_admin";}
-export function publicDevice(device:ConnectedDeviceRecord){
+export function publicDevice(device:ConnectedDeviceRecord,availablePermissionKeys?:ReadonlySet<string>){
+ const visible=(capabilities:string[])=>availablePermissionKeys?capabilities.filter(key=>availablePermissionKeys.has(key)):capabilities;
  return {id:device.id,name:device.name,deviceType:device.deviceType,platform:device.platform,appVersion:device.appVersion,
- requestedCapabilities:device.requestedCapabilities,grantedCapabilities:device.grantedCapabilities,pairingChallengeId:device.pairingChallengeId,
+ requestedCapabilities:visible(device.requestedCapabilities),grantedCapabilities:visible(device.grantedCapabilities),pairingChallengeId:device.pairingChallengeId,
  status:device.status,createdAt:device.createdAt,updatedAt:device.updatedAt,approvedAt:device.approvedAt,lastSeenAt:device.lastSeenAt};
 }
 export function createPairingSecrets(){return {qrToken:randomBytes(32).toString("base64url"),deviceCredential:randomBytes(48).toString("base64url")};}
@@ -53,12 +54,12 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
   if(!device){reply.code(401).send({error:"Invalid, revoked or inactive device credential."});return null;}
   return device;
  };
- return {secret,repository,access,dashboardTenant,deviceFromCredential,authenticateDevice,availablePermissions:(tenantId:string)=>access.getTenantPluginPermissions(tenantId)};
+ return {secret,repository,access,dashboardTenant,deviceFromCredential,authenticateDevice,availablePermissions:(tenantId:string)=>access.getTenantConnectorPermissions(tenantId)};
 }
 /** Public integration contract for consuming plugins. Tenant ID must come from Core's authenticated context. */
 export async function hasConnectedDeviceCapability(db:Db,access:PluginAccessService,tenantId:string,deviceId:string,capability:string):Promise<boolean>{
  if(!await access.isPluginAvailable(tenantId,"connected-devices"))return false;
- const declaredPermissions=await access.getTenantPluginPermissions(tenantId);
+ const declaredPermissions=await access.getTenantConnectorPermissions(tenantId);
  if(!declaredPermissions.some(permission=>permission.key===capability))return false;
  const device=await db.collection<ConnectedDeviceRecord>("connected_devices").findOne({tenantId,id:deviceId,status:"active",grantedCapabilities:capability});
  if(!device)return false;
