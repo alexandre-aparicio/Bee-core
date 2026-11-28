@@ -148,7 +148,7 @@ Implementation and validation status on `main` (updated 2026-11-28):
 - [x] Immediate credential revocation and tenant/plugin activation checks on dashboard and device authentication.
 - [x] Heartbeat and exported `hasConnectedDeviceCapability(db, tenantId, deviceId, capability)` contract for future consumer plugins.
 - [x] Device suspension/reactivation by owner/admin and one-time credential rotation by the authenticated device; revoked credentials are replaced atomically.
-- [x] CI validation of the backend/web build and browser checks in the merged Connected Devices changes.
+- [x] CI validation of the backend/web build and browser checks in merged Connected Devices PRs [#251](https://github.com/alexandre-aparicio/Bee-core/pull/251) ([run](https://github.com/alexandre-aparicio/Bee-core/actions/runs/46131162129)) and [#252](https://github.com/alexandre-aparicio/Bee-core/pull/252) ([run](https://github.com/alexandre-aparicio/Bee-core/actions/runs/46134442261)); all three jobs passed in each run.
 - [x] VPS end-to-end pairing validation with the Android companion: QR scan, request appears pending in Bee-Core, explicit admin approval, Android receives `active` and transitions to paired.
 - [ ] Audit events, rate limiting and operational alerting.
 - [ ] Automated security regression coverage for cross-tenant isolation, expiry/replay, membership removal and revoked credentials.
