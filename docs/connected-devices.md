@@ -149,7 +149,7 @@ Implementation and validation status on `main` (updated 2026-11-28):
 - [x] Tenant-scoped device and pairing-challenge collections with indexes.
 - [x] Five-minute, random, one-time QR pairing token stored only as a SHA-256 hash; replay/expiry checks and atomic claim.
 - [x] Companion credential is separate from the QR token, stored only as a hash and unusable while the device is pending approval.
-- [x] Explicit owner/admin approval with a fixed capability vocabulary and grants restricted to the requested subset.
+- [x] Explicit owner/admin approval with capabilities from signed packages explicitly marked as device connectors; grants are restricted to the requested, currently available subset.
 - [x] Own-device visibility for regular members; organization administrators can review tenant devices.
 - [x] Immediate credential revocation and tenant/plugin activation checks on dashboard and device authentication.
 - [x] Heartbeat and exported `hasConnectedDeviceCapability(db, tenantId, deviceId, capability)` contract for future consumer plugins.
