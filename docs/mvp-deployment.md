@@ -69,7 +69,7 @@ The platform superadministrator creates each company with a unique public slug. 
 Bee-Core resolves the request Host against the configured base domain and looks up the slug in the `tenants` collection. The base host serves the corporate landing page; an active tenant subdomain serves that tenant's public page; unknown or suspended tenants return a not-found page. No per-tenant container or separate NPM Proxy Host is required. MongoDB and the API remain private to the Compose network.
 
 
-## Verify deployment
+## MongoDB 9.0.4 VPS procedure\n\nFor the VPS installer, exact runtime versions, clean database reset boundaries, and safe code-only updates that preserve volumes, see [MongoDB 9.0.4 and Angular 22 deployment](mongodb-9-angular22-deployment.md). This procedure is distinct from the production-overlay quick install below.\n\n## Verify deployment
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
