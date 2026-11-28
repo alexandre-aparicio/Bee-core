@@ -69,6 +69,8 @@ export interface PluginAccessService {
   isPluginAvailable(tenantId: string, pluginId: string): Promise<boolean>;
   /** Permissions declared by packages installed, entitled and enabled for this tenant. */
   getTenantPluginPermissions(tenantId: string): Promise<TenantPluginPermission[]>;
+  /** Permissions declared only by entitled, installed, enabled device connector packages. */
+  getTenantConnectorPermissions(tenantId: string): Promise<TenantPluginPermission[]>;
   isTenantUserActive(tenantId: string, userId: string): Promise<boolean>;
   resolveTenantContext(user: unknown, sessionSecret: string): Promise<PluginTenantContext | null>;
   getTenantUserSummaries(tenantId: string, userIds: string[]): Promise<PluginUserSummary[]>;
