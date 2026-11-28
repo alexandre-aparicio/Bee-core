@@ -27,6 +27,8 @@ export type PluginPackageDefinition = Document & {
   system: boolean;
   dependencies: string[];
   activationPolicy?: "automatic" | "manual";
+  /** True only when this package explicitly contributes Connected Devices capabilities. */
+  deviceConnector?: boolean;
   permissions?: BeePluginPermission[];
   frontendRoutes?: Array<{ path: string; component: string }>;
   migrations?: TenantPluginMigration[];
@@ -258,6 +260,7 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
         purchasable: plugin.purchasable,
         system: plugin.system,
         activationPolicy: plugin.activationPolicy ?? "manual",
+        deviceConnector: plugin.deviceConnector === true,
         entitled: planEntitled || purchased || manual || platformManaged,
         accessSource: platformManaged ? "platform" : planEntitled ? "plan" : purchased ? "purchase" : manual ? "manual" : null,
         installed: installedIds.has(plugin.id),
@@ -267,6 +270,20 @@ export async function getTenantPluginCatalog(db: Db, tenantId: string) {
         installedVersion: installedVersions.get(plugin.id) ?? null
       };
     });
+}
+
+/** Select only explicitly marked device connectors that are available to this tenant. */
+export function getTenantConnectorPermissionsFromCatalog(catalog: Array<{
+  id: string; deviceConnector?: boolean; entitled?: boolean; installed?: boolean; enabled?: boolean; globallyEnabled?: boolean;
+  permissions?: Array<{ key: string; module: string; resource: string; action: string; label: string }>;
+}>): Array<{ pluginId: string; key: string; module: string; resource: string; action: string; label: string }> {
+  return catalog
+    .filter(plugin => plugin.deviceConnector === true && plugin.entitled === true && plugin.installed === true && plugin.enabled === true && plugin.globallyEnabled === true)
+    .flatMap(plugin => (plugin.permissions ?? []).map(permission => ({
+      pluginId: plugin.id, key: permission.key, module: permission.module,
+      resource: permission.resource, action: permission.action, label: permission.label
+    })))
+    .sort((a, b) => a.pluginId.localeCompare(b.pluginId) || a.key.localeCompare(b.key));
 }
 
 export async function hasPluginEntitlement(db: Db, tenantId: string, pluginId: string): Promise<boolean> {

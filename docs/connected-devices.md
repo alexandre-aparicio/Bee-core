@@ -82,6 +82,12 @@ Expose explicit, least-privilege capabilities rather than general API or databas
 
 These names are illustrative, not a finalized API contract. Plugins declare the device capabilities they need. Tenant administrators approve only required scopes. Bee-Core authorization cannot override iOS or Android permission prompts or background-execution policies.
 
+### Connector-only permissions and existing records
+
+Only a signed plugin manifest with the explicit optional field `deviceConnector: true` contributes permissions to the Connected Devices capability catalogue. An omitted or false marker means the package is not a device connector, regardless of category or whether its user/role permissions are active. A marked connector contributes permissions only while it is entitled, installed for the tenant, enabled for that tenant, and globally enabled. The marker is part of the signed package manifest and is copied into the tenant plugin catalogue.
+
+Existing device records and pairing challenges are not deleted or migrated when a permission ceases to be available. Their unavailable requested/granted capability keys remain stored for history, but Connected Devices API projections filter them out. New pairing requests for non-connector keys return HTTP 400; a legacy challenge or pending device whose requested keys are no longer available cannot be claimed/approved and returns HTTP 409. Approval accepts only currently available connector keys. This is intentionally fail-closed and preserves device records; no MongoDB migration is required.
+
 ## Example use cases
 
 ### Live location and field operations
@@ -143,7 +149,7 @@ Implementation and validation status on `main` (updated 2026-11-28):
 - [x] Tenant-scoped device and pairing-challenge collections with indexes.
 - [x] Five-minute, random, one-time QR pairing token stored only as a SHA-256 hash; replay/expiry checks and atomic claim.
 - [x] Companion credential is separate from the QR token, stored only as a hash and unusable while the device is pending approval.
-- [x] Explicit owner/admin approval with a fixed capability vocabulary and grants restricted to the requested subset.
+- [x] Explicit owner/admin approval with capabilities from signed packages explicitly marked as device connectors; grants are restricted to the requested, currently available subset.
 - [x] Own-device visibility for regular members; organization administrators can review tenant devices.
 - [x] Immediate credential revocation and tenant/plugin activation checks on dashboard and device authentication.
 - [x] Heartbeat and exported `hasConnectedDeviceCapability(db, tenantId, deviceId, capability)` contract for future consumer plugins.

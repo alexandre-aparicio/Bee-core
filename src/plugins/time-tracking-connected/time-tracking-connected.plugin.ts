@@ -9,7 +9,7 @@ import type { ConnectedDeviceRecord } from "../connected-devices/connected-devic
 export const timeTrackingConnectedPlugin: BeePlugin = {
   manifest: {
     name: "time-tracking-connected",
-    version: "0.1.2",
+    version: "0.1.3",
     description: "Connected-device actions for Control Horario",
     dependencies: ["connected-devices", "time-tracking"],
     requiredServices: ["mongoDbName", "sessionIdSecret"],
