@@ -39,20 +39,49 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  // Public companion exchange: the one-time QR token is consumed once. The returned
  // credential is separate and remains unusable until tenant-admin approval.
  ctx.server.post("/connected-devices/pair",async(request:any,reply:any)=>{
-  const token=clean(request.body?.token,256);if(token.length<40)return reply.code(400).send({error:"Invalid pairing token."});
-  const challenge=await repository.challenges.findOne({tokenHash:hashDeviceSecret(token),status:"issued",expiresAt:{$gt:new Date()}});
-  if(!challenge)return reply.code(410).send({error:"Pairing code is invalid, expired or already used."});
-  const [available,ownerActive,permissions]=await Promise.all([access.isPluginAvailable(challenge.tenantId,"connected-devices"),access.isTenantUserActive(challenge.tenantId,challenge.userId),availablePermissions(challenge.tenantId)]);
-  if(!available||!ownerActive)return reply.code(403).send({error:"Connected Devices, company or pairing user is no longer active."});
-  const name=clean(request.body?.name,80),deviceType=clean(request.body?.deviceType,40)||"companion",platform=clean(request.body?.platform,40)||"unknown";
-  if(!name)return reply.code(400).send({error:"Device name is required."});
-  if(challenge.requestedCapabilities.some((permission:string)=>!permissions.some((item:any)=>item.key===permission)))return reply.code(409).send({error:"A requested connector permission is no longer available. Generate a new pairing QR code."});
-  const {deviceCredential}=createPairingSecrets(),now=new Date(),deviceId=randomUUID();
-  const device:ConnectedDeviceRecord={id:deviceId,tenantId:challenge.tenantId,ownerUserId:challenge.userId,requestedBy:challenge.userId,pairingChallengeId:challenge.id,name,deviceType,platform,appVersion:clean(request.body?.appVersion,40)||null,requestedCapabilities:normalizeRequestedCapabilities(challenge.requestedCapabilities,permissions),grantedCapabilities:[],credentialHash:hashDeviceSecret(deviceCredential),status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null};
-  const claimed=await repository.challenges.updateOne({id:challenge.id,status:"issued",expiresAt:{$gt:now}},{$set:{status:"claimed",claimedAt:now,deviceId}});
-  if(!claimed.modifiedCount)return reply.code(410).send({error:"Pairing code has already been used."});
-  try{await repository.devices.insertOne(device);}catch(error){await repository.challenges.updateOne({id:challenge.id,status:"claimed",deviceId},{$set:{status:"issued",claimedAt:null,deviceId:null}});throw error;}
-  return reply.code(201).send({deviceId,pairingSecret:deviceCredential,status:"pending",approvalExpiresAt:device.pairingExpiresAt,requestedPermissions:device.requestedCapabilities,availablePermissions:permissions});
+  let challengeId:string|null=null;
+  try{
+   const token=clean(request.body?.token,256);
+   if(token.length<40)return reply.code(400).send({error:"Invalid pairing token."});
+   const challenge=await repository.challenges.findOne({tokenHash:hashDeviceSecret(token),status:"issued",expiresAt:{$gt:new Date()}});
+   if(!challenge)return reply.code(410).send({error:"Pairing code is invalid, expired or already used."});
+   challengeId=challenge.id;
+   const [available,ownerActive,permissions]=await Promise.all([
+    access.isPluginAvailable(challenge.tenantId,"connected-devices"),
+    access.isTenantUserActive(challenge.tenantId,challenge.userId),
+    availablePermissions(challenge.tenantId)
+   ]);
+   if(!available||!ownerActive)return reply.code(403).send({error:"Connected Devices, company or pairing user is no longer active."});
+   const name=clean(request.body?.name,80),deviceType=clean(request.body?.deviceType,40)||"companion",platform=clean(request.body?.platform,40)||"unknown";
+   if(!name)return reply.code(400).send({error:"Device name is required."});
+   if(challenge.requestedCapabilities.some((permission:string)=>!permissions.some((item:any)=>item.key===permission)))return reply.code(409).send({error:"A requested connector permission is no longer available. Generate a new pairing QR code."});
+   const {deviceCredential}=createPairingSecrets(),now=new Date(),deviceId=randomUUID();
+   const device:ConnectedDeviceRecord={
+    id:deviceId,tenantId:challenge.tenantId,ownerUserId:challenge.userId,requestedBy:challenge.userId,
+    pairingChallengeId:challenge.id,name,deviceType,platform,appVersion:clean(request.body?.appVersion,40)||null,
+    requestedCapabilities:normalizeRequestedCapabilities(challenge.requestedCapabilities,permissions),grantedCapabilities:[],
+    credentialHash:hashDeviceSecret(deviceCredential),status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),
+    createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null
+   };
+   const claimed=await repository.challenges.updateOne({id:challenge.id,status:"issued",expiresAt:{$gt:now}},{$set:{status:"claimed",claimedAt:now,deviceId}});
+   if(!claimed.modifiedCount)return reply.code(410).send({error:"Pairing code has already been used."});
+   try{
+    await repository.devices.insertOne(device);
+   }catch(error){
+    await repository.challenges.updateOne({id:challenge.id,status:"claimed",deviceId},{$set:{status:"issued",claimedAt:null,deviceId:null}});
+    throw error;
+   }
+   // Keep both names during the migration so older Android builds can complete pairing.
+   return reply.code(201).send({
+    deviceId,pairingSecret:deviceCredential,deviceCredential,status:"pending",
+    approvalExpiresAt:device.pairingExpiresAt,requestedPermissions:device.requestedCapabilities,
+    availablePermissions:permissions
+   });
+  }catch(error){
+   const details=error instanceof Error?{name:error.name,message:error.message,stack:error.stack}: {message:String(error)};
+   ctx.logger.error("Connected Devices pairing request failed",{challengeId,error:details});
+   return reply.code(500).send({error:"Unable to process pairing request. Check Bee Core logs for the pairing error."});
+  }
  });
  ctx.server.get("/connected-devices/pairing-status",async(request:any,reply:any)=>{
   const secret=clean(request.headers["x-device-pairing-secret"],256);if(secret.length<40)return reply.code(401).send({error:"Pairing secret required."});

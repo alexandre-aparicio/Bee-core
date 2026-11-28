@@ -67,8 +67,8 @@ test("Connected Devices signed ZIP declares and packages its federation remote",
   assert.match(builder, /frontendDist:\s*process\.env\.BEE_CONNECTED_DEVICES_FEDERATION_DIST/);
   assert.match(builder, /frontend\/remoteEntry\.json/);
   assert.match(builder, /definition\.frontend\.remoteEntry/);
-  assert.match(plugin, /version:"0.3.1"/);
-  assert.match(manifest, /version: "0.3.1"/);
+  assert.match(plugin, /version:"0.3.2"/);
+  assert.match(manifest, /version: "0.3.2"/);
   assert.match(packageConfig, /\.\/Component/);
   assert.match(builder, /definition\.frontend\.assets = \[\.\.\.remoteFiles\.keys\(\)\]/);
   assert.match(host, /\/plugin-packages\/:pluginId\/:version\/assets\/\*/);
