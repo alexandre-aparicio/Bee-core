@@ -11,7 +11,7 @@ test("device permission requests are sourced from connector manifests and restri
 });
 test("pairing challenge endpoint rejects non-connector plugin permissions with HTTP 400", async () => {
  const routes=new Map<string,(request:any,reply:any)=>Promise<any>>();
- const server={get:(path:string,handler:any)=>routes.set("GET "+path,handler),post:(path:string,handler:any)=>routes.set("POST "+path,handler)};
+ const server={get:(path:string,handler:any)=>routes.set("GET "+path,handler),post:(path:string,handler:any)=>routes.set("POST "+path,handler),delete:(path:string,handler:any)=>routes.set("DELETE "+path,handler),patch:(path:string,handler:any)=>routes.set("PATCH "+path,handler)};
  const connectorPermissions=[
   {pluginId:"time-tracking-connected",key:"time-tracking-connected.clock-in",module:"time-tracking-connected",resource:"clock-in",action:"create",label:"Clock in"},
   {pluginId:"time-tracking-connected",key:"time-tracking-connected.clock-out",module:"time-tracking-connected",resource:"clock-out",action:"create",label:"Clock out"},
@@ -30,7 +30,7 @@ test("pairing challenge endpoint rejects non-connector plugin permissions with H
 
 test("device approval rejects a non-connector permission with HTTP 400", async () => {
  const routes=new Map<string,(request:any,reply:any)=>Promise<any>>();
- const server={get:(path:string,handler:any)=>routes.set("GET "+path,handler),post:(path:string,handler:any)=>routes.set("POST "+path,handler)};
+ const server={get:(path:string,handler:any)=>routes.set("GET "+path,handler),post:(path:string,handler:any)=>routes.set("POST "+path,handler),delete:(path:string,handler:any)=>routes.set("DELETE "+path,handler),patch:(path:string,handler:any)=>routes.set("PATCH "+path,handler)};
  const connectorPermissions=[{pluginId:"time-tracking-connected",key:"time-tracking-connected.clock-in",module:"time-tracking-connected",resource:"clock-in",action:"create",label:"Clock in"}];
  const device:any={id:"device-1",tenantId:"tenant-a",ownerUserId:"user-a",requestedCapabilities:["time-tracking-connected.clock-in"],grantedCapabilities:[],status:"pending",pairingExpiresAt:new Date(Date.now()+60000)};
  registerConnectedDevicesRoutes({server,logger:{error(){}}} as any,{
@@ -46,7 +46,7 @@ test("device approval rejects a non-connector permission with HTTP 400", async (
 
 test("legacy pending requests with non-connector capabilities cannot be approved", async () => {
  const routes=new Map<string,(request:any,reply:any)=>Promise<any>>();
- const server={get:(path:string,handler:any)=>routes.set("GET "+path,handler),post:(path:string,handler:any)=>routes.set("POST "+path,handler)};
+ const server={get:(path:string,handler:any)=>routes.set("GET "+path,handler),post:(path:string,handler:any)=>routes.set("POST "+path,handler),delete:(path:string,handler:any)=>routes.set("DELETE "+path,handler),patch:(path:string,handler:any)=>routes.set("PATCH "+path,handler)};
  const connectorPermissions=[{pluginId:"time-tracking-connected",key:"time-tracking-connected.clock-in",module:"time-tracking-connected",resource:"clock-in",action:"create",label:"Clock in"}];
  const device:any={id:"device-1",tenantId:"tenant-a",ownerUserId:"user-a",requestedCapabilities:["time-tracking.manage"],grantedCapabilities:[],status:"pending",pairingExpiresAt:new Date(Date.now()+60000)};
  registerConnectedDevicesRoutes({server,logger:{error(){}}} as any,{
