@@ -30,7 +30,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
       runtimeVersion: "0.3.1"
     });
     assert.equal(installed.manifest.id, "time-tracking");
-    assert.equal(installed.manifest.version, "0.2.2");
+    assert.equal(installed.manifest.version, "0.2.4");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -113,9 +113,16 @@ test("five first-party modules build as independently signed ZIP packages", { sk
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.backend.entrypoint, "dist/backend/index.mjs");
-        assert.deepEqual(installed.manifest.frontend, { routes: [], apiPrefixes: ["/time-tracking"] }, "the backend-only package must declare its API dispatch prefix without declaring a bundled frontend");
-        assert.equal(existsSync(join(installed.packageDirectory, "frontend")), false, "backend-only Control Horario ZIP must not contain a frontend/ directory");
-        assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend-only manifest must install its runtime entrypoint");
+        assert.deepEqual(installed.manifest.frontend.routes, [{ path: "/dashboard/time-tracking", component: "time-tracking" }]);
+        assert.equal(installed.manifest.frontend.remoteEntry, "frontend/remoteEntry.json");
+        assert.equal(installed.manifest.frontend.remoteName, "timeTracking");
+        assert.equal(installed.manifest.frontend.exposedModule, "./Component");
+        assert.ok(installed.manifest.frontend.assets.includes("frontend/remoteEntry.json"));
+        assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.frontend.remoteEntry)));
+        const remoteEntry = JSON.parse(await readFile(join(installed.packageDirectory, installed.manifest.frontend.remoteEntry), "utf8"));
+        assert.equal(remoteEntry.name, "timeTracking");
+        assert.ok(remoteEntry.exposes.some((entry: { key?: string }) => entry.key === "./Component"));
+        assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)));
       } else if (item.id === "time-tracking-connected") {
         assert.equal(installed.manifest.version, "0.1.2");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["connected-devices", "time-tracking"]);
@@ -143,7 +150,7 @@ test("five first-party modules build as independently signed ZIP packages", { sk
         assert.match(documentsPlugin, /activationPolicy:"manual"/, "Documents must be independently installed, not auto-provisioned with Files");
         const documentsManifest = await readFile(resolve(process.cwd(), "src/plugins/documents/plugin.manifest.ts"), "utf8");
         assert.match(documentsManifest, /version:\s*"0\.1\.5"/);
-        assert.match(documentsManifest, /dependencies:\s*\["files"\]/, "Files remains an explicit runtime dependency");
+        assert.match(documentsManifest, /dependencies:\s*\["auth",\s*"organizations",\s*"files"\]/, "Documents declares its host runtime dependencies");
         assert.match(documentsManifest, /tenantDependencies:\s*\[\]/, "Files must not be installed as a tenant dependency of Documents");
         assert.match(documentsManifest, /activationPolicy:\s*"manual"/);
         assert.doesNotMatch(documentsManifest, /fileStoragePath/, "Documents must not receive Files filesystem configuration");
