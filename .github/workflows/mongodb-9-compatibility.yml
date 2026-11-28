@@ -54,10 +54,19 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: Test with MongoDB Node.js driver 7.9.1
+      - name: Persist MongoDB Node.js driver 7.9.1
         run: |
-          npm install --no-save --package-lock=false mongodb@7.9.1
-          node -p "'MongoDB Node.js driver: ' + require('mongodb/package.json').version"
+          npm install mongodb@7.9.1 --save
+          node -e "const { MongoClient } = require('mongodb'); console.log('MongoDB driver loaded:', typeof MongoClient)"
+
+      - name: Upload generated dependency manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongodb-9-dependency-manifests
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
 
       - name: TypeScript check
         run: npm run check
