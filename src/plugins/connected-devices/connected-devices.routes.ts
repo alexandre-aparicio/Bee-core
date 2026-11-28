@@ -160,9 +160,13 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
   const id=clean(request.params.deviceId,64),filter:any={tenantId:tenant.tenantId,id,status:{$nin:["revoked","unlinked"]}};
   if(!isDeviceAdministrator(tenant))filter.ownerUserId=tenant.userId;
-  const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential);
-  const result=await repository.devices.updateOne(filter,{$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:tenant.userId,updatedAt:now}});
-  if(!result.matchedCount)return reply.code(404).send({error:"Device not found or already unlinked."});
+  const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential),device=await repository.devices.findOne(filter);
+  if(!device)return reply.code(404).send({error:"Device not found or already unlinked."});
+  const audit=await prepareDeviceAudit(tenant,id,"device.unlinked",device.status,"unlinked");
+  if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not unlinked. Retry shortly."});
+  const result=await repository.devices.updateOne(filter,{$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:tenant.userId,updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
+  if(!result.matchedCount){await cancelTenantAuditOutboxEvent(auditOutbox,audit.id);return reply.code(404).send({error:"Device not found or already unlinked."});}
+  await finishDeviceAudit(audit);
   return {success:true};
  });
  ctx.server.delete("/connected-devices/:deviceId",async(request:any,reply:any)=>{
