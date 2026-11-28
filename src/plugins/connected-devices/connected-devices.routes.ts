@@ -135,7 +135,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const now=new Date(),audit=await prepareDeviceAudit(tenant,id,"device.approved","pending","active");
    if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not approved. Retry shortly."});
    const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:now}},{$set:{status:"active",grantedCapabilities:granted,approvedAt:now,approvedBy:tenant.userId,updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
-  if(!result.matchedCount)return reply.code(409).send({error:"The device request changed. Refresh and try again."});
+  if(!result.matchedCount){await cancelTenantAuditOutboxEvent(auditOutbox,audit.id);return reply.code(409).send({error:"The device request changed. Refresh and try again."});}
   const updated=await repository.devices.findOne({tenantId:tenant.tenantId,id});return {success:true,device:updated?publicDevice(updated,availableKeys):null,availablePermissions:permissions};
  });
  ctx.server.post("/connected-devices/:deviceId/suspend",async(request:any,reply:any)=>{
