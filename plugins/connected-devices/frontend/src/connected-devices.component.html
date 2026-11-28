@@ -80,7 +80,7 @@
               <strong>Requested permissions</strong>
               <label *ngFor="let capability of device.requestedCapabilities">
                 <input type="checkbox" [checked]="grants[device.id].includes(capability)" (change)="toggleGrant(device.id,capability,$any($event.target).checked)">
-                {{capability}}
+                {{permissionLabel(capability)}}
               </label>
               <button type="button" class="bee-button bee-button--primary" (click)="approve(device)" [disabled]="busy || !grants[device.id].length">Approve selected</button>
             </div>
@@ -131,7 +131,7 @@
           <div *ngIf="!pairing" class="bee-modal__body">
             <strong>Requested permissions</strong>
             <div class="bee-choice-grid">
-              <label *ngFor="let permission of capabilities"><input type="checkbox" [checked]="selectedCapabilities.includes(permission.key)" (change)="toggleCapability(permission.key,$any($event.target).checked)">{{permission.label}} <small>{{permission.pluginId}}</small>}</label>
+              <label *ngFor="let permission of capabilities"><input type="checkbox" [checked]="selectedCapabilities.includes(permission.key)" (change)="toggleCapability(permission.key,$any($event.target).checked)">{{permission.label}} <small>{{permission.pluginId}}</small></label>
             </div>
             <p class="bee-text-muted">A QR code is valid for five minutes. Scanning it does not grant access until an administrator approves the device.</p>
           </div>
