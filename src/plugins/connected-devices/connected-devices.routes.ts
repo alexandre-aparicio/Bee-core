@@ -181,9 +181,13 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  ctx.server.post("/connected-devices/:deviceId/revoke",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
   if(!isDeviceAdministrator(tenant))return reply.code(403).send({error:"Organization administrator permission required to revoke devices."});
-  const id=clean(request.params.deviceId,64),filter:any={tenantId:tenant.tenantId,id,status:{$in:["pending","active","suspended"]}};
-  const now=new Date(),invalidatedCredential=hashDeviceSecret(randomUUID()+randomUUID()),result=await repository.devices.updateOne(filter,{$set:{status:"revoked",credentialHash:invalidatedCredential,revokedAt:now,revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:now}});
-  if(!result.matchedCount)return reply.code(404).send({error:"Device not found or access already revoked."});
+  const id=clean(request.params.deviceId,64),filter:any={tenantId:tenant.tenantId,id,status:{$in:["pending","active","suspended"]}},device=await repository.devices.findOne(filter);
+  if(!device)return reply.code(404).send({error:"Device not found or access already revoked."});
+  const now=new Date(),invalidatedCredential=hashDeviceSecret(randomUUID()+randomUUID()),audit=await prepareDeviceAudit(tenant,id,"device.revoked",device.status,"revoked");
+  if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not revoked. Retry shortly."});
+  const result=await repository.devices.updateOne(filter,{$set:{status:"revoked",credentialHash:invalidatedCredential,revokedAt:now,revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
+  if(!result.matchedCount){await cancelTenantAuditOutboxEvent(auditOutbox,audit.id);return reply.code(404).send({error:"Device not found or access already revoked."});}
+  await finishDeviceAudit(audit);
   return {success:true};
  });
  ctx.server.patch("/connected-devices/:deviceId",async(request:any,reply:any)=>{
