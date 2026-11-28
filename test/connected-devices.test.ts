@@ -70,7 +70,7 @@ test("pairing and device credentials are independent high-entropy secrets",()=>{
  const firstDevice=createDeviceCredential(),secondDevice=createDeviceCredential();
  assert.equal(firstPairing.qrToken.length,43);
  assert.equal(firstDevice.deviceCredential.length,87);
- assert.match(firstDevice.deviceCredential,/^[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{64}$/);
+ assert.match(firstDevice.deviceCredential,/^[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{64}$/);
  assert.notEqual(firstPairing.qrToken,firstDevice.deviceCredential);
  assert.notEqual(firstPairing.qrToken,secondPairing.qrToken);
  assert.notEqual(firstDevice.deviceCredential,secondDevice.deviceCredential);
