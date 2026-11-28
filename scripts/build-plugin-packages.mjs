@@ -248,7 +248,10 @@ export async function buildPluginPackages({ privateKeyPem, publicKeyPem, outputD
   for (const definition of PACKAGES) {
     const currentArchive = definition.id + "-" + definition.version + ".zip";
     for (const filename of await readdir(output)) {
-      if (filename.startsWith(definition.id + "-") && filename.endsWith(".zip") && filename !== currentArchive) {
+      const versionedArchive = filename.startsWith(definition.id + "-")
+        ? filename.slice((definition.id + "-").length)
+        : "";
+      if (/^\d+\.\d+\.\d+\.zip$/.test(versionedArchive) && filename !== currentArchive) {
         await unlink(join(output, filename));
       }
     }
