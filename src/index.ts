@@ -13,7 +13,7 @@ import type { BeeContext, BeeLogger, BeePlugin, BeePluginRuntimeControl } from "
 import { BeePluginServices } from "./core/plugin-services.js";
 import { verifyStoredPluginDirectory } from "./core/plugin-zip-installer.js";
 import { replaceRuntimePlugin, unregisterRuntimePlugin } from "./core/runtime-plugin-registry.js";
-import { hasPluginEntitlement, isPluginInstalled, isPluginEnabled, isPlatformPluginEnabled, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
+import { getTenantPluginCatalog, hasPluginEntitlement, isPluginInstalled, isPluginEnabled, isPlatformPluginEnabled, syncAutomaticPluginProvisioning, syncPluginPackageVersionUpdates } from "./core/plugin-entitlements.js";
 import { resolveTenantContext, type TenantClaims } from "./core/tenant-context.js";
 import { CORE_RUNTIME_PLUGIN_IDS, satisfiesPluginVersion } from "./core/plugin-package.js";
 import { helloPlugin } from "./plugins/hello.plugin.js";
@@ -323,12 +323,20 @@ async function bootstrap(): Promise<void> {
   const db = mongoClient.db(environment.mongoDbName);
   pluginServices.register("core.plugin-access", {
     isPluginAvailable: async (tenantId: string, pluginId: string) => {
-      const [entitled, installed, enabled] = await Promise.all([
-        hasPluginEntitlement(db, tenantId, pluginId),
-        isPluginInstalled(db, tenantId, pluginId),
-        isPluginEnabled(db, tenantId, pluginId)
+      const [entitled, installed, enabled, globallyEnabled] = await Promise.all([
+        hasPluginEntitlement(db, tenantId, pluginId), isPluginInstalled(db, tenantId, pluginId),
+        isPluginEnabled(db, tenantId, pluginId), isPlatformPluginEnabled(db, pluginId)
       ]);
-      return entitled && installed && enabled;
+      return entitled && installed && enabled && globallyEnabled;
+    },
+    getTenantPluginPermissions: async (tenantId: string) => {
+      const catalog = await getTenantPluginCatalog(db, tenantId);
+      return catalog.filter(plugin => plugin.entitled && plugin.installed && plugin.enabled && plugin.id !== "connected-devices")
+        .flatMap(plugin => (plugin.permissions ?? []).map(permission => ({
+          pluginId: plugin.id, key: permission.key, module: permission.module,
+          resource: permission.resource, action: permission.action, label: permission.label
+        })))
+        .sort((a, b) => a.pluginId.localeCompare(b.pluginId) || a.key.localeCompare(b.key));
     },
     isTenantUserActive: async (tenantId: string, userId: string) => {
       const [tenant, membership, user] = await Promise.all([

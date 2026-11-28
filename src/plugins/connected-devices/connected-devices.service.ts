@@ -4,16 +4,14 @@ import type { PluginTenantContext } from "../../core/plugin-services.js";
 import type { PluginAccessService } from "../../core/plugin-services.js";
 import { ConnectedDevicesRepository, type ConnectedDeviceRecord } from "./connected-devices.repository.js";
 
-export const CONNECTED_DEVICE_CAPABILITIES = Object.freeze([
- "device.status.write","scanner.use","camera.capture","catalog.read","inventory.read",
- "inventory.write","pos.session.read","pos.order.write","location.read","notifications.receive"
-] as const);
-export type ConnectedDeviceCapability=typeof CONNECTED_DEVICE_CAPABILITIES[number];
+export type ConnectedDevicePermission = { pluginId:string; key:string; module:string; resource:string; action:string; label:string; };
+export type ConnectedDeviceCapability = string;
 export function hashDeviceSecret(value:string):string{return createHash("sha256").update(value,"utf8").digest("hex");}
-export function normalizeRequestedCapabilities(value:unknown):string[]{
- if(!Array.isArray(value)||value.length>10)throw new Error("Choose up to 10 supported capabilities.");
+export function normalizeRequestedCapabilities(value:unknown,availablePermissions:readonly ConnectedDevicePermission[]):string[]{
+ if(!Array.isArray(value)||value.length>100)throw new Error("Choose up to 100 permissions declared by installed connectors.");
  const result=[...new Set(value.map(item=>String(item??"").trim()))];
- if(result.some(item=>!CONNECTED_DEVICE_CAPABILITIES.includes(item as ConnectedDeviceCapability)))throw new Error("One or more requested capabilities are not supported.");
+ const allowed=new Set(availablePermissions.map(permission=>permission.key));
+ if(result.some(item=>!allowed.has(item)))throw new Error("One or more requested permissions are not declared by an installed, enabled connector.");
  return result;
 }
 export function isDeviceAdministrator(tenant:PluginTenantContext):boolean{return tenant.role==="owner"||tenant.role==="admin"||tenant.role==="super_admin";}
@@ -55,12 +53,13 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
   if(!device){reply.code(401).send({error:"Invalid, revoked or inactive device credential."});return null;}
   return device;
  };
- return {secret,repository,access,dashboardTenant,deviceFromCredential,authenticateDevice};
+ return {secret,repository,access,dashboardTenant,deviceFromCredential,authenticateDevice,availablePermissions:(tenantId:string)=>access.getTenantPluginPermissions(tenantId)};
 }
 /** Public integration contract for consuming plugins. Tenant ID must come from Core's authenticated context. */
 export async function hasConnectedDeviceCapability(db:Db,access:PluginAccessService,tenantId:string,deviceId:string,capability:string):Promise<boolean>{
- if(!CONNECTED_DEVICE_CAPABILITIES.includes(capability as ConnectedDeviceCapability))return false;
  if(!await access.isPluginAvailable(tenantId,"connected-devices"))return false;
+ const declaredPermissions=await access.getTenantPluginPermissions(tenantId);
+ if(!declaredPermissions.some(permission=>permission.key===capability))return false;
  const device=await db.collection<ConnectedDeviceRecord>("connected_devices").findOne({tenantId,id:deviceId,status:"active",grantedCapabilities:capability});
  if(!device)return false;
  if(!await isConnectedDeviceOwnerActive(access,device)){
