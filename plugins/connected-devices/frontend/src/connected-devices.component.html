@@ -90,7 +90,6 @@
                 <summary aria-label="Device actions">⋮</summary>
                 <div role="menu">
                   <button *ngIf="device.status==='active'" type="button" role="menuitem" (click)="act(device,'suspend')">Suspend</button>
-                  <button *ngIf="device.status==='suspended'" type="button" role="menuitem" (click)="act(device,'activate')">Reactivate</button>
                   <button *ngIf="!['unlinked','revoked','expired'].includes(device.status)" type="button" role="menuitem" (click)="act(device,'unlink')">Unlink</button>
                   <button *ngIf="!['unlinked','revoked','expired'].includes(device.status)" type="button" role="menuitem" (click)="act(device,'revoke')">Revoke access</button>
                   <button type="button" role="menuitem" class="bee-menu__danger" (click)="act(device,'delete')">Delete</button>
@@ -112,7 +111,6 @@
                 <td>{{device.lastSeenAt ? (device.lastSeenAt | date:'medium') : 'Never'}}</td>
                 <td *ngIf="canManage"><details class="bee-menu"><summary aria-label="Device actions">⋮</summary><div role="menu">
                   <button *ngIf="device.status==='active'" type="button" role="menuitem" (click)="act(device,'suspend')">Suspend</button>
-                  <button *ngIf="device.status==='suspended'" type="button" role="menuitem" (click)="act(device,'activate')">Reactivate</button>
                   <button *ngIf="!['unlinked','revoked','expired'].includes(device.status)" type="button" role="menuitem" (click)="act(device,'unlink')">Unlink</button>
                   <button *ngIf="!['unlinked','revoked','expired'].includes(device.status)" type="button" role="menuitem" (click)="act(device,'revoke')">Revoke access</button>
                   <button type="button" role="menuitem" class="bee-menu__danger" (click)="act(device,'delete')">Delete</button>

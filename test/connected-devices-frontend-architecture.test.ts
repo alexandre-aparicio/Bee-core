@@ -43,6 +43,8 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   assert.match(component, /templateUrl:\s*"\.\/connected-devices\.component\.html"/);
   assert.match(component, /styleUrls:\s*\["\.\/connected-devices\.component\.css"\]/);
   assert.match(componentHtml, /bee-connected-devices/);
+  assert.doesNotMatch(component + componentHtml, /Reactivate/);
+  assert.match(component, /response.status === 403/);
   assert.match(remoteStyles, /\.bee-device-card/);
   assert.doesNotMatch(coreStyles, /bee-device-card|bee-pairing/);
   assert.ok(angular.projects["connected-devices-remote"], "Connected Devices must have its own Angular remote build target");
@@ -67,8 +69,8 @@ test("Connected Devices signed ZIP declares and packages its federation remote",
   assert.match(builder, /frontendDist:\s*process\.env\.BEE_CONNECTED_DEVICES_FEDERATION_DIST/);
   assert.match(builder, /frontend\/remoteEntry\.json/);
   assert.match(builder, /definition\.frontend\.remoteEntry/);
-  assert.match(plugin, /version:"0.3.2"/);
-  assert.match(manifest, /version: "0.3.2"/);
+  assert.match(plugin, /version:"0.4.0"/);
+  assert.match(manifest, /version: "0.4.0"/);
   assert.match(packageConfig, /\.\/Component/);
   assert.match(builder, /definition\.frontend\.assets = \[\.\.\.remoteFiles\.keys\(\)\]/);
   assert.match(host, /\/plugin-packages\/:pluginId\/:version\/assets\/\*/);

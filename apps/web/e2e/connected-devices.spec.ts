@@ -75,7 +75,7 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
       state.runtimeCalls += 1;
       body = {
         pluginId: "connected-devices",
-        version: "0.2.0",
+        version: "0.4.0",
         transport: "native-federation",
         remoteEntry: "frontend/remoteEntry.json",
         remoteName: "connectedDevices",
@@ -104,7 +104,7 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
 
   // Serve the real Federation output through the protected-asset URL shape.
   // This tests the package's remoteEntry and emitted chunks, not a host registration.
-  await page.route("**/api/plugin-packages/connected-devices/0.2.0/assets/**", async route => {
+  await page.route("**/api/plugin-packages/connected-devices/0.4.0/assets/**", async route => {
     const pathname = new URL(route.request().url()).pathname;
     const marker = "/frontend/";
     const markerIndex = pathname.indexOf(marker);
@@ -146,6 +146,7 @@ test("Connected Devices loads the packaged Native Federation frontend and sends 
   await component.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   const device = component.locator("article.bee-device-card").filter({ hasText: "QA Scanner" });
   await device.locator("details.bee-menu summary").click();
+  await expect(device.getByRole("menuitem", { name: "Reactivate" })).toHaveCount(0);
   page.once("dialog", dialog => dialog.accept());
   await device.getByRole("menuitem", { name: "Delete" }).click();
   await expect(component.getByText("Action completed.")).toBeVisible();
