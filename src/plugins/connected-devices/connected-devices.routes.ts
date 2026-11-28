@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { Collection } from "mongodb";
 import { cancelTenantAuditOutboxEvent, commitTenantAuditOutboxEvent, dispatchTenantAuditOutbox, prepareTenantAuditOutboxEvent, type TenantAuditOutboxRecord, type AuditAction } from "../../core/audit-log.js";
 
-import { createPairingSecrets, hashDeviceSecret, isConnectedDeviceOwnerActive, isDeviceAdministrator, normalizeRequestedCapabilities, publicDevice } from "./connected-devices.service.js";
+import { createDeviceCredential, createInvalidatedDeviceCredential, createPairingSecrets, hashDeviceSecret, isConnectedDeviceOwnerActive, isDeviceAdministrator, normalizeRequestedCapabilities, publicDevice } from "./connected-devices.service.js";
 import type { ConnectedDeviceRecord } from "./connected-devices.repository.js";
 const clean=(value:unknown,max=80):string=>String(value??"").replace(/[<>\u0000-\u001f]/g,"").trim().slice(0,max);
 
 export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
- const {repository,dashboardTenant,authenticateDevice,access,availablePermissions}=deps;
+ const {repository,dashboardTenant,authenticateDevice,access,availablePermissions,findDeviceByCredential}=deps;
  const auditOutbox=repository.db?.collection ? repository.db.collection("tenant_audit_outbox") as Collection<TenantAuditOutboxRecord> : null;
  const prepareDeviceAudit=async(tenant:any,deviceId:string,action:AuditAction,fromStatus:string,toStatus:string,actorId=tenant.userId)=>{
   if(!auditOutbox)return null;
@@ -46,7 +46,8 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const cancelled=await repository.challenges.updateOne({tenantId:tenant.tenantId,id,status:challenge.status},{$set:{status:"cancelled"}});
   if(!cancelled.matchedCount)return reply.code(409).send({error:"The pairing request changed. Refresh and try again."});
   if(challenge.status==="claimed"&&challenge.deviceId){
-   await repository.devices.updateOne({tenantId:tenant.tenantId,id:challenge.deviceId,status:{$in:["pending","active"]}},{$set:{status:"revoked",credentialHash:hashDeviceSecret(randomUUID()+randomUUID()),revokedAt:new Date(),revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:new Date()}});
+   const invalidated=createInvalidatedDeviceCredential();
+   await repository.devices.updateOne({tenantId:tenant.tenantId,id:challenge.deviceId,status:{$in:["pending","active"]}},{$set:{status:"revoked",...invalidated,revokedAt:new Date(),revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:new Date()}});
   }
   return {success:true};
  });
@@ -69,12 +70,12 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
    const name=clean(request.body?.name,80),deviceType=clean(request.body?.deviceType,40)||"companion",platform=clean(request.body?.platform,40)||"unknown";
    if(!name)return reply.code(400).send({error:"Device name is required."});
    if(challenge.requestedCapabilities.some((permission:string)=>!permissions.some((item:any)=>item.key===permission)))return reply.code(409).send({error:"A requested connector permission is no longer available. Generate a new pairing QR code."});
-   const {deviceCredential}=createPairingSecrets(),now=new Date(),deviceId=randomUUID();
+   const credential=createDeviceCredential(),{deviceCredential}=credential,now=new Date(),deviceId=randomUUID();
    const device:ConnectedDeviceRecord={
     id:deviceId,tenantId:challenge.tenantId,ownerUserId:challenge.userId,requestedBy:challenge.userId,
     pairingChallengeId:challenge.id,name,deviceType,platform,appVersion:clean(request.body?.appVersion,40)||null,
     requestedCapabilities:normalizeRequestedCapabilities(challenge.requestedCapabilities,permissions),grantedCapabilities:[],
-    credentialHash:hashDeviceSecret(deviceCredential),status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),
+    credentialId:credential.credentialId,credentialHash:credential.credentialHash,status:"pending",pairingExpiresAt:new Date(now.getTime()+15*60_000),
     createdAt:now,updatedAt:now,approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null
    };
    const claimed=await repository.challenges.updateOne({id:challenge.id,status:"issued",expiresAt:{$gt:now}},{$set:{status:"claimed",claimedAt:now,deviceId}});
@@ -99,11 +100,11 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  });
  ctx.server.get("/connected-devices/pairing-status",async(request:any,reply:any)=>{
   const secret=clean(request.headers["x-device-pairing-secret"],256);if(secret.length<40)return reply.code(401).send({error:"Pairing secret required."});
-  const device=await repository.devices.findOne({credentialHash:hashDeviceSecret(secret)});
+  const device=await findDeviceByCredential(secret,["pending","active"]);
   if(!device||(device.pairingExpiresAt<=new Date()&&device.status==="pending"))return reply.code(404).send({error:"Pairing request expired."});
   const [available,ownerActive]=await Promise.all([access.isPluginAvailable(device.tenantId,"connected-devices"),isConnectedDeviceOwnerActive(access,device)]);
   if(!available||!ownerActive){
-   if(!ownerActive)await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:{$ne:"revoked"}},{$set:{status:"revoked",credentialHash:hashDeviceSecret(randomUUID()+randomUUID()),revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+   if(!ownerActive){const invalidated=createInvalidatedDeviceCredential();await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:{$ne:"revoked"}},{$set:{status:"revoked",...invalidated,revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});}
    return reply.code(403).send({error:"Connected Devices or the device owner membership is no longer active."});
   }
   if(device.status==="revoked"||device.status==="suspended"||device.status==="unlinked")return reply.code(403).send({error:"Device access is not active."});
@@ -145,9 +146,9 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  ctx.server.post("/connected-devices/:deviceId/suspend",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
   if(!isDeviceAdministrator(tenant))return reply.code(403).send({error:"Organization administrator permission required."});
-  const id=clean(request.params.deviceId,64),now=new Date(),invalidatedCredential=hashDeviceSecret(randomUUID()+randomUUID()),audit=await prepareDeviceAudit(tenant,id,"device.suspended","active","suspended");
+  const id=clean(request.params.deviceId,64),now=new Date(),invalidatedCredential=createInvalidatedDeviceCredential(),audit=await prepareDeviceAudit(tenant,id,"device.suspended","active","suspended");
   if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not suspended. Retry shortly."});
-  const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"active"},{$set:{status:"suspended",credentialHash:invalidatedCredential,grantedCapabilities:[],updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
+  const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"active"},{$set:{status:"suspended",...invalidatedCredential,grantedCapabilities:[],updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
   if(!result.matchedCount){await cancelDeviceAudit(audit.id);return reply.code(404).send({error:"Active device not found."});}
   await finishDeviceAudit(audit);
   return {success:true};
@@ -164,11 +165,11 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
   const id=clean(request.params.deviceId,64),filter:any={tenantId:tenant.tenantId,id,status:{$nin:["revoked","unlinked"]}};
   if(!isDeviceAdministrator(tenant))filter.ownerUserId=tenant.userId;
-  const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential),device=await repository.devices.findOne(filter);
+  const now=new Date(),invalidatedCredential=createInvalidatedDeviceCredential(),device=await repository.devices.findOne(filter);
   if(!device)return reply.code(404).send({error:"Device not found or already unlinked."});
   const audit=await prepareDeviceAudit(tenant,id,"device.unlinked",device.status,"unlinked");
   if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not unlinked. Retry shortly."});
-  const result=await repository.devices.updateOne(filter,{$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:tenant.userId,updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
+  const result=await repository.devices.updateOne(filter,{$set:{status:"unlinked",...invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:tenant.userId,updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
   if(!result.matchedCount){await cancelDeviceAudit(audit.id);return reply.code(404).send({error:"Device not found or already unlinked."});}
   await finishDeviceAudit(audit);
   return {success:true};
@@ -187,9 +188,9 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!isDeviceAdministrator(tenant))return reply.code(403).send({error:"Organization administrator permission required to revoke devices."});
   const id=clean(request.params.deviceId,64),filter:any={tenantId:tenant.tenantId,id,status:{$in:["pending","active","suspended"]}},device=await repository.devices.findOne(filter);
   if(!device)return reply.code(404).send({error:"Device not found or access already revoked."});
-  const now=new Date(),invalidatedCredential=hashDeviceSecret(randomUUID()+randomUUID()),audit=await prepareDeviceAudit(tenant,id,"device.revoked",device.status,"revoked");
+  const now=new Date(),invalidatedCredential=createInvalidatedDeviceCredential(),audit=await prepareDeviceAudit(tenant,id,"device.revoked",device.status,"revoked");
   if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not revoked. Retry shortly."});
-  const result=await repository.devices.updateOne(filter,{$set:{status:"revoked",credentialHash:invalidatedCredential,revokedAt:now,revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
+  const result=await repository.devices.updateOne(filter,{$set:{status:"revoked",...invalidatedCredential,revokedAt:now,revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
   if(!result.matchedCount){await cancelDeviceAudit(audit.id);return reply.code(404).send({error:"Device not found or access already revoked."});}
   await finishDeviceAudit(audit);
   return {success:true};
@@ -204,14 +205,13 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  ctx.server.post("/connected-devices/device/unlink",async(request:any,reply:any)=>{
   const secret=clean(request.headers["x-device-pairing-secret"],256),id=clean(request.body?.deviceId,64);
   if(secret.length<40||!id)return reply.code(401).send({error:"Device pairing credential and device ID required."});
-  const credentialHash=hashDeviceSecret(secret);
-  const device=await repository.devices.findOne({id,credentialHash,status:{$in:["pending","active"]}});
+  const device=await findDeviceByCredential(secret,["pending","active"],id);
   if(!device)return reply.code(404).send({error:"Device not found or already unlinked."});
-  const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential),audit=await prepareDeviceAudit({tenantId:device.tenantId,userId:"device:"+device.id},device.id,"device.unlinked",device.status,"unlinked","device:"+device.id);
+  const now=new Date(),invalidatedCredential=createInvalidatedDeviceCredential(),audit=await prepareDeviceAudit({tenantId:device.tenantId,userId:"device:"+device.id},device.id,"device.unlinked",device.status,"unlinked","device:"+device.id);
   if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not unlinked. Retry shortly."});
   const result=await repository.devices.updateOne(
-   {tenantId:device.tenantId,id:device.id,credentialHash,status:{$in:["pending","active"]}},
-   {$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:"device",updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}}
+   {tenantId:device.tenantId,id:device.id,...(device.credentialId?{credentialId:device.credentialId}:{credentialHash:device.credentialHash}),status:{$in:["pending","active"]}},
+   {$set:{status:"unlinked",...invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:"device",updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}}
   );
   if(!result.matchedCount){await cancelDeviceAudit(audit.id);return reply.code(409).send({error:"The device state changed. Refresh and try again."});}
   await finishDeviceAudit(audit);
@@ -225,10 +225,10 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  });
  ctx.server.post("/connected-devices/device/rotate-credential",async(request:any,reply:any)=>{
   const device=await authenticateDevice(request,reply);if(!device)return;
-  const current=String(request.headers.authorization??"").slice(7).trim(),next=createPairingSecrets().deviceCredential;
-  const result=await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active",credentialHash:hashDeviceSecret(current)},{$set:{credentialHash:hashDeviceSecret(next),updatedAt:new Date()}});
+  const next=createDeviceCredential();
+  const result=await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active",...(device.credentialId?{credentialId:device.credentialId}:{credentialHash:device.credentialHash})},{$set:{credentialId:next.credentialId,credentialHash:next.credentialHash,updatedAt:new Date()}});
   if(!result.matchedCount)return reply.code(409).send({error:"Credential changed. Authenticate again and retry."});
-  return {credential:next,rotatedAt:new Date().toISOString()};
+  return {credential:next.deviceCredential,rotatedAt:new Date().toISOString()};
  });
  ctx.server.get("/connected-devices/device/me",async(request:any,reply:any)=>{
   const device=await authenticateDevice(request,reply);if(!device)return;

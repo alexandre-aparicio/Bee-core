@@ -39,7 +39,7 @@ const trustProxy = trustProxyRaw.toLowerCase() === "true"
   : trustProxyRaw.toLowerCase() === "false" || !trustProxyRaw
     ? false
     : trustProxyRaw.split(",").map(value => value.trim()).filter(Boolean);
-const events = new BeeEventBus(undefined, new Set(["bee.started", "auth.login", "notification.request"]));
+const events = new BeeEventBus(undefined, new Set(["bee.started", "auth.login", "notification.request", "membership.status.changed"]));
 const plugins = new BeePluginManager();
 const app = Fastify({ logger: false, trustProxy });
 

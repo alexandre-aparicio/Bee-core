@@ -3,8 +3,8 @@ import type { Db } from "mongodb";
 import type { PluginAccessService } from "../../core/plugin-services.js";
 import { TimeTrackingRepository } from "../time-tracking/time-tracking.repository.js";
 import { createTimeTrackingHandlers } from "../time-tracking/time-tracking.handlers.js";
-import { hashDeviceSecret, hasConnectedDeviceCapability, isConnectedDeviceOwnerActive } from "../connected-devices/connected-devices.service.js";
-import type { ConnectedDeviceRecord } from "../connected-devices/connected-devices.repository.js";
+import { createConnectedDevicesServices, hasConnectedDeviceCapability } from "../connected-devices/connected-devices.service.js";
+import { ConnectedDevicesRepository, type ConnectedDeviceRecord } from "../connected-devices/connected-devices.repository.js";
 
 export const timeTrackingConnectedPlugin: BeePlugin = {
   manifest: {
@@ -28,6 +28,8 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
 
     const repository = new TimeTrackingRepository(db);
     await repository.initializeIndexes();
+    const connectedDevices = new ConnectedDevicesRepository(db);
+    const connectedDeviceServices = createConnectedDevicesServices({ secret, repository: connectedDevices, access });
     const handlers = createTimeTrackingHandlers(repository, secret);
 
     const authenticate = async (request: any, reply: any): Promise<ConnectedDeviceRecord | null> => {
@@ -37,9 +39,8 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
         reply.code(401).send({ error: "A valid connected-device credential is required." });
         return null;
       }
-      const device = await db.collection<ConnectedDeviceRecord>("connected_devices")
-        .findOne({ credentialHash: hashDeviceSecret(credential), status: "active" });
-      if (!device || !await isConnectedDeviceOwnerActive(access, device) ||
+      const device = await connectedDeviceServices.deviceFromCredential(credential);
+      if (!device ||
           !await access.isPluginAvailable(device.tenantId, "connected-devices") ||
           !await access.isPluginAvailable(device.tenantId, "time-tracking") ||
           !await access.isPluginAvailable(device.tenantId, "time-tracking-connected")) {

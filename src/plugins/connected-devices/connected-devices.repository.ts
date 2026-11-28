@@ -5,7 +5,7 @@ export type ConnectedDeviceStatus = "pending" | "active" | "suspended" | "revoke
 export type ConnectedDeviceRecord = Document & {
   id:string; tenantId:string; ownerUserId:string; requestedBy:string; pairingChallengeId?:string; name:string;
   deviceType:string; platform:string; appVersion:string|null;
-  requestedCapabilities:string[]; grantedCapabilities:string[]; credentialHash:string;
+  requestedCapabilities:string[]; grantedCapabilities:string[]; credentialHash:string; credentialId?:string;
   status:ConnectedDeviceStatus; pairingExpiresAt:Date; createdAt:Date; updatedAt:Date; pendingAuditEventIds?:string[];
   approvedAt:Date|null; approvedBy:string|null; revokedAt:Date|null; revokedBy:string|null; lastSeenAt:Date|null;
 };
@@ -29,6 +29,7 @@ export class ConnectedDevicesRepository {
       this.devices.createIndex({tenantId:1,id:1},{unique:true,name:"connected_devices_tenant_id_unique"}),
       this.devices.createIndex({tenantId:1,ownerUserId:1,status:1,createdAt:-1},{name:"connected_devices_owner_status"}),
       this.devices.createIndex({credentialHash:1},{unique:true,name:"connected_devices_credential_hash_unique"}),
+      this.devices.createIndex({credentialId:1},{unique:true,name:"connected_devices_credential_id_unique",partialFilterExpression:{credentialId:{$type:"string"}}}),
       this.challenges.createIndex({id:1},{unique:true,name:"connected_device_pairing_id_unique"}),
       this.challenges.createIndex({tokenHash:1},{unique:true,name:"connected_device_pairing_token_unique"}),
       this.challenges.createIndex({expiresAt:1},{expireAfterSeconds:0,name:"connected_device_pairing_expiry"}),

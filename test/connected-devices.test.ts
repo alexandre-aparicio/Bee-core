@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {createPairingSecrets,hashDeviceSecret,isConnectedDeviceOwnerActive,isDeviceAdministrator,normalizeRequestedCapabilities,publicDevice} from "../src/plugins/connected-devices/connected-devices.service.js";
+import {createDeviceCredential,createPairingSecrets,hashDeviceSecret,isConnectedDeviceOwnerActive,isDeviceAdministrator,normalizeRequestedCapabilities,publicDevice} from "../src/plugins/connected-devices/connected-devices.service.js";
 import {registerConnectedDevicesRoutes} from "../src/plugins/connected-devices/connected-devices.routes.js";
 test("device permission requests are sourced from connector manifests and restricted to active package declarations",()=>{
  const declared=[{pluginId:"time-tracking-connected",key:"time-tracking-connected.clock",module:"time-tracking-connected",resource:"clock",action:"create",label:"Register working time"},{pluginId:"time-tracking-connected",key:"time-tracking-connected.location",module:"time-tracking-connected",resource:"location",action:"read",label:"Share location"}];
@@ -66,13 +66,16 @@ test("device credentials are stored as one-way SHA-256 hashes",()=>{
 });
 
 test("pairing and device credentials are independent high-entropy secrets",()=>{
- const first=createPairingSecrets(),second=createPairingSecrets();
- assert.equal(first.qrToken.length,43);
- assert.equal(first.deviceCredential.length,64);
- assert.notEqual(first.qrToken,first.deviceCredential);
- assert.notEqual(first.qrToken,second.qrToken);
- assert.notEqual(first.deviceCredential,second.deviceCredential);
+ const firstPairing=createPairingSecrets(),secondPairing=createPairingSecrets();
+ const firstDevice=createDeviceCredential(),secondDevice=createDeviceCredential();
+ assert.equal(firstPairing.qrToken.length,43);
+ assert.equal(firstDevice.deviceCredential.length,87);
+ assert.match(firstDevice.deviceCredential,/^[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{64}$/);
+ assert.notEqual(firstPairing.qrToken,firstDevice.deviceCredential);
+ assert.notEqual(firstPairing.qrToken,secondPairing.qrToken);
+ assert.notEqual(firstDevice.deviceCredential,secondDevice.deviceCredential);
 });
+
 test("public device projection never exposes credential or pairing secrets",()=>{
  const device:any={id:"device-1",tenantId:"tenant-1",ownerUserId:"user-1",requestedBy:"user-1",name:"Scanner",deviceType:"mobile",platform:"android",appVersion:null,requestedCapabilities:["time-tracking.manage","time-tracking-connected.clock-in"],grantedCapabilities:["time-tracking.manage","time-tracking-connected.clock-in"],credentialHash:"secret-hash",pairingExpiresAt:new Date(),status:"pending",createdAt:new Date(),updatedAt:new Date(),approvedAt:null,approvedBy:null,revokedAt:null,revokedBy:null,lastSeenAt:null};
  const projected=publicDevice(device,new Set(["time-tracking-connected.clock-in"]));
