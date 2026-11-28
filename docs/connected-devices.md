@@ -1,5 +1,44 @@
 # Connected Devices
 
+## Security lifecycle policy (PR #260)
+
+Lifecycle transitions are explicit. Any transition not listed below is rejected by the corresponding route; a device in `revoked` or `unlinked` is terminal.
+
+| Current state | Action / next state | Actor | Result |
+|---|---|---|---|
+| pending | approve → active | Tenant owner/admin/super_admin | Allowed only while the pairing request is valid and the owner membership is active |
+| pending | revoke → revoked | Tenant owner/admin/super_admin | Allowed; credential hash is replaced and grants are cleared |
+| pending | unlink → unlinked | Device owner or tenant administrator | Allowed; credential hash is replaced and grants are cleared |
+| pending | expire → expired | System | Allowed when pairing expiry is reached |
+| active | suspend → suspended | Tenant owner/admin/super_admin | Allowed; credential hash is replaced and grants are cleared |
+| active | revoke → revoked | Tenant owner/admin/super_admin | Allowed; terminal, credential hash is replaced and grants are cleared |
+| active | unlink → unlinked | Device owner or tenant administrator | Allowed; credential hash is replaced and grants are cleared |
+| suspended | revoke → revoked | Tenant owner/admin/super_admin | Allowed; terminal |
+| suspended | unlink → unlinked | Device owner or tenant administrator | Allowed; terminal |
+| expired | unlink → unlinked | Device owner or tenant administrator | Allowed to clean up an expired record |
+
+No transition out of `revoked` or `unlinked` is allowed. `expired` cannot be approved, suspended, reactivated or revoked; a new QR pairing creates a new record.
+
+### Credentials and re-pairing
+
+Device credentials are stored as SHA-256 hashes. Suspending or revoking a device replaces the stored hash with a fresh, random, unusable hash and clears granted capabilities. This invalidates legacy records too; no new credential-version field or migration is required. The former credential cannot authenticate through Connected Devices or the Time Tracking Connected credential lookup because both query the same stored hash and require `status: "active"`.
+
+A suspended device cannot be reactivated in place. The former `/activate` operation returns HTTP 409 with instructions to generate a new QR challenge. The companion must pair again, creating a new pending device record and credential; a tenant administrator must approve that new record. Revocation is terminal and cannot be undone.
+
+### Authorization, tenant isolation and atomic state changes
+
+Only a tenant owner, administrator or super administrator may approve, suspend, activate (the endpoint returns the re-pairing 409), or revoke. A regular member receives HTTP 403 for suspend, activate and revoke, including for their own device. The owner/admin restriction does not remove the existing unlink operation. Lifecycle updates use a single MongoDB `updateOne` filtered by tenant, device ID and expected current state; `modifiedCount` is checked so concurrent transitions cannot both win. Cross-tenant IDs are not included in the tenant-scoped update and return the same not-found response as an unknown ID.
+
+The legacy `credentialHash` field remains the compatibility default: records without any credential-version field continue to authenticate while active. On suspend/revoke the hash itself is replaced, so reactivation cannot restore the old credential.
+
+### Explicit outstanding security limitations
+
+- Tenant audit events for device lifecycle actions are not currently emitted. The existing Organizations audit helper swallows write failures and is not exposed as an atomic lifecycle transaction. This PR does not claim audit coverage or atomic audit/state commit; a transaction-safe audit design remains unresolved.
+- Credential hashes are stored as SHA-256 and are never intentionally returned by API projections. MongoDB hash lookup is not a constant-time comparison; this PR does not change credential storage/comparison. A constant-time credential verification design remains unresolved.
+- Membership removal is fail-closed and causes the device to be terminally revoked when the device next authenticates or its capability is checked; this is lazy enforcement, not a proactive membership-change cascade.
+- This PR does not change Time Tracking Connected implementation or its remote UI. The shared credential hash replacement and active-state check invalidate prior credentials at that connector boundary.
+
+
 ## Runtime, packaging and plan migration
 
 Connected Devices is delivered as a signed ZIP package containing its backend entrypoint and its Angular Native Federation frontend. The frontend source, HTML template, component-scoped styles and QR renderer live under `plugins/connected-devices/frontend`; the package builder adds the separately built remote artifacts to the signed ZIP. The core web application contains only the generic federation host and plugin outlet: it does not statically import or register the Connected Devices component. The remote exposes `PluginComponent` and is mounted in the host Angular view tree with `ViewContainerRef.createComponent`; Connected Devices does not use an iframe. The Marketplace runtime endpoint issues a short-lived, tenant-session-bound asset grant, and every remote asset request revalidates the session, membership, user, entitlement, installation, enablement and loaded package state. The component calls the tenant-scoped `/api/connected-devices` routes with the current dashboard access token. The Connected Devices package version is `0.3.2`.
@@ -197,8 +236,8 @@ All paths below are plugin-owned and are mounted under the normal Bee-Core API p
 | GET | `/connected-devices/pairing-status` | Companion checks approval using the pairing secret header. |
 | GET | `/connected-devices` | Lists the current user's devices, or the tenant registry plus owner identity for owner/admin. Expired pending requests are marked `expired`. |
 | POST | `/connected-devices/:deviceId/approve` | Owner/admin approves a subset of requested capabilities. |
-| POST | `/connected-devices/:deviceId/suspend` / `activate` | Owner/admin suspends or reactivates a device. |
-| POST | `/connected-devices/:deviceId/revoke` | Owner/admin or device owner permanently revokes access. |
+| POST | `/connected-devices/:deviceId/suspend` / `activate` | Tenant admin suspends; activate returns 409 and requires a fresh QR pairing and approval. |
+| POST | `/connected-devices/:deviceId/revoke` | Tenant admin permanently revokes access. |
 | PATCH | `/connected-devices/:deviceId` | Renames a device. |
 | POST | `/connected-devices/device/unlink` | Companion cancels its own pending or active pairing with its device credential and invalidates the local authorization. |
 | POST | `/connected-devices/device/heartbeat` | Active device updates its last-seen timestamp. |
@@ -227,7 +266,7 @@ The browser simulator sends an explicit empty JSON object (`{}`) with the authen
 
 ## Device card lifecycle actions
 
-Each device card exposes a vertical three-dot action menu. **Unlink** invalidates the current credential, clears granted capabilities and retains the device record as `unlinked`; a new one-time QR pairing creates a fresh device identity and credential. **Revoke** permanently invalidates the current device credential and keeps the revoked record for audit/history. **Suspend** temporarily blocks access and can be reversed by reactivation. **Delete** permanently removes the tenant-scoped device record and cancels its claimed pairing challenge; it is restricted to organization administrators. Unlink and delete are distinct: unlink preserves history, delete removes the record.
+Each device card exposes a vertical three-dot action menu. **Unlink** invalidates the current credential, clears granted capabilities and retains the device record as `unlinked`; a new one-time QR pairing creates a fresh device identity and credential. **Revoke** permanently invalidates the current device credential and keeps the revoked record for audit/history. **Suspend** blocks access, invalidates the previous credential and clears grants. It cannot be reversed in place; a new QR pairing and administrator approval create a fresh device identity. **Delete** permanently removes the tenant-scoped device record and cancels its claimed pairing challenge; it is restricted to organization administrators. Unlink and delete are distinct: unlink preserves history, delete removes the record.
 
 
 ## Device lifecycle confirmation dialogs and JSON request headers

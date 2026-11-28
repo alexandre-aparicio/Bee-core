@@ -42,7 +42,7 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
   const device=await repository.devices.findOne({credentialHash:hashDeviceSecret(credential),status:"active"});
   if(!device)return null;
   if(!await isConnectedDeviceOwnerActive(access,device)){
-   await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+   await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{status:"revoked",credentialHash:hashDeviceSecret(randomBytes(48).toString("base64url")),revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
    return null;
   }
   const available=await access.isPluginAvailable(device.tenantId,"connected-devices");
@@ -64,7 +64,7 @@ export async function hasConnectedDeviceCapability(db:Db,access:PluginAccessServ
  const device=await db.collection<ConnectedDeviceRecord>("connected_devices").findOne({tenantId,id:deviceId,status:"active",grantedCapabilities:capability});
  if(!device)return false;
  if(!await isConnectedDeviceOwnerActive(access,device)){
-  await db.collection<ConnectedDeviceRecord>("connected_devices").updateOne({tenantId,id:deviceId,status:"active"},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+  await db.collection<ConnectedDeviceRecord>("connected_devices").updateOne({tenantId,id:deviceId,status:"active"},{$set:{status:"revoked",credentialHash:hashDeviceSecret(randomBytes(48).toString("base64url")),revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
   return false;
  }
  return true;

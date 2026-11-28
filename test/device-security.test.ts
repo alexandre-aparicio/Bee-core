@@ -161,10 +161,8 @@ test("Connected Devices pairing, approval, revocation, capabilities and Time Tra
     const reactivated = await app.inject({
       method: "POST", url: "/connected-devices/device-suspend-reactivate/activate", headers: ownerA
     });
-    assert.equal(reactivated.statusCode, 200);
-    // Current policy/code preserves credentialHash across suspend -> activate.
-    // Therefore the old credential becomes valid again after an administrator reactivates the device.
-    assert.equal((await heartbeat(suspendedCredential)).statusCode, 200, "reactivation currently restores the original device credential");
+    assert.equal(reactivated.statusCode, 409, "a suspended device requires a new QR pairing and admin approval");
+    assert.equal((await heartbeat(suspendedCredential)).statusCode, 401, "the credential issued before suspension must remain invalid");
 
     const revokedCredential = "revoked-device-credential-00000000000000000000000000000000";
     await repository.devices.insertOne(deviceRecord({
@@ -189,7 +187,8 @@ test("Connected Devices pairing, approval, revocation, capabilities and Time Tra
     const memberRevoke = await app.inject({
       method: "POST", url: "/connected-devices/device-member-owned/revoke", headers: memberA
     });
-    assert.equal(memberRevoke.statusCode, 200, "current route allows a non-admin owner to revoke their own device");
+    assert.equal(memberRevoke.statusCode, 403, "a non-admin cannot revoke a device, including their own");
+    assert.equal(await repository.devices.countDocuments({ id: "device-member-owned", status: "active" }), 1);
 
     // Time Tracking Connected derives tenant/user identity from the authenticated device record.
     const betaSession = {
@@ -241,7 +240,3 @@ test("Connected Devices pairing, approval, revocation, capabilities and Time Tra
   }
 });
 
-test.todo(
-  "a user without an administrator role cannot revoke devices",
-  { todo: "Known authorization gap: /connected-devices/:deviceId/revoke filters non-admins by ownerUserId instead of rejecting them; the integration test above confirms a member can revoke their own device. Do not mark this complete until policy is clarified and production code is changed in a separate fix." }
-);
