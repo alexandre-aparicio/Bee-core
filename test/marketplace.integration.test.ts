@@ -138,7 +138,7 @@ test("company plans and purchases control plugin visibility, installation and ac
       },
       getTenantPluginPermissions: async (tenantId: string) => {
         const catalog = await getTenantPluginCatalog(db, tenantId);
-        return catalog.filter(plugin => plugin.entitled && plugin.installed && plugin.enabled)
+        return catalog.filter(plugin => plugin.id !== "connected-devices" && plugin.entitled && plugin.installed && plugin.enabled)
           .flatMap(plugin => (plugin.permissions ?? []).map(permission => ({
             pluginId: plugin.id, key: permission.key, module: permission.module,
             resource: permission.resource, action: permission.action, label: permission.label
@@ -330,6 +330,7 @@ test("company plans and purchases control plugin visibility, installation and ac
       payload: { token: qrToken, name: "Alpha scanner", deviceType: "mobile", platform: "android" }
     });
     assert.equal(pairedDevice.statusCode, 201);
+    assert.deepEqual(pairedDevice.json().availablePermissions.map((permission: { key: string }) => permission.key), ["scanner.use"], "companion permissions must come only from installed connector manifests, never Connected Devices own permissions");
     const deviceId = pairedDevice.json().deviceId as string;
     const pairingSecret = pairedDevice.json().pairingSecret as string;
     const approved = await app.inject({
