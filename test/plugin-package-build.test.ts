@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -19,7 +19,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
     const built = await buildPluginPackages({
       privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
       publicKeyPem: publicKey.export({ type: "spki", format: "pem" }).toString(),
-      outputDir: join(root, "archives")
+      outputDir: archivesDirectory
     });
     const timeTracking = built.find(item => item.id === "time-tracking");
     assert.ok(timeTracking);
@@ -40,6 +40,9 @@ test("four first-party modules build as independently signed ZIP packages", { sk
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const root = await mkdtemp(join(tmpdir(), "bee-first-party-packages-"));
   try {
+    const archivesDirectory = join(root, "archives");
+    await mkdir(archivesDirectory, { recursive: true });
+    await writeFile(join(archivesDirectory, "connected-devices-0.3.0.zip"), "stale package");
     const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
     const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     const built = await buildPluginPackages({
@@ -57,6 +60,8 @@ test("four first-party modules build as independently signed ZIP packages", { sk
       /does not match/
     );
     assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking"]);
+    assert.equal(existsSync(join(archivesDirectory, "connected-devices-0.3.0.zip")), false, "a stale Connected Devices ZIP must be removed after a successful release build");
+    assert.ok(existsSync(join(archivesDirectory, "connected-devices-0.3.2.zip")), "the current Connected Devices release must be the only ZIP left in the output directory");
     for (const item of built) {
       assert.ok(item.bytes > 100);
       const installed = await installSignedPluginZip({
@@ -75,7 +80,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /Hola Mundo/);
         assert.match(script, /bee-plugin:ready/);
       } else if (item.id === "connected-devices") {
-        assert.equal(installed.manifest.version, "0.3.1");
+        assert.equal(installed.manifest.version, "0.3.2");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.deepEqual(installed.manifest.frontend.routes, [{ path: "/dashboard/connected-devices", component: "connected-devices" }]);
@@ -90,6 +95,9 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.ok(remoteEntry.exposes.some((entry: { key?: string }) => entry.key === installed.manifest.frontend.exposedModule));
         assert.ok(Array.isArray(remoteEntry.shared) && remoteEntry.shared.length > 0);
         assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)));
+        const bundledPairingRoutes = await readFile(join(installed.packageDirectory, "dist/plugins/connected-devices/connected-devices.routes.js"), "utf8");
+        assert.match(bundledPairingRoutes, /pairingSecret/);
+        assert.match(bundledPairingRoutes, /deviceCredential/, "the signed ZIP keeps the credential response compatible with older Android builds");
         const remoteComponent = await readFile(resolve(process.cwd(), "plugins/connected-devices/frontend/src/connected-devices.component.ts"), "utf8");
         const remoteTemplate = await readFile(resolve(process.cwd(), "plugins/connected-devices/frontend/src/connected-devices.component.html"), "utf8");
         const frontendRegistry = await readFile(resolve(process.cwd(), "apps/web/src/app/plugins/plugin-frontend-registrations.ts"), "utf8");
