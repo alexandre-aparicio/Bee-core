@@ -331,7 +331,7 @@ async function bootstrap(): Promise<void> {
     },
     getTenantPluginPermissions: async (tenantId: string) => {
       const catalog = await getTenantPluginCatalog(db, tenantId);
-      return catalog.filter(plugin => plugin.entitled && plugin.installed && plugin.enabled)
+      return catalog.filter(plugin => plugin.id !== "connected-devices" && plugin.entitled && plugin.installed && plugin.enabled)
         .flatMap(plugin => (plugin.permissions ?? []).map(permission => ({
           pluginId: plugin.id, key: permission.key, module: permission.module,
           resource: permission.resource, action: permission.action, label: permission.label
