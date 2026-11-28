@@ -1,8 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Db } from "mongodb";
 import type { PluginTenantContext } from "../../core/plugin-services.js";
 import type { PluginAccessService } from "../../core/plugin-services.js";
-import { ConnectedDevicesRepository, type ConnectedDeviceRecord } from "./connected-devices.repository.js";
+import { ConnectedDevicesRepository, type ConnectedDeviceRecord, type ConnectedDeviceStatus } from "./connected-devices.repository.js";
 
 export type ConnectedDevicePermission = { pluginId:string; key:string; module:string; resource:string; action:string; label:string; };
 export type ConnectedDeviceCapability = string;
@@ -21,7 +21,37 @@ export function publicDevice(device:ConnectedDeviceRecord,availablePermissionKey
  requestedCapabilities:visible(device.requestedCapabilities),grantedCapabilities:visible(device.grantedCapabilities),pairingChallengeId:device.pairingChallengeId,
  status:device.status,createdAt:device.createdAt,updatedAt:device.updatedAt,approvedAt:device.approvedAt,lastSeenAt:device.lastSeenAt};
 }
-export function createPairingSecrets(){return {qrToken:randomBytes(32).toString("base64url"),deviceCredential:randomBytes(48).toString("base64url")};}
+export function createPairingSecrets(){return {qrToken:randomBytes(32).toString("base64url")};}
+export function createDeviceCredential(){
+ const credentialId=randomBytes(16).toString("base64url"),secret=randomBytes(48).toString("base64url");
+ return {credentialId,credentialHash:hashDeviceSecret(secret),deviceCredential:credentialId+"."+secret};
+}
+export function createInvalidatedDeviceCredential(){
+ const credentialId=randomBytes(16).toString("base64url"),secret=randomBytes(48).toString("base64url");
+ return {credentialId,credentialHash:hashDeviceSecret(secret)};
+}
+function constantTimeHashMatches(expectedHash:string,suppliedSecret:string):boolean{
+ if(!/^[a-f0-9]{64}$/i.test(expectedHash))return false;
+ const expected=Buffer.from(expectedHash,"hex"),actual=Buffer.from(hashDeviceSecret(suppliedSecret),"hex");
+ return expected.length===actual.length&&timingSafeEqual(expected,actual);
+}
+export async function findConnectedDeviceByCredential(
+ repository:ConnectedDevicesRepository,credential:string,statuses:readonly ConnectedDeviceStatus[],deviceId?:string
+):Promise<ConnectedDeviceRecord|null>{
+ if(!credential||credential.length<40||credential.length>256)return null;
+ const separator=credential.indexOf(".");
+ if(separator>0){
+  const credentialId=credential.slice(0,separator),secret=credential.slice(separator+1);
+  if(!/^[A-Za-z0-9_-]{22}$/.test(credentialId)||secret.length!==64)return null;
+  const device=await repository.devices.findOne({credentialId,status:{$in:[...statuses]},...(deviceId?{id:deviceId}:{})});
+  return device&&constantTimeHashMatches(device.credentialHash,secret)?device:null;
+ }
+ // Lazy compatibility path for pre-credentialId records. New credentials never
+ // query by their secret hash; legacy records are upgraded only when re-paired.
+ const legacyHash=hashDeviceSecret(credential);
+ const device=await repository.devices.findOne({credentialHash:legacyHash,credentialId:{$exists:false},status:{$in:[...statuses]},...(deviceId?{id:deviceId}:{})});
+ return device&&constantTimeHashMatches(device.credentialHash,credential)?device:null;
+}
 export async function isConnectedDeviceOwnerActive(access:PluginAccessService,device:ConnectedDeviceRecord):Promise<boolean>{
  return access.isTenantUserActive(device.tenantId,device.ownerUserId);
 }
@@ -38,11 +68,11 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
   }catch{reply.code(401).send({error:"Unauthorized"});return null;}
  };
  const deviceFromCredential=async(credential:string):Promise<ConnectedDeviceRecord|null>=>{
-  if(!credential||credential.length<40||credential.length>256)return null;
-  const device=await repository.devices.findOne({credentialHash:hashDeviceSecret(credential),status:"active"});
+  const device=await findConnectedDeviceByCredential(repository,credential,["active"]);
   if(!device)return null;
   if(!await isConnectedDeviceOwnerActive(access,device)){
-   await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{status:"revoked",credentialHash:hashDeviceSecret(randomBytes(48).toString("base64url")),revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+   const invalidated=createInvalidatedDeviceCredential();
+   await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:"active"},{$set:{status:"revoked",...invalidated,revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
    return null;
   }
   const available=await access.isPluginAvailable(device.tenantId,"connected-devices");
@@ -54,7 +84,7 @@ export function createConnectedDevicesServices(input:{secret:string;repository:C
   if(!device){reply.code(401).send({error:"Invalid, revoked or inactive device credential."});return null;}
   return device;
  };
- return {secret,repository,access,dashboardTenant,deviceFromCredential,authenticateDevice,availablePermissions:(tenantId:string)=>access.getTenantConnectorPermissions(tenantId)};
+ return {secret,repository,access,dashboardTenant,deviceFromCredential,findDeviceByCredential:(credential:string,statuses:readonly ConnectedDeviceStatus[],deviceId?:string)=>findConnectedDeviceByCredential(repository,credential,statuses,deviceId),authenticateDevice,availablePermissions:(tenantId:string)=>access.getTenantConnectorPermissions(tenantId)};
 }
 /** Public integration contract for consuming plugins. Tenant ID must come from Core's authenticated context. */
 export async function hasConnectedDeviceCapability(db:Db,access:PluginAccessService,tenantId:string,deviceId:string,capability:string):Promise<boolean>{
@@ -64,7 +94,8 @@ export async function hasConnectedDeviceCapability(db:Db,access:PluginAccessServ
  const device=await db.collection<ConnectedDeviceRecord>("connected_devices").findOne({tenantId,id:deviceId,status:"active",grantedCapabilities:capability});
  if(!device)return false;
  if(!await isConnectedDeviceOwnerActive(access,device)){
-  await db.collection<ConnectedDeviceRecord>("connected_devices").updateOne({tenantId,id:deviceId,status:"active"},{$set:{status:"revoked",credentialHash:hashDeviceSecret(randomBytes(48).toString("base64url")),revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+  const invalidated=createInvalidatedDeviceCredential();
+  await db.collection<ConnectedDeviceRecord>("connected_devices").updateOne({tenantId,id:deviceId,status:"active"},{$set:{status:"revoked",...invalidated,revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
   return false;
  }
  return true;
