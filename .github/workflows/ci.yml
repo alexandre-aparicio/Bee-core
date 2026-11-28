@@ -71,12 +71,13 @@ jobs:
           openssl genpkey -algorithm ed25519 -out secrets/plugin-publisher-private.pem
           openssl pkey -in secrets/plugin-publisher-private.pem -pubout -out secrets/plugin-publisher-public.pem
           npm run build:plugin-packages
-          test -f artifacts/plugin-packages/connected-devices-0.3.2.zip
+          test -f artifacts/plugin-packages/connected-devices-0.4.0.zip
           test ! -f artifacts/plugin-packages/connected-devices-0.3.0.zip
-          unzip -t artifacts/plugin-packages/connected-devices-0.3.2.zip
-          unzip -p artifacts/plugin-packages/connected-devices-0.3.2.zip bee-plugin.json > /tmp/connected-devices-manifest.json
-          unzip -p artifacts/plugin-packages/connected-devices-0.3.2.zip dist/plugins/connected-devices/connected-devices.routes.js > /tmp/connected-devices-routes.js
-          node -e 'const m=require("/tmp/connected-devices-manifest.json"); const fs=require("node:fs"); const route=fs.readFileSync("/tmp/connected-devices-routes.js","utf8"); if(m.id!=="connected-devices"||m.version!=="0.3.2"||!m.package.signature||!route.includes("pairingSecret")||!route.includes("deviceCredential")) process.exit(1); console.log("Connected Devices 0.3.2 signed package and pairing contract verified")'
+          test ! -f artifacts/plugin-packages/connected-devices-0.3.2.zip
+          unzip -t artifacts/plugin-packages/connected-devices-0.4.0.zip
+          unzip -p artifacts/plugin-packages/connected-devices-0.4.0.zip bee-plugin.json > /tmp/connected-devices-manifest.json
+          unzip -p artifacts/plugin-packages/connected-devices-0.4.0.zip dist/plugins/connected-devices/connected-devices.routes.js > /tmp/connected-devices-routes.js
+          node -e 'const m=require("/tmp/connected-devices-manifest.json"); const fs=require("node:fs"); const route=fs.readFileSync("/tmp/connected-devices-routes.js","utf8"); if(m.id!=="connected-devices"||m.version!=="0.4.0"||!m.package.signature||!route.includes("pairingSecret")||!route.includes("deviceCredential")) process.exit(1); console.log("Connected Devices 0.4.0 signed package and pairing contract verified")'
           unzip -t artifacts/plugin-packages/documents-0.1.5.zip
           unzip -p artifacts/plugin-packages/documents-0.1.5.zip bee-plugin.json > /tmp/documents-manifest.json
           node -e 'const m=require("/tmp/documents-manifest.json"); if(m.id!=="documents"||m.version!=="0.1.5"||m.package.signature==="PENDING_PUBLISHER_SIGNATURE"||!m.dependencies.some(d=>d.pluginId==="files")) process.exit(1); console.log("Documents 0.1.5 signed package verified")'
