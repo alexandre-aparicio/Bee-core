@@ -94,7 +94,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   }
   if(device.status==="revoked"||device.status==="suspended"||device.status==="unlinked")return reply.code(403).send({error:"Device access is not active."});
   const permissions=await availablePermissions(device.tenantId);
-  const availableKeys=new Set(permissions.map((permission:any)=>permission.key));
+  const availableKeys=new Set<string>(permissions.map((permission:any)=>String(permission.key)));
   const granted=device.grantedCapabilities.filter((key:string)=>availableKeys.has(key));
   const requested=device.requestedCapabilities.filter((key:string)=>availableKeys.has(key));
   return {status:device.status,deviceId:device.id,requestedPermissions:requested,grantedCapabilities:device.status==="active"?granted:[],grantedPermissions:device.status==="active"?granted:[],availablePermissions:permissions};
@@ -102,7 +102,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  ctx.server.get("/connected-devices",async(request:any,reply:any)=>{
   const tenant=await dashboardTenant(request,reply);if(!tenant)return;
   const canManage=isDeviceAdministrator(tenant),now=new Date(),filter:any={tenantId:tenant.tenantId};
-  const permissions=await availablePermissions(tenant.tenantId),availableKeys=new Set(permissions.map((permission:any)=>permission.key));
+  const permissions=await availablePermissions(tenant.tenantId),availableKeys=new Set<string>(permissions.map((permission:any)=>String(permission.key)));
   await repository.devices.updateMany({tenantId:tenant.tenantId,status:"pending",pairingExpiresAt:{$lte:now}},{$set:{status:"expired",updatedAt:now}});
   if(!canManage)filter.ownerUserId=tenant.userId;
   const devices=await repository.devices.find(filter).sort({createdAt:-1}).limit(200).toArray();
@@ -118,7 +118,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!device)return reply.code(404).send({error:"Pending device not found or pairing request expired."});
   if(!await isConnectedDeviceOwnerActive(access,device))return reply.code(403).send({error:"The device owner is no longer an active organization member."});
   const permissions=await availablePermissions(tenant.tenantId);
-  const availableKeys=new Set(permissions.map((permission:any)=>permission.key));
+  const availableKeys=new Set<string>(permissions.map((permission:any)=>String(permission.key)));
   if(device.requestedCapabilities.some((capability:string)=>!availableKeys.has(capability)))return reply.code(409).send({error:"A requested connector permission is no longer available. Recreate the pairing request before approving this device."});
   let granted:string[];try{granted=normalizeRequestedCapabilities(request.body?.grantedCapabilities??[],permissions);}catch(error){return reply.code(400).send({error:error instanceof Error?error.message:"Invalid permissions"});}
   if(granted.some(capability=>!device.requestedCapabilities.includes(capability)))return reply.code(400).send({error:"Granted capabilities must be a subset of the device request."});
@@ -208,7 +208,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
  ctx.server.get("/connected-devices/device/me",async(request:any,reply:any)=>{
   const device=await authenticateDevice(request,reply);if(!device)return;
   const permissions=await availablePermissions(device.tenantId);
-  const availableKeys=new Set(permissions.map((permission:any)=>permission.key));
+  const availableKeys=new Set<string>(permissions.map((permission:any)=>String(permission.key)));
   const granted=device.grantedCapabilities.filter((key:string)=>availableKeys.has(key));
   return {device:{...publicDevice(device,availableKeys),grantedCapabilities:granted,grantedPermissions:granted},availablePermissions:permissions};
  });
