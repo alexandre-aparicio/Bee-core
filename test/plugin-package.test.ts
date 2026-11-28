@@ -4,6 +4,10 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { CORE_RUNTIME_PLUGIN_IDS, validatePluginManifest, satisfiesPluginVersion, type BeeBusinessPluginManifest } from "../src/core/plugin-package.js";
 import { getTenantConnectorPermissionsFromCatalog, resolvePluginDependencyOrder } from "../src/core/plugin-entitlements.js";
+import { PLUGIN_MANIFEST as connectedDevicesManifest } from "../src/plugins/connected-devices/plugin.manifest.js";
+import { PLUGIN_MANIFEST as documentsManifest } from "../src/plugins/documents/plugin.manifest.js";
+import { PLUGIN_MANIFEST as timeTrackingManifest } from "../src/plugins/time-tracking/plugin.manifest.js";
+import { PLUGIN_MANIFEST as timeTrackingConnectedManifest } from "../src/plugins/time-tracking-connected/plugin.manifest.js";
 
 const validManifest: BeeBusinessPluginManifest = {
   id: "crm.contacts",
@@ -28,6 +32,17 @@ test("plugin manifest accepts a complete, versioned and signed package contract"
   assert.doesNotThrow(() => validatePluginManifest(validManifest));
 });
 
+test("only Time Tracking Connected is marked as a device connector", () => {
+  assert.equal(timeTrackingConnectedManifest.deviceConnector, true);
+  assert.equal(timeTrackingConnectedManifest.version, "0.1.3");
+  assert.equal((timeTrackingManifest as any).deviceConnector, undefined);
+  assert.equal((documentsManifest as any).deviceConnector, undefined);
+  assert.equal((connectedDevicesManifest as any).deviceConnector, undefined);
+  assert.deepEqual(timeTrackingConnectedManifest.permissions.map(permission => permission.key), [
+    "time-tracking-connected.clock-in", "time-tracking-connected.clock-out", "time-tracking-connected.records.read"
+  ]);
+});
+
 test("device connector marker is optional, strictly boolean and absent by default", () => {
   assert.doesNotThrow(() => validatePluginManifest(validManifest));
   assert.equal((validManifest as any).deviceConnector, undefined);
@@ -36,19 +51,17 @@ test("device connector marker is optional, strictly boolean and absent by defaul
 });
 
 test("tenant connector permission selection requires the explicit marker and every availability state", () => {
-  const permission = { key: "connector.clock", module: "connector", resource: "clock", action: "create", label: "Clock" };
+  const connectorPermissions = timeTrackingConnectedManifest.permissions;
   const catalog = [
-    { id: "ordinary-plugin", entitled: true, installed: true, enabled: true, globallyEnabled: true, permissions: [{ ...permission, key: "ordinary.read" }] },
-    { id: "disabled-connector", deviceConnector: true, entitled: true, installed: true, enabled: false, globallyEnabled: true, permissions: [{ ...permission, key: "disabled.clock" }] },
-    { id: "uninstalled-connector", deviceConnector: true, entitled: true, installed: false, enabled: false, globallyEnabled: true, permissions: [{ ...permission, key: "uninstalled.clock" }] },
-    { id: "globally-disabled-connector", deviceConnector: true, entitled: true, installed: true, enabled: false, globallyEnabled: false, permissions: [{ ...permission, key: "global.clock" }] },
-    { id: "not-entitled-connector", deviceConnector: true, entitled: false, installed: true, enabled: true, globallyEnabled: true, permissions: [{ ...permission, key: "not-entitled.clock" }] },
-    { id: "active-connector", deviceConnector: true, entitled: true, installed: true, enabled: true, globallyEnabled: true, permissions: [
-      { ...permission, key: "active.clock-in" }, { ...permission, key: "active.clock-out" }, { ...permission, key: "active.records.read" }
-    ] }
+    { id: "ordinary-plugin", entitled: true, installed: true, enabled: true, globallyEnabled: true, permissions: timeTrackingManifest.permissions },
+    { id: "disabled-connector", deviceConnector: true, entitled: true, installed: true, enabled: false, globallyEnabled: true, permissions: connectorPermissions },
+    { id: "uninstalled-connector", deviceConnector: true, entitled: true, installed: false, enabled: false, globallyEnabled: true, permissions: connectorPermissions },
+    { id: "globally-disabled-connector", deviceConnector: true, entitled: true, installed: true, enabled: false, globallyEnabled: false, permissions: connectorPermissions },
+    { id: "not-entitled-connector", deviceConnector: true, entitled: false, installed: true, enabled: true, globallyEnabled: true, permissions: connectorPermissions },
+    { id: "active-connector", deviceConnector: true, entitled: true, installed: true, enabled: true, globallyEnabled: true, permissions: connectorPermissions }
   ];
   assert.deepEqual(getTenantConnectorPermissionsFromCatalog(catalog).map(item => item.key), [
-    "active.clock-in", "active.clock-out", "active.records.read"
+    "time-tracking-connected.clock-in", "time-tracking-connected.clock-out", "time-tracking-connected.records.read"
   ]);
   const tenantA = getTenantConnectorPermissionsFromCatalog(catalog);
   const tenantB = getTenantConnectorPermissionsFromCatalog(catalog.filter(item => item.id !== "active-connector"));
