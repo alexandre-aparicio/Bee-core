@@ -11,7 +11,7 @@ import { maskResourceId, maskTenantId, unmaskResourceId, unmaskTenantId } from "
 
 type CompanyProfile={legalName?:string;taxId?:string;email?:string;phone?:string;website?:string;addressLine1?:string;addressLine2?:string;city?:string;region?:string;postalCode?:string;country?:string;industry?:string;description?:string};
 type Company = { id:string; name:string; slug?:string; kind?:"super"|"tenant"; domains?:string[]; profile?:CompanyProfile; settings?:{defaultLanguage?:"en"|"es"}; createdAt:Date; status?:"active"|"suspended" };
-type Membership = { id:string; userId:string; tenantId:string; role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; restrictionRoleIds?:string[]; status:"active"|"invited"|"suspended"; createdAt:Date; updatedAt:Date };
+type Membership = { id:string; userId:string; tenantId:string; role:"super_admin"|"owner"|"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; restrictionRoleIds?:string[]; status:"active"|"invited"|"suspended"; deviceRevocationPending?:boolean; createdAt:Date; updatedAt:Date };
 type Claims = { sub?:string; email?:string; roles?:string[]; client?:"backend"|"dashboard"|"public"; tenantRef?:string; sid?:string; aud?:string };
 type CreateCompanyBody = { name?:string; slug?:string };
 type Invitation = { id:string; tenantId:string; email:string; role:"admin"|"manager"|"member"|"guest"|"custom"; customRoleId?:string; restrictionRoleIds?:string[]; tokenHash:string; createdBy:string; createdAt:Date; expiresAt:Date; acceptedAt:Date|null; cancelledAt:Date|null };
