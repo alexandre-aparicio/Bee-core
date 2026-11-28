@@ -37,7 +37,7 @@ The plugin-owned manifest declares at least:
 
 The package builder consumes the manifest; do not maintain a second handwritten copy of permissions or routes in Core. Keep migration IDs/checksums immutable once released. Any compensating migration must be explicit and tested.
 
-For device capabilities, set the optional manifest field `deviceConnector: true` only when the package is an actual Connected Devices connector and its declared permissions are intended to be requested/granted by paired devices. The field is included in the signed `bee-plugin.json` manifest and propagated to the tenant plugin catalog. Missing or false means the package is not a device connector; category, plugin ID and permission names must never be used as substitutes for this marker. Do not mark ordinary business plugins (including their user/role permissions) as connectors.
+For device capabilities, set the optional manifest field `deviceConnector: true` only when the package is an actual Connected Devices connector and its declared permissions are intended to be requested/granted by paired devices. The field is included in the signed `bee-plugin.json` manifest and propagated to the platform package registry and tenant plugin catalog. Missing or false means the package is not a device connector; category, plugin ID and permission names must never be used as substitutes for this marker. Do not mark ordinary business plugins (including their user/role permissions) as connectors.
 
 ## 5. Build an Angular remote
 
