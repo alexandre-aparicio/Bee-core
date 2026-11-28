@@ -206,7 +206,7 @@ export async function dispatchTenantAuditOutbox(
         $unset: { lastError: "" }
       });
       if (event.action.startsWith("device.") && event.resourceId) {
-        await db.collection("connected_devices").updateOne(
+        await db.collection<{ tenantId: string; id: string; pendingAuditEventIds?: string[] }>("connected_devices").updateOne(
           { tenantId: event.tenantId, id: event.resourceId },
           { $pull: { pendingAuditEventIds: event.id } }
         );
