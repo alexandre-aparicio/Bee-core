@@ -44,6 +44,8 @@ jobs:
       MONGODB_TEST_URI: mongodb://localhost:27017
     steps:
       - uses: actions/checkout@v4
+      - name: Audit generic plugin permission contract consumers
+        run: git grep -n -E "getTenantPluginPermissions|PluginAccessService" -- src test || true
       - uses: actions/setup-node@v4
         with:
           node-version: 22.22.3
