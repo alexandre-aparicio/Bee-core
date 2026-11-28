@@ -18,20 +18,8 @@ type Device = {
   createdAt?: string;
 };
 type Pairing = { challengeId: string; qrPayload: string; expiresAt: string };
+type Permission = { pluginId: string; key: string; module: string; resource: string; action: string; label: string };
 type DeviceView = "cards" | "table";
-
-const CAPABILITIES = [
-  { id: "device.status.write", label: "Device status" },
-  { id: "scanner.use", label: "Scanner" },
-  { id: "camera.capture", label: "Camera" },
-  { id: "catalog.read", label: "Read catalog" },
-  { id: "inventory.read", label: "Read inventory" },
-  { id: "inventory.write", label: "Write inventory" },
-  { id: "pos.session.read", label: "Read POS session" },
-  { id: "pos.order.write", label: "Create POS orders" },
-  { id: "location.read", label: "Location" },
-  { id: "notifications.receive", label: "Notifications" }
-] as const;
 
 @Component({
   selector: "bee-connected-devices",
@@ -49,9 +37,9 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   @Input() assetBaseUrl = "";
   @Input() section = "";
 
-  readonly capabilities = CAPABILITIES;
+  capabilities: Permission[] = [];
   devices: Device[] = [];
-  selectedCapabilities: string[] = ["device.status.write"];
+  selectedCapabilities: string[] = [];
   grants: Record<string, string[]> = {};
   pairing: Pairing | null = null;
   search = "";
@@ -92,7 +80,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
   clearFilters(): void { this.search = ""; this.statusFilter = "all"; this.typeFilter = "all"; }
   openCreate(): void {
     this.error = ""; this.message = ""; this.pairing = null;
-    this.selectedCapabilities = ["device.status.write"];
+    this.selectedCapabilities = [];
     this.modalOpen = true;
   }
   closeModal(): void {
@@ -115,8 +103,9 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
     if (!this.accessToken || this.loading) return;
     this.loading = true; this.error = "";
     try {
-      const result = await this.request("/connected-devices");
+      const [result, permissionResult] = await Promise.all([this.request("/connected-devices"), this.request("/connected-devices/permissions")]);
       this.devices = Array.isArray(result.devices) ? result.devices : [];
+      this.capabilities = Array.isArray(permissionResult.permissions) ? permissionResult.permissions : [];
       this.canManage = Boolean(result.canManage);
       for (const device of this.devices) if (device.status === "pending" && !this.grants[device.id]) this.grants[device.id] = [...(device.requestedCapabilities || [])];
     } catch (error) { this.error = error instanceof Error ? error.message : "Could not load devices."; }
@@ -128,6 +117,7 @@ export class BeeConnectedDevicesComponent implements OnChanges, OnInit {
       this.changeDetector.detectChanges();
     }
   }
+  permissionLabel(key: string): string { return this.capabilities.find(permission => permission.key === key)?.label || key; }
   toggleCapability(id: string, checked: boolean): void { this.selectedCapabilities = checked ? [...this.selectedCapabilities, id] : this.selectedCapabilities.filter(item => item !== id); }
   toggleGrant(deviceId: string, id: string, checked: boolean): void {
     const current = this.grants[deviceId] || [];

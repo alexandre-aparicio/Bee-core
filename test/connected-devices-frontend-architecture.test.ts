@@ -33,6 +33,8 @@ test("Connected Devices frontend is compiled as a signed native Angular remote, 
   assert.match(federation, /singleton:\s*true/);
   assert.match(component, /fetch\("\/api"\s*\+/);
   assert.match(component, /\/connected-devices/);
+  assert.match(component, /connected-devices\/permissions/);
+  assert.doesNotMatch(component, /const CAPABILITIES =/);
   assert.match(component, /assetBaseUrl/);
   assert.match(component, /loadQrLibrary/);
   assert.match(outlet, /setInput\("assetBaseUrl"/);
