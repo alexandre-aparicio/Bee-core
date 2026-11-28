@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {createPairingSecrets,hashDeviceSecret,isConnectedDeviceOwnerActive,isDeviceAdministrator,normalizeRequestedCapabilities,publicDevice} from "../src/plugins/connected-devices/connected-devices.service.js";
+import {createDeviceCredential,createPairingSecrets,hashDeviceSecret,isConnectedDeviceOwnerActive,isDeviceAdministrator,normalizeRequestedCapabilities,publicDevice} from "../src/plugins/connected-devices/connected-devices.service.js";
 import {registerConnectedDevicesRoutes} from "../src/plugins/connected-devices/connected-devices.routes.js";
 test("device permission requests are sourced from connector manifests and restricted to active package declarations",()=>{
  const declared=[{pluginId:"time-tracking-connected",key:"time-tracking-connected.clock",module:"time-tracking-connected",resource:"clock",action:"create",label:"Register working time"},{pluginId:"time-tracking-connected",key:"time-tracking-connected.location",module:"time-tracking-connected",resource:"location",action:"read",label:"Share location"}];
