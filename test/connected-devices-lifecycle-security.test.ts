@@ -7,6 +7,8 @@ import { MongoClient } from "mongodb";
 import { ConnectedDevicesRepository } from "../src/plugins/connected-devices/connected-devices.repository.js";
 import {
   createConnectedDevicesServices,
+  createDeviceCredential,
+  findConnectedDeviceByCredential,
   hashDeviceSecret,
   hasConnectedDeviceCapability
 } from "../src/plugins/connected-devices/connected-devices.service.js";
@@ -154,6 +156,32 @@ test("suspended and revoked devices cannot retain connector capabilities", { ski
   assert.equal(await hasConnectedDeviceCapability(f.db, f.access, "tenant-a", "capability-suspended", permission.key), false);
   assert.equal(await hasConnectedDeviceCapability(f.db, f.access, "tenant-a", "capability-revoked", permission.key), false);
   assert.equal(await f.repository.devices.countDocuments({ id: { $in: ["capability-suspended", "capability-revoked"] }, grantedCapabilities: permission.key }), 0);
+}));
+
+
+test("new credentials use an opaque indexed lookup ID and constant-time secret verification", { skip: !uri }, async () => withFixture(async f => {
+  const credential = createDeviceCredential();
+  await f.insertDevice({ id: "lookup-key-device", credential: credential.deviceCredential });
+  await f.repository.devices.updateOne({ id: "lookup-key-device" }, { $set: { credentialId: credential.credentialId, credentialHash: credential.credentialHash } });
+  const valid = await findConnectedDeviceByCredential(f.repository, credential.deviceCredential, ["active"]);
+  assert.equal(valid?.id, "lookup-key-device");
+  assert.equal(await findConnectedDeviceByCredential(f.repository, credential.credentialId + "." + "x".repeat(64), ["active"]), null);
+  assert.equal(await findConnectedDeviceByCredential(f.repository, "A".repeat(22) + "." + credential.deviceCredential.slice(23), ["active"]), null);
+}));
+
+test("credential rotation changes both lookup ID and secret hash while invalidating the previous credential", { skip: !uri }, async () => withFixture(async f => {
+  const previous = createDeviceCredential();
+  await f.insertDevice({ id: "rotate-lookup-device", credential: previous.deviceCredential });
+  await f.repository.devices.updateOne({ id: "rotate-lookup-device" }, { $set: { credentialId: previous.credentialId, credentialHash: previous.credentialHash } });
+  const response = await f.app.inject({
+    method: "POST", url: "/connected-devices/device/rotate-credential",
+    headers: { authorization: "Bearer " + previous.deviceCredential }
+  });
+  assert.equal(response.statusCode, 200);
+  const next = response.json().credential as string;
+  assert.notEqual(next, previous.deviceCredential);
+  assert.equal(await findConnectedDeviceByCredential(f.repository, previous.deviceCredential, ["active"]), null);
+  assert.equal((await findConnectedDeviceByCredential(f.repository, next, ["active"]))?.id, "rotate-lookup-device");
 }));
 
 test("membership revocation lazily terminally revokes the member's device", { skip: !uri }, async () => withFixture(async f => {
