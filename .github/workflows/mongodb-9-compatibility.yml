@@ -51,13 +51,14 @@ jobs:
             package-lock.json
             apps/web/package-lock.json
 
-      - name: Install backend dependencies
+      - name: Update MongoDB driver and lockfile
+        run: npm install --package-lock-only mongodb@7.9.1 --save
+
+      - name: Install backend dependencies from updated lockfile
         run: npm ci
 
-      - name: Persist MongoDB Node.js driver 7.9.1
-        run: |
-          npm install mongodb@7.9.1 --save
-          node -e "const { MongoClient } = require('mongodb'); console.log('MongoDB driver loaded:', typeof MongoClient)"
+      - name: Verify MongoDB Node.js driver 7.9.1
+        run: node -e "const { MongoClient } = require('mongodb'); console.log('MongoDB driver loaded:', typeof MongoClient)"
 
       - name: Upload generated dependency manifests
         uses: actions/upload-artifact@v4
