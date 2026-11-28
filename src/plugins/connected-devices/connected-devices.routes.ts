@@ -203,12 +203,14 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const credentialHash=hashDeviceSecret(secret);
   const device=await repository.devices.findOne({id,credentialHash,status:{$in:["pending","active"]}});
   if(!device)return reply.code(404).send({error:"Device not found or already unlinked."});
-  const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential);
+  const now=new Date(),invalidatedCredential=hashDeviceSecret(createPairingSecrets().deviceCredential),audit=await prepareDeviceAudit({tenantId:device.tenantId,userId:"device:"+device.id},device.id,"device.unlinked",device.status,"unlinked","device:"+device.id);
+  if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not unlinked. Retry shortly."});
   const result=await repository.devices.updateOne(
    {tenantId:device.tenantId,id:device.id,credentialHash,status:{$in:["pending","active"]}},
-   {$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:"device",updatedAt:now}}
+   {$set:{status:"unlinked",credentialHash:invalidatedCredential,grantedCapabilities:[],unlinkedAt:now,unlinkedBy:"device",updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}}
   );
-  if(!result.matchedCount)return reply.code(409).send({error:"The device state changed. Refresh and try again."});
+  if(!result.matchedCount){await cancelTenantAuditOutboxEvent(auditOutbox,audit.id);return reply.code(409).send({error:"The device state changed. Refresh and try again."});}
+  await finishDeviceAudit(audit);
   await repository.challenges.updateMany({tenantId:device.tenantId,deviceId:device.id,status:"claimed"},{$set:{status:"cancelled"}});
   return {success:true};
  });
