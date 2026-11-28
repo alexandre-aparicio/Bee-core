@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - main
-      - ci/mongodb-9-main
   workflow_dispatch:
 
 permissions:
