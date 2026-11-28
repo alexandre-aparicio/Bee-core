@@ -230,3 +230,13 @@ test("device lifecycle state machine rejects every transition not explicitly all
     });
   }
 }));
+
+test("a tenant administrator cannot revoke another tenant's device", { skip: !uri }, async () => withFixture(async f => {
+  await f.insertDevice({ id: "foreign-admin-target", tenantId: "tenant-a", ownerUserId: "owner-a" });
+  const foreign = await f.app.inject({ method: "POST", url: "/connected-devices/foreign-admin-target/revoke", headers: f.ownerB });
+  const missing = await f.app.inject({ method: "POST", url: "/connected-devices/unknown-admin-target/revoke", headers: f.ownerB });
+  assert.equal(foreign.statusCode, 404);
+  assert.equal(foreign.statusCode, missing.statusCode);
+  assert.deepEqual(foreign.json(), missing.json());
+  assert.equal(await f.repository.devices.countDocuments({ id: "foreign-admin-target", status: "active" }), 1);
+}));
