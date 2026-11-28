@@ -83,6 +83,9 @@ The API health endpoint is available internally at `http://bee-core:3000/health`
 
 - MongoDB data: Docker volume `bee_core_mongodb_data`
 - Private file data: Docker volume `bee_core_files`
+- Uploaded and extracted plugin packages: Docker volume `bee_core_plugins`
+
+The full clean-install procedure in [MongoDB 9.0.4 and Angular 22 deployment](mongodb-9-angular22-deployment.md#datos-que-elimina-y-datos-que-conserva) deletes all three volumes after validating their Compose labels. Normal updates preserve them.
 
 List volumes:
 
