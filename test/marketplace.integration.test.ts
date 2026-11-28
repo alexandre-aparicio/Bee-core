@@ -265,6 +265,8 @@ test("company plans and purchases control plugin visibility, installation and ac
     await connectedDevicesRepository.initializeIndexes();
     const access = ctx.services!.get<any>("core.plugin-access");
     assert.ok(access, "Core must publish the host access contract independently of Marketplace");
+    assert.deepEqual((await access.getTenantConnectorPermissions("market-alpha")).map((permission: any) => permission.key), ["scanner.use"]);
+    assert.deepEqual(await access.getTenantConnectorPermissions("market-beta"), [], "a tenant without connector entitlement/installation must not inherit another tenant's device permissions");
     const connectedDevicesServices = createConnectedDevicesServices({ secret: String(ctx.config.sessionIdSecret ?? ctx.config.jwtSecret), repository: connectedDevicesRepository, access });
     registerConnectedDevicesRoutes({ server: app, logger } as any, {
       ...connectedDevicesServices,
