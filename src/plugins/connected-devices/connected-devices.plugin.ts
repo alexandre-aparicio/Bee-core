@@ -6,7 +6,7 @@ import { createConnectedDevicesServices } from "./connected-devices.service.js";
 import { registerConnectedDevicesRoutes } from "./connected-devices.routes.js";
 import { migrateLegacyConnectedDevicesPlanAssignments } from "./connected-devices-plan-migration.js";
 export const connectedDevicesPlugin:BeePlugin={
- manifest:{ requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: [],name:"connected-devices",version:"0.2.0",description:"Tenant-scoped device pairing, identity, capability grants and revocation",dependencies:["auth","organizations"],scope:"tenant",activationPolicy:"manual"},
+ manifest:{ requiredServices: ["mongoDbName","sessionIdSecret"], optionalServices: [],name:"connected-devices",version:"0.3.1",description:"Tenant-scoped device pairing, identity, capability grants and revocation",dependencies:["auth","organizations"],scope:"tenant",activationPolicy:"manual"},
  async initialize(ctx){
   const db:Db=ctx.mongoClient.db(String(ctx.config.mongoDbName??"bee_core"));
   const secret=String(ctx.config.sessionIdSecret??"");
