@@ -14,7 +14,9 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   try{return await prepareTenantAuditOutboxEvent(auditOutbox,{tenantId:tenant.tenantId,actorId,action,outcome:"success",resourceType:"device",resourceId:deviceId,metadata:{fromStatus,toStatus}});}
   catch(error){ctx.logger?.error("Could not persist Connected Devices audit intent",{tenantId:tenant.tenantId,deviceId,action,error});return null;}
  };
+ const cancelDeviceAudit=async(eventId:string)=>{if(auditOutbox)await cancelTenantAuditOutboxEvent(auditOutbox,eventId);};
  const finishDeviceAudit=async(event:TenantAuditOutboxRecord)=>{
+  if(!auditOutbox)return;
   try{await commitTenantAuditOutboxEvent(auditOutbox,event.id);await dispatchTenantAuditOutbox(repository.db,ctx.logger);}
   catch(error){ctx.logger?.error("Connected Devices audit outbox dispatch deferred",{eventId:event.id,error});}
  };
@@ -137,7 +139,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const now=new Date(),audit=await prepareDeviceAudit(tenant,id,"device.approved","pending","active");
    if(!audit)return reply.code(503).send({error:"Audit storage is unavailable; the device was not approved. Retry shortly."});
    const result=await repository.devices.updateOne({tenantId:tenant.tenantId,id,status:"pending",pairingExpiresAt:{$gt:now}},{$set:{status:"active",grantedCapabilities:granted,approvedAt:now,approvedBy:tenant.userId,updatedAt:now},$addToSet:{pendingAuditEventIds:audit.id}});
-  if(!result.matchedCount){await cancelTenantAuditOutboxEvent(auditOutbox,audit.id);return reply.code(409).send({error:"The device request changed. Refresh and try again."});}
+  if(!result.matchedCount){await cancelDeviceAudit(audit.id);return reply.code(409).send({error:"The device request changed. Refresh and try again."});}
   const updated=await repository.devices.findOne({tenantId:tenant.tenantId,id});return {success:true,device:updated?publicDevice(updated,availableKeys):null,availablePermissions:permissions};
  });
  ctx.server.post("/connected-devices/:deviceId/suspend",async(request:any,reply:any)=>{
