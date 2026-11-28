@@ -10,7 +10,7 @@ export COMPOSE_PROJECT_NAME
 cd "$PROJECT_DIR"
 
 echo "=========================================="
-echo " BEE-CORE - INSTALACIÓN LIMPIA MONGODB 9"
+echo " BEE-CORE - INSTALACIÓN COMPLETA MONGODB 9"
 echo "=========================================="
 
 if [[ ! -f .env ]]; then
@@ -55,34 +55,53 @@ echo "[3/7] Descargando y construyendo imágenes..."
 docker compose pull mongodb
 docker compose build --pull bee-core web
 
-DB_VOLUME="${COMPOSE_PROJECT_NAME}_bee_core_mongodb_data"
-REMOVE_DB_VOLUME=false
+# Una instalación realmente limpia elimina los tres volúmenes persistentes:
+# base de datos, archivos privados y paquetes ZIP de plugins.
+# Validar TODOS los volúmenes antes de detener o eliminar nada.
+VOLUME_NAMES=(
+  "${COMPOSE_PROJECT_NAME}_bee_core_mongodb_data"
+  "${COMPOSE_PROJECT_NAME}_bee_core_files"
+  "${COMPOSE_PROJECT_NAME}_bee_core_plugins"
+)
+VOLUME_KEYS=(
+  "bee_core_mongodb_data"
+  "bee_core_files"
+  "bee_core_plugins"
+)
+VOLUMES_TO_REMOVE=()
 
-echo "[4/7] Validando el volumen de MongoDB que se eliminará..."
+echo "[4/7] Validando todos los volúmenes persistentes que se eliminarán..."
+echo "ATENCIÓN: se eliminarán la base de datos, los archivos privados y todos los paquetes de plugins."
 
-if docker volume inspect "$DB_VOLUME" >/dev/null 2>&1; then
-  VOLUME_PROJECT=$(docker volume inspect --format '{{ index .Labels "com.docker.compose.project" }}' "$DB_VOLUME")
-  VOLUME_NAME=$(docker volume inspect --format '{{ index .Labels "com.docker.compose.volume" }}' "$DB_VOLUME")
+for index in "${!VOLUME_NAMES[@]}"; do
+  VOLUME_NAME="${VOLUME_NAMES[$index]}"
+  EXPECTED_KEY="${VOLUME_KEYS[$index]}"
 
-  if [[ "$VOLUME_PROJECT" != "$COMPOSE_PROJECT_NAME" || "$VOLUME_NAME" != "bee_core_mongodb_data" ]]; then
-    echo "ERROR: El volumen $DB_VOLUME no tiene las etiquetas esperadas de Bee-core."
-    echo "No se eliminará ningún volumen."
+  if ! docker volume inspect "$VOLUME_NAME" >/dev/null 2>&1; then
+    echo "No existe el volumen $VOLUME_NAME; se creará vacío."
+    continue
+  fi
+
+  VOLUME_PROJECT=$(docker volume inspect --format '{{ index .Labels "com.docker.compose.project" }}' "$VOLUME_NAME")
+  COMPOSE_VOLUME_KEY=$(docker volume inspect --format '{{ index .Labels "com.docker.compose.volume" }}' "$VOLUME_NAME")
+
+  if [[ "$VOLUME_PROJECT" != "$COMPOSE_PROJECT_NAME" || "$COMPOSE_VOLUME_KEY" != "$EXPECTED_KEY" ]]; then
+    echo "ERROR: El volumen $VOLUME_NAME no tiene las etiquetas esperadas de Bee-core."
+    echo "No se eliminará ningún volumen. Revisa el nombre del proyecto y las etiquetas."
     exit 1
   fi
 
-  REMOVE_DB_VOLUME=true
-else
-  echo "No existe volumen anterior; se creará uno nuevo."
-fi
+  VOLUMES_TO_REMOVE+=("$VOLUME_NAME")
+done
 
 echo "[5/7] Deteniendo servicios..."
 
 docker compose down --remove-orphans
 
-if [[ "$REMOVE_DB_VOLUME" == true ]]; then
-  echo "Eliminando exclusivamente el volumen de MongoDB: $DB_VOLUME"
-  docker volume rm "$DB_VOLUME"
-fi
+for VOLUME_NAME in "${VOLUMES_TO_REMOVE[@]}"; do
+  echo "Eliminando volumen persistente: $VOLUME_NAME"
+  docker volume rm "$VOLUME_NAME"
+done
 
 echo "[6/7] Arrancando Bee-core con MongoDB 9.0.4..."
 
