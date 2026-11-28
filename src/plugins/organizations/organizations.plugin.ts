@@ -389,9 +389,11 @@ export const organizationsPlugin:BeePlugin={
    if(!target)return reply.code(404).send({error:"Company membership not found"});
    if(target.role==="owner"||target.role==="super_admin")return reply.code(409).send({error:"The company owner and Super Admin memberships cannot be removed here"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot remove other administrators"});
-   await memberships.updateOne({id:target.id},{$set:{status:"suspended",updatedAt:new Date()}});
+   const now=new Date();
+   await memberships.updateOne({id:target.id},{$set:{status:"suspended",updatedAt:now,deviceRevocationPending:true}});
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:"member.suspended",outcome:"success",resourceType:"membership",resourceId:target.userId});
-   await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:new Date()}});
+   await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:now}});
+   await ctx.events.emit("membership.status.changed",{tenantId:req.params.companyId,userId:target.userId,actorId:auth.user!.id,status:"suspended",updatedAt:now});
    return {success:true,status:"suspended"};
   });
   ctx.server.patch<{Params:{companyId:string;userId:string};Body:{status?:"active"|"suspended"}}>("/companies/:companyId/memberships/:userId/status",async(req,reply)=>{
@@ -403,11 +405,15 @@ export const organizationsPlugin:BeePlugin={
    if(!target)return reply.code(404).send({error:"Company membership not found"});
    if(target.role==="owner"||target.role==="super_admin")return reply.code(409).send({error:"The company owner and Super Admin memberships cannot be changed here"});
    if(actor.role==="admin"&&target.role==="admin")return reply.code(403).send({error:"Administrators cannot change other administrators"});
-   if(target.status===status)return {success:true,status,unchanged:true};
+   if(target.status===status){
+    if(status==="suspended"&&target.deviceRevocationPending)await ctx.events.emit("membership.status.changed",{tenantId:req.params.companyId,userId:target.userId,actorId:auth.user!.id,status:"suspended",updatedAt:target.updatedAt});
+    return {success:true,status,unchanged:true};
+   }
    const now=new Date();
-   await memberships.updateOne({id:target.id},{$set:{status,updatedAt:now}});
+   await memberships.updateOne({id:target.id},{$set:{status,updatedAt:now,...(status==="suspended"?{deviceRevocationPending:true}:{})},...(status==="active"?{$unset:{deviceRevocationPending:""}}:{})});
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:now}});
    await auditOrganizationEvent({tenantId:req.params.companyId,actorId:auth.user!.id,action:status==="suspended"?"member.suspended":"member.activated",outcome:"success",resourceType:"membership",resourceId:target.userId});
+   if(status==="suspended")await ctx.events.emit("membership.status.changed",{tenantId:req.params.companyId,userId:target.userId,actorId:auth.user!.id,status,updatedAt:now});
    return {success:true,status,sessionsRevoked:true};
   });
   ctx.server.get<{Params:{companyId:string}}>("/companies/:companyId/role-audit-events",async(req,reply)=>{
