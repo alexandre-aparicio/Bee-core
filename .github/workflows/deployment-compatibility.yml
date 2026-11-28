@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - ci/mongodb-9-main
   push:
     branches:
       - main

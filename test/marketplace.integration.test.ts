@@ -66,6 +66,9 @@ test("company plans and purchases control plugin visibility, installation and ac
     }
     throw new Error("Timed out waiting for plugin install job " + jobId);
   };
+  // Uninstall is processed by the background lifecycle worker, not inside the HTTP request.
+  // In production the worker completes the durable job before awaiting auditMarketplaceEvent,
+  // so a succeeded job can briefly precede its audit row; poll for that intentionally async event.
   const waitForTenantAuditEvent = async (filter: Record<string, unknown>) => {
     const deadline = Date.now() + 10_000;
     while (Date.now() < deadline) {
