@@ -57,6 +57,23 @@ Actual signed ZIP publication, the one-time plan confirmation, tenant installati
 
 Status: **Phase A implementation** — the plugin is optional and independently installed/enabled per tenant. No POS, inventory, GPS tracking or realtime business workflow is included.
 
+## Security lifecycle implementation and CI evidence — 2026-11-28
+
+PR [#260](https://github.com/alexandre-aparicio/Bee-core/pull/260) was merged into `main` as `6f84b1a71d3869678521f1ef9f02a16a6af0b33c`. The tested head was `8c542a7e6842f2a82c9a90adccd654c127cc2c64`.
+
+Recorded GitHub Actions evidence:
+- General CI: backend 210/210 passed, 0 failed and 0 skipped; Angular production build and federation remote builds passed.
+- MongoDB 9.0.4 compatibility: 210/210 passed, 0 skipped; backend and Angular builds passed.
+- Browser tests: Playwright 34/34 passed.
+- Deployment compatibility: Docker Compose configuration, authenticated MongoDB 9.0.4 startup and Docker image builds passed.
+
+The merge implements the lifecycle authorization, invalidation, terminal-revocation, tenant-isolation and concurrency behavior described above. These passing checks do **not** close the following security findings, which remain explicit for external audit:
+1. Lifecycle actions do not yet emit tenant-audit events. The existing Organizations audit helper is not a durable atomic participant in the lifecycle state transition. Do not treat device lifecycle operations as fully audit-trailed until a transaction-safe or outbox-based implementation is added and tested.
+2. Device credentials use SHA-256 hashes looked up through MongoDB equality; this is not constant-time verification.
+3. Membership removal is enforced lazily at the next device authentication/capability check, not by an immediate membership-change cascade.
+
+The CI results establish the tested build and regression baseline; they do not certify these three outstanding controls or constitute a third-party security assessment.
+
 ## Functional validation — 2026-11-28
 
 The current `main` pairing flow was functionally validated by the project owner against the VPS using the physical Bee-devices Android companion.
