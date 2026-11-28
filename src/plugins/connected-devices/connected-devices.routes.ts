@@ -32,7 +32,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   const cancelled=await repository.challenges.updateOne({tenantId:tenant.tenantId,id,status:challenge.status},{$set:{status:"cancelled"}});
   if(!cancelled.matchedCount)return reply.code(409).send({error:"The pairing request changed. Refresh and try again."});
   if(challenge.status==="claimed"&&challenge.deviceId){
-   await repository.devices.updateOne({tenantId:tenant.tenantId,id:challenge.deviceId,status:{$in:["pending","active"]}},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:new Date()}});
+   await repository.devices.updateOne({tenantId:tenant.tenantId,id:challenge.deviceId,status:{$in:["pending","active"]}},{$set:{status:"revoked",credentialHash:hashDeviceSecret(randomUUID()+randomUUID()),revokedAt:new Date(),revokedBy:tenant.userId,grantedCapabilities:[],updatedAt:new Date()}});
   }
   return {success:true};
  });
@@ -89,7 +89,7 @@ export function registerConnectedDevicesRoutes(ctx:any,deps:any):void{
   if(!device||(device.pairingExpiresAt<=new Date()&&device.status==="pending"))return reply.code(404).send({error:"Pairing request expired."});
   const [available,ownerActive]=await Promise.all([access.isPluginAvailable(device.tenantId,"connected-devices"),isConnectedDeviceOwnerActive(access,device)]);
   if(!available||!ownerActive){
-   if(!ownerActive)await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:{$ne:"revoked"}},{$set:{status:"revoked",revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
+   if(!ownerActive)await repository.devices.updateOne({tenantId:device.tenantId,id:device.id,status:{$ne:"revoked"}},{$set:{status:"revoked",credentialHash:hashDeviceSecret(randomUUID()+randomUUID()),revokedAt:new Date(),revokedBy:"system:membership-revoked",grantedCapabilities:[],updatedAt:new Date()}});
    return reply.code(403).send({error:"Connected Devices or the device owner membership is no longer active."});
   }
   if(device.status==="revoked"||device.status==="suspended"||device.status==="unlinked")return reply.code(403).send({error:"Device access is not active."});
