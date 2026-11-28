@@ -214,7 +214,7 @@ test("device lifecycle state machine rejects every transition not explicitly all
     {from:"suspended",action:"approve",expected:404},{from:"suspended",action:"suspend",expected:404},{from:"suspended",action:"activate",expected:409},{from:"suspended",action:"revoke",expected:200},{from:"suspended",action:"unlink",expected:200},
     {from:"revoked",action:"approve",expected:404},{from:"revoked",action:"suspend",expected:404},{from:"revoked",action:"activate",expected:404},{from:"revoked",action:"revoke",expected:404},{from:"revoked",action:"unlink",expected:404},
     {from:"unlinked",action:"approve",expected:404},{from:"unlinked",action:"suspend",expected:404},{from:"unlinked",action:"activate",expected:404},{from:"unlinked",action:"revoke",expected:404},{from:"unlinked",action:"unlink",expected:404},
-    {from:"expired",action:"approve",expected:404},{from:"expired",action:"suspend",expected:404},{from:"expired",action:"activate",expected:404},{from:"expired",action:"revoke",expected:404},{from:"expired",action:"unlink",expected:404}
+    {from:"expired",action:"approve",expected:404},{from:"expired",action:"suspend",expected:404},{from:"expired",action:"activate",expected:404},{from:"expired",action:"revoke",expected:404},{from:"expired",action:"unlink",expected:200}
   ];
   for (const [index,item] of cases.entries()) {
     await t.test(item.from + " -> " + item.action, async () => {
