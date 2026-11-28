@@ -104,22 +104,22 @@ export const timeTrackingConnectedPlugin: BeePlugin = {
     };
 
     ctx.server.post("/time-tracking-connected/device/clock-in", async (request: any, reply: any) => {
-      const device = await authorize(request, reply, "time-tracking.clock-in", "clock");
+      const device = await authorize(request, reply, "time-tracking-connected.clock-in", "clock");
       if (!device) return;
       return invoke(handlers.clockIn, request, reply, device);
     });
     ctx.server.post("/time-tracking-connected/device/clock-out", async (request: any, reply: any) => {
-      const device = await authorize(request, reply, "time-tracking.clock-out", "clock");
+      const device = await authorize(request, reply, "time-tracking-connected.clock-out", "clock");
       if (!device) return;
       return invoke(handlers.clockOut, request, reply, device);
     });
     ctx.server.get("/time-tracking-connected/device/status", async (request: any, reply: any) => {
-      const device = await authorize(request, reply, "time-tracking.records.read", "read");
+      const device = await authorize(request, reply, "time-tracking-connected.records.read", "read");
       if (!device) return;
       return invoke(handlers.status, request, reply, device);
     });
     ctx.server.get("/time-tracking-connected/device/sessions", async (request: any, reply: any) => {
-      const device = await authorize(request, reply, "time-tracking.records.read", "read");
+      const device = await authorize(request, reply, "time-tracking-connected.records.read", "read");
       if (!device) return;
       return invoke(handlers.sessions, request, reply, device);
     });
