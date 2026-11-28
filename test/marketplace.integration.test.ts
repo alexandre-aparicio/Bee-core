@@ -437,7 +437,7 @@ test("company plans and purchases control plugin visibility, installation and ac
 
     const alphaCatalog = await app.inject({ method: "GET", url: "/marketplace/plugins", headers: { authorization: "Bearer " + alphaToken } });
     assert.equal(alphaCatalog.statusCode, 200);
-    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["connected devices", "private files", "team workspace"]);
+    assert.deepEqual(alphaCatalog.json().plugins.map((plugin: { name: string }) => plugin.name.toLowerCase()).sort(), ["connected devices", "private files", "team workspace", "time tracking connected"]);
     const alphaItemsOffer = alphaCatalog.json().plugins.find((plugin: { name: string }) => plugin.name.toLowerCase() === "team workspace");
     const alphaItemsPluginRef = alphaItemsOffer.id as string;
     assert.equal(alphaItemsOffer.pluginKey, "workspace", "frontend registry key must remain stable while the resource reference stays opaque");
