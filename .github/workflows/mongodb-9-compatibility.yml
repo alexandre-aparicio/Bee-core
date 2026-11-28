@@ -57,7 +57,7 @@ jobs:
       - name: Test with MongoDB Node.js driver 7.9.1
         run: |
           npm install --no-save --package-lock=false mongodb@7.9.1
-          npm ls mongodb
+          node -p "'MongoDB Node.js driver: ' + require('mongodb/package.json').version"
 
       - name: TypeScript check
         run: npm run check
