@@ -1,4 +1,6 @@
 import { test, expect } from './quality-gates';
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 type Fixture = { accessToken: string; tenantId: string; user: { id: string; email: string; roles: string[]; tenantId: string } };
 
@@ -19,6 +21,24 @@ function installApiMocks(page: Page, fixture: Fixture, state: any): Promise<void
     let status = 200;
     let body: any = {};
 
+    // Serve the real, freshly built Native Federation remote from the CI artifact.
+    const packageAssetMarker = "/assets/frontend/";
+    if (path.includes("/plugin-packages/time-tracking/0.2.3") && path.includes(packageAssetMarker)) {
+      const asset = decodeURIComponent(path.split(packageAssetMarker).pop() || "");
+      if (!asset || asset.includes("..") || asset.includes("\\\\")) {
+        return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "Invalid plugin asset path" }) });
+      }
+      const assetPath = resolve(process.cwd(), "dist/time-tracking-remote/browser", asset);
+      try {
+        const content = await readFile(assetPath);
+        const extension = assetPath.split(".").pop()?.toLowerCase();
+        const contentType = extension === "json" ? "application/json" : extension === "css" ? "text/css" : extension === "html" ? "text/html" : "application/javascript";
+        return route.fulfill({ status: 200, contentType, body: content });
+      } catch {
+        return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "Plugin asset not found", asset }) });
+      }
+    }
+
     if (path.endsWith("/auth/refresh")) {
       body = { accessToken: fixture.accessToken, tenantId: fixture.tenantId, user: fixture.user, platformRole: null };
     } else if (path.endsWith("/auth/me")) {
@@ -28,7 +48,25 @@ function installApiMocks(page: Page, fixture: Fixture, state: any): Promise<void
     } else if (path.endsWith("/companies/active/permissions")) {
       body = { permissions: fixture.user.roles.includes("admin") ? ["time-tracking.read", "time-tracking.clock", "time-tracking.manage"] : ["time-tracking.read", "time-tracking.clock"] };
     } else if (path.endsWith("/marketplace/plugins")) {
-      body = { plugins: [{ id: "time-tracking", pluginKey: "time-tracking", installed: true, enabled: true, entitled: true }] };
+      body = { plugins: [{
+        id: "time-tracking",
+        pluginKey: "time-tracking",
+        name: "Control Horario",
+        frontendRoutes: [{ path: "/dashboard/time-tracking", component: "time-tracking" }],
+        installed: true,
+        enabled: true,
+        entitled: true
+      }] };
+    } else if (path.endsWith("/marketplace/plugins/time-tracking/runtime")) {
+      body = {
+        pluginId: "time-tracking",
+        version: "0.2.3",
+        transport: "native-federation",
+        remoteEntry: "frontend/remoteEntry.json",
+        remoteName: "timeTracking",
+        exposedModule: "./Component",
+        apiPrefixes: ["/time-tracking"]
+      };
     } else if (path.endsWith("/templates/preferences") || path.endsWith("/templates/public")) {
       body = { selection: { public: "aurora", dashboard: "midnight" }, installedTemplates: ["aurora", "editorial", "studio", "midnight", "paper", "glass"] };
     } else if (path.endsWith("/notifications")) {
