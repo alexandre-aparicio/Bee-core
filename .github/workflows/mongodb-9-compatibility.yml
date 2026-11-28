@@ -1,0 +1,81 @@
+name: MongoDB 9 compatibility
+
+on:
+  push:
+    branches:
+      - ci/mongodb-9-validation
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mongodb-9-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-and-mongodb-9:
+    name: Backend + MongoDB 9.0.4
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      mongodb:
+        image: mongo:9.0.4
+        env:
+          MONGO_INITDB_ROOT_USERNAME: bee_test_admin
+          MONGO_INITDB_ROOT_PASSWORD: bee_test_password
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --username bee_test_admin --password bee_test_password --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      CI: "true"
+      MONGODB_TEST_URI: mongodb://bee_test_admin:bee_test_password@127.0.0.1:27017/?authSource=admin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.5
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Test with MongoDB Node.js driver 7.9.1
+        run: |
+          npm install --no-save --package-lock=false mongodb@7.9.1
+          npm ls mongodb
+
+      - name: TypeScript check
+        run: npm run check
+
+      - name: Build backend
+        run: npm run build
+
+      - name: Install Angular dependencies
+        run: npm ci --prefix apps/web
+
+      - name: Build Angular application
+        run: npm run build --prefix apps/web
+
+      - name: Build Connected Devices remote
+        run: node scripts/build-connected-devices-remote.mjs
+
+      - name: Build Control Horario remote
+        run: node scripts/build-time-tracking-remote.mjs
+
+      - name: Run complete test suite against MongoDB 9.0.4
+        run: npm test
