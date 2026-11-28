@@ -36,7 +36,7 @@ test("RSA publisher keys use SHA-256 and are accepted by the runtime ZIP verifie
   }
 });
 
-test("four first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
+test("five first-party modules build as independently signed ZIP packages", { skip: !distReady }, async () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const root = await mkdtemp(join(tmpdir(), "bee-first-party-packages-"));
   try {
@@ -56,7 +56,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
       }),
       /does not match/
     );
-    assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking"]);
+    assert.deepEqual(built.map(item => item.id).sort(), ["connected-devices", "documents", "hello-world", "time-tracking", "time-tracking-connected"]);
     for (const item of built) {
       assert.ok(item.bytes > 100);
       const installed = await installSignedPluginZip({
@@ -75,7 +75,7 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         assert.match(html, /Hola Mundo/);
         assert.match(script, /bee-plugin:ready/);
       } else if (item.id === "connected-devices") {
-        assert.equal(installed.manifest.version, "0.2.0");
+        assert.equal(installed.manifest.version, "0.3.0");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.deepEqual(installed.manifest.frontend.routes, [{ path: "/dashboard/connected-devices", component: "connected-devices" }]);
@@ -109,13 +109,28 @@ test("four first-party modules build as independently signed ZIP packages", { sk
         const simulator = await readFile(resolve(process.cwd(), "apps/web/src/assets/device-simulator/device-simulator.js"), "utf8");
         assert.ok(simulator.includes('method:"POST",body:"{}"'));
       } else if (item.id === "time-tracking") {
-        assert.equal(installed.manifest.version, "0.2.2", "the package version bump must exercise the tenant upgrade path");
+        assert.equal(installed.manifest.version, "0.2.4", "the package version bump must exercise the tenant upgrade path");
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "organizations"]);
         assert.deepEqual(installed.manifest.tenantDependencies, []);
         assert.equal(installed.manifest.backend.entrypoint, "dist/backend/index.mjs");
         assert.deepEqual(installed.manifest.frontend, { routes: [], apiPrefixes: ["/time-tracking"] }, "the backend-only package must declare its API dispatch prefix without declaring a bundled frontend");
         assert.equal(existsSync(join(installed.packageDirectory, "frontend")), false, "backend-only Control Horario ZIP must not contain a frontend/ directory");
         assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)), "the backend-only manifest must install its runtime entrypoint");
+      } else if (item.id === "time-tracking-connected") {
+        assert.equal(installed.manifest.version, "0.1.2");
+        assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["connected-devices", "time-tracking"]);
+        assert.deepEqual(installed.manifest.tenantDependencies, ["connected-devices", "time-tracking"]);
+        assert.equal(installed.manifest.activationPolicy, "manual");
+        assert.equal(installed.manifest.backend.entrypoint, "dist/backend/index.mjs");
+        assert.deepEqual(installed.manifest.frontend, { routes: [], apiPrefixes: ["/time-tracking-connected/device"] });
+        assert.deepEqual(installed.manifest.permissions, []);
+        assert.ok(existsSync(join(installed.packageDirectory, installed.manifest.backend.entrypoint)));
+        assert.equal(existsSync(join(installed.packageDirectory, "frontend")), false);
+        const connectorSource = await readFile(resolve(process.cwd(), "src/plugins/time-tracking-connected/time-tracking-connected.plugin.ts"), "utf8");
+        assert.match(connectorSource, /registry\.register\("time-tracking-connected"/);
+        assert.match(connectorSource, /time-tracking\.clock-in/);
+        assert.match(connectorSource, /time-tracking\.clock-out/);
+        assert.match(connectorSource, /time-tracking\.records\.read/);
       } else if (item.id === "documents") {
         assert.deepEqual(installed.manifest.dependencies.map(dependency => dependency.pluginId).sort(), ["auth", "files", "organizations"]);
         assert.equal(installed.manifest.version, "0.1.5", "clean package builds must publish the current Documents version, never the stale 0.1.0 release");
