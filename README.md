@@ -14,7 +14,7 @@
 
 ## First VPS installation
 
-For the initial server pull, use the production Compose overlay documented in **[the Bee-Core 0.1.0 deployment guide](docs/mvp-deployment.md)**. It publishes only the web entry point; MongoDB and the API remain private on the Compose network.
+For the initial server pull, use the production Compose overlay documented in **[the Bee-Core 0.1.0 deployment guide](docs/mvp-deployment.md)**. Track release gates and verified evidence in the **[Bee-Core 0.1.0 MVP acceptance checklist](docs/mvp-0.1.0-checklist.md)**. It publishes only the web entry point; MongoDB and the API remain private on the Compose network.
 
 Quick start:
 
