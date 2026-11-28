@@ -56,7 +56,9 @@ jobs:
         run: npm ci --prefix apps/web
       - name: Build Connected Devices federation remote
         run: node scripts/build-connected-devices-remote.mjs
-      - name: Verify signed Documents package generation
+      - name: Build Control Horario federation remote
+        run: node scripts/build-time-tracking-remote.mjs
+      - name: Verify signed plugin package generation
         shell: bash
         run: |
           set -euo pipefail
@@ -66,6 +68,9 @@ jobs:
           openssl pkey -in secrets/plugin-publisher-private.pem -pubout -out secrets/plugin-publisher-public.pem
           node scripts/build-plugin-packages.mjs
           unzip -t artifacts/plugin-packages/documents-0.1.5.zip
+          unzip -t artifacts/plugin-packages/time-tracking-connected-0.1.2.zip
+          unzip -p artifacts/plugin-packages/time-tracking-connected-0.1.2.zip bee-plugin.json > /tmp/time-tracking-connected-manifest.json
+          node -e 'const m=require("/tmp/time-tracking-connected-manifest.json"); const deps=m.dependencies.map(d=>d.pluginId).sort(); if(m.id!=="time-tracking-connected"||m.version!=="0.1.2"||m.package.signature==="PENDING_PUBLISHER_SIGNATURE"||JSON.stringify(deps)!==JSON.stringify(["connected-devices","time-tracking"])||m.frontend.apiPrefixes[0]!=="/time-tracking-connected/device") process.exit(1); console.log("Time Tracking Connected 0.1.2 signed package verified")'
           unzip -p artifacts/plugin-packages/documents-0.1.5.zip bee-plugin.json > /tmp/documents-manifest.json
           node -e 'const m=require("/tmp/documents-manifest.json"); if(m.id!=="documents"||m.version!=="0.1.5"||m.package.signature==="PENDING_PUBLISHER_SIGNATURE"||!m.dependencies.some(d=>d.pluginId==="files")) process.exit(1); console.log("Documents 0.1.5 signed package verified")'
       - name: Count TODO/FIXME/HACK markers (informational)
