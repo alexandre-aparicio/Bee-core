@@ -53,10 +53,10 @@ test("device connector marker is optional, strictly boolean and absent by defaul
 test("tenant connector permission selection requires the explicit marker and every availability state", () => {
   const connectorPermissions = timeTrackingConnectedManifest.permissions;
   const catalog = [
-    { id: "ordinary-plugin", entitled: true, installed: true, enabled: true, globallyEnabled: true, permissions: timeTrackingManifest.permissions },
+    { id: "time-tracking", entitled: true, installed: true, enabled: true, globallyEnabled: true, permissions: timeTrackingManifest.permissions },
     { id: "disabled-connector", deviceConnector: true, entitled: true, installed: true, enabled: false, globallyEnabled: true, permissions: connectorPermissions },
     { id: "uninstalled-connector", deviceConnector: true, entitled: true, installed: false, enabled: false, globallyEnabled: true, permissions: connectorPermissions },
-    { id: "globally-disabled-connector", deviceConnector: true, entitled: true, installed: true, enabled: false, globallyEnabled: false, permissions: connectorPermissions },
+    { id: "globally-disabled-connector", deviceConnector: true, entitled: true, installed: true, enabled: true, globallyEnabled: false, permissions: connectorPermissions },
     { id: "not-entitled-connector", deviceConnector: true, entitled: false, installed: true, enabled: true, globallyEnabled: true, permissions: connectorPermissions },
     { id: "active-connector", deviceConnector: true, entitled: true, installed: true, enabled: true, globallyEnabled: true, permissions: connectorPermissions }
   ];
