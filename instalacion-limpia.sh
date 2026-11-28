@@ -18,6 +18,14 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
+# No cambiar de rama si hay modificaciones en archivos versionados.
+# Los archivos no versionados (por ejemplo secrets/ y artifacts/) se conservan.
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+  echo "ERROR: Hay cambios locales en archivos versionados."
+  echo "Guárdalos o descártalos antes de continuar."
+  exit 1
+fi
+
 echo "[1/7] Actualizando código desde GitHub..."
 
 git fetch origin
@@ -47,18 +55,33 @@ echo "[3/7] Descargando y construyendo imágenes..."
 docker compose pull mongodb
 docker compose build --pull bee-core web
 
-echo "[4/7] Deteniendo servicios..."
+DB_VOLUME="${COMPOSE_PROJECT_NAME}_bee_core_mongodb_data"
+REMOVE_DB_VOLUME=false
+
+echo "[4/7] Validando el volumen de MongoDB que se eliminará..."
+
+if docker volume inspect "$DB_VOLUME" >/dev/null 2>&1; then
+  VOLUME_PROJECT=$(docker volume inspect --format '{{ index .Labels "com.docker.compose.project" }}' "$DB_VOLUME")
+  VOLUME_NAME=$(docker volume inspect --format '{{ index .Labels "com.docker.compose.volume" }}' "$DB_VOLUME")
+
+  if [[ "$VOLUME_PROJECT" != "$COMPOSE_PROJECT_NAME" || "$VOLUME_NAME" != "bee_core_mongodb_data" ]]; then
+    echo "ERROR: El volumen $DB_VOLUME no tiene las etiquetas esperadas de Bee-core."
+    echo "No se eliminará ningún volumen."
+    exit 1
+  fi
+
+  REMOVE_DB_VOLUME=true
+else
+  echo "No existe volumen anterior; se creará uno nuevo."
+fi
+
+echo "[5/7] Deteniendo servicios..."
 
 docker compose down --remove-orphans
 
-echo "[5/7] Eliminando exclusivamente la base de datos anterior..."
-
-DB_VOLUME="${COMPOSE_PROJECT_NAME}_bee_core_mongodb_data"
-
-if docker volume inspect "$DB_VOLUME" >/dev/null 2>&1; then
+if [[ "$REMOVE_DB_VOLUME" == true ]]; then
+  echo "Eliminando exclusivamente el volumen de MongoDB: $DB_VOLUME"
   docker volume rm "$DB_VOLUME"
-else
-  echo "No existe volumen anterior; se creará uno nuevo."
 fi
 
 echo "[6/7] Arrancando Bee-core con MongoDB 9.0.4..."
@@ -86,6 +109,24 @@ for service in bee-core-mongodb bee-core; do
 
     sleep 3
   done
+done
+
+for attempt in $(seq 1 30); do
+  WEB_STATUS=$(docker inspect bee-core-web --format '{{.State.Status}}')
+
+  if [[ "$WEB_STATUS" == "running" ]]; then
+    echo "bee-core-web: running"
+    break
+  fi
+
+  if [[ "$attempt" -eq 30 ]]; then
+    echo "ERROR: bee-core-web no está en ejecución."
+    docker compose ps
+    docker compose logs --tail=100 web
+    exit 1
+  fi
+
+  sleep 2
 done
 
 echo
