@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$HOME/projects/Bee-core"
-BRANCH="chore/mongodb9-angular22-deployment"
+BRANCH="main"
 COMPOSE_PROJECT_NAME="bee-core"
 
 export COMPOSE_PROJECT_NAME
