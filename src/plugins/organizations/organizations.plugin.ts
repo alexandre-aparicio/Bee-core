@@ -409,6 +409,19 @@ export const organizationsPlugin:BeePlugin={
     if(status==="suspended"&&target.deviceRevocationPending)await ctx.events.emit("membership.status.changed",{tenantId:req.params.companyId,userId:target.userId,actorId:auth.user!.id,status:"suspended",updatedAt:target.updatedAt});
     return {success:true,status,unchanged:true};
    }
+   if(status==="active"&&target.deviceRevocationPending){
+    // Never reactivate a membership while a suspension-triggered device cascade is
+    // outstanding. Complete the durable revocation first; otherwise a failed or
+    // interrupted event could be erased by clearing deviceRevocationPending.
+    try{
+     await ctx.events.emit("membership.status.changed",{tenantId:req.params.companyId,userId:target.userId,actorId:auth.user!.id,status:"suspended",updatedAt:target.updatedAt});
+    }catch(error){
+     ctx.logger.error("Pending device revocation must complete before membership reactivation",{tenantId:req.params.companyId,userId:target.userId,error});
+     return reply.code(503).send({error:"Pending device revocation could not be completed. The membership remains suspended; retry shortly."});
+    }
+    const pending=await memberships.findOne({id:target.id,tenantId:req.params.companyId,status:"suspended",deviceRevocationPending:true},{projection:{id:1}});
+    if(pending)return reply.code(503).send({error:"Pending device revocation has not completed. The membership remains suspended; retry shortly."});
+   }
    const now=new Date();
    await memberships.updateOne({id:target.id},{$set:{status,updatedAt:now,...(status==="suspended"?{deviceRevocationPending:true}:{})},...(status==="active"?{$unset:{deviceRevocationPending:""}}:{})});
    await db.collection("refresh_sessions").updateMany({userId:target.userId,tenantId:req.params.companyId,revokedAt:null},{$set:{revokedAt:now}});
